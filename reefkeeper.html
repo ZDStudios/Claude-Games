@@ -1791,6 +1791,18 @@ function drawGridCreature(ctx, c, scale, isMature, kind){
   }
 }
 
+function drawCreaturePreview(ctx, type, cx, cy, scale, variant = 'normal'){
+  const def = FISH_TYPES[type];
+  const kind = def.kind || 'fish';
+  if (kind === 'fish'){
+    drawFish(ctx, type, cx, cy, scale, 1, 0, false, variant);
+  } else {
+    // Non-fish creatures use grid system, slightly smaller relative scale
+    const previewC = { type, x: cx, y: cy, dir: 1, wobble: 0, variant };
+    drawGridCreature(ctx, previewC, scale * 0.7, false, kind);
+  }
+}
+
 function drawEgg(ctx, e){
   const wiggle = Math.sin(e.wobble) * 2;
   const ratio = e.hatchProgress / e.hatchTime;
@@ -2409,15 +2421,35 @@ function maybeSpawnWild(dt){
   if (wildSpawnTimer > 0) return;
   wildSpawnTimer = 50 + Math.random() * 80;
 
-  // Pick a random unlocked species (prefer non-creatures for simplicity)
-  const candidates = Object.keys(FISH_TYPES).filter(k => state.totalEarned >= FISH_TYPES[k].unlockMoney);
-  if (candidates.length === 0) return;
-  // Weight toward rarer species in late game
-  const type = candidates[Math.floor(Math.random() * candidates.length)];
+  // Build weighted candidate list - rarer = much less likely
+  const RARITY_WEIGHTS = {
+    common: 50, uncommon: 25, rare: 12, epic: 6, legendary: 2.5, mythic: 0.5,
+  };
+  const luckBoost = 1 + luckLevel * 0.15; // luck slightly boosts rare odds
+  const weightedCandidates = [];
+  for (const k of Object.keys(FISH_TYPES)){
+    const def = FISH_TYPES[k];
+    // Only spawn species the player has unlocked (or at least 80% there)
+    if (state.totalEarned < def.unlockMoney * 0.8) continue;
+    let w = RARITY_WEIGHTS[def.rarity] || 1;
+    // Higher rarities get small luck boost
+    if (def.rarity !== 'common' && def.rarity !== 'uncommon') w *= luckBoost;
+    weightedCandidates.push({ key: k, w });
+  }
+  if (weightedCandidates.length === 0) return;
+
+  // Weighted random pick
+  const totalW = weightedCandidates.reduce((s, c) => s + c.w, 0);
+  let r = Math.random() * totalW;
+  let type = weightedCandidates[0].key;
+  for (const c of weightedCandidates){
+    r -= c.w;
+    if (r <= 0){ type = c.key; break; }
+  }
   const def = FISH_TYPES[type];
   const kind = def.kind || 'fish';
 
-  // Wild fish enter from a side
+  // Wild fish enter from a side (crabs walk on floor, others swim)
   const fromLeft = Math.random() < 0.5;
   const wild = {
     id: 'wild_' + (++state.fishCounter),
@@ -2434,7 +2466,9 @@ function maybeSpawnWild(dt){
     leaveAt: Date.now() + 18000, // 18s to catch
   };
   state.wildFish.push(wild);
-  showToast(`🐟 Wild ${def.name} appeared! Tap to catch!`, 'info');
+  // Rarer = more noticeable announcement
+  const isRare = ['rare','epic','legendary','mythic'].includes(def.rarity);
+  showToast(`${isRare ? '🌟' : '🐟'} Wild ${def.name} appeared! Tap to catch!`, isRare ? 'success' : 'info');
   playSound('spawn');
 }
 
@@ -3021,7 +3055,7 @@ function buildShop(){
     cv.width = 100; cv.height = 70;
     const cvctx = cv.getContext('2d');
     cvctx.imageSmoothingEnabled = false;
-    drawFish(cvctx, key, 50, 35, 3.5, 1, 0, false, 'normal');
+    drawCreaturePreview(cvctx, key, 50, 35, 3.5, 'normal');
     const preview = `<div class="fish-preview">
         <span class="rarity-badge rarity-${def.rarity}">${def.rarity}</span>
         ${lvl > 1 ? `<span class="level-badge">Lv${lvl}</span>` : ''}
@@ -3147,7 +3181,7 @@ function buildBreed(){
     cv.width = 48; cv.height = 48;
     const cvctx = cv.getContext('2d');
     cvctx.imageSmoothingEnabled = false;
-    drawFish(cvctx, type, 24, 24, 2.5, 1, 0, false, 'normal');
+    drawCreaturePreview(cvctx, type, 24, 24, 2.5, 'normal');
     row.innerHTML = `
       <div class="upgrade-icon" style="overflow:hidden; padding:0;"></div>
       <div class="upgrade-info">
@@ -3274,16 +3308,7 @@ function buildCodex(){
       cv.width = 84; cv.height = 60;
       const cvctx = cv.getContext('2d');
       cvctx.imageSmoothingEnabled = false;
-      // Draw preview based on kind
-      const kind = def.kind || 'fish';
-      if (kind === 'fish'){
-        drawFish(cvctx, key, 42, 30, 3, 1, 0, false, 'normal');
-      } else {
-        // For non-fish creatures, draw using grid system at smaller scale
-        const grid = CREATURE_GRIDS[kind];
-        const previewCreature = { type: key, x: 42, y: 30, dir: 1, wobble: 0, variant: 'normal' };
-        drawGridCreature(cvctx, previewCreature, 2.2, false, kind);
-      }
+      drawCreaturePreview(cvctx, key, 42, 30, 3, 'normal');
       card.innerHTML = `
         <div class="codex-preview"></div>
         <div class="codex-name">${def.name}</div>
