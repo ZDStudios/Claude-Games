@@ -574,7 +574,92 @@
   }
   .tank-tab.locked{ opacity: 0.5; }
 
-  /* Hint when fish ready to sell */
+  /* Combo meter */
+  #comboMeter{
+    position: absolute;
+    top: 80px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--panel);
+    border: 3px solid var(--gold-edge);
+    box-shadow: inset -2px -2px 0 var(--gold-edge), inset 2px 2px 0 #FFE873, 0 4px 0 rgba(0,0,0,0.5);
+    padding: 6px 14px;
+    z-index: 11;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    min-width: 100px;
+    animation: comboPulse 0.4s ease-out;
+  }
+  @keyframes comboPulse{
+    0%{ transform: translateX(-50%) scale(0.6); opacity: 0;}
+    50%{ transform: translateX(-50%) scale(1.15); }
+    100%{ transform: translateX(-50%) scale(1); opacity: 1;}
+  }
+  #comboCount{
+    font-family: var(--display);
+    font-size: 16px;
+    color: var(--gold);
+    text-shadow: 2px 2px 0 var(--gold-edge);
+  }
+  #comboBar{
+    width: 100%;
+    height: 6px;
+    background: var(--panel-edge);
+    border: 1px solid var(--gold-edge);
+  }
+  #comboFill{
+    height: 100%;
+    background: var(--gold);
+    transition: width 0.1s linear;
+  }
+
+  /* Codex grid */
+  .codex-card{
+    background: var(--panel-light);
+    border: 3px solid var(--panel-edge);
+    padding: 8px;
+    text-align: center;
+    position: relative;
+    box-shadow: inset -2px -2px 0 var(--panel-edge), inset 2px 2px 0 rgba(255,255,255,0.08);
+  }
+  .codex-card.undiscovered{ filter: brightness(0.3); }
+  .codex-card.undiscovered .codex-name,
+  .codex-card.undiscovered .codex-stats{ visibility: hidden; }
+  .codex-card.undiscovered::after{
+    content: '???';
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    font-family: var(--display);
+    color: var(--gold);
+    font-size: 18px;
+    filter: brightness(3);
+  }
+  .codex-preview{
+    width: 100%;
+    height: 70px;
+    background: linear-gradient(180deg, #4FB3D9 0%, #1E5A8C 100%);
+    border: 2px solid var(--panel-edge);
+    display: flex; align-items: center; justify-content: center;
+    margin-bottom: 6px;
+  }
+  .codex-name{
+    font-family: var(--display);
+    font-size: 9px;
+    line-height: 1.3;
+    min-height: 24px;
+    color: var(--text);
+  }
+  .codex-stats{
+    font-family: var(--body);
+    font-size: 12px;
+    color: #B0BEC5;
+    line-height: 1.1;
+    margin-top: 4px;
+  }
+  .codex-stats span{ color: var(--gold); }
   #sellHint{
     position: absolute;
     bottom: 80px;
@@ -625,6 +710,11 @@
 
     <div id="tankSelector"></div>
 
+    <div id="comboMeter" style="display:none;">
+      <div id="comboCount">x1.0</div>
+      <div id="comboBar"><div id="comboFill"></div></div>
+    </div>
+
     <div id="toasts"></div>
     <div id="sellHint">⬇ Click ripe fish to sell ⬇</div>
 
@@ -632,7 +722,9 @@
       <button class="pixel-btn gold" id="shopBtn">🛒 Shop</button>
       <button class="pixel-btn green" id="upgradeBtn">⬆ Upgrades</button>
       <button class="pixel-btn red" id="breedBtn">🥚 Breed</button>
+      <button class="pixel-btn" id="codexBtn">📖 Codex</button>
       <button class="pixel-btn blue" id="tanksBtn">⊞ Tanks</button>
+      <button class="pixel-btn" id="feedBtn">🍤 Feed</button>
       <button class="pixel-btn" id="sellAllBtn">💰 Sell All</button>
       <button class="pixel-btn" id="autosellBtn" title="Auto-sell mature fish">⚡ Auto: Off</button>
       <button class="pixel-btn" id="settingsBtn">⚙ Settings</button>
@@ -703,6 +795,17 @@
     </div>
   </div>
 
+  <!-- CODEX MODAL -->
+  <div class="modal-backdrop" id="codexModal">
+    <div class="modal">
+      <div class="modal-header">
+        <div class="modal-title">📖 Species Codex</div>
+        <button class="modal-close" data-close>×</button>
+      </div>
+      <div class="modal-body" id="codexList"></div>
+    </div>
+  </div>
+
   <!-- WELCOME MODAL -->
   <div class="modal-backdrop" id="welcomeModal">
     <div class="modal">
@@ -712,10 +815,11 @@
       </div>
       <div class="modal-body welcome">
         <h1>REEFKEEPER</h1>
-        <p>A cozy little aquarium of your very own. Buy fish, let them grow, sell them for profit.</p>
-        <div class="tip">💡 Click <b>fully-grown fish</b> (they pulse with a gold ring) to sell them.</div>
-        <p style="font-size:18px">Discover rare <b style="color:#E0E0E0">✦ Silver</b>, <b style="color:#FFD700">★ Gold</b>, and <b style="color:#FF80FF">✺ Rainbow</b> variants worth up to <b>40×</b> normal value!</p>
-        <p style="font-size:18px">Breed pairs of mature fish for boosted variant chances. Even when you're away, your fish keep growing.</p>
+        <p>A cozy little aquarium of your very own. We've stocked your tank with a few starter critters!</p>
+        <div class="tip">💡 Click ripe fish to <b>sell</b>. Click empty water to <b>drop food</b>. Fish swim to the food and get a growth + income boost!</div>
+        <p style="font-size:18px"><b style="color:var(--gold)">24 species</b> across fish, crabs, seahorses, sharks, jellyfish, octopuses, stingrays and turtles. Find them all in the <b>📖 Codex</b>.</p>
+        <p style="font-size:18px">Watch for <b style="color:#FFD93D">WILD!</b> fish that swim through — tap to catch them <b>for free!</b></p>
+        <p style="font-size:18px">Discover <b style="color:#E0E0E0">✦ Silver</b>, <b style="color:#FFD700">★ Gold</b>, and <b style="color:#FF80FF">✺ Rainbow</b> variants worth up to <b>40×</b>!</p>
         <button class="pixel-btn gold" id="startBtn" style="margin: 14px auto 0; display: inline-flex;">Start Keeping</button>
       </div>
     </div>
@@ -931,6 +1035,71 @@ const FISH_TYPES = {
     pattern: "spots",
     unlockMoney: 30000000,
   },
+
+  // ===== INVERTEBRATES & OTHER SEA LIFE =====
+  hermitCrab: {
+    name: "Hermit Crab",
+    rarity: "common", kind: "crab",
+    price: 35, baseValue: 95, growthTime: 32,
+    body: "#D84315", fin: "#FFAB91", accent: "#3E2723",
+    unlockMoney: 80,
+  },
+  seahorse: {
+    name: "Seahorse",
+    rarity: "uncommon", kind: "seahorse",
+    price: 140, baseValue: 480, growthTime: 60,
+    body: "#FFA726", fin: "#FFCC80", accent: "#5D4037",
+    unlockMoney: 320,
+  },
+  lemonSeahorse: {
+    name: "Lemon Seahorse",
+    rarity: "rare", kind: "seahorse",
+    price: 850, baseValue: 4200, growthTime: 120,
+    body: "#FFD54F", fin: "#FFF59D", accent: "#F57F17",
+    unlockMoney: 3500,
+  },
+  moonJelly: {
+    name: "Moon Jellyfish",
+    rarity: "rare", kind: "jellyfish",
+    price: 1800, baseValue: 9200, growthTime: 175,
+    body: "#E1BEE7", fin: "#CE93D8", accent: "#F3E5F5",
+    unlockMoney: 8000,
+  },
+  octopus: {
+    name: "Octopus",
+    rarity: "epic", kind: "octopus",
+    price: 5000, baseValue: 29000, growthTime: 260,
+    body: "#AD1457", fin: "#880E4F", accent: "#F8BBD0",
+    unlockMoney: 28000,
+  },
+  stingray: {
+    name: "Stingray",
+    rarity: "epic", kind: "stingray",
+    price: 11000, baseValue: 78000, growthTime: 340,
+    body: "#5D4037", fin: "#3E2723", accent: "#FBC02D",
+    unlockMoney: 75000,
+  },
+  seaTurtle: {
+    name: "Sea Turtle",
+    rarity: "legendary", kind: "turtle",
+    price: 32000, baseValue: 260000, growthTime: 480,
+    body: "#558B2F", fin: "#33691E", accent: "#FFA726",
+    unlockMoney: 240000,
+  },
+  hammerhead: {
+    name: "Hammerhead",
+    rarity: "legendary", kind: "shark",
+    price: 95000, baseValue: 820000, growthTime: 620,
+    body: "#607D8B", fin: "#455A64", accent: "#ECEFF1",
+    unlockMoney: 750000,
+  },
+  greatWhite: {
+    name: "Great White",
+    rarity: "mythic", kind: "shark",
+    price: 900000, baseValue: 11500000, growthTime: 1100,
+    body: "#455A64", fin: "#90A4AE", accent: "#FFFFFF",
+    unlockMoney: 9000000,
+  },
 };
 
 const RARITY_ORDER = ['common','uncommon','rare','epic','legendary','mythic'];
@@ -1048,6 +1217,46 @@ const UPGRADES = {
     effect: (lvl) => 1 + lvl * 0.40,
     display: (lvl) => `x${(1 + lvl * 0.40).toFixed(2)} income`,
   },
+  feeding: {
+    name: "Feeding Master",
+    icon: "🍤",
+    desc: "Food pellets boost growth more and buff income longer.",
+    baseCost: 350,
+    costMult: 2.2,
+    maxLevel: 15,
+    effect: (lvl) => 1 + lvl * 0.20,
+    display: (lvl) => `+${lvl * 20}% effect`,
+  },
+  autoFeed: {
+    name: "Auto Dispenser",
+    icon: "🤖",
+    desc: "Automatically drops food pellets into the tank.",
+    baseCost: 1200,
+    costMult: 2.6,
+    maxLevel: 6,
+    effect: (lvl) => lvl,
+    display: (lvl) => lvl === 0 ? 'Disabled' : `Every ${Math.max(2, 8 - lvl * 1.2).toFixed(1)}s`,
+  },
+  breeder: {
+    name: "Master Breeder",
+    icon: "💞",
+    desc: "Eggs hatch faster.",
+    baseCost: 800,
+    costMult: 2.5,
+    maxLevel: 10,
+    effect: (lvl) => 1 + lvl * 0.25,
+    display: (lvl) => `x${(1 + lvl * 0.25).toFixed(2)} hatch speed`,
+  },
+  luck: {
+    name: "Lucky Waters",
+    icon: "🍀",
+    desc: "Wild fish appear more often.",
+    baseCost: 1500,
+    costMult: 2.7,
+    maxLevel: 10,
+    effect: (lvl) => 1 + lvl * 0.30,
+    display: (lvl) => `+${lvl * 30}% wild spawns`,
+  },
   offline: {
     name: "Auto-Feeder",
     icon: "⏰",
@@ -1059,6 +1268,42 @@ const UPGRADES = {
     display: (lvl) => `${Math.round(Math.min(1, 0.25 + lvl * 0.08) * 100)}% offline`,
   },
 };
+
+/* ============== SOUND EFFECTS ============== */
+let audioCtx = null;
+const SOUND_PRESETS = {
+  blip:   { freq: 600,  dur: 0.05, type: 'square', vol: 0.04 },
+  eat:    { freq: 380,  dur: 0.08, type: 'sine',   vol: 0.06, slide: 580 },
+  sell:   { freq: 700,  dur: 0.12, type: 'square', vol: 0.06, slide: 1200 },
+  levelup:{ freq: 600,  dur: 0.18, type: 'triangle', vol: 0.07, slide: 1400 },
+  breed:  { freq: 880,  dur: 0.16, type: 'sine',   vol: 0.06, slide: 1320 },
+  catch:  { freq: 500,  dur: 0.2,  type: 'sawtooth', vol: 0.06, slide: 1000 },
+  spawn:  { freq: 800,  dur: 0.1,  type: 'sine',   vol: 0.04, slide: 500 },
+  click:  { freq: 500,  dur: 0.03, type: 'square', vol: 0.03 },
+  warn:   { freq: 200,  dur: 0.1,  type: 'sawtooth', vol: 0.04 },
+};
+function playSound(name){
+  if (!state.settings || !state.settings.sound) return;
+  try {
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+    const p = SOUND_PRESETS[name];
+    if (!p) return;
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = p.type;
+    osc.frequency.setValueAtTime(p.freq, audioCtx.currentTime);
+    if (p.slide){
+      osc.frequency.exponentialRampToValueAtTime(p.slide, audioCtx.currentTime + p.dur);
+    }
+    gain.gain.setValueAtTime(p.vol, audioCtx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + p.dur);
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+    osc.start();
+    osc.stop(audioCtx.currentTime + p.dur);
+  } catch(e){ /* audio failed, ignore */ }
+}
 
 /* ============== SPECIES LEVELS ============== */
 const SPECIES_MAX_LEVEL = 25;
@@ -1077,6 +1322,7 @@ function upgradeSpecies(type){
   state.money -= cost;
   state.speciesLevels[type] = lvl + 1;
   showToast(`✨ ${FISH_TYPES[type].name} → Lv ${lvl + 1}`, 'success');
+  playSound('levelup');
   saveGame();
   return true;
 }
@@ -1106,7 +1352,7 @@ const TANK_COSTS = [0, 5000, 50000, 500000, 5000000];
 const defaultState = () => ({
   money: 50,
   fishCounter: 0,
-  upgrades: { capacity: 0, growth: 0, value: 0, offline: 0, income: 0 },
+  upgrades: { capacity: 0, growth: 0, value: 0, offline: 0, income: 0, feeding: 0, autoFeed: 0, breeder: 0, luck: 0 },
   speciesLevels: {},
   tanks: [{ fish: [], eggs: [] }],
   currentTank: 0,
@@ -1117,14 +1363,20 @@ const defaultState = () => ({
   totalSold: 0,
   totalBred: 0,
   totalIdleEarned: 0,
+  totalFed: 0,
   rarestSold: 'normal',
   seenWelcome: false,
+  wildFish: [],
+  discovered: {},
+  combo: { count: 0, lastTime: 0, multiplier: 1 },
+  speciesStats: {}, // { type: { caught, bred, sold } }
   settings: {
     showToasts: true,
     showFloatingText: true,
     showBubbles: true,
     showSparkles: true,
     showSellHint: true,
+    sound: false,
   },
 });
 
@@ -1167,9 +1419,13 @@ async function loadGame(){
       const parsed = JSON.parse(raw);
       state = Object.assign(defaultState(), parsed);
       // ensure nested objects (back-compat with older saves)
-      state.upgrades = Object.assign({ capacity: 0, growth: 0, value: 0, offline: 0, income: 0 }, state.upgrades);
+      state.upgrades = Object.assign({ capacity: 0, growth: 0, value: 0, offline: 0, income: 0, feeding: 0, autoFeed: 0, breeder: 0, luck: 0 }, state.upgrades);
       state.settings = Object.assign(defaultState().settings, state.settings || {});
       state.speciesLevels = state.speciesLevels || {};
+      state.discovered = state.discovered || {};
+      state.wildFish = []; // never persist wild fish, they expire
+      state.combo = state.combo || { count: 0, lastTime: 0, multiplier: 1 };
+      state.speciesStats = state.speciesStats || {};
       state.tanks.forEach(t => { if (!t.eggs) t.eggs = []; });
       // Process offline progress
       processOffline();
@@ -1292,6 +1548,249 @@ const FIN_DATA = {
 
 // Draw fish at given position. dir: -1 or 1 (facing)
 // scale = pixel size in screen px. wobble = swim phase
+/* ============== CUSTOM CREATURE PIXEL ART ==============
+   Pixel maps: . = empty, 1 = body, 2 = belly, 3 = fin, 4 = accent, 5 = eye-white
+   Each is parsed into a 2D array of color codes. */
+const PX_CODES = { '.': 0, '1': 1, '2': 2, '3': 3, '4': 4, '5': 5 };
+function parsePixels(str){
+  return str.trim().split('\n').map(line => line.trim().split('').map(c => PX_CODES[c] || 0));
+}
+
+// CRAB: round body with claws raised, 6 legs
+const CRAB_PX = parsePixels(`
+..3.....3..
+.3.3...3.3.
+3.31...13.3
+.331111133.
+.111111111.
+.121111121.
+.111111111.
+.31..1..13.
+..3.....3..
+..3.....3..
+`);
+
+// SEAHORSE: vertical S-curve, snout, dorsal fin, curly tail
+const SEAHORSE_PX = parsePixels(`
+.111..
+1112..
+1115.
+.1112.
+..112.
+.111..
+.11...
+.111..
+..11..
+..113.
+...11.
+...113
+....11
+....1.
+`);
+
+// SHARK: long torpedo body, prominent dorsal fin, tail
+const SHARK_PX = parsePixels(`
+.......3.........
+......333........
+.....33333.......
+....3311111......
+..1111111111111..
+.11111111111111.3
+1111511111111113.
+1111111111111111.
+.222222222222211.
+..12222222222.1..
+....1.........1..
+`);
+
+// JELLYFISH: dome + drifting tentacles
+const JELLYFISH_PX = parsePixels(`
+...11111...
+..1111111..
+.111111111.
+11111111111
+12211111221
+12222222221
+.111111111.
+.1.1.1.1.1.
+.1.1.1.1.1.
+3.3.3.3.3.3
+.3.3.3.3.3.
+3...3.3...3
+.....3.....
+`);
+
+// OCTOPUS: bulb head + 8 wavy tentacles
+const OCTOPUS_PX = parsePixels(`
+....11111....
+...1111111...
+..111511511..
+..111111111..
+..111111111..
+.11111111111.
+.11111111111.
+.1.1.1.1.1.1.
+1...1.1.1...1
+.....1.1.....
+`);
+
+// STINGRAY: flat diamond + long whip tail
+const STINGRAY_PX = parsePixels(`
+......11.........
+.....1111........
+....111111.......
+...11111111......
+..1111511111.....
+.111121111111....
+1111122211111111.
+.11122222111111..
+..11222221111....
+....111111.....3.
+.....111......3..
+.....11......3...
+.....1......3....
+.....1.....3.....
+.....1....3......
+`);
+
+// TURTLE: shell + head + flippers
+const TURTLE_PX = parsePixels(`
+...1111111...
+..133333331..
+.13344433331.
+.13443334331.
+.13333333331.
+.13443344331.
+1133333333311
+1.111111111.1
+.1.1111111.1.
+`);
+
+const CREATURE_GRIDS = {
+  crab: CRAB_PX,
+  seahorse: SEAHORSE_PX,
+  shark: SHARK_PX,
+  jellyfish: JELLYFISH_PX,
+  octopus: OCTOPUS_PX,
+  stingray: STINGRAY_PX,
+  turtle: TURTLE_PX,
+};
+
+function drawGridCreature(ctx, c, scale, isMature, kind){
+  const def = FISH_TYPES[c.type];
+  const grid = CREATURE_GRIDS[kind];
+  const variant = c.variant || 'normal';
+  const colors = variantColors(def, variant, c.wobble);
+  const h = grid.length;
+  const w = grid[0].length;
+
+  ctx.save();
+  ctx.translate(Math.round(c.x), Math.round(c.y));
+
+  // Mirror by direction (most creatures)
+  if (kind !== 'jellyfish' && kind !== 'octopus' && kind !== 'crab' && kind !== 'turtle'){
+    if (c.dir < 0) ctx.scale(-1, 1);
+  }
+
+  // Kind-specific animation transforms
+  let yJitter = 0;
+  if (kind === 'jellyfish'){
+    // Pulse vertical squish
+    const pulse = Math.sin(c.wobble * 1.2) * 0.12;
+    ctx.scale(1 + pulse, 1 - pulse * 0.6);
+  }
+  if (kind === 'seahorse'){
+    yJitter = Math.sin(c.wobble * 1.5) * 1;
+  }
+  if (kind === 'crab'){
+    // Sideways shuffle: bob slightly
+    yJitter = Math.abs(Math.sin(c.wobble * 4)) * scale * 0.3 - scale * 0.1;
+  }
+  if (kind === 'turtle'){
+    // Slight up/down paddle
+    yJitter = Math.sin(c.wobble * 1.2) * 1.5;
+  }
+
+  const ox = -Math.round(w * scale / 2);
+  const oy = -Math.round(h * scale / 2) + yJitter;
+
+  for (let y = 0; y < h; y++){
+    for (let x = 0; x < w; x++){
+      const v = grid[y][x];
+      if (v === 0) continue;
+      let color;
+      if (v === 1) color = colors.body;
+      else if (v === 2) color = colors.belly;
+      else if (v === 3) color = colors.fin;
+      else if (v === 4) color = colors.accent;
+      else if (v === 5) color = '#FFFFFF';
+
+      // Jellyfish slight transparency
+      if (kind === 'jellyfish' && v <= 2){
+        ctx.globalAlpha = 0.75;
+      }
+      pixel(ctx, ox + x * scale, oy + y * scale, scale, color);
+      ctx.globalAlpha = 1;
+    }
+  }
+
+  // Pupil over eye-white pixels
+  for (let y = 0; y < h; y++){
+    for (let x = 0; x < w; x++){
+      if (grid[y][x] === 5){
+        pixel(ctx, ox + x * scale + Math.floor(scale*0.3), oy + y * scale + Math.floor(scale*0.3), Math.max(1, Math.floor(scale*0.5)), '#000');
+      }
+    }
+  }
+
+  ctx.restore();
+
+  // Mature ring (variant-colored)
+  if (isMature){
+    ctx.save();
+    ctx.translate(Math.round(c.x), Math.round(c.y));
+    const ringPulse = Math.sin(c.wobble * 2) * 0.15 + 1;
+    const ringR = Math.max(w, h) * scale * 0.55 * ringPulse;
+    const ringColor = variant === 'rainbow' ? '#FF80FF' : (variant === 'gold' ? '#FFEB3B' : (variant === 'silver' ? '#E0F7FA' : '#FFD93D'));
+    ctx.strokeStyle = ringColor;
+    ctx.globalAlpha = 0.7 + Math.sin(c.wobble * 2) * 0.2;
+    ctx.lineWidth = Math.max(2, scale * 0.4);
+    ctx.beginPath();
+    ctx.arc(0, 0, ringR, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.globalAlpha = 1;
+    ctx.restore();
+  }
+
+  // Variant badge
+  if (variant !== 'normal'){
+    ctx.save();
+    const badgeY = c.y - h * scale / 2 - 14;
+    ctx.font = 'bold 14px "VT323", monospace';
+    ctx.textAlign = 'center';
+    const labelColor = variant === 'rainbow'
+      ? hslToHex((c.wobble * 50) % 360, 90, 60)
+      : (variant === 'gold' ? '#FFD700' : '#E0E0E0');
+    ctx.fillStyle = '#000';
+    ctx.fillText(VARIANTS[variant].badge, c.x + 1, badgeY + 1);
+    ctx.fillStyle = labelColor;
+    ctx.fillText(VARIANTS[variant].badge, c.x, badgeY);
+    ctx.restore();
+  }
+
+  // Fed indicator (small green glow halo)
+  if (c.fedUntil && Date.now() < c.fedUntil){
+    ctx.save();
+    ctx.globalAlpha = 0.35 + Math.sin(c.wobble * 3) * 0.15;
+    ctx.fillStyle = '#76FF03';
+    ctx.beginPath();
+    ctx.arc(c.x, c.y, Math.max(w, h) * scale * 0.6, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.globalAlpha = 1;
+    ctx.restore();
+  }
+}
+
 function drawEgg(ctx, e){
   const wiggle = Math.sin(e.wobble) * 2;
   const ratio = e.hatchProgress / e.hatchTime;
@@ -1473,23 +1972,26 @@ function spawnFish(typeKey, opts = {}){
   const totalSlots = tank.fish.length + (tank.eggs ? tank.eggs.length : 0);
   if (totalSlots >= cap){
     showToast('Tank is full!', 'warn');
+    playSound('warn');
     return false;
   }
   const def = FISH_TYPES[typeKey];
   const price = opts.free ? 0 : def.price;
   if (state.money < price){
     showToast('Not enough gold!', 'warn');
+    playSound('warn');
     return false;
   }
   state.money -= price;
   const variant = opts.variant || rollVariant(opts.bred === true);
+  const kind = def.kind || 'fish';
   const fish = {
     id: ++state.fishCounter,
     type: typeKey,
     variant,
     growth: opts.startGrowth || 0,
     x: opts.x ?? Math.random() * W,
-    y: opts.y ?? (H * 0.25 + Math.random() * H * 0.5),
+    y: opts.y ?? kindDefaultY(kind),
     vx: (Math.random() < 0.5 ? -1 : 1) * (0.2 + Math.random() * 0.25),
     vy: 0,
     dir: Math.random() < 0.5 ? -1 : 1,
@@ -1498,8 +2000,22 @@ function spawnFish(typeKey, opts = {}){
   };
   fish.dir = fish.vx < 0 ? -1 : 1;
   tank.fish.push(fish);
+  // Track discovery + species stat (always, even if silent)
+  state.discovered = state.discovered || {};
+  const wasNew = !state.discovered[typeKey];
+  state.discovered[typeKey] = true;
+  if (wasNew && !opts.silent){
+    showToast(`📖 New species: ${def.name}!`, 'info');
+  }
+  state.speciesStats = state.speciesStats || {};
+  state.speciesStats[typeKey] = state.speciesStats[typeKey] || { caught: 0, bred: 0, sold: 0 };
+  state.speciesStats[typeKey].caught++;
+  if (opts.bred) state.speciesStats[typeKey].bred++;
   if (variant !== 'normal' && !opts.silent){
     showToast(`✨ ${VARIANTS[variant].label} ${def.name}!`, 'success');
+    playSound('breed');
+  } else if (!opts.silent){
+    playSound('click');
   }
   updateUI();
   saveGame();
@@ -1525,20 +2041,38 @@ function sellFish(fish){
   if (idx === -1) return;
   if (fishMatureRatio(fish) < 1) {
     showToast('Not ripe yet!', 'warn');
+    playSound('warn');
     return;
   }
-  const val = fishValue(fish);
+  // Combo: chain quick sales for bonus
+  const now = Date.now();
+  if (!state.combo) state.combo = { count: 0, lastTime: 0, multiplier: 1 };
+  if (now - state.combo.lastTime < 3000){
+    state.combo.count++;
+  } else {
+    state.combo.count = 1;
+  }
+  state.combo.lastTime = now;
+  state.combo.multiplier = Math.min(5, 1 + (state.combo.count - 1) * 0.4);
+
+  const baseVal = fishValue(fish);
+  const val = Math.floor(baseVal * state.combo.multiplier);
   state.money += val;
   state.totalEarned += val;
   state.totalSold++;
-  // Track rarest sold for stats
+  state.speciesStats = state.speciesStats || {};
+  state.speciesStats[fish.type] = state.speciesStats[fish.type] || { caught: 0, bred: 0, sold: 0 };
+  state.speciesStats[fish.type].sold++;
+  // Track rarest sold
   const variantRank = VARIANT_ORDER.indexOf(fish.variant || 'normal');
   const currentBest = VARIANT_ORDER.indexOf(state.rarestSold || 'normal');
   if (variantRank > currentBest) state.rarestSold = fish.variant;
   tank.fish.splice(idx, 1);
   spawnCoinBurst(fish.x, fish.y, val);
   const variantPrefix = fish.variant !== 'normal' ? `${VARIANTS[fish.variant].label} ` : '';
-  showToast(`+ $${val.toLocaleString()} ${variantPrefix}sold`, 'success');
+  const comboTxt = state.combo.multiplier > 1 ? ` x${state.combo.multiplier.toFixed(1)} COMBO!` : '';
+  showToast(`+ $${val.toLocaleString()} ${variantPrefix}sold${comboTxt}`, 'success');
+  playSound('sell');
   updateUI();
   saveGame();
 }
@@ -1590,6 +2124,7 @@ function breedFish(typeKey){
   tank.eggs.push(egg);
   state.totalBred++;
   showToast(`🥚 Egg laid! Hatches in ${egg.hatchTime}s`, 'info');
+  playSound('breed');
   // Small heart particle effect at parents
   for (let i = 0; i < 4; i++){
     particles.push({
@@ -1815,46 +2350,304 @@ function drawRock(c, x, baseY, size){
   c.fillRect(Math.floor(x - size/2), baseY - 4, size, 4);
 }
 
+/* ============== FOOD PELLETS ============== */
+const foodPellets = [];
+let lastPelletTime = 0;
+function dropFoodPellet(x, y){
+  if (!state.settings) return;
+  const now = performance.now();
+  if (now - lastPelletTime < 200) return; // cooldown
+  lastPelletTime = now;
+  foodPellets.push({
+    x, y: Math.max(20, Math.min(H * 0.78, y)),
+    vy: 0.4 + Math.random() * 0.3,
+    vx: (Math.random() - 0.5) * 0.3,
+    life: 12,
+    radius: 4,
+  });
+  playSound('blip');
+  state.totalFed = (state.totalFed || 0);
+}
+
+function eatPellet(fish, pellet){
+  const idx = foodPellets.indexOf(pellet);
+  if (idx >= 0) foodPellets.splice(idx, 1);
+  const def = FISH_TYPES[fish.type];
+  const totalNeeded = def.growthTime / UPGRADES.growth.effect(state.upgrades.growth);
+  // Growth boost (10% of needed, scaled by Feeding Master)
+  const feedingPower = 1 + (state.upgrades.feeding || 0) * 0.2;
+  fish.growth = Math.min(totalNeeded, fish.growth + totalNeeded * 0.10 * feedingPower);
+  // Fed buff (income x2 for 30s, scaled by upgrade)
+  const fedDuration = 30000 * feedingPower;
+  fish.fedUntil = Date.now() + fedDuration;
+  fish.targetPellet = null;
+  state.totalFed = (state.totalFed || 0) + 1;
+  playSound('eat');
+  // Visual sparkle burst
+  for (let i = 0; i < 6; i++){
+    particles.push({
+      type: 'sparkle',
+      x: fish.x + (Math.random() - 0.5) * 20,
+      y: fish.y + (Math.random() - 0.5) * 20,
+      vx: (Math.random() - 0.5) * 3,
+      vy: (Math.random() - 0.5) * 3,
+      life: 0.8,
+    });
+  }
+}
+
+/* ============== WILD FISH (random spawning) ============== */
+let wildSpawnTimer = 45 + Math.random() * 60; // first wild ~45-105s in
+
+function maybeSpawnWild(dt){
+  if (!state.wildFish) state.wildFish = [];
+  // Don't spawn too many at once
+  if (state.wildFish.length >= 2) return;
+  const luckLevel = state.upgrades.luck || 0;
+  const spawnRateMult = 1 + luckLevel * 0.3;
+  wildSpawnTimer -= dt * spawnRateMult;
+  if (wildSpawnTimer > 0) return;
+  wildSpawnTimer = 50 + Math.random() * 80;
+
+  // Pick a random unlocked species (prefer non-creatures for simplicity)
+  const candidates = Object.keys(FISH_TYPES).filter(k => state.totalEarned >= FISH_TYPES[k].unlockMoney);
+  if (candidates.length === 0) return;
+  // Weight toward rarer species in late game
+  const type = candidates[Math.floor(Math.random() * candidates.length)];
+  const def = FISH_TYPES[type];
+  const kind = def.kind || 'fish';
+
+  // Wild fish enter from a side
+  const fromLeft = Math.random() < 0.5;
+  const wild = {
+    id: 'wild_' + (++state.fishCounter),
+    type,
+    variant: rollVariant(false),
+    growth: def.growthTime / UPGRADES.growth.effect(state.upgrades.growth),
+    x: fromLeft ? -40 : W + 40,
+    y: kindDefaultY(kind),
+    vx: fromLeft ? 0.5 : -0.5,
+    vy: 0,
+    dir: fromLeft ? 1 : -1,
+    wobble: Math.random() * Math.PI * 2,
+    isWild: true,
+    leaveAt: Date.now() + 18000, // 18s to catch
+  };
+  state.wildFish.push(wild);
+  showToast(`🐟 Wild ${def.name} appeared! Tap to catch!`, 'info');
+  playSound('spawn');
+}
+
+function kindDefaultY(kind){
+  if (kind === 'crab') return H * 0.84;
+  if (kind === 'stingray') return H * 0.76;
+  if (kind === 'octopus') return H * 0.78;
+  if (kind === 'seahorse') return H * 0.3 + Math.random() * H * 0.3;
+  return H * 0.25 + Math.random() * H * 0.5;
+}
+
+function catchWildFish(wf){
+  const tank = state.tanks[state.currentTank];
+  const cap = UPGRADES.capacity.effect(state.upgrades.capacity);
+  if (tank.fish.length + tank.eggs.length >= cap){
+    showToast('Tank is full!', 'warn');
+    return;
+  }
+  // Add to tank as mature wild catch (free fish!)
+  const def = FISH_TYPES[wf.type];
+  const kind = def.kind || 'fish';
+  tank.fish.push({
+    id: ++state.fishCounter,
+    type: wf.type,
+    variant: wf.variant,
+    growth: def.growthTime / UPGRADES.growth.effect(state.upgrades.growth), // already mature
+    x: wf.x, y: wf.y,
+    vx: (Math.random() < 0.5 ? -1 : 1) * 0.3,
+    vy: 0,
+    dir: wf.dir,
+    wobble: wf.wobble,
+    birth: Date.now(),
+  });
+  state.discovered = state.discovered || {};
+  state.discovered[wf.type] = true;
+  const variantPrefix = wf.variant !== 'normal' ? `${VARIANTS[wf.variant].label} ` : '';
+  showToast(`🎣 Caught ${variantPrefix}${def.name}!`, 'success');
+  playSound('catch');
+  spawnCoinBurst(wf.x, wf.y, 0); // visual only - the catch IS the reward
+  updateUI();
+  saveGame();
+}
+
 /* ============== UPDATE & RENDER ============== */
 let lastT = performance.now();
 let timeAcc = 0;
+
+function moveFishLike(fish, dt, kind, def){
+  const margin = 40;
+  const topMargin = 30;
+  const botMargin = H * 0.82;
+  // Default fish behavior
+  if (kind === 'fish'){
+    fish.wobble += dt * 4;
+    const sizeFactor = 0.6 + fishMatureRatio(fish) * 0.4;
+    const speed = 0.4 / sizeFactor;
+    fish.x += fish.vx * 60 * dt * speed;
+    fish.y += Math.sin(fish.wobble * 0.7) * 0.3;
+    if (Math.random() < 0.0008){ fish.vx = -fish.vx; fish.dir = fish.vx < 0 ? -1 : 1; }
+    if (Math.random() < 0.002){ fish.y += (Math.random() - 0.5) * 30; }
+  } else if (kind === 'crab'){
+    fish.wobble += dt * 5;
+    fish.y = H * 0.84; // stuck to floor
+    fish.x += fish.vx * 25 * dt;
+    if (Math.random() < 0.005){ fish.vx = -fish.vx; fish.dir = fish.vx < 0 ? -1 : 1; }
+  } else if (kind === 'seahorse'){
+    fish.wobble += dt * 3;
+    // Mostly hovering, slow drift
+    fish.x += fish.vx * 12 * dt;
+    fish.y += Math.sin(fish.wobble * 0.6) * 0.4;
+    if (Math.random() < 0.01){ fish.vx = (Math.random() - 0.5) * 0.4; fish.dir = fish.vx < 0 ? -1 : 1; }
+  } else if (kind === 'shark'){
+    fish.wobble += dt * 5;
+    const sizeFactor = 0.6 + fishMatureRatio(fish) * 0.4;
+    fish.x += fish.vx * 85 * dt / sizeFactor;
+    fish.y += Math.sin(fish.wobble * 0.5) * 0.4;
+    if (Math.random() < 0.0003){ fish.vx = -fish.vx; fish.dir = fish.vx < 0 ? -1 : 1; }
+  } else if (kind === 'jellyfish'){
+    fish.wobble += dt * 1.5;
+    fish.x += fish.vx * 18 * dt + Math.sin(fish.wobble * 0.3) * 0.3;
+    fish.y += Math.sin(fish.wobble) * 0.5 - 0.05;
+    if (Math.random() < 0.003){ fish.vx = (Math.random() - 0.5) * 0.4; fish.dir = fish.vx < 0 ? -1 : 1; }
+  } else if (kind === 'octopus'){
+    fish.wobble += dt * 2;
+    if (!fish._restY) fish._restY = H * 0.78;
+    fish.y += (fish._restY - fish.y) * 0.05;
+    if (fish.targetX != null){
+      const dx = fish.targetX - fish.x;
+      if (Math.abs(dx) > 5){
+        fish.x += Math.sign(dx) * 25 * dt;
+        fish.dir = Math.sign(dx);
+      } else { fish.targetX = null; }
+    } else if (Math.random() < 0.003){
+      fish.targetX = 60 + Math.random() * (W - 120);
+    }
+  } else if (kind === 'stingray'){
+    fish.wobble += dt * 2.5;
+    fish.x += fish.vx * 45 * dt;
+    fish.y = H * 0.76 + Math.sin(fish.wobble * 0.5) * 6;
+    if (Math.random() < 0.0008){ fish.vx = -fish.vx; fish.dir = fish.vx < 0 ? -1 : 1; }
+  } else if (kind === 'turtle'){
+    fish.wobble += dt * 1.8;
+    fish.x += fish.vx * 20 * dt;
+    fish.y += Math.sin(fish.wobble * 0.7) * 0.3;
+    if (Math.random() < 0.001){ fish.vx = -fish.vx; fish.dir = fish.vx < 0 ? -1 : 1; }
+  }
+
+  // Boundary clamp (per kind)
+  if (fish.x < margin){ fish.x = margin; fish.vx = Math.abs(fish.vx); fish.dir = 1; }
+  else if (fish.x > W - margin){ fish.x = W - margin; fish.vx = -Math.abs(fish.vx); fish.dir = -1; }
+  if (kind === 'crab') { fish.y = H * 0.84; }
+  else if (kind === 'stingray' || kind === 'octopus'){
+    if (fish.y > H * 0.82) fish.y = H * 0.82;
+    if (fish.y < H * 0.7) fish.y = H * 0.7;
+  } else if (kind === 'seahorse'){
+    if (fish.y < 60) fish.y = 60;
+    if (fish.y > H * 0.78) fish.y = H * 0.78;
+  } else {
+    if (fish.y < topMargin) fish.y = topMargin;
+    if (fish.y > botMargin) fish.y = botMargin;
+  }
+}
 
 function update(dt){
   timeAcc += dt;
   const tank = state.tanks[state.currentTank];
   const growthMult = UPGRADES.growth.effect(state.upgrades.growth);
 
+  // Update food pellets (gravity, lifetime)
+  for (let i = foodPellets.length - 1; i >= 0; i--){
+    const p = foodPellets[i];
+    p.x += p.vx;
+    p.y += p.vy;
+    p.life -= dt;
+    // Floor or expired
+    if (p.life <= 0 || p.y > H * 0.84){
+      foodPellets.splice(i, 1);
+      continue;
+    }
+  }
+
+  // For each pellet, find best fish to chase it
+  for (const p of foodPellets){
+    if (p.claimedBy) continue;
+    let nearest = null;
+    let nd = 1e9;
+    for (const f of tank.fish){
+      // Don't interrupt fish already chasing a pellet (unless theirs is gone)
+      if (f.targetPellet && foodPellets.indexOf(f.targetPellet) >= 0) continue;
+      const d = Math.hypot(f.x - p.x, f.y - p.y);
+      if (d < nd){ nd = d; nearest = f; }
+    }
+    if (nearest && nd < 600){
+      nearest.targetPellet = p;
+      p.claimedBy = nearest.id;
+    }
+  }
+
+  // Move all creatures + handle pellet chasing
   for (const fish of tank.fish){
     const def = FISH_TYPES[fish.type];
+    const kind = def.kind || 'fish';
     const totalNeeded = def.growthTime / growthMult;
     if (fish.growth < totalNeeded){
       fish.growth += dt;
     }
-    fish.wobble += dt * 4;
-    const sizeFactor = 0.6 + fishMatureRatio(fish) * 0.4;
-    const speed = 0.4 / sizeFactor;
-    fish.x += fish.vx * 60 * dt * speed;
-    fish.y += Math.sin(fish.wobble * 0.7) * 0.3;
-
-    const margin = 40;
-    if (fish.x < margin){ fish.x = margin; fish.vx = Math.abs(fish.vx); fish.dir = 1; }
-    else if (fish.x > W - margin){ fish.x = W - margin; fish.vx = -Math.abs(fish.vx); fish.dir = -1; }
-    const topMargin = 30;
-    const botMargin = H * 0.82;
-    if (fish.y < topMargin) fish.y = topMargin;
-    if (fish.y > botMargin) fish.y = botMargin;
-
-    if (Math.random() < 0.0008){ fish.vx = -fish.vx; fish.dir = fish.vx < 0 ? -1 : 1; }
-    if (Math.random() < 0.002){ fish.y += (Math.random() - 0.5) * 30; }
+    // Pellet chasing overrides default movement
+    if (fish.targetPellet && foodPellets.indexOf(fish.targetPellet) >= 0){
+      const p = fish.targetPellet;
+      const dx = p.x - fish.x;
+      const dy = p.y - fish.y;
+      const d = Math.hypot(dx, dy);
+      if (d < 14){
+        eatPellet(fish, p);
+      } else {
+        // Move toward pellet
+        const sp = (kind === 'crab' ? 1.4 : kind === 'shark' ? 3 : kind === 'jellyfish' ? 0.6 : 2);
+        fish.x += (dx / d) * sp;
+        if (kind !== 'crab') fish.y += (dy / d) * sp;
+        fish.dir = dx < 0 ? -1 : 1;
+        fish.wobble += dt * 5;
+      }
+    } else {
+      // Normal movement
+      moveFishLike(fish, dt, kind, def);
+    }
   }
 
   // Process eggs
   for (let i = tank.eggs.length - 1; i >= 0; i--){
     const egg = tank.eggs[i];
-    egg.hatchProgress += dt;
+    const breedSpeed = 1 + (state.upgrades.breeder || 0) * 0.25;
+    egg.hatchProgress += dt * breedSpeed;
     egg.wobble += dt * 6;
     if (egg.hatchProgress >= egg.hatchTime){
       hatchEgg(egg);
+    }
+  }
+
+  // Wild fish (random spawns)
+  maybeSpawnWild(dt);
+  if (state.wildFish){
+    for (let i = state.wildFish.length - 1; i >= 0; i--){
+      const wf = state.wildFish[i];
+      wf.wobble += dt * 4;
+      const kind = (FISH_TYPES[wf.type].kind || 'fish');
+      const sp = (kind === 'shark' ? 60 : kind === 'crab' ? 20 : kind === 'jellyfish' ? 25 : 50);
+      wf.x += wf.vx * sp * dt;
+      if (kind !== 'crab') wf.y += Math.sin(wf.wobble * 0.7) * 0.3;
+      // Despawn if off screen or timeout
+      if (Date.now() > wf.leaveAt || wf.x < -100 || wf.x > W + 100){
+        state.wildFish.splice(i, 1);
+      }
     }
   }
 
@@ -1868,8 +2661,6 @@ function update(dt){
     state.money += earned;
     state.totalEarned += earned;
     state.totalIdleEarned += earned;
-
-    // Occasionally float a "+$X" from a random mature fish
     if (state.settings.showFloatingText && Math.random() < dt * 1.8){
       const matureFish = tank.fish.filter(f => fishMatureRatio(f) >= 1);
       if (matureFish.length){
@@ -1899,6 +2690,33 @@ function update(dt){
     }
   }
 
+  // Auto-feeder upgrade: drop pellets occasionally
+  if ((state.upgrades.autoFeed || 0) > 0){
+    if (!state._autoFeedTimer) state._autoFeedTimer = 0;
+    state._autoFeedTimer -= dt;
+    if (state._autoFeedTimer <= 0){
+      state._autoFeedTimer = Math.max(2, 8 - (state.upgrades.autoFeed || 0) * 1.2);
+      // Drop a pellet at random tank location
+      foodPellets.push({
+        x: 80 + Math.random() * (W - 160),
+        y: 40 + Math.random() * 40,
+        vy: 0.4 + Math.random() * 0.3,
+        vx: (Math.random() - 0.5) * 0.3,
+        life: 12,
+        radius: 4,
+      });
+    }
+  }
+
+  // Combo decay
+  if (state.combo && state.combo.count > 0){
+    if (Date.now() - state.combo.lastTime > 3500){
+      state.combo.count = 0;
+      state.combo.multiplier = 1;
+      updateUI();
+    }
+  }
+
   updateParticles(dt);
 }
 
@@ -1923,14 +2741,69 @@ function render(){
   for (const f of sortedFish){
     const def = FISH_TYPES[f.type];
     const ratio = fishMatureRatio(f);
-    const scaleBase = def.shape === 'long' ? 3.5 : (def.shape === 'tall' ? 4.5 : 4.5);
-    const scale = scaleBase * (0.45 + ratio * 0.65);
-    drawFish(ctx, f.type, f.x, f.y, scale, f.dir, f.wobble, ratio >= 1, f.variant || 'normal');
+    const kind = def.kind || 'fish';
+    if (kind === 'fish'){
+      const scaleBase = def.shape === 'long' ? 3.5 : (def.shape === 'tall' ? 4.5 : 4.5);
+      const scale = scaleBase * (0.45 + ratio * 0.65);
+      drawFish(ctx, f.type, f.x, f.y, scale, f.dir, f.wobble, ratio >= 1, f.variant || 'normal');
+      // Fed glow for fish
+      if (f.fedUntil && Date.now() < f.fedUntil){
+        ctx.save();
+        ctx.globalAlpha = 0.25 + Math.sin(f.wobble * 3) * 0.12;
+        ctx.fillStyle = '#76FF03';
+        ctx.beginPath();
+        ctx.arc(f.x, f.y, 28 * (0.5 + ratio * 0.5), 0, Math.PI * 2);
+        ctx.fill();
+        ctx.globalAlpha = 1;
+        ctx.restore();
+      }
+    } else {
+      // Different size factor per creature kind
+      const kindScale = {
+        crab: 3.5, seahorse: 4, shark: 3, jellyfish: 4, octopus: 4, stingray: 3, turtle: 4
+      }[kind] || 3.5;
+      const scale = kindScale * (0.45 + ratio * 0.65);
+      drawGridCreature(ctx, f, scale, ratio >= 1, kind);
+    }
   }
 
   // Eggs (above fish so visible)
   for (const e of tank.eggs){
     drawEgg(ctx, e);
+  }
+
+  // Food pellets
+  for (const p of foodPellets){
+    const wob = Math.sin(timeAcc * 8 + p.x) * 1;
+    pixel(ctx, p.x - 3 + wob, p.y - 3, 6, '#8D6E63');
+    pixel(ctx, p.x - 2 + wob, p.y - 2, 2, '#A1887F');
+    pixel(ctx, p.x + wob, p.y + 1, 2, '#5D4037');
+  }
+
+  // Wild fish (with "WILD!" indicator)
+  if (state.wildFish){
+    for (const wf of state.wildFish){
+      const def = FISH_TYPES[wf.type];
+      const kind = def.kind || 'fish';
+      if (kind === 'fish'){
+        const scaleBase = def.shape === 'long' ? 3.5 : (def.shape === 'tall' ? 4.5 : 4.5);
+        const scale = scaleBase;
+        drawFish(ctx, wf.type, wf.x, wf.y, scale, wf.dir, wf.wobble, true, wf.variant || 'normal');
+      } else {
+        const kindScale = { crab: 3.5, seahorse: 4, shark: 3, jellyfish: 4, octopus: 4, stingray: 3, turtle: 4 }[kind] || 3.5;
+        drawGridCreature(ctx, wf, kindScale, true, kind);
+      }
+      // WILD! badge above (animated bouncy)
+      ctx.save();
+      const bounce = Math.sin(timeAcc * 6) * 3;
+      ctx.font = 'bold 16px "VT323", monospace';
+      ctx.textAlign = 'center';
+      ctx.fillStyle = '#000';
+      ctx.fillText('WILD!', wf.x + 1, wf.y - 40 - bounce + 1);
+      ctx.fillStyle = '#FFD93D';
+      ctx.fillText('WILD!', wf.x, wf.y - 40 - bounce);
+      ctx.restore();
+    }
   }
 
   // Particles
@@ -2001,60 +2874,74 @@ function loop(t){
 }
 
 /* ============== INTERACTIONS ============== */
+function creatureHitTest(f, x, y, padding = 10){
+  const def = FISH_TYPES[f.type];
+  const kind = def.kind || 'fish';
+  const ratio = fishMatureRatio(f);
+  let w, h, scale;
+  if (kind === 'fish'){
+    const grid = SHAPE_GRIDS[def.shape];
+    w = grid[0].length; h = grid.length;
+    const scaleBase = def.shape === 'long' ? 3.5 : (def.shape === 'tall' ? 4.5 : 4.5);
+    scale = scaleBase * (0.45 + ratio * 0.65);
+  } else {
+    const grid = CREATURE_GRIDS[kind];
+    w = grid[0].length; h = grid.length;
+    const kindScale = { crab: 3.5, seahorse: 4, shark: 3, jellyfish: 4, octopus: 4, stingray: 3, turtle: 4 }[kind] || 3.5;
+    scale = kindScale * (0.45 + ratio * 0.65);
+  }
+  const halfW = w * scale / 2 + padding;
+  const halfH = h * scale / 2 + padding;
+  return Math.abs(x - f.x) < halfW && Math.abs(y - f.y) < halfH;
+}
+
 canvas.addEventListener('click', (e) => {
   const rect = canvas.getBoundingClientRect();
   const x = e.clientX - rect.left;
   const y = e.clientY - rect.top;
-  const tank = state.tanks[state.currentTank];
-  // find topmost fish that is mature and clicked
-  let bestFish = null;
-  let bestDist = Infinity;
-  for (const f of tank.fish){
-    const ratio = fishMatureRatio(f);
-    if (ratio < 1) continue;
-    const def = FISH_TYPES[f.type];
-    const grid = SHAPE_GRIDS[def.shape];
-    const w = grid[0].length, h = grid.length;
-    const scaleBase = def.shape === 'long' ? 3.5 : (def.shape === 'tall' ? 4.5 : 4.5);
-    const scale = scaleBase * (0.45 + ratio * 0.65);
-    const halfW = w * scale / 2;
-    const halfH = h * scale / 2;
-    if (Math.abs(x - f.x) < halfW + 8 && Math.abs(y - f.y) < halfH + 8){
-      const d = Math.hypot(x - f.x, y - f.y);
-      if (d < bestDist){ bestDist = d; bestFish = f; }
-    }
-  }
-  if (bestFish) sellFish(bestFish);
+  handleTankClick(x, y);
 });
 
-// Touch
 canvas.addEventListener('touchend', (e) => {
   if (e.changedTouches.length){
     const t = e.changedTouches[0];
     const rect = canvas.getBoundingClientRect();
     const x = t.clientX - rect.left;
     const y = t.clientY - rect.top;
-    const tank = state.tanks[state.currentTank];
-    let bestFish = null;
-    let bestDist = Infinity;
-    for (const f of tank.fish){
-      const ratio = fishMatureRatio(f);
-      if (ratio < 1) continue;
-      const def = FISH_TYPES[f.type];
-      const grid = SHAPE_GRIDS[def.shape];
-      const w = grid[0].length, h = grid.length;
-      const scaleBase = def.shape === 'long' ? 3.5 : (def.shape === 'tall' ? 4.5 : 4.5);
-      const scale = scaleBase * (0.45 + ratio * 0.65);
-      const halfW = w * scale / 2;
-      const halfH = h * scale / 2;
-      if (Math.abs(x - f.x) < halfW + 20 && Math.abs(y - f.y) < halfH + 20){
-        const d = Math.hypot(x - f.x, y - f.y);
-        if (d < bestDist){ bestDist = d; bestFish = f; }
-      }
-    }
-    if (bestFish){ sellFish(bestFish); e.preventDefault(); }
+    handleTankClick(x, y, true);
+    e.preventDefault();
   }
 }, { passive: false });
+
+function handleTankClick(x, y, touch = false){
+  const tank = state.tanks[state.currentTank];
+  const padding = touch ? 20 : 8;
+  // First: try to catch a wild fish (free fish swimming through)
+  if (state.wildFish){
+    for (let i = state.wildFish.length - 1; i >= 0; i--){
+      const wf = state.wildFish[i];
+      if (creatureHitTest(wf, x, y, padding + 10)){
+        catchWildFish(wf);
+        state.wildFish.splice(i, 1);
+        return;
+      }
+    }
+  }
+  // Second: try to sell a mature fish
+  let bestFish = null;
+  let bestDist = Infinity;
+  for (const f of tank.fish){
+    const ratio = fishMatureRatio(f);
+    if (ratio < 1) continue;
+    if (creatureHitTest(f, x, y, padding)){
+      const d = Math.hypot(x - f.x, y - f.y);
+      if (d < bestDist){ bestDist = d; bestFish = f; }
+    }
+  }
+  if (bestFish){ sellFish(bestFish); return; }
+  // Third: drop food pellet at this location
+  dropFoodPellet(x, y);
+}
 
 /* ============== UI ============== */
 function formatMoney(n){
@@ -2089,6 +2976,18 @@ function updateUI(){
     document.getElementById('incomeText').textContent = '+' + formatMoney(rate) + '/s';
   } else {
     inc.style.display = 'none';
+  }
+
+  // Combo meter
+  const cm = document.getElementById('comboMeter');
+  if (state.combo && state.combo.count >= 2){
+    cm.style.display = 'flex';
+    document.getElementById('comboCount').textContent = `COMBO x${state.combo.multiplier.toFixed(1)}`;
+    const elapsed = Date.now() - state.combo.lastTime;
+    const remaining = Math.max(0, 3500 - elapsed) / 3500;
+    document.getElementById('comboFill').style.width = (remaining * 100) + '%';
+  } else {
+    cm.style.display = 'none';
   }
 
   // Tank selector
@@ -2204,6 +3103,7 @@ function buildUpgrades(){
       state.money -= cost;
       state.upgrades[key]++;
       showToast(`${def.name} → Lv ${state.upgrades[key]}!`, 'success');
+      playSound('levelup');
       buildUpgrades();
       updateUI();
       saveGame();
@@ -2336,6 +3236,69 @@ function showToast(text, kind = '', force = false){
 }
 
 /* ============== MODAL HANDLERS ============== */
+function buildCodex(){
+  const list = document.getElementById('codexList');
+  list.innerHTML = '';
+  state.discovered = state.discovered || {};
+  state.speciesStats = state.speciesStats || {};
+
+  // Header summary by rarity
+  const totalSpecies = Object.keys(FISH_TYPES).length;
+  const discoveredCount = Object.keys(state.discovered).filter(k => state.discovered[k]).length;
+  const summary = document.createElement('div');
+  summary.style.cssText = 'background: var(--panel); border: 2px solid var(--panel-edge); padding: 10px; margin-bottom: 12px; text-align:center; font-size: 16px;';
+  summary.innerHTML = `Discovered: <b style="color:var(--gold)">${discoveredCount}</b> / ${totalSpecies} species`;
+  list.appendChild(summary);
+
+  // Group by rarity
+  for (const rarity of RARITY_ORDER){
+    const speciesInRarity = Object.keys(FISH_TYPES).filter(k => FISH_TYPES[k].rarity === rarity);
+    if (speciesInRarity.length === 0) continue;
+
+    const header = document.createElement('div');
+    header.style.cssText = `font-family: var(--display); font-size: 11px; color: var(--rarity-${rarity}); margin: 14px 0 8px; padding-bottom: 4px; border-bottom: 2px solid var(--panel-edge); letter-spacing: 1px; text-transform: uppercase;`;
+    header.textContent = rarity;
+    list.appendChild(header);
+
+    const grid = document.createElement('div');
+    grid.style.cssText = 'display:grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 8px;';
+    list.appendChild(grid);
+
+    for (const key of speciesInRarity){
+      const def = FISH_TYPES[key];
+      const found = !!state.discovered[key];
+      const stats = state.speciesStats[key] || { caught: 0, bred: 0, sold: 0 };
+      const card = document.createElement('div');
+      card.className = 'codex-card' + (found ? '' : ' undiscovered');
+      const cv = document.createElement('canvas');
+      cv.width = 84; cv.height = 60;
+      const cvctx = cv.getContext('2d');
+      cvctx.imageSmoothingEnabled = false;
+      // Draw preview based on kind
+      const kind = def.kind || 'fish';
+      if (kind === 'fish'){
+        drawFish(cvctx, key, 42, 30, 3, 1, 0, false, 'normal');
+      } else {
+        // For non-fish creatures, draw using grid system at smaller scale
+        const grid = CREATURE_GRIDS[kind];
+        const previewCreature = { type: key, x: 42, y: 30, dir: 1, wobble: 0, variant: 'normal' };
+        drawGridCreature(cvctx, previewCreature, 2.2, false, kind);
+      }
+      card.innerHTML = `
+        <div class="codex-preview"></div>
+        <div class="codex-name">${def.name}</div>
+        <div class="codex-stats">
+          Lv <span>${speciesLevel(key)}</span> · ${def.rarity}<br>
+          Owned: <span>${stats.caught}</span><br>
+          Sold: <span>${stats.sold}</span> · Bred: <span>${stats.bred}</span>
+        </div>
+      `;
+      card.querySelector('.codex-preview').appendChild(cv);
+      grid.appendChild(card);
+    }
+  }
+}
+
 function buildSettings(){
   const list = document.getElementById('settingsList');
   list.innerHTML = '';
@@ -2365,6 +3328,7 @@ function buildSettings(){
     { key: 'showBubbles', name: 'Bubbles', desc: 'Animated bubbles drifting up through the tank', icon: '🫧' },
     { key: 'showSparkles', name: 'Particles', desc: 'Coin bursts, hearts, hatching sparkles', icon: '✨' },
     { key: 'showSellHint', name: '"Click to Sell" Hint', desc: 'Show the bottom hint when fish are ripe', icon: '👆' },
+    { key: 'sound', name: 'Sound Effects', desc: 'Chiptune blips for clicks, sales, eating, etc.', icon: '🔊' },
   ];
   for (const t of toggles){
     const isOn = !!state.settings[t.key];
@@ -2428,7 +3392,9 @@ function openModal(id){
   else if (id === 'tanksModal') buildTanks();
   else if (id === 'breedModal') buildBreed();
   else if (id === 'settingsModal') buildSettings();
+  else if (id === 'codexModal') buildCodex();
   document.getElementById(id).classList.add('show');
+  playSound('click');
 }
 function closeModal(id){
   document.getElementById(id).classList.remove('show');
@@ -2439,6 +3405,15 @@ document.getElementById('upgradeBtn').onclick = () => openModal('upgradeModal');
 document.getElementById('tanksBtn').onclick = () => openModal('tanksModal');
 document.getElementById('breedBtn').onclick = () => openModal('breedModal');
 document.getElementById('settingsBtn').onclick = () => openModal('settingsModal');
+document.getElementById('codexBtn').onclick = () => openModal('codexModal');
+document.getElementById('feedBtn').onclick = () => {
+  // Drop 3 random pellets
+  for (let i = 0; i < 3; i++){
+    setTimeout(() => {
+      dropFoodPellet(80 + Math.random() * (W - 160), 40 + Math.random() * 30);
+    }, i * 100);
+  }
+};
 document.getElementById('sellAllBtn').onclick = () => {
   const tank = state.tanks[state.currentTank];
   const mature = tank.fish.filter(f => fishMatureRatio(f) >= 1);
@@ -2491,6 +3466,11 @@ document.addEventListener('keydown', (e) => {
   if (e.key === 'b' || e.key === 'B') openModal('breedModal');
   if (e.key === 't' || e.key === 'T') openModal('tanksModal');
   if (e.key === 'g' || e.key === 'G') openModal('settingsModal');
+  if (e.key === 'c' || e.key === 'C') openModal('codexModal');
+  if (e.key === 'f' || e.key === 'F'){
+    // Drop a pellet at center of screen
+    dropFoodPellet(W/2 + (Math.random() - 0.5) * 200, 60);
+  }
 });
 
 document.getElementById('startBtn').onclick = () => {
@@ -2503,6 +3483,13 @@ document.getElementById('startBtn').onclick = () => {
 (async function init(){
   await loadGame();
   buildBackground();
+  // Starting creatures on first play
+  if (!state.seenWelcome && state.tanks[0].fish.length === 0){
+    // Give the player a free starter: a couple guppies + a hermit crab
+    spawnFish('guppy', { free: true, silent: true, startGrowth: 8 });
+    spawnFish('guppy', { free: true, silent: true, startGrowth: 12 });
+    spawnFish('hermitCrab', { free: true, silent: true, startGrowth: 10 });
+  }
   updateUI();
   if (!state.seenWelcome){
     openModal('welcomeModal');
