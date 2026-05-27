@@ -660,6 +660,153 @@
     margin-top: 4px;
   }
   .codex-stats span{ color: var(--gold); }
+
+  /* Packs */
+  .pack-card{
+    background: var(--panel-light);
+    border: 3px solid var(--panel-edge);
+    padding: 12px;
+    text-align: center;
+    box-shadow: inset -2px -2px 0 var(--panel-edge), inset 2px 2px 0 rgba(255,255,255,0.1);
+  }
+  .pack-emoji{
+    font-size: 48px;
+    line-height: 1;
+    margin: 8px 0;
+    filter: drop-shadow(2px 2px 0 rgba(0,0,0,0.4));
+  }
+  .pack-card-name{
+    font-family: var(--display);
+    font-size: 11px;
+    margin-bottom: 6px;
+    letter-spacing: 0.5px;
+  }
+  .pack-rates{
+    font-family: var(--body);
+    font-size: 13px;
+    color: #C9D6DF;
+    line-height: 1.3;
+    margin-bottom: 8px;
+    min-height: 60px;
+  }
+
+  /* Pack opening animation */
+  .pack-reveal{
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 14px;
+    padding: 20px 0;
+  }
+  .reveal-card{
+    background: var(--panel);
+    border: 3px solid var(--panel-edge);
+    padding: 12px;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+    opacity: 0;
+    transform: rotateY(180deg) scale(0.7);
+    animation: cardFlipIn 0.6s ease-out forwards;
+    box-shadow: inset -2px -2px 0 var(--panel-edge), inset 2px 2px 0 rgba(255,255,255,0.1);
+  }
+  .reveal-card.delay-1{ animation-delay: 0.15s; }
+  .reveal-card.delay-2{ animation-delay: 0.3s; }
+  @keyframes cardFlipIn{
+    0%   { opacity:0; transform: rotateY(180deg) scale(0.7); }
+    50%  { opacity:1; transform: rotateY(90deg) scale(1.05); }
+    100% { opacity:1; transform: rotateY(0deg) scale(1); }
+  }
+  .reveal-rarity{
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    opacity: 0.18;
+  }
+  .reveal-card.rarity-rare      .reveal-rarity{ background: var(--rarity-rare); }
+  .reveal-card.rarity-epic      .reveal-rarity{ background: var(--rarity-epic); }
+  .reveal-card.rarity-legendary .reveal-rarity{ background: var(--rarity-legendary); }
+  .reveal-card.rarity-mythic    .reveal-rarity{ background: var(--rarity-mythic); }
+  .reveal-card.variant-rare{
+    animation: cardFlipIn 0.6s ease-out forwards, variantGlow 1.6s ease-in-out 0.6s 2;
+  }
+  @keyframes variantGlow{
+    0%, 100% { box-shadow: inset -2px -2px 0 var(--panel-edge), inset 2px 2px 0 rgba(255,255,255,0.1); }
+    50%      { box-shadow: 0 0 30px 6px currentColor, inset -2px -2px 0 var(--panel-edge), inset 2px 2px 0 rgba(255,255,255,0.1); }
+  }
+  .reveal-name{
+    font-family: var(--display);
+    font-size: 10px;
+    margin: 6px 0 4px;
+    color: var(--text);
+    position: relative;
+    z-index: 1;
+  }
+  .reveal-variant{
+    font-family: var(--display);
+    font-size: 9px;
+    letter-spacing: 1px;
+    margin-top: 2px;
+    position: relative;
+    z-index: 1;
+  }
+  .reveal-preview{
+    width: 100%;
+    height: 80px;
+    background: linear-gradient(180deg, #4FB3D9 0%, #1E5A8C 100%);
+    border: 2px solid var(--panel-edge);
+    display: flex; align-items: center; justify-content: center;
+    position: relative; z-index: 1;
+  }
+
+  /* Inventory rows */
+  .inv-row{
+    background: var(--panel-light);
+    border: 3px solid var(--panel-edge);
+    padding: 10px;
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    box-shadow: inset -2px -2px 0 var(--panel-edge), inset 2px 2px 0 rgba(255,255,255,0.08);
+  }
+  .inv-preview{
+    width: 60px; height: 50px;
+    background: linear-gradient(180deg, #4FB3D9 0%, #1E5A8C 100%);
+    border: 2px solid var(--panel-edge);
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+  .inv-info{ flex: 1; min-width: 0; font-size: 14px; }
+  .inv-name{
+    font-family: var(--display);
+    font-size: 10px;
+    margin-bottom: 4px;
+  }
+  .inv-xpbar{
+    height: 5px;
+    background: var(--panel);
+    border: 1px solid var(--panel-edge);
+    margin-top: 4px;
+    position: relative;
+  }
+  .inv-xpfill{
+    height: 100%;
+    background: var(--green);
+    transition: width 0.2s;
+  }
+  .inv-buttons{
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    flex-shrink: 0;
+  }
+  .inv-buttons .pixel-btn{
+    padding: 6px 10px;
+    font-size: 9px;
+    min-width: 80px;
+  }
   #sellHint{
     position: absolute;
     bottom: 80px;
@@ -720,6 +867,8 @@
 
     <div id="actions">
       <button class="pixel-btn gold" id="shopBtn">🛒 Shop</button>
+      <button class="pixel-btn" id="packsBtn" style="background:var(--rarity-epic); border-color:#7B1FA2; color:white;">📦 Packs</button>
+      <button class="pixel-btn" id="inventoryBtn">🎒 Inventory</button>
       <button class="pixel-btn green" id="upgradeBtn">⬆ Upgrades</button>
       <button class="pixel-btn red" id="breedBtn">🥚 Breed</button>
       <button class="pixel-btn" id="codexBtn">📖 Codex</button>
@@ -806,6 +955,39 @@
     </div>
   </div>
 
+  <!-- PACKS MODAL -->
+  <div class="modal-backdrop" id="packsModal">
+    <div class="modal">
+      <div class="modal-header">
+        <div class="modal-title">📦 Mystery Packs</div>
+        <button class="modal-close" data-close>×</button>
+      </div>
+      <div class="modal-body" id="packsList"></div>
+    </div>
+  </div>
+
+  <!-- PACK OPENING MODAL -->
+  <div class="modal-backdrop" id="packOpenModal">
+    <div class="modal" style="max-width:680px;">
+      <div class="modal-header">
+        <div class="modal-title">✨ Opening Pack...</div>
+        <button class="modal-close" data-close>×</button>
+      </div>
+      <div class="modal-body" id="packOpenBody"></div>
+    </div>
+  </div>
+
+  <!-- INVENTORY MODAL -->
+  <div class="modal-backdrop" id="inventoryModal">
+    <div class="modal">
+      <div class="modal-header">
+        <div class="modal-title">🎒 Inventory</div>
+        <button class="modal-close" data-close>×</button>
+      </div>
+      <div class="modal-body" id="inventoryBody"></div>
+    </div>
+  </div>
+
   <!-- WELCOME MODAL -->
   <div class="modal-backdrop" id="welcomeModal">
     <div class="modal">
@@ -816,9 +998,9 @@
       <div class="modal-body welcome">
         <h1>REEFKEEPER</h1>
         <p>A cozy little aquarium of your very own. We've stocked your tank with a few starter critters!</p>
-        <div class="tip">💡 Click ripe fish to <b>sell</b>. Click empty water to <b>drop food</b>. Fish swim to the food and get a growth + income boost!</div>
-        <p style="font-size:18px"><b style="color:var(--gold)">24 species</b> across fish, crabs, seahorses, sharks, jellyfish, octopuses, stingrays and turtles. Find them all in the <b>📖 Codex</b>.</p>
-        <p style="font-size:18px">Watch for <b style="color:#FFD93D">WILD!</b> fish that swim through — tap to catch them <b>for free!</b></p>
+        <div class="tip">💡 Click ripe fish to <b>sell</b>. Click empty water to <b>drop food</b>. Feed fish to make them <b>level up</b> for permanent bonuses!</div>
+        <p style="font-size:18px"><b style="color:var(--gold)">24 species</b> across fish, crabs, seahorses, sharks, jellyfish, octopuses, stingrays and turtles. Catalog them in the <b>📖 Codex</b>.</p>
+        <p style="font-size:18px">Spin <b style="color:var(--rarity-epic)">📦 Mystery Packs</b> for 3 random fish each (with rare-variant boosts!). Store keepers in your <b style="color:var(--green)">🎒 Inventory</b>.</p>
         <p style="font-size:18px">Discover <b style="color:#E0E0E0">✦ Silver</b>, <b style="color:#FFD700">★ Gold</b>, and <b style="color:#FF80FF">✺ Rainbow</b> variants worth up to <b>40×</b>!</p>
         <button class="pixel-btn gold" id="startBtn" style="margin: 14px auto 0; display: inline-flex;">Start Keeping</button>
       </div>
@@ -1104,6 +1286,128 @@ const FISH_TYPES = {
 
 const RARITY_ORDER = ['common','uncommon','rare','epic','legendary','mythic'];
 
+/* ============== PACKS ============== */
+const PACKS = {
+  common: {
+    name: "Starter Pack", emoji: "📦",
+    price: 250,
+    rates: { common: 0.78, uncommon: 0.18, rare: 0.035, epic: 0.005 },
+    variantBoost: 1.0, color: '#B0BEC5', edge: '#78909C',
+  },
+  uncommon: {
+    name: "Uncommon Pack", emoji: "🎁",
+    price: 1800,
+    rates: { common: 0.18, uncommon: 0.58, rare: 0.20, epic: 0.035, legendary: 0.005 },
+    variantBoost: 1.6, color: '#66BB6A', edge: '#388E3C',
+  },
+  rare: {
+    name: "Rare Pack", emoji: "💎",
+    price: 14000,
+    rates: { uncommon: 0.12, rare: 0.58, epic: 0.25, legendary: 0.045, mythic: 0.005 },
+    variantBoost: 2.2, color: '#42A5F5', edge: '#1976D2',
+  },
+  epic: {
+    name: "Epic Pack", emoji: "🌟",
+    price: 120000,
+    rates: { rare: 0.10, epic: 0.58, legendary: 0.28, mythic: 0.04 },
+    variantBoost: 3.5, color: '#AB47BC', edge: '#7B1FA2',
+  },
+  legendary: {
+    name: "Legendary Pack", emoji: "👑",
+    price: 1500000,
+    rates: { epic: 0.10, legendary: 0.65, mythic: 0.25 },
+    variantBoost: 6.0, color: '#FFA726', edge: '#EF6C00',
+  },
+  mythic: {
+    name: "Mythic Pack", emoji: "🔮",
+    price: 20000000,
+    rates: { legendary: 0.25, mythic: 0.75 },
+    variantBoost: 12.0, color: '#EF5350', edge: '#C62828',
+  },
+};
+
+function rollPackVariant(boost){
+  const r = Math.random();
+  const rainTh = VARIANTS.rainbow.bredChance * boost;
+  const goldTh = rainTh + VARIANTS.gold.bredChance * boost;
+  const silvTh = goldTh + VARIANTS.silver.bredChance * boost;
+  if (r < rainTh) return 'rainbow';
+  if (r < goldTh) return 'gold';
+  if (r < silvTh) return 'silver';
+  return 'normal';
+}
+
+function rollPackRarity(pack){
+  const r = Math.random();
+  let acc = 0;
+  for (const [rarity, rate] of Object.entries(pack.rates)){
+    acc += rate;
+    if (r < acc) return rarity;
+  }
+  return Object.keys(pack.rates)[0]; // fallback
+}
+
+function openPack(packKey){
+  const pack = PACKS[packKey];
+  if (!pack) return null;
+  if (state.money < pack.price){
+    showToast('Not enough gold!', 'warn');
+    playSound('warn');
+    return null;
+  }
+  state.money -= pack.price;
+  state.totalPacksOpened = (state.totalPacksOpened || 0) + 1;
+  const results = [];
+  for (let i = 0; i < 3; i++){
+    const rarity = rollPackRarity(pack);
+    const candidates = Object.keys(FISH_TYPES).filter(k => FISH_TYPES[k].rarity === rarity);
+    if (candidates.length === 0) continue;
+    const type = candidates[Math.floor(Math.random() * candidates.length)];
+    const variant = rollPackVariant(pack.variantBoost);
+    results.push(makeFish(type, variant, { startGrowth: 0 }));
+  }
+  // Add to inventory
+  state.inventory = state.inventory || [];
+  for (const f of results){
+    state.inventory.push(f);
+    state.discovered = state.discovered || {};
+    state.discovered[f.type] = true;
+    state.speciesStats = state.speciesStats || {};
+    state.speciesStats[f.type] = state.speciesStats[f.type] || { caught: 0, bred: 0, sold: 0 };
+    state.speciesStats[f.type].caught++;
+  }
+  playSound('levelup');
+  saveGame();
+  return results;
+}
+
+/* ============== INDIVIDUAL FISH LEVELS ============== */
+function fishXpForNext(level){
+  return Math.floor(5 * Math.pow(level || 1, 1.4));
+}
+function fishLevelBonus(fish){
+  return 1 + ((fish.level || 1) - 1) * 0.08; // +8% per level
+}
+function gainFishXp(fish, amount){
+  if (!amount) return;
+  fish.xp = (fish.xp || 0) + amount;
+  fish.level = fish.level || 1;
+  let leveledUp = false;
+  while (fish.xp >= fishXpForNext(fish.level) && fish.level < 100){
+    fish.xp -= fishXpForNext(fish.level);
+    fish.level++;
+    leveledUp = true;
+  }
+  if (leveledUp){
+    particles.push({
+      type: 'text', x: fish.x, y: fish.y - 30,
+      vy: -1.0, life: 1.6,
+      text: `LV ${fish.level}!`,
+    });
+    playSound('levelup');
+  }
+}
+
 /* ============== VARIANTS (rare color morphs of any fish) ============== */
 const VARIANTS = {
   normal:  { name: 'Normal',  valueMult: 1,   wildChance: 1.0,    bredChance: 1.0,  badge: '',   label: '' },
@@ -1334,9 +1638,11 @@ function fishIncome(fish){
   const def = FISH_TYPES[fish.type];
   const vmult = VARIANTS[fish.variant || 'normal'].valueMult;
   const smult = speciesMult(fish.type);
+  const lmult = fishLevelBonus(fish);
   const valueMult = UPGRADES.value.effect(state.upgrades.value);
   const incomeMult = UPGRADES.income.effect(state.upgrades.income);
-  return def.baseValue * BASE_INCOME_FACTOR * valueMult * vmult * smult * incomeMult;
+  const fedMult = (fish.fedUntil && Date.now() < fish.fedUntil) ? 2 : 1;
+  return def.baseValue * BASE_INCOME_FACTOR * valueMult * vmult * smult * lmult * incomeMult * fedMult;
 }
 function totalIncomeRate(){
   const tank = state.tanks[state.currentTank];
@@ -1364,6 +1670,8 @@ const defaultState = () => ({
   totalBred: 0,
   totalIdleEarned: 0,
   totalFed: 0,
+  totalPacksOpened: 0,
+  inventory: [],
   rarestSold: 'normal',
   seenWelcome: false,
   wildFish: [],
@@ -1426,7 +1734,11 @@ async function loadGame(){
       state.wildFish = []; // never persist wild fish, they expire
       state.combo = state.combo || { count: 0, lastTime: 0, multiplier: 1 };
       state.speciesStats = state.speciesStats || {};
+      state.inventory = state.inventory || [];
+      // Ensure all fish (tank + inventory) have level/xp
       state.tanks.forEach(t => { if (!t.eggs) t.eggs = []; });
+      state.tanks.forEach(t => t.fish.forEach(f => { f.level = f.level || 1; f.xp = f.xp || 0; }));
+      state.inventory.forEach(f => { f.level = f.level || 1; f.xp = f.xp || 0; });
       // Process offline progress
       processOffline();
       // Re-instantiate fish positions/vels (not saved)
@@ -1978,6 +2290,26 @@ function shade(hex, amt){
 }
 
 /* ============== FISH LOGIC ============== */
+function makeFish(typeKey, variant, opts = {}){
+  const def = FISH_TYPES[typeKey];
+  const kind = def.kind || 'fish';
+  return {
+    id: ++state.fishCounter,
+    type: typeKey,
+    variant: variant || 'normal',
+    level: opts.level || 1,
+    xp: opts.xp || 0,
+    growth: opts.startGrowth || 0,
+    x: opts.x ?? Math.random() * W,
+    y: opts.y ?? kindDefaultY(kind),
+    vx: (Math.random() < 0.5 ? -1 : 1) * (0.2 + Math.random() * 0.25),
+    vy: 0,
+    dir: Math.random() < 0.5 ? -1 : 1,
+    wobble: Math.random() * Math.PI * 2,
+    birth: Date.now(),
+  };
+}
+
 function spawnFish(typeKey, opts = {}){
   const tank = state.tanks[state.currentTank];
   const cap = UPGRADES.capacity.effect(state.upgrades.capacity);
@@ -1996,20 +2328,7 @@ function spawnFish(typeKey, opts = {}){
   }
   state.money -= price;
   const variant = opts.variant || rollVariant(opts.bred === true);
-  const kind = def.kind || 'fish';
-  const fish = {
-    id: ++state.fishCounter,
-    type: typeKey,
-    variant,
-    growth: opts.startGrowth || 0,
-    x: opts.x ?? Math.random() * W,
-    y: opts.y ?? kindDefaultY(kind),
-    vx: (Math.random() < 0.5 ? -1 : 1) * (0.2 + Math.random() * 0.25),
-    vy: 0,
-    dir: Math.random() < 0.5 ? -1 : 1,
-    wobble: Math.random() * Math.PI * 2,
-    birth: Date.now(),
-  };
+  const fish = makeFish(typeKey, variant, opts);
   fish.dir = fish.vx < 0 ? -1 : 1;
   tank.fish.push(fish);
   // Track discovery + species stat (always, even if silent)
@@ -2038,13 +2357,80 @@ function fishValue(fish){
   const def = FISH_TYPES[fish.type];
   const vmult = VARIANTS[fish.variant || 'normal'].valueMult;
   const smult = speciesMult(fish.type);
-  return Math.floor(def.baseValue * UPGRADES.value.effect(state.upgrades.value) * vmult * smult);
+  const lmult = fishLevelBonus(fish);
+  return Math.floor(def.baseValue * UPGRADES.value.effect(state.upgrades.value) * vmult * smult * lmult);
 }
 
 function fishMatureRatio(fish){
   const def = FISH_TYPES[fish.type];
   const totalNeeded = def.growthTime / UPGRADES.growth.effect(state.upgrades.growth);
   return Math.min(1, fish.growth / totalNeeded);
+}
+
+function storeInInventory(fish){
+  const tank = state.tanks[state.currentTank];
+  const idx = tank.fish.indexOf(fish);
+  if (idx < 0) return false;
+  tank.fish.splice(idx, 1);
+  state.inventory = state.inventory || [];
+  state.inventory.push(fish);
+  const def = FISH_TYPES[fish.type];
+  showToast(`📦 Stored ${def.name} (Lv ${fish.level || 1})`, 'info');
+  playSound('click');
+  saveGame();
+  return true;
+}
+
+function deployFromInventory(fishId){
+  state.inventory = state.inventory || [];
+  const idx = state.inventory.findIndex(f => f.id === fishId);
+  if (idx < 0) return false;
+  const tank = state.tanks[state.currentTank];
+  const cap = UPGRADES.capacity.effect(state.upgrades.capacity);
+  if (tank.fish.length + tank.eggs.length >= cap){
+    showToast('Tank is full!', 'warn');
+    playSound('warn');
+    return false;
+  }
+  const fish = state.inventory.splice(idx, 1)[0];
+  const def = FISH_TYPES[fish.type];
+  const kind = def.kind || 'fish';
+  // Reset position
+  fish.x = Math.random() * W;
+  fish.y = kindDefaultY(kind);
+  fish.vx = (Math.random() < 0.5 ? -1 : 1) * (0.2 + Math.random() * 0.25);
+  fish.dir = fish.vx < 0 ? -1 : 1;
+  fish.wobble = Math.random() * Math.PI * 2;
+  fish.targetPellet = null;
+  tank.fish.push(fish);
+  showToast(`🎣 Deployed ${def.name}!`, 'success');
+  playSound('catch');
+  updateUI();
+  saveGame();
+  return true;
+}
+
+function sellFromInventory(fishId){
+  state.inventory = state.inventory || [];
+  const idx = state.inventory.findIndex(f => f.id === fishId);
+  if (idx < 0) return false;
+  const fish = state.inventory[idx];
+  // Only sell if mature
+  if (fishMatureRatio(fish) < 1){
+    showToast('Not mature yet — deploy it first to grow', 'warn');
+    return false;
+  }
+  const val = fishValue(fish);
+  state.money += val;
+  state.totalEarned += val;
+  state.totalSold++;
+  state.inventory.splice(idx, 1);
+  const def = FISH_TYPES[fish.type];
+  showToast(`+ $${val.toLocaleString()} ${def.name} sold from inventory`, 'success');
+  playSound('sell');
+  updateUI();
+  saveGame();
+  return true;
 }
 
 function sellFish(fish){
@@ -2386,16 +2772,17 @@ function eatPellet(fish, pellet){
   if (idx >= 0) foodPellets.splice(idx, 1);
   const def = FISH_TYPES[fish.type];
   const totalNeeded = def.growthTime / UPGRADES.growth.effect(state.upgrades.growth);
-  // Growth boost (10% of needed, scaled by Feeding Master)
   const feedingPower = 1 + (state.upgrades.feeding || 0) * 0.2;
   fish.growth = Math.min(totalNeeded, fish.growth + totalNeeded * 0.10 * feedingPower);
-  // Fed buff (income x2 for 30s, scaled by upgrade)
   const fedDuration = 30000 * feedingPower;
   fish.fedUntil = Date.now() + fedDuration;
   fish.targetPellet = null;
   state.totalFed = (state.totalFed || 0) + 1;
+  // Grant XP — only mature fish "learn"
+  if (fishMatureRatio(fish) >= 1){
+    gainFishXp(fish, 1 + Math.floor(feedingPower - 1));
+  }
   playSound('eat');
-  // Visual sparkle burst
   for (let i = 0; i < 6; i++){
     particles.push({
       type: 'sparkle',
@@ -2792,12 +3179,26 @@ function render(){
         ctx.restore();
       }
     } else {
-      // Different size factor per creature kind
       const kindScale = {
         crab: 3.5, seahorse: 4, shark: 3, jellyfish: 4, octopus: 4, stingray: 3, turtle: 4
       }[kind] || 3.5;
       const scale = kindScale * (0.45 + ratio * 0.65);
       drawGridCreature(ctx, f, scale, ratio >= 1, kind);
+    }
+    // Level badge above mature fish
+    if (ratio >= 1 && (f.level || 1) > 1){
+      ctx.save();
+      ctx.font = 'bold 12px "VT323", monospace';
+      ctx.textAlign = 'center';
+      const level = f.level || 1;
+      // Position above fish based on kind
+      const offsetY = (kind === 'fish' ? -22 : -28) - (f.variant !== 'normal' ? 14 : 0);
+      const txt = `Lv ${level}`;
+      ctx.fillStyle = '#000';
+      ctx.fillText(txt, f.x + 1, f.y + offsetY + 1);
+      ctx.fillStyle = level >= 10 ? '#FFD93D' : '#A5D6A7';
+      ctx.fillText(txt, f.x, f.y + offsetY);
+      ctx.restore();
     }
   }
 
@@ -3270,6 +3671,246 @@ function showToast(text, kind = '', force = false){
 }
 
 /* ============== MODAL HANDLERS ============== */
+function buildPacks(){
+  const list = document.getElementById('packsList');
+  list.innerHTML = '';
+  // Header
+  const hdr = document.createElement('div');
+  hdr.style.cssText = 'background:var(--panel-light); border: 2px dashed var(--gold); padding: 10px; margin-bottom: 14px; font-size: 16px; text-align:center;';
+  hdr.innerHTML = `Each pack rolls <b style="color:var(--gold)">3 random fish</b> with boosted rare-variant chance. Opened fish go to your <b style="color:var(--green)">🎒 Inventory</b>. Total opened: <b style="color:var(--gold)">${state.totalPacksOpened || 0}</b>`;
+  list.appendChild(hdr);
+
+  const grid = document.createElement('div');
+  grid.style.cssText = 'display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 12px;';
+  list.appendChild(grid);
+
+  for (const key of Object.keys(PACKS)){
+    const pack = PACKS[key];
+    const canBuy = state.money >= pack.price;
+    const card = document.createElement('div');
+    card.className = 'pack-card';
+    card.style.borderColor = pack.edge;
+    card.style.boxShadow = `inset -2px -2px 0 ${pack.edge}, inset 2px 2px 0 rgba(255,255,255,0.15)`;
+    // Build rate display
+    const rateLines = Object.entries(pack.rates)
+      .map(([r, v]) => `<span style="color:var(--rarity-${r})">${r}</span>: ${(v*100).toFixed(1)}%`)
+      .join('<br>');
+    card.innerHTML = `
+      <div class="pack-emoji" style="color:${pack.color}">${pack.emoji}</div>
+      <div class="pack-card-name" style="color:${pack.color}">${pack.name}</div>
+      <div class="pack-rates">${rateLines}<br><span style="color:var(--gold)">Variant boost: ${pack.variantBoost}×</span></div>
+      <button class="pixel-btn gold buy-btn" data-pack="${key}" ${!canBuy ? 'disabled' : ''}>
+        ${canBuy ? `Open ${formatMoney(pack.price)}` : `🔒 ${formatMoney(pack.price)}`}
+      </button>
+    `;
+    grid.appendChild(card);
+  }
+
+  grid.querySelectorAll('[data-pack]').forEach(btn => {
+    btn.onclick = () => {
+      const key = btn.dataset.pack;
+      const results = openPack(key);
+      if (results){
+        closeModal('packsModal');
+        showPackReveal(results, PACKS[key]);
+      }
+    };
+  });
+}
+
+function showPackReveal(results, pack){
+  const body = document.getElementById('packOpenBody');
+  body.innerHTML = '';
+  // Container
+  const reveal = document.createElement('div');
+  reveal.className = 'pack-reveal';
+  body.appendChild(reveal);
+
+  results.forEach((fish, i) => {
+    const def = FISH_TYPES[fish.type];
+    const variant = fish.variant || 'normal';
+    const isRareVariant = variant !== 'normal';
+    const card = document.createElement('div');
+    card.className = `reveal-card rarity-${def.rarity} delay-${i} ${isRareVariant ? 'variant-rare' : ''}`;
+    if (isRareVariant){
+      card.style.color = variant === 'rainbow' ? '#FF80FF' : (variant === 'gold' ? '#FFD700' : '#E0F7FA');
+    }
+    card.innerHTML = `
+      <div class="reveal-rarity"></div>
+      <div class="reveal-preview"></div>
+      <div class="reveal-name">${def.name}</div>
+      <div style="font-size:10px; color:var(--rarity-${def.rarity}); font-family:var(--display);">${def.rarity.toUpperCase()}</div>
+      ${isRareVariant ? `<div class="reveal-variant" style="color:${variant === 'rainbow' ? '#FF80FF' : (variant === 'gold' ? '#FFD700' : '#E0E0E0')}">${VARIANTS[variant].badge} ${VARIANTS[variant].label}</div>` : ''}
+    `;
+    reveal.appendChild(card);
+    const cv = document.createElement('canvas');
+    cv.width = 70; cv.height = 60;
+    const cvctx = cv.getContext('2d');
+    cvctx.imageSmoothingEnabled = false;
+    setTimeout(() => {
+      drawCreaturePreview(cvctx, fish.type, 35, 30, 2.5, variant);
+      // Sound: ascending pitch with rare variants
+      if (isRareVariant) playSound('breed');
+      else playSound('catch');
+    }, 150 + i * 150);
+    card.querySelector('.reveal-preview').appendChild(cv);
+  });
+
+  // Footer
+  const footer = document.createElement('div');
+  footer.style.cssText = 'text-align:center; margin-top:16px; font-size: 16px;';
+  footer.innerHTML = `<div style="margin-bottom:10px; color:var(--green)">✓ Added to inventory!</div>
+    <button class="pixel-btn green" id="goToInvBtn">🎒 View Inventory</button>
+    <button class="pixel-btn gold" id="openAnotherBtn" style="margin-left:6px;">📦 Open Another</button>`;
+  body.appendChild(footer);
+
+  document.getElementById('goToInvBtn').onclick = () => {
+    closeModal('packOpenModal');
+    openModal('inventoryModal');
+  };
+  document.getElementById('openAnotherBtn').onclick = () => {
+    closeModal('packOpenModal');
+    openModal('packsModal');
+  };
+
+  openModal('packOpenModal');
+}
+
+function buildInventory(){
+  const body = document.getElementById('inventoryBody');
+  body.innerHTML = '';
+  state.inventory = state.inventory || [];
+
+  // Header / stats
+  const hdr = document.createElement('div');
+  hdr.style.cssText = 'background:var(--panel); border:2px solid var(--panel-edge); padding:10px; margin-bottom:12px; text-align:center; font-size:15px;';
+  hdr.innerHTML = `Stored: <b style="color:var(--gold)">${state.inventory.length}</b> · Inventory is unlimited — fish keep their level & growth.`;
+  body.appendChild(hdr);
+
+  // Section: stored fish
+  const storedHdr = document.createElement('div');
+  storedHdr.style.cssText = 'font-family: var(--display); font-size: 11px; color: var(--gold); margin: 8px 0; padding-bottom: 4px; border-bottom: 2px solid var(--panel-edge); letter-spacing: 1px;';
+  storedHdr.textContent = `STORED (${state.inventory.length})`;
+  body.appendChild(storedHdr);
+
+  if (state.inventory.length === 0){
+    const empty = document.createElement('div');
+    empty.style.cssText = 'text-align:center; padding: 20px; color: #B0BEC5; font-size: 16px;';
+    empty.innerHTML = `🎒 Inventory empty.<br><br><span style="font-size:13px">Open <b>📦 Packs</b> or move fish from your tank below.</span>`;
+    body.appendChild(empty);
+  } else {
+    // Sort by rarity then variant
+    const sorted = [...state.inventory].sort((a, b) => {
+      const ra = RARITY_ORDER.indexOf(FISH_TYPES[a.type].rarity);
+      const rb = RARITY_ORDER.indexOf(FISH_TYPES[b.type].rarity);
+      if (ra !== rb) return rb - ra;
+      const va = VARIANT_ORDER.indexOf(a.variant || 'normal');
+      const vb = VARIANT_ORDER.indexOf(b.variant || 'normal');
+      if (va !== vb) return vb - va;
+      return (b.level || 1) - (a.level || 1);
+    });
+    for (const fish of sorted){
+      const def = FISH_TYPES[fish.type];
+      const variant = fish.variant || 'normal';
+      const level = fish.level || 1;
+      const ratio = fishMatureRatio(fish);
+      const val = fishValue(fish);
+      const xpNeeded = fishXpForNext(level);
+      const xpPct = ((fish.xp || 0) / xpNeeded) * 100;
+      const row = document.createElement('div');
+      row.className = 'inv-row';
+      const cv = document.createElement('canvas');
+      cv.width = 56; cv.height = 44;
+      const cvctx = cv.getContext('2d');
+      cvctx.imageSmoothingEnabled = false;
+      drawCreaturePreview(cvctx, fish.type, 28, 22, 2.2, variant);
+      row.innerHTML = `
+        <div class="inv-preview"></div>
+        <div class="inv-info">
+          <div class="inv-name">
+            ${variant !== 'normal' ? `<span style="color:${variant==='rainbow'?'#FF80FF':variant==='gold'?'#FFD700':'#E0E0E0'}">${VARIANTS[variant].badge}</span> ` : ''}
+            ${def.name} · Lv ${level}
+          </div>
+          <div style="color:#B0BEC5">
+            <span style="color:var(--rarity-${def.rarity})">${def.rarity}</span> ·
+            ${ratio >= 1 ? `<span style="color:var(--green)">Mature</span>` : `Growing ${Math.round(ratio*100)}%`} ·
+            Worth $${formatMoney(val).slice(1)}
+          </div>
+          <div class="inv-xpbar"><div class="inv-xpfill" style="width:${Math.min(100,xpPct)}%"></div></div>
+        </div>
+        <div class="inv-buttons">
+          <button class="pixel-btn blue" data-deploy="${fish.id}">Deploy</button>
+          <button class="pixel-btn ${ratio>=1?'gold':''}" data-sell="${fish.id}" ${ratio<1?'disabled':''}>Sell</button>
+        </div>
+      `;
+      row.querySelector('.inv-preview').appendChild(cv);
+      body.appendChild(row);
+    }
+  }
+
+  // Section: move from tank
+  const tank = state.tanks[state.currentTank];
+  if (tank.fish.length > 0){
+    const tankHdr = document.createElement('div');
+    tankHdr.style.cssText = 'font-family: var(--display); font-size: 11px; color: var(--green); margin: 16px 0 8px; padding-bottom: 4px; border-bottom: 2px solid var(--panel-edge); letter-spacing: 1px;';
+    tankHdr.textContent = `MOVE FROM TANK (${tank.fish.length})`;
+    body.appendChild(tankHdr);
+
+    for (const fish of tank.fish){
+      const def = FISH_TYPES[fish.type];
+      const variant = fish.variant || 'normal';
+      const level = fish.level || 1;
+      const ratio = fishMatureRatio(fish);
+      const row = document.createElement('div');
+      row.className = 'inv-row';
+      const cv = document.createElement('canvas');
+      cv.width = 56; cv.height = 44;
+      const cvctx = cv.getContext('2d');
+      cvctx.imageSmoothingEnabled = false;
+      drawCreaturePreview(cvctx, fish.type, 28, 22, 2.2, variant);
+      row.innerHTML = `
+        <div class="inv-preview"></div>
+        <div class="inv-info">
+          <div class="inv-name">
+            ${variant !== 'normal' ? `<span style="color:${variant==='rainbow'?'#FF80FF':variant==='gold'?'#FFD700':'#E0E0E0'}">${VARIANTS[variant].badge}</span> ` : ''}
+            ${def.name} · Lv ${level}
+          </div>
+          <div style="color:#B0BEC5">
+            <span style="color:var(--rarity-${def.rarity})">${def.rarity}</span> ·
+            ${ratio >= 1 ? `<span style="color:var(--green)">Mature</span>` : `Growing ${Math.round(ratio*100)}%`}
+          </div>
+        </div>
+        <div class="inv-buttons">
+          <button class="pixel-btn" data-store="${fish.id}">📦 Store</button>
+        </div>
+      `;
+      row.querySelector('.inv-preview').appendChild(cv);
+      body.appendChild(row);
+    }
+  }
+
+  // Wire actions
+  body.querySelectorAll('[data-deploy]').forEach(btn => {
+    btn.onclick = () => {
+      const id = parseInt(btn.dataset.deploy, 10);
+      if (deployFromInventory(id)) buildInventory();
+    };
+  });
+  body.querySelectorAll('[data-sell]').forEach(btn => {
+    btn.onclick = () => {
+      const id = parseInt(btn.dataset.sell, 10);
+      if (sellFromInventory(id)) buildInventory();
+    };
+  });
+  body.querySelectorAll('[data-store]').forEach(btn => {
+    btn.onclick = () => {
+      const id = parseInt(btn.dataset.store, 10);
+      const fish = tank.fish.find(f => f.id === id);
+      if (fish && storeInInventory(fish)) buildInventory();
+    };
+  });
+}
+
 function buildCodex(){
   const list = document.getElementById('codexList');
   list.innerHTML = '';
@@ -3418,6 +4059,8 @@ function openModal(id){
   else if (id === 'breedModal') buildBreed();
   else if (id === 'settingsModal') buildSettings();
   else if (id === 'codexModal') buildCodex();
+  else if (id === 'packsModal') buildPacks();
+  else if (id === 'inventoryModal') buildInventory();
   document.getElementById(id).classList.add('show');
   playSound('click');
 }
@@ -3431,8 +4074,9 @@ document.getElementById('tanksBtn').onclick = () => openModal('tanksModal');
 document.getElementById('breedBtn').onclick = () => openModal('breedModal');
 document.getElementById('settingsBtn').onclick = () => openModal('settingsModal');
 document.getElementById('codexBtn').onclick = () => openModal('codexModal');
+document.getElementById('packsBtn').onclick = () => openModal('packsModal');
+document.getElementById('inventoryBtn').onclick = () => openModal('inventoryModal');
 document.getElementById('feedBtn').onclick = () => {
-  // Drop 3 random pellets
   for (let i = 0; i < 3; i++){
     setTimeout(() => {
       dropFoodPellet(80 + Math.random() * (W - 160), 40 + Math.random() * 30);
@@ -3492,8 +4136,9 @@ document.addEventListener('keydown', (e) => {
   if (e.key === 't' || e.key === 'T') openModal('tanksModal');
   if (e.key === 'g' || e.key === 'G') openModal('settingsModal');
   if (e.key === 'c' || e.key === 'C') openModal('codexModal');
+  if (e.key === 'p' || e.key === 'P') openModal('packsModal');
+  if (e.key === 'i' || e.key === 'I') openModal('inventoryModal');
   if (e.key === 'f' || e.key === 'F'){
-    // Drop a pellet at center of screen
     dropFoodPellet(W/2 + (Math.random() - 0.5) * 200, 60);
   }
 });
