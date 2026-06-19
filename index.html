@@ -1,0 +1,506 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ZD STUDIOS — Game Library</title>
+<style>
+  :root{
+    --bg-1:#FF6B35;
+    --bg-2:#FFB627;
+    --ink:#1A1430;
+    --panel:#FFFDF7;
+    --panel-edge:#1A1430;
+    --accent-pink:#FF3D81;
+    --accent-teal:#00C2A8;
+    --accent-blue:#3B82F6;
+    --accent-purple:#8B5CF6;
+    --shadow-hard: 6px 6px 0 var(--panel-edge);
+    --shadow-hard-sm: 3px 3px 0 var(--panel-edge);
+    --font-display: 'Lilita One', 'Arial Black', sans-serif;
+    --font-body: 'Nunito', system-ui, sans-serif;
+  }
+
+  @import url('https://fonts.googleapis.com/css2?family=Lilita+One&family=Nunito:wght@500;700;800;900&display=swap');
+
+  *{box-sizing:border-box; margin:0; padding:0;}
+
+  body{
+    font-family: var(--font-body);
+    color: var(--ink);
+    background:
+      radial-gradient(circle at 15% 20%, rgba(255,255,255,0.25), transparent 40%),
+      radial-gradient(circle at 85% 80%, rgba(255,255,255,0.2), transparent 45%),
+      linear-gradient(135deg, var(--bg-1), var(--bg-2));
+    min-height:100vh;
+    overflow-x:hidden;
+    position:relative;
+  }
+
+  /* ambient floating shapes */
+  .shape{
+    position:fixed;
+    border:4px solid var(--ink);
+    opacity:0.12;
+    pointer-events:none;
+    z-index:0;
+  }
+  .shape.circle{border-radius:50%;}
+  .s1{width:140px;height:140px;top:8%;left:4%;background:var(--accent-teal); animation: floatY 7s ease-in-out infinite;}
+  .s2{width:90px;height:90px;top:65%;left:88%;background:var(--accent-pink); border-radius:50%; animation: floatY 9s ease-in-out infinite reverse;}
+  .s3{width:60px;height:60px;top:78%;left:8%;background:var(--accent-blue); transform:rotate(20deg); animation: floatY 6s ease-in-out infinite;}
+  .s4{width:100px;height:100px;top:5%;left:80%;background:var(--accent-purple); border-radius:50%; animation: floatY 8s ease-in-out infinite reverse;}
+  @keyframes floatY{ 0%,100%{transform:translateY(0) rotate(0deg);} 50%{transform:translateY(-22px) rotate(8deg);} }
+  @media (prefers-reduced-motion: reduce){ .shape{animation:none !important;} }
+
+  .wrap{
+    position:relative;
+    z-index:1;
+    max-width:1180px;
+    margin:0 auto;
+    padding: 56px 24px 80px;
+  }
+
+  /* HERO */
+  header.hero{
+    text-align:center;
+    margin-bottom:54px;
+  }
+
+  .badge{
+    display:inline-block;
+    background:var(--panel);
+    border:3px solid var(--ink);
+    box-shadow: var(--shadow-hard-sm);
+    border-radius:999px;
+    padding:6px 18px;
+    font-weight:900;
+    font-size:0.78rem;
+    letter-spacing:0.14em;
+    text-transform:uppercase;
+    margin-bottom:22px;
+    transform:rotate(-2deg);
+  }
+
+  h1.title{
+    font-family:var(--font-display);
+    font-size:clamp(2.6rem, 7vw, 5.2rem);
+    line-height:0.95;
+    color:var(--panel);
+    -webkit-text-stroke: 3px var(--ink);
+    text-stroke: 3px var(--ink);
+    text-shadow: 6px 6px 0 var(--ink);
+    letter-spacing:0.01em;
+    margin-bottom:14px;
+  }
+
+  .subtitle{
+    font-weight:800;
+    font-size:1.05rem;
+    color: var(--ink);
+    background: var(--panel);
+    display:inline-block;
+    border:3px solid var(--ink);
+    box-shadow: var(--shadow-hard-sm);
+    padding:10px 20px;
+    border-radius:14px;
+    max-width:560px;
+  }
+
+  .stat-row{
+    display:flex;
+    justify-content:center;
+    gap:14px;
+    flex-wrap:wrap;
+    margin-top:28px;
+  }
+  .stat-pill{
+    background:var(--ink);
+    color:var(--panel);
+    font-weight:800;
+    font-size:0.85rem;
+    padding:9px 16px;
+    border-radius:999px;
+    border:3px solid var(--ink);
+    display:flex;
+    align-items:center;
+    gap:7px;
+  }
+  .stat-pill strong{ font-family:var(--font-display); font-size:1rem; color:var(--accent-teal); }
+
+  /* GRID */
+  .grid{
+    display:grid;
+    grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
+    gap: 28px;
+  }
+
+  .card{
+    background:var(--panel);
+    border:4px solid var(--ink);
+    border-radius:22px;
+    box-shadow: var(--shadow-hard);
+    overflow:hidden;
+    display:flex;
+    flex-direction:column;
+    transition: transform 0.18s ease, box-shadow 0.18s ease;
+    position:relative;
+  }
+  .card:hover{
+    transform: translate(-4px,-4px);
+    box-shadow: 10px 10px 0 var(--panel-edge);
+  }
+  .card:focus-within{
+    outline: 3px solid var(--accent-blue);
+    outline-offset: 2px;
+  }
+
+  .card-art{
+    height:170px;
+    position:relative;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    border-bottom:4px solid var(--ink);
+    overflow:hidden;
+  }
+  .card-art .emoji{
+    font-size:4.4rem;
+    filter: drop-shadow(3px 4px 0 rgba(0,0,0,0.18));
+    transform: rotate(-4deg);
+  }
+  .card-art::after{
+    content:"";
+    position:absolute;
+    inset:0;
+    background-image: radial-gradient(rgba(255,255,255,0.5) 2px, transparent 2px);
+    background-size: 18px 18px;
+    opacity:0.5;
+  }
+
+  .card-body{
+    padding:20px 20px 22px;
+    display:flex;
+    flex-direction:column;
+    gap:10px;
+    flex:1;
+  }
+
+  .card-top-row{
+    display:flex;
+    align-items:flex-start;
+    justify-content:space-between;
+    gap:10px;
+  }
+
+  .card h3{
+    font-family:var(--font-display);
+    font-size:1.32rem;
+    line-height:1.1;
+    letter-spacing:0.01em;
+  }
+
+  .genre-tag{
+    flex-shrink:0;
+    font-size:0.68rem;
+    font-weight:900;
+    text-transform:uppercase;
+    letter-spacing:0.06em;
+    padding:5px 10px;
+    border-radius:999px;
+    border:2.5px solid var(--ink);
+    white-space:nowrap;
+  }
+
+  .card p.desc{
+    font-size:0.92rem;
+    font-weight:700;
+    line-height:1.45;
+    color:#4a4360;
+    flex:1;
+  }
+
+  .card-foot{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:10px;
+    margin-top:6px;
+  }
+
+  .meta-bits{
+    display:flex;
+    gap:6px;
+    font-size:0.72rem;
+    font-weight:800;
+    color:#6b6480;
+  }
+
+  .play-btn{
+    font-family:var(--font-display);
+    font-size:0.92rem;
+    letter-spacing:0.03em;
+    background:var(--ink);
+    color:var(--panel);
+    border:3px solid var(--ink);
+    border-radius:12px;
+    padding:9px 18px;
+    text-decoration:none;
+    box-shadow: 3px 3px 0 var(--accent-teal);
+    transition: transform 0.12s ease, box-shadow 0.12s ease;
+    display:inline-flex;
+    align-items:center;
+    gap:6px;
+    white-space:nowrap;
+  }
+  .play-btn:hover{
+    transform: translate(-2px,-2px);
+    box-shadow: 5px 5px 0 var(--accent-teal);
+  }
+  .play-btn:active{
+    transform: translate(0,0);
+    box-shadow: 1px 1px 0 var(--accent-teal);
+  }
+
+  /* status states */
+  #status{
+    text-align:center;
+    padding:60px 20px;
+    font-weight:800;
+    color:var(--ink);
+  }
+  .spinner{
+    width:46px;height:46px;
+    border:5px solid var(--panel);
+    border-top:5px solid var(--ink);
+    border-radius:50%;
+    margin:0 auto 18px;
+    animation: spin 0.8s linear infinite;
+  }
+  @keyframes spin{ to{ transform:rotate(360deg);} }
+  @media (prefers-reduced-motion: reduce){ .spinner{animation:none; border-top-color:var(--panel);} }
+
+  .error-box{
+    max-width:520px;
+    margin:0 auto;
+    background:var(--panel);
+    border:4px solid var(--ink);
+    box-shadow:var(--shadow-hard);
+    border-radius:18px;
+    padding:28px;
+  }
+  .error-box a{ color:var(--accent-blue); font-weight:900; }
+
+  .empty-card{
+    grid-column: 1 / -1;
+    text-align:center;
+    padding:50px 20px;
+    background:var(--panel);
+    border:4px dashed var(--ink);
+    border-radius:18px;
+    font-weight:800;
+  }
+
+  footer{
+    text-align:center;
+    margin-top:64px;
+    font-weight:800;
+    font-size:0.85rem;
+    color:var(--ink);
+    opacity:0.75;
+  }
+  footer a{ color:var(--ink); }
+
+  @media (max-width: 520px){
+    .wrap{ padding: 38px 16px 60px; }
+    h1.title{ -webkit-text-stroke: 2px var(--ink); text-shadow: 4px 4px 0 var(--ink); }
+  }
+</style>
+</head>
+<body>
+
+<div class="shape s1"></div>
+<div class="shape s2 circle"></div>
+<div class="shape s3"></div>
+<div class="shape s4 circle"></div>
+
+<div class="wrap">
+
+  <header class="hero">
+    <span class="badge">★ No installs · No accounts · Just play ★</span>
+    <h1 class="title">ZD STUDIOS<br>GAME LIBRARY</h1>
+    <p class="subtitle">A growing arcade of browser games — built scrappy, played instantly.</p>
+    <div class="stat-row" id="statRow" hidden>
+      <div class="stat-pill">🎮 <strong id="gameCount">0</strong> games live</div>
+      <div class="stat-pill">⚡ 100% browser-based</div>
+    </div>
+  </header>
+
+  <main>
+    <div id="status">
+      <div class="spinner" aria-hidden="true"></div>
+      <p>Scanning the arcade for games…</p>
+    </div>
+
+    <div class="grid" id="grid" hidden></div>
+  </main>
+
+  <footer>
+    <p>Built by <a href="https://github.com/ZDStudios" target="_blank" rel="noopener">ZDStudios</a> · <a href="https://github.com/ZDStudios/Claude-Games" target="_blank" rel="noopener">View source on GitHub</a></p>
+  </footer>
+
+</div>
+
+<script>
+(function(){
+  const OWNER = "ZDStudios";
+  const REPO = "Claude-Games";
+  const BRANCH = "main";
+  const SELF_FILES = new Set(["index.html"]); // never list itself
+
+  // Known metadata for games — extend this as you add more games to the repo.
+  // Anything found in the repo that ISN'T listed here gets sane auto-generated info instead.
+  const GAME_INFO = {
+    "reefkeeper.html": {
+      title: "Reefkeeper",
+      tagline: "A Cozy Aquarium",
+      desc: "Raise fish, unlock rare colour variants, and grow a thriving reef tank. Click, feed, breed, repeat.",
+      emoji: "🐠",
+      genre: "Idle / Clicker",
+      tagBg: "#00C2A8",
+      artBg: "linear-gradient(135deg,#5EE7DF,#00C2A8)"
+    },
+    "dirt-demon.html": {
+      title: "Dirt Demon",
+      tagline: "Monster Truck Mayhem",
+      desc: "Physics-based monster truck stunts across brutal trap-filled terrain. Chain tricks, rewind time, unlock trucks.",
+      emoji: "🚛",
+      genre: "Physics / Arcade",
+      tagBg: "#FF3D81",
+      artBg: "linear-gradient(135deg,#FFB627,#FF6B35)"
+    }
+  };
+
+  const FALLBACK_PALETTE = [
+    { tagBg:"#3B82F6", artBg:"linear-gradient(135deg,#93C5FD,#3B82F6)" },
+    { tagBg:"#8B5CF6", artBg:"linear-gradient(135deg,#C4B5FD,#8B5CF6)" },
+    { tagBg:"#FF3D81", artBg:"linear-gradient(135deg,#FFA8C9,#FF3D81)" },
+    { tagBg:"#00C2A8", artBg:"linear-gradient(135deg,#5EE7DF,#00C2A8)" }
+  ];
+
+  function titleCaseFromFilename(name){
+    const base = name.replace(/\.html?$/i, "");
+    return base
+      .replace(/[-_]+/g, " ")
+      .replace(/\b\w/g, c => c.toUpperCase());
+  }
+
+  function buildFallbackInfo(filename, index){
+    const palette = FALLBACK_PALETTE[index % FALLBACK_PALETTE.length];
+    return {
+      title: titleCaseFromFilename(filename),
+      tagline: "Untitled Build",
+      desc: "A freshly added game — jump in and see what it's about.",
+      emoji: "🎮",
+      genre: "Browser Game",
+      tagBg: palette.tagBg,
+      artBg: palette.artBg
+    };
+  }
+
+  function escapeHtml(str){
+    const div = document.createElement("div");
+    div.textContent = str;
+    return div.innerHTML;
+  }
+
+  function renderGrid(games){
+    const grid = document.getElementById("grid");
+    const status = document.getElementById("status");
+    const statRow = document.getElementById("statRow");
+    const gameCount = document.getElementById("gameCount");
+
+    status.hidden = true;
+    grid.hidden = false;
+
+    if(games.length === 0){
+      grid.innerHTML = `<div class="empty-card">No games found yet — check back soon! 🛠️</div>`;
+      return;
+    }
+
+    gameCount.textContent = games.length;
+    statRow.hidden = false;
+
+    grid.innerHTML = games.map(game => `
+      <article class="card">
+        <div class="card-art" style="background:${game.artBg}">
+          <span class="emoji" aria-hidden="true">${game.emoji}</span>
+        </div>
+        <div class="card-body">
+          <div class="card-top-row">
+            <h3>${escapeHtml(game.title)}</h3>
+            <span class="genre-tag" style="background:${game.tagBg}; color:#FFFDF7;">${escapeHtml(game.genre)}</span>
+          </div>
+          <p class="desc">${escapeHtml(game.desc)}</p>
+          <div class="card-foot">
+            <span class="meta-bits">${escapeHtml(game.tagline)}</span>
+            <a class="play-btn" href="${game.url}" target="_blank" rel="noopener">▶ PLAY</a>
+          </div>
+        </div>
+      </article>
+    `).join("");
+  }
+
+  function renderError(message){
+    const status = document.getElementById("status");
+    status.innerHTML = `
+      <div class="error-box">
+        <p style="font-size:1.4rem;margin-bottom:10px;">⚠️ Couldn't load the library</p>
+        <p style="font-weight:600; margin-bottom:14px;">${escapeHtml(message)}</p>
+        <p>Browse games directly on <a href="https://github.com/${OWNER}/${REPO}" target="_blank" rel="noopener">GitHub</a> instead.</p>
+      </div>
+    `;
+  }
+
+  async function loadGames(){
+    try{
+      const res = await fetch(`https://api.github.com/repos/${OWNER}/${REPO}/contents/?ref=${BRANCH}`, {
+        headers: { "Accept": "application/vnd.github+json" }
+      });
+
+      if(!res.ok){
+        if(res.status === 403){
+          throw new Error("GitHub API rate limit reached. Try refreshing in a bit.");
+        }
+        throw new Error(`GitHub API returned ${res.status}`);
+      }
+
+      const files = await res.json();
+
+      const htmlFiles = files
+        .filter(f => f.type === "file")
+        .filter(f => /\.html?$/i.test(f.name))
+        .filter(f => !SELF_FILES.has(f.name.toLowerCase()))
+        .sort((a,b) => a.name.localeCompare(b.name));
+
+      const games = htmlFiles.map((f, i) => {
+        const info = GAME_INFO[f.name.toLowerCase()] || buildFallbackInfo(f.name, i);
+        return {
+          ...info,
+          url: `https://${OWNER.toLowerCase()}.github.io/${REPO}/${f.name}`
+        };
+      });
+
+      renderGrid(games);
+    }catch(err){
+      console.error(err);
+      renderError(err.message || "Something went wrong while talking to GitHub.");
+    }
+  }
+
+  loadGames();
+})();
+</script>
+
+</body>
+</html>
