@@ -1,0 +1,697 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<title>Monster Tracks — Draw &amp; Drive</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; }
+  html, body { width: 100%; height: 100%; overflow: hidden; background: #1b2540; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+  #c { display: block; position: fixed; inset: 0; touch-action: none; cursor: crosshair; }
+
+  /* HUD */
+  #hud { position: fixed; top: 0; left: 0; right: 0; z-index: 5; display: flex; align-items: flex-start; gap: 14px; padding: 12px 16px; color: #fff; pointer-events: none; text-shadow: 0 2px 5px rgba(0,0,0,.45); }
+  #lvl { font-size: 22px; font-weight: 800; }
+  #flips { font-size: 13px; font-weight: 700; color: #ffd166; margin-bottom: 6px; }
+  .spacer { flex: 1; }
+  #inkWrap { width: 200px; max-width: 44vw; }
+  #inkLabel { font-size: 10px; font-weight: 800; letter-spacing: 1px; opacity: .9; margin-bottom: 3px; }
+  #inkBar { height: 13px; border-radius: 8px; background: rgba(0,0,0,.32); border: 2px solid rgba(255,255,255,.55); overflow: hidden; }
+  #inkFill { height: 100%; width: 100%; background: linear-gradient(90deg,#ffd166,#ffb703); border-radius: 6px; }
+  #inkFill.low { background: linear-gradient(90deg,#ff6b6b,#e63946); }
+  #prog { width: 190px; max-width: 40vw; margin-top: 2px; }
+  #progLabel { font-size: 10px; font-weight: 800; letter-spacing: 1px; opacity: .9; margin-bottom: 3px; text-align: right; }
+  #progBar { height: 13px; border-radius: 8px; background: rgba(0,0,0,.3); border: 2px solid rgba(255,255,255,.55); overflow: hidden; position: relative; }
+  #progFill { height: 100%; width: 0%; background: linear-gradient(90deg,#9be15d,#00c853); border-radius: 6px; }
+
+  #toast { position: fixed; top: 30%; left: 0; right: 0; text-align: center; z-index: 6; font-size: 38px; font-weight: 900; color: #ffd166; pointer-events: none; text-shadow: 0 3px 0 #b8860b, 0 6px 14px rgba(0,0,0,.5); opacity: 0; transform: scale(.6); transition: opacity .15s, transform .15s; }
+  #toast.show { opacity: 1; transform: scale(1); }
+
+  /* Pedals */
+  .pedal { position: fixed; bottom: 0; width: 22vw; max-width: 150px; height: 26vh; z-index: 5; display: flex; align-items: flex-end; justify-content: center; padding-bottom: 14px; font-size: 34px; color: rgba(255,255,255,.9); border: none; cursor: pointer; touch-action: none; }
+  #brake { left: 0; background: linear-gradient(to top, rgba(230,57,70,.30), rgba(230,57,70,0)); }
+  #gas   { right: 0; background: linear-gradient(to top, rgba(0,200,83,.30), rgba(0,200,83,0)); }
+  .pedal:active { filter: brightness(1.5); }
+  .pedal .lbl { background: rgba(0,0,0,.32); border-radius: 50%; width: 66px; height: 66px; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 14px rgba(0,0,0,.3); }
+
+  /* Overlays */
+  .overlay { position: fixed; inset: 0; z-index: 20; display: flex; align-items: center; justify-content: center; background: radial-gradient(circle at 50% 30%, rgba(30,50,90,.6), rgba(8,14,30,.9)); backdrop-filter: blur(3px); }
+  .overlay.hidden { display: none; }
+  .panel { background: rgba(255,255,255,.97); border-radius: 22px; padding: 26px 30px; max-width: 460px; width: 90%; text-align: center; box-shadow: 0 24px 60px rgba(0,0,0,.45); }
+  .panel .sub { color: #fb8500; font-weight: 800; letter-spacing: 1.5px; text-transform: uppercase; font-size: 12px; margin-bottom: 8px; }
+  .panel h1 { font-size: 30px; color: #1d3557; line-height: 1.05; margin-bottom: 10px; }
+  .panel h1 .accent { color: #fb8500; }
+  .panel p { color: #475569; font-size: 14.5px; line-height: 1.5; margin-bottom: 9px; }
+  .legend { display: flex; gap: 10px; justify-content: center; margin: 14px 0 4px; flex-wrap: wrap; }
+  .lg { display: flex; align-items: center; gap: 6px; font-size: 12.5px; font-weight: 700; color: #334155; }
+  .sw { width: 15px; height: 15px; border-radius: 4px; box-shadow: inset 0 0 0 1px rgba(0,0,0,.15); }
+  .keys { display: flex; gap: 8px; justify-content: center; margin: 12px 0 2px; flex-wrap: wrap; }
+  .kc { display: flex; align-items: center; gap: 6px; font-size: 12.5px; font-weight: 700; color: #334155; }
+  .kbd { background: #1d3557; color: #fff; border-radius: 7px; padding: 5px 9px; font-size: 12.5px; font-weight: 800; box-shadow: 0 3px 0 #0d1b2a; }
+  .bigscore { font-size: 28px; font-weight: 900; color: #1d3557; margin: 6px 0; }
+  button.go { margin-top: 10px; border: none; cursor: pointer; background: linear-gradient(180deg,#ffb703,#fb8500); color: #fff; font-size: 18px; font-weight: 800; letter-spacing: .5px; padding: 13px 30px; border-radius: 14px; box-shadow: 0 8px 20px rgba(251,133,0,.45); transition: transform .08s; }
+  button.go:hover { transform: translateY(-2px); }
+  button.go:active { transform: translateY(1px); }
+  button.go.ghost { background: #eef2f7; color: #1d3557; box-shadow: 0 6px 14px rgba(29,53,87,.18); }
+  .startBtns, .garageBtns { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; margin-top: 12px; }
+  .startBtns button.go, .garageBtns button.go { margin-top: 0; padding: 12px 22px; font-size: 16px; }
+
+  /* Garage */
+  .panel.garage .ghint { font-size: 13px; margin-bottom: 10px; }
+  #drawCanvas { width: 100%; max-width: 400px; aspect-ratio: 380 / 228; height: auto; background: #f4f8fc; border: 3px dashed #c2d2e4; border-radius: 14px; touch-action: none; cursor: crosshair; display: block; margin: 0 auto; }
+  .tools { display: flex; align-items: center; justify-content: center; gap: 8px; margin: 12px 0 2px; flex-wrap: wrap; }
+  #swatches { display: flex; gap: 6px; }
+  .swatch { width: 24px; height: 24px; border-radius: 50%; cursor: pointer; border: 3px solid #fff; box-shadow: 0 0 0 1px rgba(0,0,0,.2); }
+  .swatch.sel { box-shadow: 0 0 0 3px #1d3557; transform: scale(1.12); }
+  .tbtn { border: none; cursor: pointer; background: #eef2f7; color: #1d3557; font-size: 16px; font-weight: 800; width: 36px; height: 36px; border-radius: 10px; }
+  .tbtn:active { transform: translateY(1px); }
+</style>
+</head>
+<body>
+  <canvas id="c"></canvas>
+
+  <div id="hud">
+    <div>
+      <div id="lvl">Level 1</div>
+      <div id="flips">Flips: 0</div>
+      <div id="inkWrap"><div id="inkLabel">🛣️ ROAD INK</div><div id="inkBar"><div id="inkFill"></div></div></div>
+    </div>
+    <div class="spacer"></div>
+    <div id="prog"><div id="progLabel">PROGRESS 🏁</div><div id="progBar"><div id="progFill"></div></div></div>
+  </div>
+
+  <div id="toast"></div>
+
+  <button id="brake" class="pedal"><span class="lbl">◀</span></button>
+  <button id="gas" class="pedal"><span class="lbl">▶</span></button>
+
+  <!-- Start -->
+  <div id="startScreen" class="overlay">
+    <div class="panel">
+      <div class="sub">Draw &amp; Drive · Endless</div>
+      <h1>Monster <span class="accent">Tracks</span></h1>
+      <p>Drive your suspension-loaded monster truck across brutal terrain. The track is full of gaps — <b>draw road across them with your mouse/finger</b> before you plummet in. Bigger gaps need more <b>Road Ink</b>!</p>
+      <div class="legend">
+        <div class="lg"><span class="sw" style="background:#3a3027"></span>Drawn road</div>
+        <div class="lg"><span class="sw" style="background:#3fa34d"></span>Solid ground</div>
+        <div class="lg"><span class="sw" style="background:#e63946"></span>Truck</div>
+      </div>
+      <div class="keys">
+        <div class="kc"><span class="kbd">→ / D</span> Gas</div>
+        <div class="kc"><span class="kbd">← / A</span> Brake</div>
+        <div class="kc"><span class="kbd">drag</span> Draw road</div>
+        <div class="kc"><span class="kbd">R</span> Restart</div>
+      </div>
+      <p style="font-size:12px;opacity:.72;margin-top:6px">In the air, Gas = backflip, Brake = frontflip. Land on your wheels! Ink refills over time and when you reach new ground. Levels never end — they only get harder.</p>
+      <div class="startBtns">
+        <button id="drawCarBtn" class="go">🎨 Draw Your Car</button>
+        <button id="startBtn" class="go ghost">🚚 Default Truck ▶</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Garage -->
+  <div id="garageScreen" class="overlay hidden">
+    <div class="panel garage">
+      <div class="sub">Garage</div>
+      <h1>Draw Your <span class="accent">Car</span></h1>
+      <p class="ghint">Draw a body connecting the two wheels — go wild! It keeps the same monster wheels &amp; suspension.</p>
+      <canvas id="drawCanvas" width="380" height="228"></canvas>
+      <div class="tools">
+        <div id="swatches"></div>
+        <button id="undoBtn" class="tbtn">↶</button>
+        <button id="clearBtn" class="tbtn">🗑</button>
+      </div>
+      <div class="garageBtns">
+        <button id="garageBackBtn" class="go ghost">← Back</button>
+        <button id="raceCustomBtn" class="go">Race! ▶</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Level complete -->
+  <div id="winScreen" class="overlay hidden">
+    <div class="panel">
+      <div class="sub">Finish!</div>
+      <h1 id="winTitle">Level <span class="accent">Complete!</span></h1>
+      <div class="bigscore" id="winStats">Flips: 0</div>
+      <p id="winMsg">The next track is even nastier…</p>
+      <button id="nextBtn" class="go">Next Level ▶</button>
+    </div>
+  </div>
+
+  <!-- Crash -->
+  <div id="crashScreen" class="overlay hidden">
+    <div class="panel">
+      <div class="sub">Wrecked</div>
+      <h1>You <span class="accent">Crashed!</span></h1>
+      <p id="crashMsg">Keep it on the wheels — and mind the gaps. Try again!</p>
+      <button id="retryBtn" class="go">Retry ↺</button>
+    </div>
+  </div>
+
+  <script>
+  (function () {
+    "use strict";
+
+    // ---------------- Canvas ----------------
+    const canvas = document.getElementById("c");
+    const ctx = canvas.getContext("2d");
+    let W = 0, H = 0, DPR = 1;
+    function resize() {
+      DPR = Math.min(window.devicePixelRatio || 1, 2);
+      W = window.innerWidth; H = window.innerHeight;
+      canvas.width = W * DPR; canvas.height = H * DPR;
+      canvas.style.width = W + "px"; canvas.style.height = H + "px";
+      ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+    }
+    window.addEventListener("resize", resize);
+    resize();
+
+    // ---------------- Constants ----------------
+    const GRAV = 1700, MASS = 1, INERTIA = 2200;
+    const R = 28;                                   // wheel radius
+    const WHEELS = [{ x: -62 }, { x: 62 }];         // wheel mount x (rear, front)
+    const MOUNT_Y = 8;                              // local y of suspension mount
+    const L0 = 34, LMIN = 14, LMAX = 54;            // suspension rest / compressed / extended length
+    const K_SUS = 200, C_SUS = 28;                  // suspension spring / damper
+    const K_BUMP = 3400, C_BUMP = 95;               // bump-stop (bottom-out) stiffness
+    const CF = 1.4, MU = 3.2;                       // rolling resistance / traction cap
+    const ENGINE = 1000, AIR_TORQUE = 2700;
+    const MAXV = 3400, MAXW = 24, SUBSTEPS = 8;
+    const ZOOM = 0.78;
+
+    const INK_MAX = 1500, INK_REGEN = 150, INK_BONUS = 360;
+
+    const BODY = [[-68,-14],[-68,10],[-40,10],[-26,32],[18,34],[40,16],[68,10],[68,-14]];
+    const TOP_PTS = [[0,36],[-50,22],[50,20]];
+
+    // ---------------- Custom car ----------------
+    let customCar = null, activeTopPts = TOP_PTS;
+    try { const s = localStorage.getItem("mt_car"); if (s) customCar = JSON.parse(s); } catch (e) { customCar = null; }
+    function topPtsFromStrokes(strokes) {
+      let minX = 1e9, maxX = -1e9, maxY = -1e9;
+      strokes.forEach(s => s.pts.forEach(p => { if (p.x < minX) minX = p.x; if (p.x > maxX) maxX = p.x; if (p.y > maxY) maxY = p.y; }));
+      if (maxX < minX) return TOP_PTS;
+      return [[(minX + maxX) / 2, maxY], [minX + 6, maxY * 0.7], [maxX - 6, maxY * 0.7]];
+    }
+    if (customCar && customCar.strokes) activeTopPts = topPtsFromStrokes(customCar.strokes);
+
+    // ---------------- World ----------------
+    let chunks = [], gaps = [], finishX = 0, deathLine = 0, spawnX = 140, level = 1;
+
+    function mulberry32(seed) {
+      return function () { seed |= 0; seed = seed + 0x6D2B79F5 | 0; let t = Math.imul(seed ^ seed >>> 15, 1 | seed); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
+    }
+    function makeChunk(pts, dx) { return { pts: pts, x0: pts[0].x, x1: pts[pts.length - 1].x, dx: dx, scored: false }; }
+
+    function genLevel(n) {
+      const rng = mulberry32((0x9E3779B1 ^ (n * 2654435761)) >>> 0);
+      const rnd = (a, b) => a + rng() * (b - a);
+      const dx = 20, out = [], gp = [];
+      let cur = [], x = 0, lastY = 0;
+      const diff = n - 1;
+      const amp = 32 + diff * 5;
+
+      function push(y) { cur.push({ x: x, y: y }); x += dx; }
+      function flat(len) { const s = Math.max(1, Math.round(len / dx)); for (let i = 0; i < s; i++) push(lastY); }
+      function bumps(len, a, waves) { const s = Math.max(2, Math.round(len / dx)), y0 = lastY; for (let i = 1; i <= s; i++) { const t = i / s; push(y0 + Math.sin(t * Math.PI * waves) * a * Math.sin(t * Math.PI)); } lastY = y0; }
+      function ramp(len, dh) { const s = Math.max(2, Math.round(len / dx)), y0 = lastY; for (let i = 1; i <= s; i++) push(y0 + dh * (i / s)); lastY = y0 + dh; }
+      function endChunk() { if (cur.length) { out.push(makeChunk(cur, dx)); cur = []; } }
+      function gap(g, landY) { endChunk(); const gx0 = x - dx; x += g; lastY = (landY === undefined ? 0 : landY); gp.push([gx0, x]); }
+
+      flat(rnd(420, 560));                                   // start / learning area
+      const features = 4 + Math.floor(diff * 1.3);
+      for (let k = 0; k < features; k++) {
+        bumps(rnd(280, 560), amp * rnd(0.6, 1.25), 2 + Math.floor(rng() * 2));   // rough hills (suspension!)
+        const kind = rng();
+        if (kind < 0.42) {                                   // JUMP gap (ramp + gap, jumpable or drawable)
+          flat(rnd(220, 340));
+          ramp(rnd(130, 175), rnd(48, 64 + diff * 3));
+          gap(rnd(120, 175) + diff * 14);
+          flat(rnd(180, 300));
+        } else if (kind < 0.82) {                            // DRAW gap (no ramp — must draw road), bigger
+          gap(rnd(170, 250) + diff * 20, rnd(-25, 35));
+          flat(rnd(150, 260));
+        } else {                                             // gnarly hill stretch
+          bumps(rnd(320, 520), amp * rnd(0.9, 1.5), 3 + Math.floor(rng() * 2));
+        }
+      }
+      bumps(rnd(300, 460), amp * 0.7, 3);
+      flat(rnd(360, 460));
+      endChunk();
+
+      chunks = out; gaps = gp;
+      if (out.length) out[0].scored = true;
+      const last = out[out.length - 1];
+      finishX = last.pts[last.pts.length - 1].x - 200;
+      let minY = Infinity;
+      out.forEach(c => c.pts.forEach(p => { if (p.y < minY) minY = p.y; }));
+      deathLine = minY - 270;
+    }
+
+    function terrainSurface(x) {
+      for (let ci = 0; ci < chunks.length; ci++) {
+        const ch = chunks[ci];
+        if (x >= ch.x0 && x <= ch.x1) {
+          let i = Math.floor((x - ch.x0) / ch.dx);
+          if (i < 0) i = 0; if (i > ch.pts.length - 2) i = ch.pts.length - 2;
+          const p0 = ch.pts[i], p1 = ch.pts[i + 1];
+          const t = (x - p0.x) / (p1.x - p0.x || 1);
+          const y = p0.y + (p1.y - p0.y) * t;
+          const slope = (p1.y - p0.y) / (p1.x - p0.x || 1);
+          const nl = Math.hypot(slope, 1);
+          return { y: y, nx: -slope / nl, ny: 1 / nl };
+        }
+      }
+      return null;
+    }
+
+    // ---------------- Drawn road ----------------
+    let drawnSegs = [], drawnStrokes = [];
+    const DCELL = 48; let drawnBuckets = new Map();
+    function clearDrawn() { drawnSegs = []; drawnStrokes = []; drawnBuckets = new Map(); }
+    function addDrawnSeg(ax, ay, bx, by) {
+      if (bx < ax) { const tx = ax, ty = ay; ax = bx; ay = by; bx = tx; by = ty; }
+      const dx = bx - ax, dy = by - ay, len = Math.hypot(dx, dy) || 1;
+      let nx = -dy / len, ny = dx / len; if (ny < 0) { nx = -nx; ny = -ny; }
+      const idx = drawnSegs.length;
+      drawnSegs.push({ x0: ax, y0: ay, x1: bx, y1: by, nx: nx, ny: ny });
+      const c0 = Math.floor(ax / DCELL), c1 = Math.floor(bx / DCELL);
+      for (let c = c0; c <= c1; c++) { let a = drawnBuckets.get(c); if (!a) { a = []; drawnBuckets.set(c, a); } a.push(idx); }
+    }
+    function drawnSurface(x) {
+      const arr = drawnBuckets.get(Math.floor(x / DCELL)); if (!arr) return null;
+      let bestY = -Infinity, bn = null;
+      for (let k = 0; k < arr.length; k++) {
+        const s = drawnSegs[arr[k]];
+        if (x < s.x0 || x > s.x1) continue;
+        const t = (x - s.x0) / ((s.x1 - s.x0) || 1);
+        const y = s.y0 + (s.y1 - s.y0) * t;
+        if (y > bestY) { bestY = y; bn = s; }
+      }
+      if (!bn) return null;
+      return { y: bestY, nx: bn.nx, ny: bn.ny };
+    }
+    function groundSurface(x) {
+      const t = terrainSurface(x), d = drawnSurface(x);
+      if (t && d) return d.y > t.y ? d : t;
+      return t || d;
+    }
+
+    // ---------------- Truck + suspension ----------------
+    const truck = { x: 0, y: 0, vx: 0, vy: 0, a: 0, w: 0, wheelSpin: 0 };
+    const susp = [{ len: L0 }, { len: L0 }];
+    let onGround = false, prevOnGround = true, airRot = 0, flipsTotal = 0, ink = INK_MAX;
+    let state = "start";   // start | play | won | crashed
+    const dust = [];
+
+    function resetTruck() {
+      truck.x = spawnX;
+      const gs = groundSurface(spawnX); const gy = gs ? gs.y : 0;
+      truck.y = gy + R - MOUNT_Y + L0 + 4;
+      truck.vx = truck.vy = truck.a = truck.w = truck.wheelSpin = 0;
+      susp[0].len = susp[1].len = L0;
+      onGround = false; prevOnGround = true; airRot = 0;
+      cam.x = truck.x; cam.y = truck.y; dust.length = 0;
+    }
+    function L2W(lx, ly) { const c = Math.cos(truck.a), s = Math.sin(truck.a); return { x: truck.x + lx * c - ly * s, y: truck.y + lx * s + ly * c }; }
+
+    function integrate(dt, throttle) {
+      let Fx = 0, Fy = -GRAV * MASS, torque = 0, grounded = false;
+      const a = truck.a, c = Math.cos(a), s = Math.sin(a);
+      const upx = -s, upy = c, ddx = s, ddy = -c;     // chassis up / down (world)
+
+      for (let i = 0; i < WHEELS.length; i++) {
+        const lx = WHEELS[i].x, ly = MOUNT_Y;
+        const rx = lx * c - ly * s, ry = lx * s + ly * c;     // mount offset from COM
+        const Mx = truck.x + rx, My = truck.y + ry;           // mount world
+
+        // solve suspension length so wheel touches ground (vertical solve, refined once)
+        let gs = groundSurface(Mx + ddx * L0);
+        let lenTouch = gs ? (gs.y + R - My) / ddy : 1e9;
+        gs = groundSurface(Mx + ddx * Math.max(LMIN, Math.min(LMAX, lenTouch)));
+        lenTouch = gs ? (gs.y + R - My) / ddy : 1e9;
+
+        if (gs && lenTouch <= LMAX) {
+          grounded = true;
+          const lenC = Math.max(LMIN, lenTouch);
+          susp[i].len = lenC;
+          const comp = L0 - lenC;
+
+          // mount velocity along chassis up (suspension travel rate)
+          const pvx = truck.vx - truck.w * ry, pvy = truck.vy + truck.w * rx;
+          const vUp = pvx * upx + pvy * upy;
+          let Fn = K_SUS * comp - C_SUS * vUp;
+          if (Fn < 0) Fn = 0;
+
+          // bump stop when bottomed out
+          if (lenTouch < LMIN) {
+            const Wy = My + ddy * LMIN;
+            const pen = (gs.y + R) - Wy;
+            const vn = pvx * gs.nx + pvy * gs.ny;
+            let Fb = K_BUMP * pen - C_BUMP * vn;
+            if (Fb < 0) Fb = 0; if (Fb > 160000) Fb = 160000;
+            Fn += Fb;
+          }
+          // suspension force along chassis up at mount
+          Fx += Fn * upx; Fy += Fn * upy;
+          torque += rx * (Fn * upy) - ry * (Fn * upx);
+
+          // traction / friction at the wheel contact, along ground tangent
+          const cpx = Mx + ddx * lenC, cpy = My + ddy * lenC;
+          const crx = cpx - truck.x, cry = cpy - truck.y;
+          const cvx = truck.vx - truck.w * cry, cvy = truck.vy + truck.w * crx;
+          const tx = gs.ny, ty = -gs.nx;
+          const vt = cvx * tx + cvy * ty;
+          const drive = ENGINE * throttle;
+          const cap = MU * Fn;
+          const fric = -Math.sign(vt) * Math.min(Math.abs(CF * vt), cap);
+          const Ft = drive + fric;
+          Fx += Ft * tx; Fy += Ft * ty;
+          torque += crx * (Ft * ty) - cry * (Ft * tx);
+        } else {
+          susp[i].len += (LMAX - susp[i].len) * Math.min(1, dt * 12);   // droop in the air
+        }
+      }
+
+      if (!grounded) torque += throttle * AIR_TORQUE;
+
+      truck.vx += (Fx / MASS) * dt; truck.vy += (Fy / MASS) * dt;
+      truck.vx *= (1 - 0.0004);
+      if (truck.vx > MAXV) truck.vx = MAXV; if (truck.vx < -MAXV) truck.vx = -MAXV;
+      if (truck.vy > MAXV) truck.vy = MAXV; if (truck.vy < -MAXV) truck.vy = -MAXV;
+      truck.x += truck.vx * dt; truck.y += truck.vy * dt;
+      truck.w += (torque / INERTIA) * dt; truck.w *= (1 - 0.02);
+      if (truck.w > MAXW) truck.w = MAXW; if (truck.w < -MAXW) truck.w = -MAXW;
+      truck.a += truck.w * dt;
+      truck.wheelSpin += (truck.vx * dt) / R;
+
+      // anti-tunnel safety
+      const c2 = Math.cos(truck.a), s2 = Math.sin(truck.a);
+      let deepest = 0;
+      for (let i = 0; i < WHEELS.length; i++) {
+        const lx = WHEELS[i].x, ly = MOUNT_Y;
+        const Mx = truck.x + (lx * c2 - ly * s2), My = truck.y + (lx * s2 + ly * c2);
+        const wx = Mx + s2 * susp[i].len, wy = My - c2 * susp[i].len;
+        const gs = groundSurface(wx); if (!gs) continue;
+        const pen = (gs.y + R) - wy; if (pen > deepest) deepest = pen;
+      }
+      if (deepest > R) { truck.y += (deepest - R); if (truck.vy < 0) truck.vy = 0; }
+      return grounded;
+    }
+
+    function physics(dtFrame, throttle) {
+      const dt = dtFrame / SUBSTEPS; let g = false;
+      for (let i = 0; i < SUBSTEPS; i++) g = integrate(dt, throttle) || g;
+      onGround = g;
+      if (!onGround) airRot += truck.w * dtFrame;
+    }
+
+    function checkEvents() {
+      if (onGround && !prevOnGround) {
+        const n = Math.floor(Math.abs(airRot) / (Math.PI * 2));
+        if (n > 0) { flipsTotal += n; showToast((n > 1 ? n + "× " : "") + "FLIP!"); }
+        airRot = 0;
+      }
+      prevOnGround = onGround;
+
+      // ink reward for reaching new ground
+      for (let i = 0; i < chunks.length; i++) {
+        const ch = chunks[i];
+        if (!ch.scored && truck.x > ch.x0 + 4) { ch.scored = true; ink = Math.min(INK_MAX, ink + INK_BONUS); showToast("+INK"); }
+      }
+
+      if (truck.y < deathLine) return crash();
+      if (onGround && Math.cos(truck.a) < -0.2) return crash();
+      for (let i = 0; i < activeTopPts.length; i++) {
+        const p = L2W(activeTopPts[i][0], activeTopPts[i][1]);
+        const gs = terrainSurface(p.x);
+        if (gs && p.y < gs.y - 12) return crash();
+      }
+      if (truck.x >= finishX) return win();
+    }
+
+    function crash() { if (state !== "play") return; state = "crashed"; document.getElementById("crashScreen").classList.remove("hidden"); }
+    function win() {
+      if (state !== "play") return;
+      state = "won";
+      document.getElementById("winStats").textContent = "Flips this run: " + flipsTotal;
+      document.getElementById("winMsg").textContent = "Level " + (level + 1) + " is even nastier…";
+      document.getElementById("winScreen").classList.remove("hidden");
+    }
+
+    // ---------------- Camera ----------------
+    const cam = { x: 0, y: 0 };
+    function worldToScreen(wx, wy) { return { x: (wx - cam.x) * ZOOM + W * 0.32, y: H * 0.62 - (wy - cam.y) * ZOOM }; }
+    function screenToWorld(sx, sy) { return { x: (sx - W * 0.32) / ZOOM + cam.x, y: cam.y + (H * 0.62 - sy) / ZOOM }; }
+
+    // ---------------- Rendering ----------------
+    let tms = 0;
+    function drawBackground() {
+      const g = ctx.createLinearGradient(0, 0, 0, H);
+      g.addColorStop(0, "#4ea3e0"); g.addColorStop(0.55, "#9fd6ff"); g.addColorStop(1, "#dff3ff");
+      ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+      ctx.fillStyle = "rgba(255,241,178,.95)"; ctx.beginPath(); ctx.arc(W - 90, 88, 46, 0, 7); ctx.fill();
+      ctx.fillStyle = "rgba(255,255,255,.85)";
+      for (let i = 0; i < 5; i++) { const cx = ((i * 360 + tms * 12) % (W + 300)) - 150; cloud(cx, 66 + (i % 3) * 44, 0.8 + (i % 2) * 0.4); }
+      parallax("#6fa663", 0.22, H * 0.56, 70, 260);
+      parallax("#8fc06f", 0.4, H * 0.64, 48, 190);
+    }
+    function cloud(x, y, s) { ctx.beginPath(); ctx.arc(x, y, 26 * s, 0, 7); ctx.arc(x + 30 * s, y + 6 * s, 22 * s, 0, 7); ctx.arc(x - 28 * s, y + 8 * s, 20 * s, 0, 7); ctx.arc(x + 4 * s, y + 14 * s, 24 * s, 0, 7); ctx.fill(); }
+    function parallax(color, f, baseY, amp, wl) {
+      ctx.fillStyle = color; ctx.beginPath(); ctx.moveTo(0, H);
+      for (let sx = 0; sx <= W; sx += 18) { const wx = cam.x * f + sx; ctx.lineTo(sx, baseY + Math.sin(wx / wl) * amp + Math.sin(wx / (wl * 0.37)) * amp * 0.3); }
+      ctx.lineTo(W, H); ctx.closePath(); ctx.fill();
+    }
+
+    function drawTerrain() {
+      const left = cam.x - (W * 0.32) / ZOOM - 60, right = cam.x + (W * 0.68) / ZOOM + 60;
+      for (let ci = 0; ci < chunks.length; ci++) {
+        const ch = chunks[ci]; if (ch.x1 < left || ch.x0 > right) continue;
+        const pts = ch.pts; let firstSx = 0, lastSx = 0;
+        ctx.beginPath();
+        for (let i = 0; i < pts.length; i++) { const sp = worldToScreen(pts[i].x, pts[i].y); if (i === 0) { ctx.moveTo(sp.x, sp.y); firstSx = sp.x; } else ctx.lineTo(sp.x, sp.y); lastSx = sp.x; }
+        ctx.lineTo(lastSx, H + 40); ctx.lineTo(firstSx, H + 40); ctx.closePath();
+        const dirt = ctx.createLinearGradient(0, H * 0.4, 0, H); dirt.addColorStop(0, "#7a4a25"); dirt.addColorStop(1, "#5a3318");
+        ctx.fillStyle = dirt; ctx.fill();
+        ctx.lineJoin = "round"; ctx.lineWidth = 8; ctx.strokeStyle = "#3fa34d";
+        ctx.beginPath(); for (let i = 0; i < pts.length; i++) { const sp = worldToScreen(pts[i].x, pts[i].y); if (i === 0) ctx.moveTo(sp.x, sp.y); else ctx.lineTo(sp.x, sp.y); } ctx.stroke();
+        ctx.lineWidth = 3; ctx.strokeStyle = "#6fcf76"; ctx.stroke();
+      }
+    }
+
+    function drawDrawnRoad() {
+      ctx.lineCap = "round"; ctx.lineJoin = "round";
+      for (let s = 0; s < drawnStrokes.length; s++) {
+        const st = drawnStrokes[s]; if (st.length < 1) continue;
+        ctx.beginPath();
+        for (let i = 0; i < st.length; i++) { const sp = worldToScreen(st[i].x, st[i].y); if (i === 0) ctx.moveTo(sp.x, sp.y); else ctx.lineTo(sp.x, sp.y); }
+        ctx.lineWidth = 13 * ZOOM; ctx.strokeStyle = "#3a3027"; ctx.stroke();
+        ctx.lineWidth = 4 * ZOOM; ctx.strokeStyle = "#caa472"; ctx.stroke();   // plank highlight
+      }
+    }
+
+    function drawFinish() {
+      const gs = terrainSurface(finishX); if (!gs) return;
+      const base = worldToScreen(finishX, gs.y), topY = base.y - 120;
+      ctx.strokeStyle = "#444"; ctx.lineWidth = 5; ctx.beginPath(); ctx.moveTo(base.x, base.y); ctx.lineTo(base.x, topY); ctx.stroke();
+      const cols = 4, rows = 3, cw = 14, chh = 12;
+      for (let r = 0; r < rows; r++) for (let cI = 0; cI < cols; cI++) { ctx.fillStyle = ((r + cI) % 2) ? "#111" : "#fff"; ctx.fillRect(base.x + cI * cw, topY + r * chh, cw + 0.5, chh + 0.5); }
+    }
+
+    function drawDust() {
+      for (let i = dust.length - 1; i >= 0; i--) {
+        const d = dust[i]; d.life -= 1; d.x += d.vx; d.y += d.vy; d.vy -= 0.4; d.r *= 1.02;
+        if (d.life <= 0) { dust.splice(i, 1); continue; }
+        const sp = worldToScreen(d.x, d.y);
+        ctx.fillStyle = "rgba(150,110,70," + (d.life / d.max * 0.5) + ")"; ctx.beginPath(); ctx.arc(sp.x, sp.y, d.r * ZOOM, 0, 7); ctx.fill();
+      }
+    }
+
+    function drawSpring(x0, y0, x1, y1, coils, amp) {
+      const dx = x1 - x0, dy = y1 - y0, len = Math.hypot(dx, dy) || 1, ux = dx / len, uy = dy / len, px = -uy, py = ux;
+      ctx.beginPath(); ctx.moveTo(x0, y0);
+      const seg = coils * 2;
+      for (let i = 1; i < seg; i++) { const t = i / seg, off = (i % 2 ? 1 : -1) * amp; ctx.lineTo(x0 + ux * len * t + px * off, y0 + uy * len * t + py * off); }
+      ctx.lineTo(x1, y1); ctx.stroke();
+    }
+
+    function drawTruck() {
+      const c = Math.cos(truck.a), s = Math.sin(truck.a);
+      for (let i = 0; i < WHEELS.length; i++) {
+        const lx = WHEELS[i].x, ly = MOUNT_Y;
+        const Mx = truck.x + (lx * c - ly * s), My = truck.y + (lx * s + ly * c);
+        const wx = Mx + s * susp[i].len, wy = My - c * susp[i].len;
+        const mp = worldToScreen(Mx, My), sp = worldToScreen(wx, wy), rr = R * ZOOM;
+        // suspension coil spring
+        ctx.strokeStyle = "#9aa3ad"; ctx.lineWidth = 3; drawSpring(mp.x, mp.y, sp.x, sp.y, 5, 5);
+        ctx.strokeStyle = "#5a6470"; ctx.lineWidth = 4; ctx.beginPath(); ctx.moveTo(mp.x, mp.y); ctx.lineTo(sp.x, sp.y); ctx.stroke();
+        // tire
+        ctx.fillStyle = "#1c1c1c"; ctx.beginPath(); ctx.arc(sp.x, sp.y, rr, 0, 7); ctx.fill();
+        ctx.strokeStyle = "#000"; ctx.lineWidth = 2;
+        for (let t = 0; t < 8; t++) { const ang = truck.wheelSpin + t * (Math.PI / 4); ctx.beginPath(); ctx.moveTo(sp.x + Math.cos(ang) * rr * 0.62, sp.y + Math.sin(ang) * rr * 0.62); ctx.lineTo(sp.x + Math.cos(ang) * rr, sp.y + Math.sin(ang) * rr); ctx.stroke(); }
+        ctx.fillStyle = "#d9d9d9"; ctx.beginPath(); ctx.arc(sp.x, sp.y, rr * 0.42, 0, 7); ctx.fill();
+        ctx.fillStyle = "#b03030"; ctx.beginPath(); ctx.arc(sp.x, sp.y, rr * 0.18, 0, 7); ctx.fill();
+      }
+      if (customCar && customCar.strokes) { drawCustomBody(); return; }
+      ctx.beginPath();
+      for (let i = 0; i < BODY.length; i++) { const w = L2W(BODY[i][0], BODY[i][1]), sp = worldToScreen(w.x, w.y); if (i === 0) ctx.moveTo(sp.x, sp.y); else ctx.lineTo(sp.x, sp.y); }
+      ctx.closePath(); ctx.fillStyle = "#e63946"; ctx.fill(); ctx.lineWidth = 3; ctx.strokeStyle = "#9d1b27"; ctx.stroke();
+      ctx.beginPath();
+      const wpts = [[-22,30],[14,32],[30,16],[-10,14]];
+      for (let i = 0; i < wpts.length; i++) { const w = L2W(wpts[i][0], wpts[i][1]), sp = worldToScreen(w.x, w.y); if (i === 0) ctx.moveTo(sp.x, sp.y); else ctx.lineTo(sp.x, sp.y); }
+      ctx.closePath(); ctx.fillStyle = "#bfe6ff"; ctx.fill();
+      const hl = L2W(66, -2), hp = worldToScreen(hl.x, hl.y); ctx.fillStyle = "#fff3b0"; ctx.beginPath(); ctx.arc(hp.x, hp.y, 5 * ZOOM, 0, 7); ctx.fill();
+    }
+    function drawCustomBody() {
+      ctx.lineCap = "round"; ctx.lineJoin = "round";
+      for (let s = 0; s < customCar.strokes.length; s++) {
+        const st = customCar.strokes[s]; ctx.strokeStyle = st.color; ctx.lineWidth = Math.max(2, st.width * ZOOM);
+        ctx.beginPath();
+        for (let i = 0; i < st.pts.length; i++) { const w = L2W(st.pts[i].x, st.pts[i].y), sp = worldToScreen(w.x, w.y); if (i === 0) ctx.moveTo(sp.x, sp.y); else ctx.lineTo(sp.x, sp.y); }
+        if (st.pts.length === 1) { const w = L2W(st.pts[0].x, st.pts[0].y), sp = worldToScreen(w.x, w.y); ctx.fillStyle = st.color; ctx.beginPath(); ctx.arc(sp.x, sp.y, ctx.lineWidth / 2, 0, 7); ctx.fill(); } else ctx.stroke();
+      }
+    }
+
+    function render() { drawBackground(); drawTerrain(); drawDrawnRoad(); drawFinish(); drawDust(); drawTruck(); }
+
+    // ---------------- Input: driving ----------------
+    let gasHeld = false, brakeHeld = false;
+    function throttleVal() { return (gasHeld ? 1 : 0) - (brakeHeld ? 1 : 0); }
+    window.addEventListener("keydown", (e) => {
+      if (e.repeat) return;
+      if (e.code === "ArrowRight" || e.code === "KeyD" || e.code === "KeyW" || e.code === "Space") gasHeld = true;
+      if (e.code === "ArrowLeft" || e.code === "KeyA" || e.code === "KeyS") brakeHeld = true;
+      if (e.code === "KeyR") restartLevel();
+    });
+    window.addEventListener("keyup", (e) => {
+      if (e.code === "ArrowRight" || e.code === "KeyD" || e.code === "KeyW" || e.code === "Space") gasHeld = false;
+      if (e.code === "ArrowLeft" || e.code === "KeyA" || e.code === "KeyS") brakeHeld = false;
+    });
+    function bindPedal(id, set) {
+      const el = document.getElementById(id);
+      const down = (e) => { e.preventDefault(); set(true); }, up = (e) => { e.preventDefault(); set(false); };
+      el.addEventListener("pointerdown", down); el.addEventListener("pointerup", up); el.addEventListener("pointerleave", up); el.addEventListener("pointercancel", up);
+    }
+    bindPedal("gas", (v) => gasHeld = v); bindPedal("brake", (v) => brakeHeld = v);
+
+    // ---------------- Input: drawing road ----------------
+    let drawingRoad = false, lastDraw = null, curStroke = null;
+    function evtWorld(e) { const r = canvas.getBoundingClientRect(); return screenToWorld(e.clientX - r.left, e.clientY - r.top); }
+    canvas.addEventListener("pointerdown", (e) => {
+      if (state !== "play" || ink <= 2) return;
+      drawingRoad = true; lastDraw = evtWorld(e); curStroke = [lastDraw]; drawnStrokes.push(curStroke);
+      try { canvas.setPointerCapture(e.pointerId); } catch (x) {}
+      e.preventDefault();
+    });
+    canvas.addEventListener("pointermove", (e) => {
+      if (!drawingRoad || !lastDraw) return;
+      let p = evtWorld(e); const d = Math.hypot(p.x - lastDraw.x, p.y - lastDraw.y);
+      if (d < 8) return;
+      if (ink <= 0) { drawingRoad = false; return; }
+      let use = Math.min(d, ink);
+      if (use < d) { const t = use / d; p = { x: lastDraw.x + (p.x - lastDraw.x) * t, y: lastDraw.y + (p.y - lastDraw.y) * t }; }
+      addDrawnSeg(lastDraw.x, lastDraw.y, p.x, p.y); curStroke.push(p);
+      ink -= use; lastDraw = p; if (ink <= 0) drawingRoad = false;
+      e.preventDefault();
+    });
+    function endDraw() { drawingRoad = false; lastDraw = null; curStroke = null; }
+    canvas.addEventListener("pointerup", endDraw); canvas.addEventListener("pointercancel", endDraw);
+
+    // ---------------- Toast / HUD ----------------
+    const toastEl = document.getElementById("toast"); let toastTimer = 0;
+    function showToast(t) { toastEl.textContent = t; toastEl.classList.add("show"); clearTimeout(toastTimer); toastTimer = setTimeout(() => toastEl.classList.remove("show"), 850); }
+    function updateHUD() {
+      document.getElementById("lvl").textContent = "Level " + level;
+      document.getElementById("flips").textContent = "Flips: " + flipsTotal;
+      const ip = Math.max(0, Math.min(1, ink / INK_MAX));
+      const inkFill = document.getElementById("inkFill"); inkFill.style.width = (ip * 100) + "%"; inkFill.classList.toggle("low", ip < 0.25);
+      const p = Math.max(0, Math.min(1, (truck.x - spawnX) / (finishX - spawnX)));
+      document.getElementById("progFill").style.width = (p * 100) + "%";
+    }
+
+    // ---------------- Flow ----------------
+    function startLevel(n) {
+      level = n; flipsTotal = 0; ink = INK_MAX;
+      activeTopPts = (customCar && customCar.strokes) ? topPtsFromStrokes(customCar.strokes) : TOP_PTS;
+      genLevel(n); clearDrawn(); resetTruck(); state = "play"; updateHUD();
+    }
+    function restartLevel() {
+      if (state === "start") return;
+      document.getElementById("crashScreen").classList.add("hidden");
+      document.getElementById("winScreen").classList.add("hidden");
+      startLevel(level);
+    }
+    document.getElementById("startBtn").addEventListener("click", () => { customCar = null; document.getElementById("startScreen").classList.add("hidden"); startLevel(1); });
+    document.getElementById("retryBtn").addEventListener("click", () => { document.getElementById("crashScreen").classList.add("hidden"); restartLevel(); });
+    document.getElementById("nextBtn").addEventListener("click", () => { document.getElementById("winScreen").classList.add("hidden"); startLevel(level + 1); });
+
+    // ---------------- Garage ----------------
+    const GARAGE = (function () {
+      const cvs = document.getElementById("drawCanvas"), g = cvs.getContext("2d");
+      const CW = 380, CH = 228, LX0 = -115, LX1 = 115, LY1 = 80, SC = CW / (LX1 - LX0);
+      function l2c(lx, ly) { return { x: (lx - LX0) * SC, y: (LY1 - ly) * SC }; }
+      function c2l(cx, cy) { return { x: cx / SC + LX0, y: LY1 - cy / SC }; }
+      const COLORS = ["#e63946", "#f4a261", "#ffd166", "#2a9d8f", "#4895ef", "#9d4edd", "#222", "#fff"];
+      let color = COLORS[0], strokes = [], cur = null, drawing = false;
+      function redraw() {
+        g.clearRect(0, 0, CW, CH);
+        const gl = l2c(0, -50).y; g.fillStyle = "#e7eef6"; g.fillRect(0, gl, CW, CH - gl);
+        g.strokeStyle = "#9fb3c8"; g.lineWidth = 2; g.beginPath(); g.moveTo(0, gl); g.lineTo(CW, gl); g.stroke();
+        [-62, 62].forEach(wx => { const cc = l2c(wx, -22); g.fillStyle = "rgba(40,40,40,.18)"; g.beginPath(); g.arc(cc.x, cc.y, 28 * SC, 0, 7); g.fill(); g.strokeStyle = "rgba(40,40,40,.5)"; g.lineWidth = 2; g.beginPath(); g.arc(cc.x, cc.y, 28 * SC, 0, 7); g.stroke(); });
+        if (strokes.length === 0 && !cur) { g.fillStyle = "#9fb3c8"; g.font = "13px sans-serif"; g.textAlign = "center"; g.fillText("✏️  draw your car body here", CW / 2, l2c(0, 30).y); }
+        g.lineCap = "round"; g.lineJoin = "round";
+        (cur ? strokes.concat([cur]) : strokes).forEach(st => {
+          g.strokeStyle = st.color; g.lineWidth = st.width; g.beginPath();
+          st.pts.forEach((p, i) => { const cc = l2c(p.x, p.y); if (i === 0) g.moveTo(cc.x, cc.y); else g.lineTo(cc.x, cc.y); });
+          if (st.pts.length === 1) { const cc = l2c(st.pts[0].x, st.pts[0].y); g.fillStyle = st.color; g.beginPath(); g.arc(cc.x, cc.y, st.width / 2, 0, 7); g.fill(); } else g.stroke();
+        });
+      }
+      function evL(e) { const r = cvs.getBoundingClientRect(); return c2l((e.clientX - r.left) * (CW / r.width), (e.clientY - r.top) * (CH / r.height)); }
+      cvs.addEventListener("pointerdown", (e) => { e.preventDefault(); drawing = true; cur = { color: color, width: 11, pts: [evL(e)] }; try { cvs.setPointerCapture(e.pointerId); } catch (x) {} redraw(); });
+      cvs.addEventListener("pointermove", (e) => { if (!drawing || !cur) return; const p = evL(e), l = cur.pts[cur.pts.length - 1]; if (Math.hypot(p.x - l.x, p.y - l.y) > 3) { cur.pts.push(p); redraw(); } });
+      function end() { if (drawing && cur) { strokes.push(cur); cur = null; drawing = false; redraw(); } }
+      cvs.addEventListener("pointerup", end); cvs.addEventListener("pointercancel", end); cvs.addEventListener("pointerleave", end);
+      const swEl = document.getElementById("swatches");
+      COLORS.forEach((cc, i) => { const d = document.createElement("div"); d.className = "swatch" + (i === 0 ? " sel" : ""); d.style.background = cc; d.addEventListener("click", () => { color = cc;[...swEl.children].forEach(ch => ch.classList.remove("sel")); d.classList.add("sel"); }); swEl.appendChild(d); });
+      document.getElementById("undoBtn").addEventListener("click", () => { strokes.pop(); redraw(); });
+      document.getElementById("clearBtn").addEventListener("click", () => { strokes = []; cur = null; redraw(); });
+      return {
+        open() { strokes = (customCar && customCar.strokes) ? customCar.strokes.map(s => ({ color: s.color, width: s.width, pts: s.pts.map(p => ({ x: p.x, y: p.y })) })) : []; cur = null; drawing = false; redraw(); },
+        commit() { if (strokes.length === 0) return false; customCar = { strokes: strokes.map(s => ({ color: s.color, width: s.width, pts: s.pts })) }; try { localStorage.setItem("mt_car", JSON.stringify(customCar)); } catch (e) {} return true; }
+      };
+    })();
+    document.getElementById("drawCarBtn").addEventListener("click", () => { document.getElementById("startScreen").classList.add("hidden"); document.getElementById("garageScreen").classList.remove("hidden"); GARAGE.open(); });
+    document.getElementById("garageBackBtn").addEventListener("click", () => { document.getElementById("garageScreen").classList.add("hidden"); document.getElementById("startScreen").classList.remove("hidden"); });
+    document.getElementById("raceCustomBtn").addEventListener("click", () => { if (!GARAGE.commit()) { showToast("Draw something first!"); return; } document.getElementById("garageScreen").classList.add("hidden"); startLevel(1); });
+
+    // ---------------- Loop ----------------
+    let lastT = performance.now();
+    function loop(now) {
+      requestAnimationFrame(loop);
+      let dt = (now - lastT) / 1000; lastT = now; if (dt > 1 / 30) dt = 1 / 30; tms += dt;
+      if (state === "play") {
+        const thr = throttleVal();
+        physics(dt, thr);
+        ink = Math.min(INK_MAX, ink + INK_REGEN * dt);
+        if (onGround && Math.abs(thr) > 0 && Math.abs(truck.vx) > 40 && Math.random() < 0.6) {
+          const lx = WHEELS[0].x, c = Math.cos(truck.a), s = Math.sin(truck.a);
+          const wx = truck.x + lx * c - MOUNT_Y * s + s * susp[0].len;
+          const gs = groundSurface(wx);
+          dust.push({ x: wx, y: gs ? gs.y : truck.y, vx: -truck.vx * 0.002 - 0.6, vy: 1, r: 4, life: 26, max: 26 });
+        }
+        checkEvents(); updateHUD();
+      }
+      cam.x += (truck.x - cam.x) * Math.min(1, dt * 8);
+      cam.y += (truck.y - cam.y) * Math.min(1, dt * 4);
+      render();
+    }
+
+    genLevel(1); clearDrawn(); resetTruck(); cam.x = truck.x; cam.y = truck.y;
+    requestAnimationFrame(loop);
+  })();
+  </script>
+</body>
+</html>
