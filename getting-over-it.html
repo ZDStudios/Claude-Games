@@ -1,0 +1,531 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Over The Mountain — a climbing game</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  html,body { width:100%; height:100%; overflow:hidden; background:#0b1020;
+    font-family: "Segoe UI", Tahoma, system-ui, sans-serif; color:#eef2f8; }
+  #game { display:block; position:absolute; inset:0; cursor:none; }
+
+  .overlay {
+    position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+    background:radial-gradient(circle at 50% 30%, rgba(40,60,100,.55), rgba(6,9,18,.92));
+    backdrop-filter: blur(2px); z-index:10; text-align:center;
+  }
+  .card {
+    max-width:640px; padding:34px 40px; border-radius:18px;
+    background:rgba(16,22,40,.78); border:1px solid rgba(255,255,255,.10);
+    box-shadow:0 20px 60px rgba(0,0,0,.5);
+  }
+  .card h1 { font-size:32px; letter-spacing:.5px; margin-bottom:6px;
+    background:linear-gradient(90deg,#ffd479,#ff9d5c); -webkit-background-clip:text; background-clip:text; color:transparent; }
+  .card .sub { font-size:13px; opacity:.6; margin-bottom:20px; letter-spacing:2px; text-transform:uppercase; }
+  .card p { font-size:15px; line-height:1.6; opacity:.9; margin:10px 0; }
+  .card .keys { font-size:13px; opacity:.7; margin:14px 0 22px; }
+  .card kbd { background:rgba(255,255,255,.12); border:1px solid rgba(255,255,255,.2);
+    border-radius:6px; padding:2px 8px; font-family:inherit; }
+  button {
+    font:inherit; font-size:16px; font-weight:600; color:#1a120a; cursor:pointer;
+    padding:12px 34px; border:none; border-radius:30px;
+    background:linear-gradient(90deg,#ffd479,#ff9d5c);
+    box-shadow:0 8px 24px rgba(255,160,80,.35); transition:transform .12s ease;
+  }
+  button:hover { transform:translateY(-2px); }
+  .hidden { display:none !important; }
+  #win .card h1 { background:linear-gradient(90deg,#9be7ff,#ffffff); -webkit-background-clip:text; background-clip:text; }
+  .stat { font-size:22px; font-weight:600; margin:8px 0 18px; color:#ffd479; }
+  .credit { position:absolute; bottom:10px; width:100%; text-align:center; font-size:11px; opacity:.35; z-index:5; pointer-events:none;}
+</style>
+</head>
+<body>
+<canvas id="game"></canvas>
+
+<div id="start" class="overlay">
+  <div class="card">
+    <h1>OVER THE MOUNTAIN</h1>
+    <div class="sub">a game about climbing</div>
+    <p>You are a man in a pot, armed with one heavy hammer.</p>
+    <p>Move the <b>mouse</b> to swing the hammer. <b>Push</b> off the rocks and <b>hook</b> the hammer over ledges to haul your whole body upward.</p>
+    <p style="opacity:.7">There are no checkpoints. If you slip, you fall — and you lose everything you climbed. That is the point.</p>
+    <div class="keys"><kbd>Mouse</kbd> swing hammer &nbsp;•&nbsp; <kbd>R</kbd> restart from the bottom</div>
+    <button id="startBtn">Begin the climb</button>
+  </div>
+</div>
+
+<div id="win" class="overlay hidden">
+  <div class="card">
+    <h1>THE SUMMIT</h1>
+    <div class="sub">you made it over</div>
+    <p>There is nothing up here but the view, and what you carry with you.</p>
+    <div class="stat" id="winTime">00:00</div>
+    <button id="againBtn">Climb again</button>
+  </div>
+</div>
+
+<div class="credit">An original homage to the genre — all code & art generated from scratch.</div>
+
+<script>
+"use strict";
+/* ============================================================
+   OVER THE MOUNTAIN — a "Getting Over It"-style climbing game
+   Single-file. Physics: Verlet body + rigid mouse-driven hammer.
+   Tunables live right here at the top.
+   ============================================================ */
+const TUNE = {
+  R:      24,    // pot / body collision radius
+  HR:     8,     // hammer head collision radius
+  L:      170,   // hammer reach (arm length)
+  SH:     8,     // shoulder offset above body center
+  G:      0.45,  // gravity per frame
+  AIR:    0.995, // air drag
+  MAXV:   40,    // max speed (anti-explosion)
+  ITER:   10,    // constraint iterations / frame
+  PUSH:   1.6,   // push-off strength when jamming the hammer
+  FRIC:   0.30,  // pot tangential friction (grip) on contact
+};
+
+// ---------- canvas ----------
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+let W = 0, H = 0, dpr = Math.min(window.devicePixelRatio || 1, 2);
+function resize(){
+  W = window.innerWidth; H = window.innerHeight;
+  canvas.width = W * dpr; canvas.height = H * dpr;
+  canvas.style.width = W + 'px'; canvas.style.height = H + 'px';
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+}
+window.addEventListener('resize', resize); resize();
+
+// ---------- world / level ----------
+const ROCK   = { fill:'#6d6357', line:'#322d27', hi:'#8f8475' };
+const ROCK2  = { fill:'#5a5b66', line:'#2a2b33', hi:'#7c7d8c' };
+const STONE  = { fill:'#7d7165', line:'#3a352d', hi:'#a39687' };
+const SNOW   = { fill:'#e8eef5', line:'#9fb0c4', hi:'#ffffff' };
+const obstacles = [];
+function cap(ax, ay, bx, by, r, c){ obstacles.push({t:'cap', ax, ay, bx, by, r, c:c||ROCK}); }
+function circ(x, y, r, c){ obstacles.push({t:'circ', x, y, r, c:c||ROCK}); }
+
+const GOAL_Y = -2520;     // win when body climbs above this
+const START  = { x: 0, y: 30 };
+
+function buildLevel(){
+  obstacles.length = 0;
+  // ground + side walls (the chasm you fall back into)
+  cap(-820, 160,  820, 160, 90, STONE);
+  cap(-780, 160, -780, -2780, 44, ROCK2);
+  cap( 780, 160,  780, -2780, 44, ROCK2);
+
+  // a couple of starter rocks to clamber onto
+  circ(-340, 150, 70, STONE);
+  circ( 360, 150, 80, STONE);
+
+  // ---- the climb: a CONTINUOUS winding ramp of connected rock ----
+  // Waypoints zig-zag up the mountain. We chain thick capsules between them so
+  // the terrain is always present & connected (rounded joints = hand-holds the
+  // hammer catches on), and nestle boulders in the curves for extra grip.
+  const WP = [
+    [   0,  120], [-250,   30], [ 230,  -70], [-260, -190],
+    [ 200, -310], [-220, -430], [ 250, -560], [-150, -690],
+    [  90, -820], [-210, -950], [ 220,-1090], [-240,-1230],
+    [ 150,-1380], [-180,-1530], [ 210,-1690], [-140,-1850],
+    [  80,-2010], [-160,-2180], [  60,-2360], [   0,-2540],
+  ];
+  for (let i = 0; i < WP.length - 1; i++){
+    const a = WP[i], b = WP[i+1];
+    const high = b[1] < -1450;
+    cap(a[0], a[1], b[0], b[1], 34, high ? SNOW : (i % 2 ? ROCK2 : ROCK));
+    // a bump on the inside of each joint to hook the hammer over
+    if (i > 0 && i % 1 === 0)
+      circ(a[0], a[1] - 30, 26, i % 3 ? STONE : ROCK2);
+  }
+
+  // a few jutting lips & overhangs — the genuinely hard parts
+  cap(-150, -540, -300, -560, 22, ROCK2);   // overhang lip low down
+  cap( 280, -1100, 430, -1140, 22, ROCK2);  // overhang lip mid
+  cap(-120, -1700, -300, -1690, 22, SNOW);  // overhang lip high
+  circ( 300, -360, 60, ROCK2);              // boulder by the path
+  circ(-300, -1280, 70, ROCK2);             // boulder by the path
+
+  // summit platform + the only flat rest at the very top
+  cap(-190, -2560, 190, -2560, 38, SNOW);
+}
+buildLevel();
+
+// ---------- entities ----------
+const body = { x:START.x, y:START.y, px:START.x, py:START.y };
+const head = { x:0, y:0, contact:false };
+let prevHead = { x:0, y:0 };
+
+// ---------- input ----------
+const mouse = { sx: 0, sy: 0 };               // screen coords
+const mouseWorld = { x: 0, y: 0 };            // world coords
+window.addEventListener('mousemove', e => { mouse.sx = e.clientX; mouse.sy = e.clientY; });
+window.addEventListener('mousedown', () => { audioInit(); });
+mouse.sx = window.innerWidth / 2; mouse.sy = window.innerHeight / 2;
+
+// ---------- camera ----------
+const cam = { x: START.x, y: START.y };
+const zoom = 0.82;
+const sx = x => (x - cam.x) * zoom + W / 2;
+const sy = y => (y - cam.y) * zoom + H / 2;
+
+// ---------- collision ----------
+// returns {nx,ny,pen} pushing a circle (px,py,rad) out of obstacle o, or null
+function contact(o, px, py, rad){
+  if (o.t === 'cap'){
+    const abx = o.bx - o.ax, aby = o.by - o.ay;
+    const len2 = abx*abx + aby*aby || 1;
+    let t = ((px - o.ax) * abx + (py - o.ay) * aby) / len2;
+    t = t < 0 ? 0 : t > 1 ? 1 : t;
+    const cx = o.ax + abx * t, cy = o.ay + aby * t;
+    const dx = px - cx, dy = py - cy;
+    const dist = Math.hypot(dx, dy), rr = o.r + rad;
+    if (dist < rr){
+      const inv = dist > 1e-4 ? 1 / dist : 0;
+      return { nx: inv ? dx*inv : 0, ny: inv ? dy*inv : -1, pen: rr - dist };
+    }
+  } else { // circle
+    const dx = px - o.x, dy = py - o.y;
+    const dist = Math.hypot(dx, dy), rr = o.r + rad;
+    if (dist < rr){
+      const inv = dist > 1e-4 ? 1 / dist : 0;
+      return { nx: inv ? dx*inv : 0, ny: inv ? dy*inv : -1, pen: rr - dist };
+    }
+  }
+  return null;
+}
+
+// ---------- physics ----------
+function bodyCollision(){
+  for (const o of obstacles){
+    const h = contact(o, body.x, body.y, TUNE.R);
+    if (!h) continue;
+    body.x += h.nx * h.pen;
+    body.y += h.ny * h.pen;
+    // velocity response in Verlet terms
+    let vx = body.x - body.px, vy = body.y - body.py;
+    const vn = vx * h.nx + vy * h.ny;
+    if (vn < 0){ body.px += vn * h.nx; body.py += vn * h.ny; } // kill inward (no bounce)
+    vx = body.x - body.px; vy = body.y - body.py;
+    const vn2 = vx * h.nx + vy * h.ny;
+    const tx = vx - vn2 * h.nx, ty = vy - vn2 * h.ny;        // tangential
+    body.px += tx * TUNE.FRIC; body.py += ty * TUNE.FRIC;   // friction grip
+  }
+}
+
+function hammerSolve(frac){
+  const pivx = body.x, pivy = body.y - TUNE.SH;
+  let dx = mouseWorld.x - pivx, dy = mouseWorld.y - pivy;
+  let dl = Math.hypot(dx, dy); if (dl < 1e-4) dl = 1e-4;
+  const cl = dl > TUNE.L ? TUNE.L : dl;
+  let hx = pivx + dx / dl * cl, hy = pivy + dy / dl * cl;   // free head (clamped to reach)
+
+  let any = false;
+  for (const o of obstacles){
+    const h = contact(o, hx, hy, TUNE.HR);
+    if (!h) continue;
+    hx += h.nx * h.pen; hy += h.ny * h.pen;                 // head out of terrain
+    body.x += h.nx * h.pen * TUNE.PUSH * frac;              // push-off propels body
+    body.y += h.ny * h.pen * TUNE.PUSH * frac;
+    any = true;
+  }
+  // arm can't overstretch -> drag the body up to it (the "hook & haul")
+  const pvx = body.x, pvy = body.y - TUNE.SH;
+  let ex = hx - pvx, ey = hy - pvy;
+  let el = Math.hypot(ex, ey); if (el < 1e-4) el = 1e-4;
+  if (el > TUNE.L){ const d = el - TUNE.L; body.x += ex / el * d; body.y += ey / el * d; }
+
+  head.x = hx; head.y = hy; head.contact = any;
+}
+
+function physics(){
+  // Verlet integrate
+  let vx = (body.x - body.px) * TUNE.AIR;
+  let vy = (body.y - body.py) * TUNE.AIR;
+  const sp = Math.hypot(vx, vy);
+  if (sp > TUNE.MAXV){ const k = TUNE.MAXV / sp; vx *= k; vy *= k; }
+  body.px = body.x; body.py = body.y;
+  body.x += vx; body.y += vy + TUNE.G;
+
+  for (let it = 0; it < TUNE.ITER; it++){
+    bodyCollision();
+    hammerSolve(1 / TUNE.ITER);
+  }
+
+  // final anti-explosion clamp
+  const fvx = body.x - body.px, fvy = body.y - body.py;
+  const fs = Math.hypot(fvx, fvy);
+  if (fs > TUNE.MAXV){ const k = TUNE.MAXV / fs; body.x = body.px + fvx*k; body.y = body.py + fvy*k; }
+
+  // audio: hammer "tonk" on fresh, fast contact
+  const hsp = Math.hypot(head.x - prevHead.x, head.y - prevHead.y);
+  if (head.contact && !head.wasContact && hsp > 4) tonk(Math.min(1, hsp / 30));
+  head.wasContact = head.contact;
+  prevHead.x = head.x; prevHead.y = head.y;
+
+  // stats
+  if (body.y < best) best = body.y;
+  if (state === 'play' && body.y < GOAL_Y) winGame();
+}
+
+// ---------- rendering ----------
+function drawBackground(){
+  const g = ctx.createLinearGradient(0, 0, 0, H);
+  // sky gets bluer/darker the higher you are
+  const alt = clamp((30 - cam.y) / 2600, 0, 1);
+  g.addColorStop(0, mix('#22335a', '#0a1124', alt));
+  g.addColorStop(1, mix('#4a6a96', '#23375c', alt));
+  ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+
+  // stars appear near the top
+  if (alt > 0.4){
+    ctx.fillStyle = `rgba(255,255,255,${(alt-0.4)*0.9})`;
+    for (let i=0;i<60;i++){
+      const sxp = ((i*137.5) % W);
+      const syp = ((i*89.3 + cam.y*0.05) % H + H) % H;
+      ctx.fillRect(sxp, syp, 2, 2);
+    }
+  }
+  // parallax mountain ranges
+  drawRange(0.12, '#1b2640', 180, alt);
+  drawRange(0.22, '#212f4d', 90, alt);
+}
+function drawRange(par, col, amp, alt){
+  ctx.fillStyle = col; ctx.globalAlpha = 0.6;
+  const base = H*0.62 + cam.y * par;
+  ctx.beginPath(); ctx.moveTo(0, H);
+  for (let x=0; x<=W; x+=40){
+    const y = base + Math.sin((x*0.012) + par*9) * amp*0.4 + Math.sin(x*0.05+par)*amp*0.2;
+    ctx.lineTo(x, y);
+  }
+  ctx.lineTo(W, H); ctx.closePath(); ctx.fill();
+  ctx.globalAlpha = 1;
+}
+
+function drawCap(o){
+  const x1 = sx(o.ax), y1 = sy(o.ay), x2 = sx(o.bx), y2 = sy(o.by);
+  const w = o.r * 2 * zoom;
+  ctx.lineCap = 'round';
+  ctx.strokeStyle = o.c.line; ctx.lineWidth = w + 6;
+  ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
+  ctx.strokeStyle = o.c.fill; ctx.lineWidth = w;
+  ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
+  ctx.strokeStyle = o.c.hi; ctx.lineWidth = Math.max(2, w * 0.16);
+  ctx.beginPath(); ctx.moveTo(x1, y1 - w*0.34); ctx.lineTo(x2, y2 - w*0.34); ctx.stroke();
+}
+function drawCirc(o){
+  const cx = sx(o.x), cy = sy(o.y), r = o.r * zoom;
+  ctx.fillStyle = o.c.line; ctx.beginPath(); ctx.arc(cx, cy, r+3, 0, Math.PI*2); ctx.fill();
+  ctx.fillStyle = o.c.fill; ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI*2); ctx.fill();
+  ctx.fillStyle = o.c.hi; ctx.beginPath(); ctx.arc(cx - r*0.25, cy - r*0.3, r*0.55, 0, Math.PI*2); ctx.fill();
+}
+function drawObstacles(){
+  for (const o of obstacles){ if (o.t==='cap') drawCap(o); else drawCirc(o); }
+}
+
+function drawFlag(){
+  const fx = sx(0), fy = sy(-2596);
+  ctx.strokeStyle = '#d9d9d9'; ctx.lineWidth = 4*zoom;
+  ctx.beginPath(); ctx.moveTo(fx, fy); ctx.lineTo(fx, fy - 46*zoom); ctx.stroke();
+  ctx.fillStyle = '#ff5a5f';
+  ctx.beginPath();
+  ctx.moveTo(fx, fy - 46*zoom);
+  ctx.lineTo(fx + 34*zoom, fy - 38*zoom);
+  ctx.lineTo(fx, fy - 30*zoom);
+  ctx.closePath(); ctx.fill();
+}
+
+function drawPlayer(){
+  const bx = sx(body.x), by = sy(body.y);
+  const R = TUNE.R;
+  // pot
+  ctx.fillStyle = '#23232a';
+  ctx.beginPath(); ctx.arc(bx, by, (R+3)*zoom, 0, Math.PI*2); ctx.fill();
+  ctx.fillStyle = '#34343e';
+  ctx.beginPath(); ctx.arc(bx - 4*zoom, by - 2*zoom, (R-4)*zoom, 0, Math.PI*2); ctx.fill();
+  // rim
+  ctx.strokeStyle = '#121217'; ctx.lineWidth = 4*zoom;
+  ctx.beginPath(); ctx.ellipse(bx, by - (R-3)*zoom, (R+1)*zoom, (R*0.45)*zoom, 0, 0, Math.PI*2); ctx.stroke();
+
+  // man
+  const topx = bx, topy = by - (R-3)*zoom;
+  ctx.fillStyle = '#6f8a3f';                                   // shoulders / shirt
+  ctx.beginPath(); ctx.arc(topx, topy - 7*zoom, 12*zoom, 0, Math.PI*2); ctx.fill();
+  ctx.fillStyle = '#e0ac69';                                   // head
+  ctx.beginPath(); ctx.arc(topx, topy - 21*zoom, 9*zoom, 0, Math.PI*2); ctx.fill();
+  ctx.fillStyle = '#caa';                                      // hair
+  ctx.fillStyle = '#7a5c3a';
+  ctx.beginPath(); ctx.arc(topx, topy - 24*zoom, 9*zoom, Math.PI*1.05, Math.PI*1.95); ctx.fill();
+
+  // hammer
+  const hhx = sx(head.x), hhy = sy(head.y);
+  const gx = topx, gy = topy - 6*zoom;
+  ctx.strokeStyle = '#6b4a2b'; ctx.lineWidth = 6*zoom; ctx.lineCap = 'round';   // handle
+  ctx.beginPath(); ctx.moveTo(gx, gy); ctx.lineTo(hhx, hhy); ctx.stroke();
+  ctx.strokeStyle = '#e0ac69'; ctx.lineWidth = 4.5*zoom;                        // arm
+  ctx.beginPath(); ctx.moveTo(gx, gy); ctx.lineTo((gx+hhx)/2, (gy+hhy)/2); ctx.stroke();
+  // head block
+  let dxh = hhx - gx, dyh = hhy - gy; const dlh = Math.hypot(dxh, dyh) || 1; dxh/=dlh; dyh/=dlh;
+  const pxh = -dyh, pyh = dxh;
+  const hl = 19*zoom, hw = 12*zoom;
+  ctx.fillStyle = '#9a9aa4'; ctx.strokeStyle = '#33333a'; ctx.lineWidth = 3*zoom;
+  ctx.beginPath();
+  ctx.moveTo(hhx + dxh*hl + pxh*hw, hhy + dyh*hl + pyh*hw);
+  ctx.lineTo(hhx + dxh*hl - pxh*hw, hhy + dyh*hl - pyh*hw);
+  ctx.lineTo(hhx - dxh*hl - pxh*hw, hhy - dyh*hl - pyh*hw);
+  ctx.lineTo(hhx - dxh*hl + pxh*hw, hhy - dyh*hl + pyh*hw);
+  ctx.closePath(); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = '#e8c84a';                                   // yellow band
+  ctx.beginPath();
+  ctx.moveTo(hhx + dxh*5*zoom + pxh*hw, hhy + dyh*5*zoom + pyh*hw);
+  ctx.lineTo(hhx + dxh*5*zoom - pxh*hw, hhy + dyh*5*zoom - pyh*hw);
+  ctx.lineTo(hhx - dxh*5*zoom - pxh*hw, hhy - dyh*5*zoom - pyh*hw);
+  ctx.lineTo(hhx - dxh*5*zoom + pxh*hw, hhy - dyh*5*zoom + pyh*hw);
+  ctx.closePath(); ctx.fill();
+}
+
+function drawReticle(){
+  const mx = sx(mouseWorld.x), my = sy(mouseWorld.y);
+  ctx.strokeStyle = 'rgba(255,255,255,.35)'; ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.moveTo(mx-8, my); ctx.lineTo(mx+8, my);
+  ctx.moveTo(mx, my-8); ctx.lineTo(mx, my+8);
+  ctx.stroke();
+}
+
+function drawHUD(){
+  // timer
+  ctx.fillStyle = 'rgba(255,255,255,.92)';
+  ctx.font = '600 26px Segoe UI, sans-serif';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+  ctx.fillText(fmtTime(elapsed), W/2, 14);
+
+  // height progress bar (left side)
+  const total = START.y - GOAL_Y;
+  const prog = clamp((START.y - body.y) / total, 0, 1);
+  const bestProg = clamp((START.y - best) / total, 0, 1);
+  const bx = 26, bw = 12, btop = 80, bh = H - 160;
+  ctx.fillStyle = 'rgba(255,255,255,.12)';
+  roundRect(bx, btop, bw, bh, 6); ctx.fill();
+  ctx.fillStyle = 'rgba(255,212,121,.30)';                  // best marker fill
+  const by1 = btop + bh*(1-bestProg);
+  roundRect(bx, by1, bw, btop+bh-by1, 6); ctx.fill();
+  ctx.fillStyle = '#ffd479';                                // current
+  const cy1 = btop + bh*(1-prog);
+  roundRect(bx, cy1, bw, btop+bh-cy1, 6); ctx.fill();
+  ctx.fillStyle = 'rgba(255,255,255,.85)';
+  ctx.font = '600 14px Segoe UI, sans-serif'; ctx.textAlign = 'left';
+  ctx.fillText(Math.round(prog*100) + '%', bx - 4, btop - 22);
+  ctx.fillStyle = 'rgba(255,255,255,.4)'; ctx.font = '11px Segoe UI, sans-serif';
+  ctx.fillText('summit', bx - 4, btop + 14);
+  ctx.fillText('start', bx - 4, btop + bh - 24);
+}
+
+function render(){
+  ctx.clearRect(0, 0, W, H);
+  drawBackground();
+  drawObstacles();
+  drawFlag();
+  drawPlayer();
+  drawReticle();
+  drawHUD();
+}
+
+// ---------- helpers ----------
+function clamp(v, a, b){ return v < a ? a : v > b ? b : v; }
+function roundRect(x, y, w, h, r){
+  r = Math.min(r, w/2, h/2);
+  ctx.beginPath();
+  ctx.moveTo(x+r, y); ctx.arcTo(x+w, y, x+w, y+h, r); ctx.arcTo(x+w, y+h, x, y+h, r);
+  ctx.arcTo(x, y+h, x, y, r); ctx.arcTo(x, y, x+w, y, r); ctx.closePath();
+}
+function fmtTime(ms){
+  const s = Math.floor(ms/1000), m = Math.floor(s/60);
+  return String(m).padStart(2,'0') + ':' + String(s%60).padStart(2,'0');
+}
+function hex(c){ return [parseInt(c.slice(1,3),16), parseInt(c.slice(3,5),16), parseInt(c.slice(5,7),16)]; }
+function mix(a, b, t){
+  const A = hex(a), B = hex(b);
+  const r = Math.round(A[0]+(B[0]-A[0])*t), g = Math.round(A[1]+(B[1]-A[1])*t), bl = Math.round(A[2]+(B[2]-A[2])*t);
+  return `rgb(${r},${g},${bl})`;
+}
+
+// ---------- audio (original, generated) ----------
+let actx = null;
+function audioInit(){
+  if (actx) return;
+  try { actx = new (window.AudioContext || window.webkitAudioContext)(); } catch(e){}
+}
+function tonk(vol){
+  if (!actx) return;
+  const t = actx.currentTime;
+  const o = actx.createOscillator(), g = actx.createGain();
+  o.type = 'triangle';
+  o.frequency.setValueAtTime(150 + vol*120, t);
+  o.frequency.exponentialRampToValueAtTime(60, t + 0.12);
+  g.gain.setValueAtTime(Math.min(0.25, 0.06 + vol*0.2), t);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + 0.14);
+  o.connect(g); g.connect(actx.destination);
+  o.start(t); o.stop(t + 0.15);
+}
+
+// ---------- game state ----------
+let state = 'start';            // 'start' | 'play' | 'win'
+let best = START.y;
+let startTime = 0, elapsed = 0;
+
+function resetGame(){
+  body.x = body.px = START.x; body.y = body.py = START.y;
+  best = START.y;
+  cam.x = START.x; cam.y = START.y;
+  startTime = performance.now(); elapsed = 0;
+}
+function beginGame(){
+  audioInit();
+  document.getElementById('start').classList.add('hidden');
+  document.getElementById('win').classList.add('hidden');
+  resetGame();
+  state = 'play';
+}
+function winGame(){
+  state = 'win';
+  document.getElementById('winTime').textContent = fmtTime(elapsed);
+  document.getElementById('win').classList.remove('hidden');
+}
+
+document.getElementById('startBtn').addEventListener('click', beginGame);
+document.getElementById('againBtn').addEventListener('click', beginGame);
+window.addEventListener('keydown', e => {
+  if (e.key === 'r' || e.key === 'R'){ if (state === 'play') resetGame(); }
+});
+
+// ---------- main loop ----------
+function frame(now){
+  // mouse -> world using last frame's camera
+  mouseWorld.x = cam.x + (mouse.sx - W/2) / zoom;
+  mouseWorld.y = cam.y + (mouse.sy - H/2) / zoom;
+
+  if (state === 'play'){
+    elapsed = now - startTime;
+    physics();
+  } else {
+    // still resolve hammer so the character poses nicely on menus
+    hammerSolve(0);
+  }
+
+  // camera follows body
+  cam.x += (body.x - cam.x) * 0.12;
+  cam.y += (body.y - cam.y) * 0.12;
+
+  render();
+  requestAnimationFrame(frame);
+}
+// prime head position so the first draw is sane
+hammerSolve(0);
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>
