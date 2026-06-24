@@ -1,0 +1,1049 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sprout Hollow — A Slime Orchard</title>
+<style>
+  :root{
+    --bg1:#f6edd4; --bg2:#d7ead9; --bg3:#cfe0ef;
+    --panel:#fffdf4; --panel2:#fbf4e2;
+    --ink:#5a4636; --ink-soft:#8a7560;
+    --line:#e7d8b6;
+    --accent:#6fae5a; --accent-d:#4f8a3e;
+    --warm:#e0915a; --warm-d:#c4733c;
+    --gold:#e9b949;
+    --rad:14px;
+    --shadow:0 4px 0 rgba(120,95,60,.10), 0 8px 22px rgba(120,95,60,.14);
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%}
+  body{
+    font-family:"Trebuchet MS","Segoe UI",system-ui,sans-serif;
+    color:var(--ink);
+    background:linear-gradient(160deg,var(--bg1),var(--bg2) 55%,var(--bg3));
+    background-attachment:fixed;
+    min-height:100%;
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:920px;margin:0 auto;padding:14px 16px 60px}
+
+  /* Topbar */
+  header.top{
+    display:flex;align-items:center;gap:14px;flex-wrap:wrap;
+    background:linear-gradient(160deg,#fffef8,#fbf2da);
+    border:2px solid var(--line);border-radius:var(--rad);
+    padding:12px 16px;box-shadow:var(--shadow);
+  }
+  .brand{display:flex;align-items:center;gap:10px}
+  .brand .logo{font-size:30px;line-height:1;filter:drop-shadow(0 2px 0 rgba(120,95,60,.15))}
+  .brand h1{font-size:20px;margin:0;letter-spacing:.3px}
+  .brand small{display:block;color:var(--ink-soft);font-size:11px;font-weight:bold;letter-spacing:.4px}
+  .res{display:flex;gap:8px;margin-left:auto;flex-wrap:wrap}
+  .pill{
+    display:flex;align-items:center;gap:6px;background:var(--panel2);
+    border:2px solid var(--line);border-radius:999px;padding:5px 11px;
+    font-weight:bold;font-size:14px;
+  }
+  .pill .ic{font-size:16px}
+  .pill b{font-variant-numeric:tabular-nums}
+
+  /* Nav */
+  nav.tabs{display:flex;gap:8px;flex-wrap:wrap;margin:14px 0}
+  .tab{
+    border:2px solid var(--line);background:var(--panel);
+    color:var(--ink);font-weight:bold;font-size:14px;font-family:inherit;
+    padding:9px 16px;border-radius:999px;cursor:pointer;
+    box-shadow:0 3px 0 rgba(120,95,60,.08);transition:transform .08s,background .15s;
+  }
+  .tab:hover{transform:translateY(-1px)}
+  .tab.active{background:var(--accent);border-color:var(--accent-d);color:#fff}
+  .tab .badge{display:inline-block;background:var(--warm);color:#fff;border-radius:999px;
+    font-size:11px;padding:0 6px;margin-left:4px;vertical-align:middle}
+
+  /* Panels */
+  .panel{
+    background:var(--panel);border:2px solid var(--line);border-radius:var(--rad);
+    padding:16px;box-shadow:var(--shadow);margin-bottom:16px;
+  }
+  .panel h2{margin:0 0 4px;font-size:17px;display:flex;align-items:center;gap:8px}
+  .panel .hint{color:var(--ink-soft);font-size:13px;margin:0 0 14px}
+  .section-tag{font-size:12px;font-weight:bold;letter-spacing:.5px;color:var(--ink-soft);
+    text-transform:uppercase;margin:16px 0 8px}
+
+  /* Plot grid */
+  .plots{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+  @media(max-width:560px){.plots{grid-template-columns:repeat(2,1fr)}}
+  .plot{
+    position:relative;aspect-ratio:1/1;border-radius:12px;cursor:pointer;
+    background:repeating-linear-gradient(45deg,#e7d3a8,#e7d3a8 8px,#e0caa0 8px,#e0caa0 16px);
+    border:3px dashed #c9ad7d;display:flex;flex-direction:column;align-items:center;
+    justify-content:center;gap:4px;color:var(--ink-soft);font-weight:bold;
+    transition:transform .08s;overflow:hidden;
+  }
+  .plot:hover{transform:translateY(-2px)}
+  .plot.filled{border-style:solid;border-color:#bda06f;
+    background:radial-gradient(circle at 50% 120%,#cdebc0,#eef6df 70%)}
+  .plot.ready{border-color:var(--accent-d);box-shadow:0 0 0 3px rgba(111,174,90,.25) inset,0 0 16px rgba(111,174,90,.35);
+    animation:readyGlow 1.8s ease-in-out infinite}
+  @keyframes readyGlow{50%{box-shadow:0 0 0 3px rgba(111,174,90,.45) inset,0 0 22px rgba(111,174,90,.5)}}
+  .plot .plant-cta{font-size:30px;opacity:.55}
+  .plot .stage{font-size:12px}
+  .plot .pbar{position:absolute;left:8px;right:8px;bottom:8px;height:7px;border-radius:999px;
+    background:rgba(120,95,60,.18);overflow:hidden}
+  .plot .pbar i{display:block;height:100%;background:linear-gradient(90deg,var(--accent),#a6d77f);border-radius:999px;transition:width .4s}
+  .plot .ready-tag{position:absolute;top:6px;background:var(--accent);color:#fff;font-size:11px;
+    padding:2px 8px;border-radius:999px}
+  .soil{font-size:26px}
+
+  /* Sprites */
+  .sprite{image-rendering:pixelated;image-rendering:crisp-edges;
+    animation:bob 2.6s ease-in-out infinite;transform-origin:bottom center}
+  @keyframes bob{0%,100%{transform:translateY(0) scaleY(1)}50%{transform:translateY(-2px) scaleY(1.02)}}
+  .sprite.glow{filter:drop-shadow(0 0 3px rgba(255,250,210,.9))}
+  .sprite.shiny{filter:drop-shadow(0 0 3px var(--gold));animation:bob 2.6s ease-in-out infinite, twinkle 1.6s linear infinite}
+  @keyframes twinkle{50%{filter:drop-shadow(0 0 6px #fff)}}
+
+  /* Slime cards */
+  .roster{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:12px}
+  .scard{
+    background:var(--panel2);border:2px solid var(--line);border-radius:12px;padding:10px 8px;
+    text-align:center;position:relative;transition:transform .08s,border-color .15s;
+  }
+  .scard.click{cursor:pointer}
+  .scard.click:hover{transform:translateY(-2px)}
+  .scard.sel{border-color:var(--accent);background:#eef7e6;box-shadow:0 0 0 2px var(--accent) inset}
+  .scard.busy{opacity:.72}
+  .scard .nm{font-weight:bold;font-size:13px;margin-top:4px}
+  .scard .el{font-size:11px;color:var(--ink-soft)}
+  .rar{display:inline-block;font-size:10px;font-weight:bold;padding:1px 7px;border-radius:999px;margin-top:4px;color:#fff}
+  .rar.Common{background:#9aa18f} .rar.Uncommon{background:#5fa7c4}
+  .rar.Rare{background:#9a5fb8} .rar.Epic{background:linear-gradient(90deg,#e9b949,#e0915a)}
+  .stat-badge{position:absolute;top:6px;right:6px;font-size:10px;font-weight:bold;
+    padding:1px 6px;border-radius:999px;background:#fff;border:1px solid var(--line);color:var(--ink-soft)}
+  .stat-badge.away{background:var(--warm);color:#fff;border-color:var(--warm-d)}
+  .stat-badge.rest{background:#cdb8e0;color:#4a2f5a;border-color:#b99fd0}
+  .mini-actions{display:flex;gap:6px;justify-content:center;margin-top:8px}
+
+  /* Buttons */
+  button.btn{font-family:inherit;font-weight:bold;font-size:13px;cursor:pointer;
+    border-radius:10px;padding:7px 13px;border:2px solid var(--accent-d);
+    background:var(--accent);color:#fff;box-shadow:0 3px 0 var(--accent-d);transition:transform .06s}
+  button.btn:active{transform:translateY(2px);box-shadow:0 1px 0 var(--accent-d)}
+  button.btn.alt{background:var(--warm);border-color:var(--warm-d);box-shadow:0 3px 0 var(--warm-d)}
+  button.btn.ghost{background:#fff;color:var(--ink);border-color:var(--line);box-shadow:0 3px 0 rgba(120,95,60,.12)}
+  button.btn.sm{padding:4px 10px;font-size:12px;box-shadow:0 2px 0 var(--accent-d)}
+  button.btn.alt.sm{box-shadow:0 2px 0 var(--warm-d)}
+  button.btn.ghost.sm{box-shadow:0 2px 0 rgba(120,95,60,.12)}
+  button.btn:disabled{filter:grayscale(.6) opacity(.6);cursor:not-allowed;box-shadow:none;transform:none}
+
+  /* Biomes */
+  .biomes{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:12px}
+  .biome{background:var(--panel2);border:2px solid var(--line);border-radius:12px;padding:12px}
+  .biome h3{margin:0 0 2px;font-size:15px;display:flex;align-items:center;gap:7px}
+  .biome .aff{font-size:11px;color:var(--ink-soft);margin:0 0 10px}
+  .dur-row{display:flex;flex-direction:column;gap:6px}
+  .dur{display:flex;align-items:center;justify-content:space-between;gap:8px;
+    background:#fff;border:2px solid var(--line);border-radius:9px;padding:6px 8px}
+  .dur .dmeta{font-size:11px;color:var(--ink-soft)}
+  .dur .dname{font-weight:bold;font-size:13px}
+
+  /* Dex */
+  .dex{display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:12px}
+  .dexcell{background:var(--panel2);border:2px solid var(--line);border-radius:12px;padding:12px 6px;text-align:center}
+  .dexcell.unk{opacity:.6;background:repeating-linear-gradient(45deg,#f0e8d2,#f0e8d2 6px,#ece2c8 6px,#ece2c8 12px)}
+  .dexcell .q{font-size:34px;opacity:.4}
+  .dexcell .seen{font-size:11px;color:var(--ink-soft);margin-top:2px}
+
+  /* Decor */
+  .decorgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px}
+  .dcard{background:var(--panel2);border:2px solid var(--line);border-radius:12px;padding:12px;display:flex;gap:10px;align-items:flex-start}
+  .dcard.locked{opacity:.55;filter:grayscale(.4)}
+  .dcard .dic{font-size:30px;line-height:1}
+  .dcard .dnm{font-weight:bold;font-size:13px}
+  .dcard .dbz{font-size:11px;color:var(--ink-soft);margin-top:3px}
+  .dcard .cnt{font-size:11px;font-weight:bold;color:var(--accent-d)}
+  .ambiance{display:flex;gap:6px;flex-wrap:wrap;font-size:22px;margin-top:6px;min-height:30px}
+  .bonus-strip{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+  .bchip{background:#eef7e6;border:1.5px solid #cfe6bf;border-radius:999px;padding:3px 10px;font-size:12px;font-weight:bold;color:var(--accent-d)}
+
+  /* Modal */
+  .overlay{position:fixed;inset:0;background:rgba(70,55,40,.45);display:none;align-items:center;
+    justify-content:center;padding:18px;z-index:50;backdrop-filter:blur(2px)}
+  .overlay.show{display:flex}
+  .modal{background:var(--panel);border:2px solid var(--line);border-radius:var(--rad);
+    max-width:520px;width:100%;max-height:86vh;overflow:auto;box-shadow:0 18px 50px rgba(70,55,40,.4);padding:18px}
+  .modal h2{margin:0 0 6px}
+  .modal .x{float:right;cursor:pointer;font-size:20px;color:var(--ink-soft);border:none;background:none}
+  .seedlist{display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:10px;margin-top:8px}
+  .wb-line{display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px dashed var(--line)}
+  .wb-line .ic{font-size:22px}
+
+  /* Toast */
+  .toasts{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);display:flex;
+    flex-direction:column;gap:8px;z-index:60;align-items:center;pointer-events:none}
+  .toast{background:#fff;border:2px solid var(--line);border-radius:999px;padding:9px 18px;
+    font-weight:bold;font-size:13px;box-shadow:var(--shadow);animation:toastIn .3s ease, toastOut .4s ease 3.4s forwards}
+  @keyframes toastIn{from{opacity:0;transform:translateY(12px)}to{opacity:1}}
+  @keyframes toastOut{to{opacity:0;transform:translateY(-8px)}}
+
+  .empty-note{color:var(--ink-soft);font-size:13px;font-style:italic;padding:14px;text-align:center}
+  footer.foot{text-align:center;color:var(--ink-soft);font-size:12px;margin-top:8px}
+  footer.foot a{color:var(--ink-soft);cursor:pointer;text-decoration:underline}
+  .savetag{font-size:11px;color:var(--accent-d);font-weight:bold}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div class="brand">
+      <span class="logo">🌱</span>
+      <div><h1>Sprout Hollow</h1><small>A COZY SLIME ORCHARD</small></div>
+    </div>
+    <div class="res" id="res"></div>
+  </header>
+
+  <nav class="tabs" id="tabs"></nav>
+  <main id="view"></main>
+
+  <footer class="foot">
+    <span class="savetag" id="savetag">saved ✓</span> &nbsp;·&nbsp;
+    Sprout Hollow grows even while you're away. &nbsp;·&nbsp;
+    <a id="resetBtn">reset garden</a>
+  </footer>
+</div>
+
+<div class="overlay" id="overlay"><div class="modal" id="modal"></div></div>
+<div class="toasts" id="toasts"></div>
+
+<script>
+"use strict";
+/* ============================================================ *
+ *  Sprout Hollow — a cozy single-file idle slime orchard
+ * ============================================================ */
+
+/* ---------- tiny helpers ---------- */
+const $ = sel => document.querySelector(sel);
+function h(tag, attrs, ...kids){
+  const e=document.createElement(tag);
+  if(attrs) for(const k in attrs){
+    const v=attrs[k];
+    if(v==null||v===false) continue;
+    if(k==='class') e.className=v;
+    else if(k==='html') e.innerHTML=v;
+    else if(k==='style') e.style.cssText=v;
+    else if(k.slice(0,2)==='on'&&typeof v==='function') e.addEventListener(k.slice(2),v);
+    else e.setAttribute(k,v);
+  }
+  for(const kid of kids.flat()){
+    if(kid==null||kid===false) continue;
+    e.append(kid.nodeType?kid:document.createTextNode(kid));
+  }
+  return e;
+}
+const mount=(el,...n)=>el.replaceChildren(...n.flat().filter(Boolean));
+const now=()=>Date.now();
+const rand=()=>Math.random();
+const pick=a=>a[(Math.random()*a.length)|0];
+const randInt=(a,b)=>a+((Math.random()*(b-a+1))|0);
+const clamp=(v,a,b)=>v<a?a:v>b?b:v;
+function fmtTime(sec){
+  sec=Math.max(0,Math.round(sec));
+  if(sec<60) return sec+'s';
+  const m=Math.floor(sec/60), s=sec%60;
+  if(m<60) return s?m+'m '+s+'s':m+'m';
+  const hr=Math.floor(m/60); return hr+'h '+(m%60)+'m';
+}
+
+/* ---------- colour helpers ---------- */
+function hx(c){c=c.replace('#','');return [parseInt(c.slice(0,2),16),parseInt(c.slice(2,4),16),parseInt(c.slice(4,6),16)];}
+function rgb(a){return '#'+a.map(v=>clamp(Math.round(v),0,255).toString(16).padStart(2,'0')).join('');}
+function mix(a,b,t){const x=hx(a),y=hx(b);return rgb([x[0]+(y[0]-x[0])*t,x[1]+(y[1]-x[1])*t,x[2]+(y[2]-x[2])*t]);}
+const darken=(c,t)=>mix(c,'#000000',t);
+const lighten=(c,t)=>mix(c,'#ffffff',t);
+
+/* deterministic rng from string (for stable sprite speckles) */
+function hashStr(s){let hsh=2166136261;for(let i=0;i<s.length;i++){hsh^=s.charCodeAt(i);hsh=Math.imul(hsh,16777619);}return hsh>>>0;}
+function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
+
+/* ============================================================ *
+ *  GAME DATA
+ * ============================================================ */
+const ELEMENTS = {
+  Leaf : {emoji:'🌿', rare:false, pal:{o:'#2f6b2f',b:'#5ea84e',l:'#9bd97f'}},
+  Ember: {emoji:'🔥', rare:false, pal:{o:'#8a2d1e',b:'#e0673a',l:'#f6a45c'}},
+  Tide : {emoji:'🌊', rare:false, pal:{o:'#1f5a78',b:'#3f9fc4',l:'#86d6ec'}},
+  Stone: {emoji:'🪨', rare:false, pal:{o:'#5a5046',b:'#9a8c78',l:'#cabda6'}},
+  Spore: {emoji:'🍄', rare:false, pal:{o:'#5a2f6b',b:'#9a5fb8',l:'#c79be0'}},
+  Lumen: {emoji:'✨', rare:true,  pal:{o:'#b58a1f',b:'#ffe066',l:'#fff6c0'}},
+  Frost: {emoji:'❄️', rare:true,  pal:{o:'#4a82a8',b:'#bfeaff',l:'#ecffff'}},
+  Mire : {emoji:'🌑', rare:true,  pal:{o:'#2c3120',b:'#6b6a3f',l:'#9a9a5e'}},
+};
+const BASE_ELEMS = ['Leaf','Ember','Tide','Stone','Spore'];
+const RARE_ELEMS = ['Lumen','Frost','Mire'];
+
+const PATTERNS = ['plain','spots','stripes','glow'];
+const EYES = ['dot','wide','sleepy','sparkle'];
+const SIZES = ['small','normal','big'];
+
+const NAMES = ['Pip','Mossy','Bramble','Pebble','Tato','Sprout','Juni','Cinder','Marsh','Fern',
+  'Bumble','Dewey','Twig','Coco','Pesto','Yuzu','Kelp','Basil','Maple','Pippin','Nori','Sage',
+  'Tansy','Clover','Pumpkin','Sorrel','Berry','Hazel','Willow','Cricket','Mango','Olive','Pansy',
+  'Acorn','Biscuit','Comet','Glimmer','Tofu','Dot','Bean','Poppy','Nim'];
+
+const DECOR = {
+  lantern:    {name:'Garden Lantern', ic:'🏮', bonus:{growthMult:0.95}, blurb:'Warm light coaxes sprouts up. Growth −5%.'},
+  mushrooms:  {name:'Mushroom Ring',  ic:'🍄', bonus:{rareAdd:0.03},   blurb:'Fairy magic in the soil. Rare odds +3%.'},
+  pebbles:    {name:'Pebble Path',    ic:'🪨', bonus:{expMult:0.95},   blurb:'Tidy trails. Expeditions −5% time.'},
+  chime:      {name:'Wind Chime',     ic:'🎐', bonus:{yieldAdd:1},     blurb:'Soothing tones draw friends. +1 seed per trip.'},
+  flowerbed:  {name:'Flower Bed',     ic:'🌷', bonus:{growthMult:0.92},blurb:'Happy roots. Growth −8%.'},
+  birdbath:   {name:'Bird Bath',      ic:'🐦', bonus:{expMult:0.90},   blurb:'Cheerful chirps. Expeditions −10% time.'},
+  bench:      {name:'Cozy Bench',     ic:'🪑', bonus:{growthMult:0.95},blurb:'A place to rest. Growth −5%.'},
+  crystals:   {name:'Crystal Cluster',ic:'💎', rare:true, bonus:{rareAdd:0.05}, blurb:'Humming geodes. Rare odds +5%.'},
+  starlantern:{name:'Star Lantern',   ic:'🌟', rare:true, bonus:{rareAdd:0.04,growthMult:0.97}, blurb:'Caught starlight. Rare +4%, growth −3%.'},
+  fountain:   {name:'Koi Fountain',   ic:'⛲', rare:true, bonus:{expMult:0.90,yieldAdd:1}, blurb:'Lucky waters. Expeditions −10%, +1 seed.'},
+};
+const DECOR_NORMAL = Object.keys(DECOR).filter(k=>!DECOR[k].rare);
+const DECOR_RARE   = Object.keys(DECOR).filter(k=> DECOR[k].rare);
+
+const DURATIONS = [
+  {key:'quick',    label:'Quick Stroll', sec:45,  seeds:[1,2],  decorChance:0.22, rareChance:0.02},
+  {key:'standard', label:'Day Trip',     sec:180, seeds:[3,5],  decorChance:0.55, rareChance:0.10},
+  {key:'long',     label:'Grand Journey',sec:600, seeds:[7,11], decorChance:1.00, rareChance:0.28, extraDecor:1},
+];
+const BIOMES = {
+  meadow:  {name:'Sunny Meadow', ic:'🌼', element:'Leaf'},
+  hollow:  {name:'Cinder Hollow',ic:'🌋', element:'Ember'},
+  tidepool:{name:'Tide Pools',   ic:'🏝️', element:'Tide'},
+};
+
+const BAL = {
+  growthBase:60, sproutAt:0.40, bloomAt:0.82,
+  breedRest:25, expRest:15,
+  plots:6, rosterCap:24,
+  rareElemChance:0.05, shinyChance:0.03, mutChance:0.12,
+};
+
+/* ============================================================ *
+ *  GENETICS
+ * ============================================================ */
+function weightedPattern(boost){
+  const r=rand();
+  const glow=0.07+boost*1.2;
+  if(r<glow) return 'glow';
+  if(r<glow+0.18) return 'stripes';
+  if(r<glow+0.42) return 'spots';
+  return 'plain';
+}
+function weightedEyes(boost){
+  const r=rand();
+  const sp=0.07+boost*1.2;
+  if(r<sp) return 'sparkle';
+  if(r<sp+0.18) return 'sleepy';
+  if(r<sp+0.48) return 'wide';
+  return 'dot';
+}
+function makeGenome(element, rareBoost=0, shinyBoost=0){
+  return {
+    element,
+    pattern: weightedPattern(rareBoost),
+    eyes: weightedEyes(rareBoost),
+    size: pick(SIZES),
+    shiny: rand() < BAL.shinyChance + shinyBoost,
+  };
+}
+function randomGenome(opts={}){
+  const pool = opts.elementPool || BASE_ELEMS;
+  const rareBoost = opts.rareBoost||0, shinyBoost=opts.shinyBoost||0;
+  let element = pick(pool);
+  if(rand() < BAL.rareElemChance + rareBoost) element = pick(RARE_ELEMS);
+  return makeGenome(element, rareBoost, shinyBoost);
+}
+function breedGenome(a,b,bonus){
+  const mut = BAL.mutChance + (bonus?bonus.rareAdd:0);
+  const inherit=(gene,rnd)=> rand()<mut ? rnd() : (rand()<0.5? a[gene]:b[gene]);
+  let element = rand()<0.5? a.element : b.element;
+  if(rand() < BAL.rareElemChance + (bonus?bonus.rareAdd:0)) element = pick(RARE_ELEMS);
+  else if(rand()<mut) element = pick(BASE_ELEMS);
+  return {
+    element,
+    pattern: inherit('pattern', ()=>weightedPattern(bonus?bonus.rareAdd:0)),
+    eyes:    inherit('eyes',    ()=>weightedEyes(bonus?bonus.rareAdd:0)),
+    size:    inherit('size',    ()=>pick(SIZES)),
+    shiny:   rand() < BAL.shinyChance + (bonus?bonus.rareAdd:0) ? true
+             : ((a.shiny||b.shiny) ? rand()<0.4 : false),
+  };
+}
+function rarityOf(g){
+  let s=0;
+  if(ELEMENTS[g.element].rare) s+=2;
+  if(g.pattern==='glow') s+=1;
+  if(g.eyes==='sparkle') s+=1;
+  if(g.shiny) s+=3;
+  let tier = s>=5?'Epic' : s>=3?'Rare' : s>=1?'Uncommon' : 'Common';
+  return {score:s, tier};
+}
+function genomeKey(g){return g.element+'|'+g.pattern+'|'+g.eyes+'|'+g.size+'|'+(g.shiny?1:0);}
+function nameFor(id){return NAMES[hashStr('n'+id)%NAMES.length];}
+
+/* ============================================================ *
+ *  SPRITE RENDERING (procedural pixel art)
+ * ============================================================ */
+const spriteCache = new Map();
+function drawGenome(canvas, g, px){
+  const W=16,H=14;
+  canvas.width=W*px; canvas.height=H*px;
+  const ctx=canvas.getContext('2d');
+  ctx.imageSmoothingEnabled=false;
+  const rnd=mulberry32(hashStr(genomeKey(g)));
+
+  let pal=ELEMENTS[g.element].pal;
+  let O=pal.o, B=pal.b, L=pal.l;
+  if(g.shiny){ B=lighten(B,0.18); L=lighten(L,0.25); }
+  const SH=mix(B,O,0.45);            // shade for patterns
+
+  let rx=6.3, ry=5.0;
+  if(g.size==='small'){rx-=1.1;ry-=0.8;}
+  if(g.size==='big'){rx+=0.9;ry+=1.0;}
+  const cx=7.5, cy=8.3-(g.size==='big'?0.4:0);
+
+  // build body mask
+  const mask=[];
+  for(let y=0;y<H;y++){mask[y]=[];for(let x=0;x<W;x++){
+    const nx=(x+0.5-cx)/rx, ny=(y+0.5-cy)/ry;
+    mask[y][x] = (nx*nx+ny*ny)<=1.0 && y<=12;
+  }}
+  const inside=(x,y)=> y>=0&&y<H&&x>=0&&x<W&&mask[y][x];
+  const P=(x,y,c)=>{ctx.fillStyle=c;ctx.fillRect(x*px,y*px,px,px);};
+
+  // body fill + edge outline + top highlight
+  for(let y=0;y<H;y++)for(let x=0;x<W;x++){
+    if(!mask[y][x]) continue;
+    const edge=!inside(x-1,y)||!inside(x+1,y)||!inside(x,y-1)||!inside(x,y+1);
+    if(edge){ P(x,y,O); continue; }
+    let c=B;
+    if(y<cy-1 && x<cx) c=L;             // upper-left highlight
+    P(x,y,c);
+  }
+
+  // patterns
+  if(g.pattern==='spots'){
+    let placed=0,tries=0;
+    while(placed<4 && tries<40){tries++;
+      const x=2+((rnd()*12)|0), y=4+((rnd()*7)|0);
+      if(inside(x,y)&&inside(x+1,y)&&inside(x,y+1)){ P(x,y,SH);P(x+1,y,SH);P(x,y+1,SH); placed++; }
+    }
+  } else if(g.pattern==='stripes'){
+    for(let x=0;x<W;x++){ if((x+1)%3!==0) continue;
+      for(let y=0;y<H;y++){ if(inside(x,y)&&inside(x,y-1)&&inside(x,y+1)) P(x,y,SH); } }
+  } else if(g.pattern==='glow'){
+    for(let y=0;y<H;y++)for(let x=0;x<W;x++){
+      if(inside(x,y) && (!inside(x-2,y)||!inside(x+2,y)||!inside(x,y-2))){
+        if(inside(x-1,y)&&inside(x+1,y)&&inside(x,y+1)) P(x,y,lighten(L,0.25));
+      }
+    }
+  }
+
+  // eyes
+  const ey=Math.round(cy-1);
+  const lx=Math.round(cx-2.2), rxe=Math.round(cx+1.2);
+  const eye=(x)=>{
+    if(g.eyes==='dot'){ P(x,ey,O); }
+    else if(g.eyes==='wide'){ P(x,ey-1,O);P(x,ey,O); P(x,ey-1,'#ffffff'); }
+    else if(g.eyes==='sleepy'){ P(x,ey,O);P(x+1,ey,O); }
+    else if(g.eyes==='sparkle'){ P(x,ey,O);P(x,ey-1,O);P(x,ey+1,O); P(x-1,ey,O);P(x+1,ey,O); P(x,ey,'#ffffff'); }
+  };
+  eye(lx); eye(rxe);
+  // little smile
+  const my=Math.round(cy+2);
+  if(inside(cx-1|0,my)){P((cx-1)|0,my,O);P(cx|0,my,O);P((cx+1)|0,my,O); P((cx-2)|0,my-1,O);P((cx+2)|0,my-1,O);}
+
+  // cheeks for cozy charm
+  P((cx-3)|0,ey+1, mix(B,'#ff9aa0',0.4));
+  P((cx+3)|0,ey+1, mix(B,'#ff9aa0',0.4));
+
+  // shiny sparkles
+  if(g.shiny){
+    P(1,2,'#ffffff'); P(14,3,'#fff7c0'); P(13,10,'#ffffff');
+  }
+}
+function spriteImg(g, px, extraClass){
+  const key=px+':'+genomeKey(g);
+  let url=spriteCache.get(key);
+  if(!url){ const c=document.createElement('canvas'); drawGenome(c,g,px); url=c.toDataURL(); spriteCache.set(key,url); }
+  let cls='sprite';
+  if(g.pattern==='glow') cls+=' glow';
+  if(g.shiny) cls+=' shiny';
+  if(extraClass) cls+=' '+extraClass;
+  return h('img',{src:url, class:cls, width:px*16, height:px*14, alt:g.element+' slime', draggable:'false'});
+}
+function sproutImg(progress, px){
+  // simple growing sprout: soil mound + shoot that grows with progress
+  const W=16,H=14, c=document.createElement('canvas');
+  c.width=W*px;c.height=H*px;const ctx=c.getContext('2d');ctx.imageSmoothingEnabled=false;
+  const P=(x,y,col)=>{ctx.fillStyle=col;ctx.fillRect(x*px,y*px,px,px);};
+  for(let x=3;x<13;x++){P(x,12,'#8a6a44');P(x,11,'#9a7a52');}
+  P(4,11,'#7a5a3a');P(11,11,'#7a5a3a');
+  const grow=clamp(progress,0,1);
+  const stemH=Math.round(1+grow*6);
+  for(let i=0;i<stemH;i++) P(8,11-i,'#5ea84e');
+  if(grow>0.25){P(7,11-Math.round(stemH*0.5),'#7ec96a');P(9,11-Math.round(stemH*0.7),'#7ec96a');}
+  if(grow>0.55){P(6,11-stemH,'#9bd97f');P(10,11-stemH,'#9bd97f');P(8,11-stemH-1,'#9bd97f');}
+  if(grow>0.82){P(7,11-stemH-1,'#ffd9a0');P(8,11-stemH-2,'#ffe066');P(9,11-stemH-1,'#ffd9a0');}
+  return h('img',{src:c.toDataURL(),class:'sprite',width:px*16,height:px*14,alt:'sprout',draggable:'false'});
+}
+
+/* ============================================================ *
+ *  STATE
+ * ============================================================ */
+const SAVE_KEY='sproutHollow.save.v1';
+let S=null;
+let nextId=1;
+const newId=()=>nextId++;
+
+function freshState(){
+  nextId=1;
+  const st={
+    v:1, nextId:1,
+    seeds:[], roster:[], plots:Array(BAL.plots).fill(null),
+    decor:{}, dex:{},
+    stats:{hatched:0, bred:0, trips:0, rares:0},
+    lastSeen:now(),
+  };
+  st.roster.push(makeSlime(makeGenome('Leaf')));
+  st.roster.push(makeSlime(makeGenome('Ember')));
+  st.seeds.push({id:newId(), genome:makeGenome('Tide')});
+  st.seeds.push({id:newId(), genome:randomGenome()});
+  st.nextId=nextId;
+  recordDex(st, st.roster[0].genome);
+  recordDex(st, st.roster[1].genome);
+  return st;
+}
+function makeSlime(genome){
+  const id=newId();
+  return {id, genome, name:nameFor(id), status:'idle', restUntil:0, exp:null};
+}
+function recordDex(st, g){
+  const e=g.element;
+  const r=rarityOf(g);
+  const cur=st.dex[e]||{seen:0,best:0,bestGenome:null};
+  cur.seen++;
+  if(r.score>=cur.best){ cur.best=r.score; cur.bestGenome=g; }
+  st.dex[e]=cur;
+}
+function save(){
+  S.nextId=nextId; S.lastSeen=now();
+  try{ localStorage.setItem(SAVE_KEY, JSON.stringify(S)); flashSaved(); }catch(e){}
+}
+function load(){
+  try{
+    const raw=localStorage.getItem(SAVE_KEY);
+    if(!raw) return null;
+    const st=JSON.parse(raw);
+    if(!st||!st.plots) return null;
+    nextId=st.nextId||1;
+    return st;
+  }catch(e){ return null; }
+}
+
+/* ============================================================ *
+ *  BONUSES (from decor)
+ * ============================================================ */
+function bonuses(){
+  const b={growthMult:1, expMult:1, rareAdd:0, yieldAdd:0};
+  for(const k in S.decor){ if(!S.decor[k]) continue;
+    const bo=DECOR[k].bonus;
+    if(bo.growthMult) b.growthMult*=bo.growthMult;
+    if(bo.expMult) b.expMult*=bo.expMult;
+    if(bo.rareAdd) b.rareAdd+=bo.rareAdd;
+    if(bo.yieldAdd) b.yieldAdd+=bo.yieldAdd;
+  }
+  return b;
+}
+
+/* ============================================================ *
+ *  ACTIONS
+ * ============================================================ */
+function plantSeed(seedId, plotIdx){
+  const i=S.seeds.findIndex(s=>s.id===seedId);
+  if(i<0 || S.plots[plotIdx]) return;
+  const seed=S.seeds.splice(i,1)[0];
+  const growSec = BAL.growthBase * bonuses().growthMult;
+  S.plots[plotIdx]={genome:seed.genome, plantedAt:now(), growSec};
+  toast('🌱 Planted! It will sprout soon.');
+}
+function plotProgress(p){ return clamp((now()-p.plantedAt)/(p.growSec*1000),0,1); }
+function plotStage(p){
+  const f=plotProgress(p);
+  if(f>=1) return 'ready';
+  if(f>=BAL.bloomAt) return 'Blooming';
+  if(f>=BAL.sproutAt) return 'Sprout';
+  return 'Seedling';
+}
+function collectPlot(plotIdx){
+  const p=S.plots[plotIdx];
+  if(!p || plotProgress(p)<1) return;
+  if(S.roster.length>=BAL.rosterCap){ toast('🏡 Meadow is full — release a slime first.'); return; }
+  const slime=makeSlime(p.genome);
+  S.roster.push(slime);
+  recordDex(S, p.genome);
+  S.stats.hatched++;
+  S.plots[plotIdx]=null;
+  const r=rarityOf(p.genome);
+  toast('🎉 '+slime.name+' the '+p.genome.element+' slime hatched! ('+r.tier+')');
+}
+function breed(aId,bId){
+  const a=S.roster.find(s=>s.id===aId), b=S.roster.find(s=>s.id===bId);
+  if(!a||!b||a===b) return;
+  if(a.status!=='idle'||b.status!=='idle'){ toast('Both slimes need to be resting at home.'); return; }
+  const child=breedGenome(a.genome,b.genome,bonuses());
+  S.seeds.push({id:newId(), genome:child});
+  const t=now()+BAL.breedRest*1000;
+  a.status='resting'; a.restUntil=t;
+  b.status='resting'; b.restUntil=t;
+  S.stats.bred++;
+  const r=rarityOf(child);
+  toast('💞 A '+r.tier+' '+child.element+' seed appeared in your bag!');
+}
+function dispatch(slimeId, biomeKey, durSec){
+  const s=S.roster.find(x=>x.id===slimeId);
+  if(!s||s.status!=='idle') return;
+  const eff = durSec*1000*bonuses().expMult;
+  s.status='away';
+  s.exp={biomeKey, durSec, startAt:now(), endTime:now()+eff};
+  S.stats.trips++;
+  toast('🎒 '+s.name+' set off for '+BIOMES[biomeKey].name+'!');
+}
+function expeditionGenome(biome, affinity, b){
+  const pool = rand()<0.7 ? [biome.element] : BASE_ELEMS;
+  const rareBoost = b.rareAdd + (affinity?0.06:0);
+  const shinyBoost = b.rareAdd*0.3 + (affinity?0.02:0);
+  return randomGenome({elementPool:pool, rareBoost, shinyBoost});
+}
+function completeExpedition(s){
+  const exp=s.exp, biome=BIOMES[exp.biomeKey];
+  const dur=DURATIONS.find(d=>d.sec===exp.durSec)||DURATIONS[0];
+  const affinity = s.genome.element===biome.element;
+  const b=bonuses();
+  const summary={seeds:0, decor:[], rares:0, name:s.name, biome:biome.name};
+
+  let seedCount=randInt(dur.seeds[0],dur.seeds[1]) + (affinity?1:0) + b.yieldAdd;
+  for(let i=0;i<seedCount;i++){
+    const g=expeditionGenome(biome,affinity,b);
+    S.seeds.push({id:newId(), genome:g});
+    if(rarityOf(g).score>=3) summary.rares++;
+  }
+  summary.seeds=seedCount;
+
+  if(rand() < dur.decorChance + (affinity?0.05:0)){
+    const k=pick(DECOR_NORMAL); S.decor[k]=(S.decor[k]||0)+1; summary.decor.push(k);
+  }
+  if(dur.extraDecor && rand()<0.6){ const k=pick(DECOR_NORMAL); S.decor[k]=(S.decor[k]||0)+1; summary.decor.push(k); }
+
+  const rareChance = dur.rareChance + b.rareAdd + (affinity?0.05:0);
+  if(rand()<rareChance){
+    summary.rares++;
+    if(rand()<0.5){ const k=pick(DECOR_RARE); S.decor[k]=(S.decor[k]||0)+1; summary.decor.push(k); }
+    else { S.seeds.push({id:newId(), genome:makeGenome(pick(RARE_ELEMS),0.3,0.1)}); }
+    S.stats.rares++;
+  }
+
+  s.exp=null; s.status='resting'; s.restUntil=now()+BAL.expRest*1000;
+  return summary;
+}
+function releaseSlime(id){
+  const i=S.roster.findIndex(s=>s.id===id);
+  if(i<0||S.roster[i].status!=='idle') return;
+  const s=S.roster[i];
+  S.roster.splice(i,1);
+  S.seeds.push({id:newId(), genome:s.genome}); // returns as a seed keepsake
+  toast('👋 '+s.name+' wandered off, leaving a seed behind.');
+}
+
+/* process passive time (rest expiry + expedition completion).
+   silent=true accumulates a summary instead of toasting (offline catch-up). */
+function processTime(silent){
+  const t=now(); const done=[];
+  for(const s of S.roster){
+    if(s.status==='away' && s.exp && t>=s.exp.endTime){
+      const sum=completeExpedition(s); done.push(sum);
+      if(!silent) toast('🏡 '+sum.name+' returned with '+sum.seeds+' seed'+(sum.seeds===1?'':'s')+(sum.rares?' (✨'+sum.rares+' rare!)':'')+'!');
+    }
+    if(s.status==='resting' && t>=s.restUntil){ s.status='idle'; s.restUntil=0; }
+  }
+  return done;
+}
+
+/* ============================================================ *
+ *  RENDERING
+ * ============================================================ */
+let view='orchard';
+let selBreed=[];
+let selExp=null;
+let plantingPlot=null;
+
+function totalDecorBonusChips(){
+  const b=bonuses(); const chips=[];
+  if(b.growthMult<1) chips.push('🌱 Growth '+Math.round((1-b.growthMult)*100)+'% faster');
+  if(b.expMult<1) chips.push('🎒 Trips '+Math.round((1-b.expMult)*100)+'% faster');
+  if(b.rareAdd>0) chips.push('✨ Rare +'+Math.round(b.rareAdd*100)+'%');
+  if(b.yieldAdd>0) chips.push('🌰 +'+b.yieldAdd+' seed/trip');
+  return chips;
+}
+
+function renderTopbar(){
+  const dexCount=Object.keys(S.dex).length, dexTotal=Object.keys(ELEMENTS).length;
+  const decorCount=Object.values(S.decor).reduce((a,c)=>a+(c>0?1:0),0);
+  mount($('#res'),
+    h('div',{class:'pill'}, h('span',{class:'ic'},'🌰'), h('b',{},String(S.seeds.length)),' seeds'),
+    h('div',{class:'pill'}, h('span',{class:'ic'},'🟢'), h('b',{},String(S.roster.length)),'/'+BAL.rosterCap),
+    h('div',{class:'pill'}, h('span',{class:'ic'},'🏮'), h('b',{},String(decorCount)),' décor'),
+    h('div',{class:'pill'}, h('span',{class:'ic'},'📖'), h('b',{},dexCount+'/'+dexTotal)),
+  );
+}
+function renderTabs(){
+  const readyN=S.plots.filter(p=>p&&plotProgress(p)>=1).length;
+  const tabs=[
+    ['orchard','🌳 Orchard', readyN],
+    ['breed','💞 Breed', 0],
+    ['expedition','🎒 Expeditions', 0],
+    ['dex','📖 Slimedex', 0],
+    ['decor','🏮 Decorate', 0],
+  ];
+  mount($('#tabs'), tabs.map(([k,label,badge])=>
+    h('button',{class:'tab'+(view===k?' active':''), onclick:()=>{view=k;render();}},
+      label, badge?h('span',{class:'badge'},String(badge)):null)
+  ));
+}
+
+function slimeCard(s, opts={}){
+  const r=rarityOf(s.genome);
+  const cls='scard'+(opts.click?' click':'')+(opts.sel?' sel':'')+(s.status!=='idle'?' busy':'');
+  let badge=null;
+  if(s.status==='away'&&s.exp){
+    badge=h('span',{class:'stat-badge away'}, '🎒 '+fmtTime((s.exp.endTime-now())/1000));
+  } else if(s.status==='resting'){
+    badge=h('span',{class:'stat-badge rest'}, '💤 '+fmtTime((s.restUntil-now())/1000));
+  }
+  const kids=[
+    badge,
+    spriteImg(s.genome, 4),
+    h('div',{class:'nm'}, s.name),
+    h('div',{class:'el'}, ELEMENTS[s.genome.element].emoji+' '+s.genome.element),
+    h('div',{}, h('span',{class:'rar '+r.tier}, r.tier)),
+  ];
+  if(opts.actions) kids.push(h('div',{class:'mini-actions'}, opts.actions));
+  return h('div',{class:cls, onclick:opts.onclick||null}, kids);
+}
+
+/* ---- Orchard view ---- */
+function renderOrchard(){
+  const plots=h('div',{class:'plots'},
+    S.plots.map((p,idx)=>{
+      if(!p) return h('div',{class:'plot', onclick:()=>openPlanter(idx)},
+        h('span',{class:'plant-cta'},'＋'), h('span',{class:'stage'},'Plant a seed'));
+      const f=plotProgress(p), ready=f>=1;
+      if(ready) return h('div',{class:'plot filled ready', onclick:()=>{collectPlot(idx);render();}},
+        h('span',{class:'ready-tag'},'✨ Ready!'),
+        spriteImg(p.genome,4),
+        h('span',{class:'stage'},'Tap to collect'));
+      return h('div',{class:'plot filled'},
+        sproutImg(f,4),
+        h('span',{class:'stage'}, plotStage(p)+' · '+Math.floor(f*100)+'%'),
+        h('div',{class:'pbar'}, h('i',{style:'width:'+(f*100)+'%'})));
+    })
+  );
+
+  const idle=S.roster.filter(s=>s.status==='idle');
+  const busy=S.roster.filter(s=>s.status!=='idle');
+  const meadow = S.roster.length
+    ? h('div',{class:'roster'}, S.roster.map(s=>slimeCard(s,{
+        actions: s.status==='idle' ? [
+          h('button',{class:'btn ghost sm', title:'Release', onclick:()=>{ if(confirm('Release '+s.name+'? They leave a seed behind.')){releaseSlime(s.id);render();} }},'👋')
+        ] : null
+      })))
+    : h('div',{class:'empty-note'},'Your meadow is quiet. Collect a grown slime to fill it!');
+
+  const decorIcons=Object.keys(S.decor).filter(k=>S.decor[k]>0).map(k=>h('span',{title:DECOR[k].name},DECOR[k].ic));
+  const chips=totalDecorBonusChips();
+
+  mount($('#view'),
+    h('div',{class:'panel'},
+      h('h2',{},'🌳 Orchard Plots'),
+      h('p',{class:'hint'},'Plant seeds and they grow into slimes over time — even while you\'re away.'),
+      plots,
+      decorIcons.length?h('div',{class:'ambiance'},decorIcons):null,
+      chips.length?h('div',{class:'bonus-strip'}, chips.map(c=>h('span',{class:'bchip'},c))):null,
+    ),
+    h('div',{class:'panel'},
+      h('h2',{},'🏡 The Meadow ', h('span',{class:'el',style:'font-weight:normal;font-size:13px'}, '('+idle.length+' home · '+busy.length+' out & about)')),
+      h('p',{class:'hint'},'Your slimes relax here between adventures.'),
+      meadow
+    )
+  );
+}
+
+/* ---- Planter modal ---- */
+function openPlanter(idx){
+  if(!S.seeds.length){ toast('🌰 No seeds yet — breed slimes or send an expedition!'); return; }
+  plantingPlot=idx;
+  const list=h('div',{class:'seedlist'},
+    S.seeds.slice().sort((a,b)=>rarityOf(b.genome).score-rarityOf(a.genome).score).map(seed=>{
+      const r=rarityOf(seed.genome);
+      return h('div',{class:'scard click', onclick:()=>{plantSeed(seed.id, idx); closeModal(); render();}},
+        spriteImg(seed.genome,4),
+        h('div',{class:'el'}, ELEMENTS[seed.genome.element].emoji+' '+seed.genome.element),
+        h('div',{}, h('span',{class:'rar '+r.tier}, r.tier)));
+    })
+  );
+  showModal('🌰 Choose a seed to plant', h('p',{class:'hint'},'Each seed carries its slime\'s traits.'), list);
+}
+
+/* ---- Breed view ---- */
+function renderBreed(){
+  selBreed=selBreed.filter(id=>{const s=S.roster.find(x=>x.id===id);return s&&s.status==='idle';});
+  const idle=S.roster.filter(s=>s.status==='idle');
+  const a=selBreed[0]?S.roster.find(s=>s.id===selBreed[0]):null;
+  const b=selBreed[1]?S.roster.find(s=>s.id===selBreed[1]):null;
+
+  const pairBox=h('div',{style:'display:flex;align-items:center;justify-content:center;gap:18px;flex-wrap:wrap;margin:6px 0 14px'},
+    slot(a), h('span',{style:'font-size:26px'},'💞'), slot(b)
+  );
+  function slot(s){
+    if(!s) return h('div',{class:'scard',style:'min-width:110px;opacity:.7'},
+      h('div',{style:'font-size:38px;opacity:.4'},'?'), h('div',{class:'el'},'pick a parent'));
+    return slimeCard(s,{});
+  }
+
+  const canBreed = a&&b;
+  const breedBtn=h('button',{class:'btn'+(canBreed?'':' '), disabled:!canBreed,
+    onclick:()=>{ breed(selBreed[0],selBreed[1]); selBreed=[]; render(); }},
+    '💞 Breed them!');
+
+  const chooser = idle.length
+    ? h('div',{class:'roster'}, idle.map(s=>slimeCard(s,{
+        click:true, sel:selBreed.includes(s.id),
+        onclick:()=>{ toggleBreedSel(s.id); render(); }
+      })))
+    : h('div',{class:'empty-note'},'No slimes are home right now. Let some return from expeditions or finish resting.');
+
+  mount($('#view'),
+    h('div',{class:'panel'},
+      h('h2',{},'💞 Cross-Breeding'),
+      h('p',{class:'hint'},'Pair two resting slimes. Offspring inherit a mix of their traits — with a small chance of a rare mutation. The result drops into your seed bag.'),
+      pairBox,
+      h('div',{style:'text-align:center;margin-bottom:6px'}, breedBtn),
+      h('div',{class:'section-tag'},'Choose two parents'),
+      chooser
+    )
+  );
+}
+function toggleBreedSel(id){
+  const i=selBreed.indexOf(id);
+  if(i>=0) selBreed.splice(i,1);
+  else { selBreed.push(id); if(selBreed.length>2) selBreed.shift(); }
+}
+
+/* ---- Expedition view ---- */
+function renderExpedition(){
+  if(selExp){ const s=S.roster.find(x=>x.id===selExp); if(!s||s.status!=='idle') selExp=null; }
+  const idle=S.roster.filter(s=>s.status==='idle');
+  const away=S.roster.filter(s=>s.status==='away');
+
+  const chooser = idle.length
+    ? h('div',{class:'roster'}, idle.map(s=>slimeCard(s,{
+        click:true, sel:selExp===s.id, onclick:()=>{ selExp=(selExp===s.id?null:s.id); render(); }
+      })))
+    : h('div',{class:'empty-note'},'No slimes available — they\'re all out or resting.');
+
+  const biomeCards=Object.entries(BIOMES).map(([key,bm])=>{
+    const sel=selExp?S.roster.find(s=>s.id===selExp):null;
+    const aff = sel && sel.genome.element===bm.element;
+    return h('div',{class:'biome'},
+      h('h3',{}, bm.ic+' '+bm.name),
+      h('p',{class:'aff'}, 'Loves '+ELEMENTS[bm.element].emoji+' '+bm.element+' slimes'+(aff?' — bonus active! ✨':'')),
+      h('div',{class:'dur-row'}, DURATIONS.map(d=>{
+        const r=Math.round((d.rareChance + (aff?0.05:0))*100);
+        return h('div',{class:'dur'},
+          h('div',{}, h('div',{class:'dname'}, d.label),
+            h('div',{class:'dmeta'}, fmtTime(d.sec)+' · '+d.seeds[0]+'-'+d.seeds[1]+' seeds · ✨'+r+'%')),
+          h('button',{class:'btn alt sm', disabled:!selExp,
+            onclick:()=>{ dispatch(selExp, key, d.sec); selExp=null; render(); }}, 'Send'));
+      }))
+    );
+  });
+
+  const activeList = away.length
+    ? h('div',{class:'roster'}, away.map(s=>slimeCard(s,{})))
+    : h('div',{class:'empty-note'},'No expeditions in progress.');
+
+  mount($('#view'),
+    h('div',{class:'panel'},
+      h('h2',{},'🎒 Wilderness Expeditions'),
+      h('p',{class:'hint'},'Pick a slime, then choose a biome and trip length. They\'ll wander off and return on their own with seeds and décor — longer trips mean better finds. Matching the biome\'s element gives a bonus.'),
+      h('div',{class:'section-tag'},'1 · Choose an explorer'),
+      chooser,
+      h('div',{class:'section-tag'},'2 · Choose a destination'),
+      h('div',{class:'biomes'}, biomeCards)
+    ),
+    h('div',{class:'panel'},
+      h('h2',{},'⏳ Out Exploring'),
+      activeList
+    )
+  );
+}
+
+/* ---- Slimedex ---- */
+function renderDex(){
+  const cells=Object.keys(ELEMENTS).map(el=>{
+    const d=S.dex[el];
+    const meta=ELEMENTS[el];
+    if(!d) return h('div',{class:'dexcell unk'},
+      h('div',{class:'q'},'?'),
+      h('div',{class:'nm'}, meta.rare?'???':el),
+      h('div',{class:'seen'}, meta.rare?'rare — undiscovered':'undiscovered'));
+    const r=rarityOf(d.bestGenome);
+    return h('div',{class:'dexcell'},
+      spriteImg(d.bestGenome,4),
+      h('div',{class:'nm',style:'margin-top:4px'}, meta.emoji+' '+el),
+      h('div',{}, h('span',{class:'rar '+r.tier}, 'best: '+r.tier)),
+      h('div',{class:'seen'}, 'discovered ×'+d.seen));
+  });
+  const discovered=Object.keys(S.dex).length, total=Object.keys(ELEMENTS).length;
+  mount($('#view'),
+    h('div',{class:'panel'},
+      h('h2',{},'📖 Slimedex'),
+      h('p',{class:'hint'},'A record of every elemental slime you\'ve raised. '+discovered+' of '+total+' species discovered — rare species only appear through lucky mutations.'),
+      h('div',{class:'dex'}, cells),
+      h('div',{class:'section-tag'},'Garden journal'),
+      h('div',{class:'bonus-strip'},
+        h('span',{class:'bchip'},'🥚 Hatched: '+S.stats.hatched),
+        h('span',{class:'bchip'},'💞 Bred: '+S.stats.bred),
+        h('span',{class:'bchip'},'🎒 Trips: '+S.stats.trips),
+        h('span',{class:'bchip'},'✨ Rares found: '+S.stats.rares),
+      )
+    )
+  );
+}
+
+/* ---- Decorate ---- */
+function renderDecor(){
+  const chips=totalDecorBonusChips();
+  const cards=Object.keys(DECOR).map(k=>{
+    const d=DECOR[k], owned=S.decor[k]||0;
+    return h('div',{class:'dcard'+(owned?'':' locked')},
+      h('div',{class:'dic'}, owned?d.ic:'❔'),
+      h('div',{},
+        h('div',{class:'dnm'}, owned?d.name:'??? '+(d.rare?'(rare)':'')),
+        h('div',{class:'dbz'}, owned?d.blurb:'Found on expeditions.'),
+        owned?h('div',{class:'cnt'}, '×'+owned+(owned?' · bonus active':'')):null
+      ));
+  });
+  mount($('#view'),
+    h('div',{class:'panel'},
+      h('h2',{},'🏮 Decorations'),
+      h('p',{class:'hint'},'Décor found on expeditions automatically beautifies your garden and grants gentle, permanent bonuses.'),
+      chips.length?h('div',{class:'bonus-strip',style:'margin-bottom:14px'}, chips.map(c=>h('span',{class:'bchip'},c))):h('p',{class:'empty-note'},'No décor yet — send a slime exploring!'),
+      h('div',{class:'decorgrid'}, cards)
+    )
+  );
+}
+
+function render(){
+  renderTopbar(); renderTabs();
+  ({orchard:renderOrchard, breed:renderBreed, expedition:renderExpedition, dex:renderDex, decor:renderDecor}[view])();
+}
+
+/* ============================================================ *
+ *  MODAL / TOAST
+ * ============================================================ */
+function showModal(title, ...content){
+  mount($('#modal'),
+    h('button',{class:'x', onclick:closeModal},'✕'),
+    h('h2',{}, title),
+    content
+  );
+  $('#overlay').classList.add('show');
+}
+function closeModal(){ $('#overlay').classList.remove('show'); plantingPlot=null; }
+$('#overlay').addEventListener('click', e=>{ if(e.target.id==='overlay') closeModal(); });
+
+let toastTimer=null;
+function toast(msg){
+  const t=h('div',{class:'toast'}, msg);
+  $('#toasts').append(t);
+  setTimeout(()=>t.remove(), 3900);
+}
+function flashSaved(){
+  const tag=$('#savetag'); if(!tag) return;
+  tag.style.opacity='1'; tag.textContent='saved ✓';
+  clearTimeout(toastTimer);
+  toastTimer=setTimeout(()=>{tag.style.opacity='.55';},1200);
+}
+
+/* ---- Welcome back summary ---- */
+function welcomeBack(done, awaySec){
+  const totalSeeds=done.reduce((a,c)=>a+c.seeds,0);
+  const totalRares=done.reduce((a,c)=>a+c.rares,0);
+  const decorAll=done.flatMap(c=>c.decor);
+  const readyN=S.plots.filter(p=>p&&plotProgress(p)>=1).length;
+  if(!done.length && !readyN) return;
+  const lines=[];
+  if(done.length) lines.push(h('div',{class:'wb-line'}, h('span',{class:'ic'},'🎒'),
+    h('div',{}, done.length+' expedition'+(done.length===1?'':'s')+' returned with ',
+    h('b',{},totalSeeds+' seeds'), totalRares?' and ':'', totalRares?h('b',{},'✨'+totalRares+' rare finds'):'','.')));
+  if(decorAll.length) lines.push(h('div',{class:'wb-line'}, h('span',{class:'ic'},'🏮'),
+    h('div',{}, 'New décor: '+decorAll.map(k=>DECOR[k].ic+' '+DECOR[k].name).join(', '))));
+  if(readyN) lines.push(h('div',{class:'wb-line'}, h('span',{class:'ic'},'✨'),
+    h('div',{}, h('b',{},readyN+' slime'+(readyN===1?'':'s')), ' finished growing — tap them in the Orchard to collect!')));
+  showModal('🌅 Welcome back!',
+    h('p',{class:'hint'}, 'You were away for '+fmtTime(awaySec)+'. The garden kept growing:'),
+    lines,
+    h('div',{style:'text-align:center;margin-top:14px'},
+      h('button',{class:'btn', onclick:closeModal},'Lovely ☀️'))
+  );
+}
+
+/* ============================================================ *
+ *  BOOT
+ * ============================================================ */
+function init(){
+  const loaded=load();
+  let offlineDone=[], awaySec=0;
+  if(loaded){
+    S=loaded;
+    // backfill any missing fields
+    S.decor=S.decor||{}; S.dex=S.dex||{}; S.seeds=S.seeds||[]; S.roster=S.roster||[];
+    S.stats=S.stats||{hatched:0,bred:0,trips:0,rares:0};
+    while(S.plots.length<BAL.plots) S.plots.push(null);
+    awaySec=(now()-(S.lastSeen||now()))/1000;
+    offlineDone=processTime(true);
+  } else {
+    S=freshState();
+  }
+  render();
+  if(offlineDone.length || S.plots.some(p=>p&&plotProgress(p)>=1)) welcomeBack(offlineDone, awaySec);
+  save();
+
+  // main loop
+  setInterval(()=>{
+    const done=processTime(false);
+    render();
+    if(done.length) save();
+  }, 1000);
+  // periodic autosave
+  setInterval(save, 8000);
+  window.addEventListener('beforeunload', save);
+  document.addEventListener('visibilitychange', ()=>{ if(document.hidden) save(); });
+
+  $('#resetBtn').addEventListener('click', ()=>{
+    if(confirm('Reset your whole garden? This cannot be undone.')){
+      localStorage.removeItem(SAVE_KEY); S=freshState(); selBreed=[]; selExp=null; view='orchard'; render(); save();
+      toast('🌱 A fresh garden begins!');
+    }
+  });
+}
+init();
+</script>
+</body>
+</html>

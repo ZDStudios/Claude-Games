@@ -1,0 +1,1501 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>NEON RUSH</title>
+<style>
+  /* ============================================================= *
+   *  NEON RUSH — a Geometry-Dash-style rhythm platformer          *
+   *  Single file. Canvas2D + WebAudio. No external dependencies.  *
+   * ============================================================= */
+  :root{
+    --neon:#27e0ff; --neon2:#ff3ea5; --ink:#070912; --panel:rgba(12,16,30,.82);
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{margin:0;height:100%;overflow:hidden;background:#04060e;color:#e9f6ff;
+    font-family:"Consolas","Courier New",ui-monospace,monospace;user-select:none;
+    text-transform:uppercase;-webkit-font-smoothing:none;}
+  #wrap{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;}
+  canvas{display:block;background:#04060e;touch-action:none;
+    image-rendering:pixelated;image-rendering:crisp-edges;}
+
+  /* ---- Generic overlay panels ---- */
+  .overlay{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;
+    z-index:20;}
+  .hidden{display:none !important;}
+  .glass{background:var(--panel);border:1px solid rgba(80,200,255,.25);
+    border-radius:18px;backdrop-filter:blur(8px);box-shadow:0 0 40px rgba(40,180,255,.18),inset 0 0 30px rgba(40,140,255,.06);}
+  button{font-family:inherit;cursor:pointer;color:#eaffff;border:none;outline:none;}
+  .btn{background:linear-gradient(180deg,#1a2c52,#0e1830);border:1px solid rgba(90,200,255,.4);
+    padding:11px 20px;border-radius:11px;font-weight:700;letter-spacing:.6px;font-size:15px;
+    transition:transform .08s, box-shadow .15s, background .15s;text-transform:uppercase;}
+  .btn:hover{transform:translateY(-2px);box-shadow:0 6px 22px rgba(40,200,255,.35);
+    background:linear-gradient(180deg,#22427a,#13213f);}
+  .btn:active{transform:translateY(0);}
+  .btn.primary{background:linear-gradient(180deg,#16d6ff,#0a87c9);color:#04121c;border-color:#9fe8ff;}
+  .btn.pink{background:linear-gradient(180deg,#ff5fb0,#c61f74);color:#fff;border-color:#ffb6dd;}
+
+  /* ---- LOBBY ---- */
+  #lobby{flex-direction:column;gap:26px;padding:24px;}
+  .logo{font-weight:900;letter-spacing:8px;text-align:center;line-height:.92;}
+  .logo .l1{font-size:clamp(40px,8vw,86px);
+    background:linear-gradient(90deg,#27e0ff,#7b8cff,#ff3ea5);-webkit-background-clip:text;background-clip:text;color:transparent;
+    text-shadow:0 0 30px rgba(80,200,255,.35);filter:drop-shadow(0 0 16px rgba(120,90,255,.4));}
+  .logo .l2{font-size:clamp(12px,2.4vw,18px);letter-spacing:14px;color:#8fb6d8;margin-top:6px;}
+  #levelRow{display:flex;gap:18px;flex-wrap:wrap;justify-content:center;max-width:1100px;}
+  .card{width:230px;border-radius:16px;padding:16px;cursor:pointer;position:relative;overflow:hidden;
+    transition:transform .12s, box-shadow .15s;}
+  .card:hover{transform:translateY(-6px) scale(1.02);}
+  .card .thumb{height:96px;border-radius:11px;margin-bottom:10px;position:relative;overflow:hidden;
+    border:1px solid rgba(255,255,255,.12);}
+  .card h3{margin:2px 0 4px;font-size:18px;letter-spacing:1px;}
+  .card .meta{display:flex;justify-content:space-between;align-items:center;font-size:12px;color:#9db8d0;}
+  .stars{letter-spacing:2px;font-size:13px;}
+  .pct{font-weight:800;}
+  .check{position:absolute;top:10px;right:12px;font-size:20px;color:#5dffa0;
+    filter:drop-shadow(0 0 8px #2bff8a);}
+  .lobbyRow{display:flex;gap:22px;flex-wrap:wrap;justify-content:center;align-items:center;}
+  .pickBox{display:flex;flex-direction:column;align-items:center;gap:8px;}
+  .pickBox label{font-size:12px;letter-spacing:2px;color:#9db8d0;text-transform:uppercase;}
+  .swatches{display:flex;gap:9px;}
+  .sw{width:30px;height:30px;border-radius:8px;border:2px solid rgba(255,255,255,.25);cursor:pointer;transition:transform .1s;}
+  .sw:hover{transform:scale(1.12);}
+  .sw.sel{border-color:#fff;box-shadow:0 0 12px rgba(255,255,255,.7);transform:scale(1.12);}
+  .hint{font-size:12px;color:#7892ac;letter-spacing:.4px;text-align:center;max-width:760px;line-height:1.5;}
+
+  /* ---- Modal (settings/pause/complete) ---- */
+  .modal{width:min(440px,92vw);padding:26px 28px;}
+  .modal h2{margin:0 0 16px;letter-spacing:3px;text-transform:uppercase;font-size:22px;
+    background:linear-gradient(90deg,#27e0ff,#ff3ea5);-webkit-background-clip:text;background-clip:text;color:transparent;}
+  .srow{display:flex;align-items:center;justify-content:space-between;gap:14px;margin:14px 0;}
+  .srow span{font-size:14px;letter-spacing:.5px;color:#cfe6f6;}
+  input[type=range]{width:170px;accent-color:#27e0ff;}
+  .toggle{width:52px;height:28px;border-radius:20px;background:#23304e;position:relative;border:1px solid rgba(120,200,255,.3);transition:background .15s;}
+  .toggle.on{background:#16a6d8;}
+  .toggle .knob{position:absolute;top:2px;left:2px;width:22px;height:22px;border-radius:50%;background:#eaffff;transition:left .15s;}
+  .toggle.on .knob{left:26px;}
+  .mbtns{display:flex;gap:12px;justify-content:center;margin-top:20px;flex-wrap:wrap;}
+  .statline{display:flex;justify-content:space-between;font-size:15px;margin:8px 2px;color:#cfe6f6;}
+  .statline b{color:#7ef0ff;font-weight:800;}
+
+  /* ---- HUD ---- */
+  #hud{position:fixed;inset:0;pointer-events:none;z-index:10;}
+  #progWrap{position:absolute;top:14px;left:50%;transform:translateX(-50%);width:min(62%,720px);
+    height:16px;background:rgba(8,14,26,.7);border:1px solid rgba(120,200,255,.35);border-radius:10px;overflow:hidden;}
+  #progFill{height:100%;width:0%;background:linear-gradient(90deg,#27e0ff,#7b8cff,#ff3ea5);
+    box-shadow:0 0 14px rgba(80,200,255,.6);transition:width .05s linear;}
+  #progPct{position:absolute;top:34px;left:50%;transform:translateX(-50%);font-size:12px;letter-spacing:2px;color:#bfe0f5;}
+  #hudTopRight{position:absolute;top:12px;right:14px;display:flex;gap:10px;align-items:center;pointer-events:auto;}
+  #attempts{background:rgba(8,14,26,.7);border:1px solid rgba(120,200,255,.3);border-radius:9px;
+    padding:6px 12px;font-size:13px;letter-spacing:1px;color:#cfe6f6;}
+  #modeChip{background:rgba(8,14,26,.7);border:1px solid rgba(120,200,255,.3);border-radius:9px;
+    padding:6px 12px;font-size:13px;letter-spacing:1px;color:#7ef0ff;font-weight:800;min-width:64px;text-align:center;}
+  #pauseBtn{pointer-events:auto;width:38px;height:38px;border-radius:9px;background:rgba(8,14,26,.7);
+    border:1px solid rgba(120,200,255,.3);font-size:15px;}
+  #hudTopLeft{position:absolute;top:12px;left:14px;display:flex;gap:10px;flex-direction:column;}
+  .tag{background:rgba(8,14,26,.7);border:1px solid rgba(120,200,255,.3);border-radius:9px;
+    padding:5px 11px;font-size:12px;letter-spacing:1px;color:#cfe6f6;}
+  #practiceTag{color:#7dffae;border-color:rgba(90,255,160,.4);}
+  #botBadge{color:#ffd23e;border-color:rgba(255,210,60,.5);display:none;}
+
+  /* ---- Big center banners ---- */
+  #banner{position:fixed;top:24%;left:50%;transform:translateX(-50%);z-index:15;pointer-events:none;
+    font-weight:900;letter-spacing:6px;font-size:clamp(26px,5vw,52px);text-align:center;opacity:0;
+    transition:opacity .18s;text-shadow:0 0 24px rgba(0,0,0,.5);}
+  #botBanner{position:fixed;top:16%;left:50%;transform:translateX(-50%);z-index:15;pointer-events:none;
+    display:none;font-weight:900;letter-spacing:5px;font-size:clamp(22px,4vw,40px);text-align:center;
+    color:#ffe14d;text-shadow:0 0 26px rgba(255,200,40,.7),0 0 8px #000;
+    border:2px solid #ffe14d;padding:8px 22px;border-radius:12px;background:rgba(20,16,0,.55);
+    animation:botpulse 1s infinite;}
+  @keyframes botpulse{0%,100%{box-shadow:0 0 22px rgba(255,210,60,.4);}50%{box-shadow:0 0 40px rgba(255,210,60,.9);}}
+
+  .fade{position:fixed;inset:0;background:#04060e;z-index:30;pointer-events:none;opacity:0;transition:opacity .3s;}
+</style>
+</head>
+<body>
+<div id="wrap"><canvas id="game"></canvas></div>
+
+<!-- ===================== HUD ===================== -->
+<div id="hud" class="hidden">
+  <div id="progWrap"><div id="progFill"></div></div>
+  <div id="progPct">0%</div>
+  <div id="hudTopLeft">
+    <div class="tag" id="practiceTag" style="display:none">PRACTICE — Z:place  X:clear</div>
+    <div class="tag" id="botBadge">● BOT MODE</div>
+    <div class="tag" id="comboTag" style="display:none">STYLE 0</div>
+  </div>
+  <div id="hudTopRight">
+    <div id="attempts">ATTEMPT 1</div>
+    <div id="modeChip">CUBE</div>
+    <button id="pauseBtn">⏸</button>
+  </div>
+</div>
+<div id="banner"></div>
+<div id="botBanner">BOT MODE ENABLED</div>
+
+<!-- ===================== LOBBY ===================== -->
+<div id="lobby" class="overlay">
+  <div class="logo"><div class="l1">NEON RUSH</div><div class="l2">RHYTHM · RUNNER</div></div>
+  <div id="levelRow"></div>
+  <div class="lobbyRow">
+    <div class="pickBox">
+      <label>Icon Color</label>
+      <div class="swatches" id="swatches"></div>
+    </div>
+    <button class="btn" id="settingsBtn">⚙ Settings</button>
+  </div>
+  <div class="hint">
+    Auto-runner — one input does everything: <b>Space / ↑ / W / Click / Tap</b> = jump · hold for Ship &amp; Wave.<br>
+    <b>P</b> pause · <b>Z</b> place practice checkpoint · <b>X</b> clear · triple-tap <b>I</b> to toggle the perfect <b>BOT</b>.
+  </div>
+</div>
+
+<!-- ===================== SETTINGS ===================== -->
+<div id="settings" class="overlay hidden">
+  <div class="glass modal">
+    <h2>Settings</h2>
+    <div class="srow"><span>Music Volume</span><input type="range" id="musVol" min="0" max="100" value="55"></div>
+    <div class="srow"><span>SFX Volume</span><input type="range" id="sfxVol" min="0" max="100" value="70"></div>
+    <div class="srow"><span>Practice mode by default</span><div class="toggle" id="practiceToggle"><div class="knob"></div></div></div>
+    <div class="srow"><span>Screen shake</span><div class="toggle on" id="shakeToggle"><div class="knob"></div></div></div>
+    <div class="mbtns"><button class="btn primary" id="settingsClose">Done</button></div>
+  </div>
+</div>
+
+<!-- ===================== PAUSE ===================== -->
+<div id="pause" class="overlay hidden">
+  <div class="glass modal">
+    <h2 id="pauseTitle">Paused</h2>
+    <div class="statline"><span>Attempts</span><b id="pauseAttempts">1</b></div>
+    <div class="statline"><span>Progress</span><b id="pauseProg">0%</b></div>
+    <div class="srow"><span>Practice mode</span><div class="toggle" id="pausePractice"><div class="knob"></div></div></div>
+    <div class="mbtns">
+      <button class="btn primary" id="resumeBtn">Resume</button>
+      <button class="btn" id="restartBtn">Restart</button>
+      <button class="btn pink" id="quitBtn">Quit</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===================== COMPLETE ===================== -->
+<div id="complete" class="overlay hidden">
+  <div class="glass modal" style="text-align:center;">
+    <h2 style="justify-content:center;">Level Complete!</h2>
+    <div class="statline"><span>Attempts</span><b id="cAttempts">1</b></div>
+    <div class="statline"><span>Time</span><b id="cTime">0.0s</b></div>
+    <div class="statline"><span>Best Style</span><b id="cStyle">0</b></div>
+    <div class="mbtns">
+      <button class="btn primary" id="nextBtn">Next ▶</button>
+      <button class="btn" id="retryBtn">Retry</button>
+      <button class="btn pink" id="menuBtn">Menu</button>
+    </div>
+  </div>
+</div>
+
+<div class="fade" id="fade"></div>
+
+<script>
+"use strict";
+/* ========================================================================== *
+ *  SECTION 0 — CONFIG & CONSTANTS                                             *
+ * ========================================================================== */
+const VIEW_W = 1280, VIEW_H = 720;          // logical resolution
+const TILE   = 40;                          // tile size
+const GROUND_TOP = 600;                     // world-y of the main ground surface (y grows downward)
+const KILL_TOP = -160, KILL_BOTTOM = 820;   // fall outside -> death (pit / off the top)
+
+const BASE_SPEED = 340;                     // px/s at 1x speed
+const FIXED_DT   = 1/120;                    // physics timestep (s)
+
+const GRAVITY    = 2700;                     // cube/ball/ufo gravity
+const JUMP_VEL   = 778;                      // cube jump impulse
+const VMAX       = 1550;                     // terminal speed (cube-like)
+const ROBOT_JUMP = 820, ROBOT_CUT = 0.42;   // robot variable jump
+const UFO_HOP    = 565;                      // ufo hop impulse
+const SHIP_GRAV  = 1500, SHIP_THRUST = 3000, SHIP_VMAX = 660;
+const WAVE_VMAX  = 99999;                    // wave velocity follows slope directly
+const SPIDER_RANGE = 520;
+
+const SIZE_NORMAL = 40, SIZE_MINI = 24;
+const LAND_TOL = 18;                         // landing classification tolerance
+const HAZ_SHRINK = 0.62;                     // hazard hitbox = fraction of player box
+const WAVE_HB = 0.5;                         // wave thin hitbox factor
+
+// Bot AI tuning (in physics steps; time-based so it's speed-invariant)
+const ACT_H = 88;          // single-action feasibility window (~0.73s): long enough to
+                           // clear a cluster + land, short enough to not see the next one
+
+/* ========================================================================== *
+ *  SECTION 1 — GLOBAL STATE                                                   *
+ * ========================================================================== */
+const canvas = document.getElementById('game');
+const screen = canvas.getContext('2d');          // the real on-screen canvas
+// --- low-res PIXEL buffer: the whole game is drawn here, then blitted up with
+// smoothing OFF so every block/spike/icon becomes a crisp chunky pixel (bitmap look) ---
+const PW = 480, PH = 270, BS = PW/VIEW_W;         // buffer is 480x270 = the view at 0.375x
+const buf = (typeof document.createElement==='function') ? document.createElement('canvas') : {getContext:()=>screen};
+buf.width = PW; buf.height = PH;
+const ctx = buf.getContext('2d');                 // ALL draw helpers target the buffer
+
+let DPR = 1, scaleFit = 1, offX = 0, offY = 0;   // buffer -> screen fit transform
+
+const G = {
+  state:'menu',          // menu | playing | paused | complete | dead
+  level:null, levelIdx:0,
+  player:null,
+  cam:{x:0,y:GROUND_TOP-120, zoom:1, targetZoom:1, shake:0, shakeX:0, shakeY:0},
+  particles:[],
+  trail:[],
+  attempts:1, startTime:0, elapsed:0,
+  bgFlash:0, bgHue:0, beatPulse:0,
+  practice:false, checkpoints:[],
+  bot:false, botFlashT:0,
+  deadT:0, won:false,
+  iPresses:[],           // triple-I detection
+  style:0, bestStyleRun:0,
+};
+
+// settings + per-level progress (in-memory; mirrored to localStorage if available)
+const SETTINGS = { music:0.55, sfx:0.70, practiceDefault:false, shake:true, icon:0 };
+const PROGRESS = {};   // levelIdx -> {best:pct, complete:bool}
+
+const ICON_COLORS = [
+  {a:'#27e0ff',b:'#0c6fb0'}, {a:'#ff3ea5',b:'#9c1559'}, {a:'#7dff7a',b:'#1f8c2a'},
+  {a:'#ffd23e',b:'#b8860b'}, {a:'#b18cff',b:'#5a32b8'}, {a:'#ff8a3d',b:'#b8470b'},
+  {a:'#ffffff',b:'#7f93a8'}
+];
+
+/* persistence (optional, degrades gracefully) */
+function saveState(){ try{ localStorage.setItem('neonrush', JSON.stringify({SETTINGS,PROGRESS})); }catch(e){} }
+function loadState(){ try{ const s=JSON.parse(localStorage.getItem('neonrush')||'null');
+  if(s){ Object.assign(SETTINGS,s.SETTINGS||{}); Object.assign(PROGRESS,s.PROGRESS||{}); } }catch(e){} }
+
+/* ========================================================================== *
+ *  SECTION 2 — AUDIO (WebAudio: procedural music + SFX, no assets)            *
+ * ========================================================================== */
+const Audio2 = (()=>{
+  let ac=null, musicGain=null, sfxGain=null;
+  let schedTimer=null, nextNoteTime=0, step16=0, curPattern=null, bpm=120, playing=false;
+
+  function ensure(){
+    if(ac) return;
+    ac = new (window.AudioContext||window.webkitAudioContext)();
+    musicGain = ac.createGain(); musicGain.gain.value = SETTINGS.music*0.9; musicGain.connect(ac.destination);
+    sfxGain = ac.createGain();   sfxGain.gain.value = SETTINGS.sfx;        sfxGain.connect(ac.destination);
+  }
+  function resume(){ ensure(); if(ac.state==='suspended') ac.resume(); }
+  function setMusic(v){ if(musicGain) musicGain.gain.value=v*0.9; }
+  function setSfx(v){ if(sfxGain) sfxGain.gain.value=v; }
+
+  // one-shot tone
+  function tone(freq,dur,type,vol,target,glideTo){
+    if(!ac) return;
+    const o=ac.createOscillator(), g=ac.createGain();
+    o.type=type||'square'; o.frequency.setValueAtTime(freq, ac.currentTime);
+    if(glideTo) o.frequency.exponentialRampToValueAtTime(Math.max(40,glideTo), ac.currentTime+dur);
+    g.gain.setValueAtTime(0.0001, ac.currentTime);
+    g.gain.exponentialRampToValueAtTime(vol||0.3, ac.currentTime+0.008);
+    g.gain.exponentialRampToValueAtTime(0.0001, ac.currentTime+dur);
+    o.connect(g); g.connect(target||sfxGain); o.start(); o.stop(ac.currentTime+dur+0.02);
+  }
+  function noise(dur,vol,target){
+    if(!ac) return;
+    const n=ac.createBufferSource(); const buf=ac.createBuffer(1, ac.sampleRate*dur, ac.sampleRate);
+    const d=buf.getChannelData(0); for(let i=0;i<d.length;i++) d[i]=(Math.random()*2-1)*(1-i/d.length);
+    n.buffer=buf; const g=ac.createGain(); g.gain.value=vol||0.4;
+    const f=ac.createBiquadFilter(); f.type='highpass'; f.frequency.value=900;
+    n.connect(f); f.connect(g); g.connect(target||sfxGain); n.start(); n.stop(ac.currentTime+dur);
+  }
+
+  // SFX
+  const sfx = {
+    jump(){ tone(520,0.10,'square',0.18,sfxGain,300); },
+    orb(){  tone(680,0.14,'triangle',0.22,sfxGain,1020); },
+    pad(){  tone(420,0.18,'sawtooth',0.2,sfxGain,900); },
+    portal(){ tone(300,0.22,'sine',0.22,sfxGain,760); },
+    death(){ noise(0.28,0.5,sfxGain); tone(180,0.3,'sawtooth',0.25,sfxGain,60); },
+    complete(){ [523,659,784,1046].forEach((f,i)=>setTimeout(()=>tone(f,0.4,'triangle',0.3,sfxGain),i*110)); },
+    bot(){ tone(880,0.12,'square',0.25,sfxGain,1320); }
+  };
+
+  // step sequencer for the backing track
+  function scheduleStep(time){
+    const p=curPattern; if(!p) return;
+    const s=step16%16;
+    // bass (root) — drives the visual beat pulse on downbeats
+    if(p.bass[s]!=null){ const f=p.bass[s];
+      const o=ac.createOscillator(),g=ac.createGain();
+      o.type='sawtooth'; o.frequency.value=f;
+      g.gain.setValueAtTime(0.0001,time); g.gain.exponentialRampToValueAtTime(0.5,time+0.01);
+      g.gain.exponentialRampToValueAtTime(0.0001,time+0.22);
+      const lp=ac.createBiquadFilter(); lp.type='lowpass'; lp.frequency.value=520;
+      o.connect(lp); lp.connect(g); g.connect(musicGain); o.start(time); o.stop(time+0.25);
+    }
+    // lead arp
+    if(p.lead[s]!=null){ const f=p.lead[s];
+      const o=ac.createOscillator(),g=ac.createGain();
+      o.type='square'; o.frequency.value=f;
+      g.gain.setValueAtTime(0.0001,time); g.gain.exponentialRampToValueAtTime(0.18,time+0.01);
+      g.gain.exponentialRampToValueAtTime(0.0001,time+0.16);
+      o.connect(g); g.connect(musicGain); o.start(time); o.stop(time+0.18);
+    }
+    // hat
+    if(s%2===0){ const n=ac.createBufferSource(); const buf=ac.createBuffer(1, ac.sampleRate*0.03, ac.sampleRate);
+      const d=buf.getChannelData(0); for(let i=0;i<d.length;i++) d[i]=(Math.random()*2-1);
+      n.buffer=buf; const g=ac.createGain(); g.gain.setValueAtTime(0.06,time); g.gain.exponentialRampToValueAtTime(0.0001,time+0.03);
+      const hp=ac.createBiquadFilter(); hp.type='highpass'; hp.frequency.value=7000;
+      n.connect(hp); hp.connect(g); g.connect(musicGain); n.start(time); n.stop(time+0.03); }
+    // kick on quarters -> trigger beat pulse
+    if(s%4===0){ G.beatPulse=1; }
+  }
+  function scheduler(){
+    if(!playing) return;
+    const ahead=0.12;
+    while(nextNoteTime < ac.currentTime + ahead){
+      scheduleStep(nextNoteTime);
+      nextNoteTime += (60/bpm)/4;   // 16th note
+      step16++;
+    }
+  }
+  function startMusic(pattern, tempo){
+    ensure(); resume(); curPattern=pattern; bpm=tempo||120; step16=0;
+    nextNoteTime=ac.currentTime+0.06; playing=true;
+    if(schedTimer) clearInterval(schedTimer);
+    schedTimer=setInterval(scheduler,25);
+  }
+  function stopMusic(){ playing=false; if(schedTimer){clearInterval(schedTimer);schedTimer=null;} }
+
+  return {resume,setMusic,setSfx,sfx,startMusic,stopMusic};
+})();
+
+/* ========================================================================== *
+ *  SECTION 3 — LEVEL DATA                                                     *
+ *  Each level is built into a flat array of objects of the shape:            *
+ *   {type, x, y, w, h, ...properties}                                         *
+ *  Builder helpers keep the data readable & easy to extend.                  *
+ * ========================================================================== */
+// short constructors -------------------------------------------------------
+const mk = {
+  ground:(x,w)=>({type:'block', x, y:GROUND_TOP, w, h:460, ground:true}),
+  block:(x,y,w,h)=>({type:'block', x, y, w, h}),
+  // floor spike (points up), sitting so its base rests on surfaceY
+  spike:(x,surfaceY=GROUND_TOP)=>({type:'spike', x, y:surfaceY-TILE, w:TILE, h:TILE, dir:1}),
+  // ceiling spike (points down) hanging from surfaceY (its top)
+  cspike:(x,surfaceY)=>({type:'spike', x, y:surfaceY, w:TILE, h:TILE, dir:-1}),
+  saw:(x,y,r,props={})=>Object.assign({type:'saw', x, y, w:r*2, h:r*2, r}, props),
+  orb:(x,y,kind)=>({type:'orb', x, y, w:34, h:34, kind}),       // kind: yellow|pink|red|blue(grav)
+  pad:(x,y,kind='yellow')=>({type:'pad', x, y, w:TILE, h:12, kind}),
+  gravpad:(x,y)=>({type:'pad', x, y, w:TILE, h:12, kind:'grav'}),
+  portal:(x,kind,val)=>({type:'portal', x, y:GROUND_TOP-260, w:30, h:300, kind, val}),
+  flag:(x)=>({type:'flag', x, y:GROUND_TOP-200, w:30, h:200}),
+  plat:(x,y,w,h,props)=>Object.assign({type:'block', x, y, w, h, moving:true}, props),
+};
+// portal kinds: mode('cube'..), grav(1/-1), size('mini'/'normal'), speed(0.5..4)
+
+const CEIL = GROUND_TOP-440;   // ceiling block top (160); underside at 200 -> flight space 200..600
+const CTOP = CEIL+40;          // 200
+
+function buildLevels(){
+  const L = []; const G=GROUND_TOP;
+
+  /* ---------- LEVEL 1 — NEON ONSET (easy): cube + a gentle ship ---------- */
+  (()=>{
+    const o=[];
+    // cube intro: singles & doubles, one hop block, an orb and a jump pad
+    o.push(mk.ground(0,3700));
+    o.push(mk.spike(560)); o.push(mk.spike(600));            // double
+    o.push(mk.spike(940));                                   // single
+    o.push(mk.block(1180,G-TILE,80,TILE));                   // hop block (1 tile)
+    o.push(mk.spike(1520));
+    o.push(mk.spike(1840)); o.push(mk.spike(1880));          // double
+    o.push(mk.orb(2140,G-150,'yellow'));                     // jump orb (optional aid)
+    o.push(mk.spike(2360));
+    o.push(mk.pad(2620,G,'yellow'));                         // pad -> lands ~2815 on clear ground
+    o.push(mk.spike(3080));
+    o.push(mk.spike(3380)); o.push(mk.spike(3420));          // double
+    // ship corridor (forgiving: low bumps, wide gaps, one low saw)
+    o.push(mk.portal(3700,'mode','ship'));
+    o.push(mk.ground(3760,2300)); o.push(mk.block(3760,CEIL,2300,40));
+    o.push(mk.block(4200,G-150,TILE,150));                   // floor bump
+    o.push(mk.block(4640,CTOP,TILE,150));                    // ceiling bump
+    o.push(mk.block(5080,G-150,TILE,150));
+    o.push(mk.saw(5440,G-150,40));                           // low saw, fly above
+    o.push(mk.block(5800,CTOP,TILE,140));
+    // cube outro
+    o.push(mk.portal(6060,'mode','cube'));
+    o.push(mk.ground(6060,2000));
+    o.push(mk.spike(6440));
+    o.push(mk.spike(6760)); o.push(mk.spike(6800));          // double
+    o.push(mk.orb(7060,G-150,'yellow'));
+    o.push(mk.spike(7300));
+    o.push(mk.pad(7560,G,'yellow'));                         // lands ~7755 clear
+    o.push(mk.spike(7940));
+    o.push(mk.flag(8000));
+    L.push({ name:'Neon Onset', diff:1, speed:1, len:8120,
+      pal:{top:'#0a1838',bot:'#0b5aa0',accent:'#27e0ff',ground:'#0c2c5e',gline:'#46c8ff',obj:'#86ecff'},
+      music:{bpm:128, ...PATTERNS.a}, objects:o });
+  })();
+
+  /* ---------- LEVEL 2 — CRYSTAL CAVERN (normal): cube + ball + ufo + grav-flip ---------- */
+  (()=>{
+    const o=[];
+    // cube intro
+    o.push(mk.ground(0,1480));
+    o.push(mk.spike(520));
+    o.push(mk.spike(820)); o.push(mk.spike(860));            // double
+    o.push(mk.orb(1120,G-150,'yellow'));
+    o.push(mk.spike(1320));
+    // BALL: flip floor<->ceiling to dodge alternating spikes
+    o.push(mk.portal(1480,'mode','ball'));
+    o.push(mk.ground(1540,2400)); o.push(mk.block(1540,CEIL,2400,40));
+    o.push(mk.spike(1980));                                  // floor spike -> flip up
+    o.push(mk.cspike(2300,CTOP));                            // ceiling spike -> flip down
+    o.push(mk.spike(2620));
+    o.push(mk.cspike(2940,CTOP));
+    o.push(mk.spike(3260));
+    o.push(mk.cspike(3580,CTOP));
+    // UFO: multi-hop over floor spikes & low bumps (the UFO rides the floor)
+    o.push(mk.portal(3940,'mode','ufo'));
+    o.push(mk.ground(4000,2200)); o.push(mk.block(4000,CEIL,2200,40));
+    o.push(mk.spike(4380));
+    o.push(mk.spike(4760));
+    o.push(mk.block(5120,G-TILE,80,TILE));                   // 1-tile bump
+    o.push(mk.spike(5480));
+    o.push(mk.spike(5860));
+    // CUBE on floor, then GRAV-FLIP to a ceiling run, then back
+    o.push(mk.portal(6200,'mode','cube'));
+    o.push(mk.ground(6200,1900));                            // floor 6200..8100
+    o.push(mk.portal(6640,'grav',-1));                       // flip up to the ceiling
+    o.push(mk.block(6640,CEIL,1460,40));                     // ceiling run surface 6640..8100
+    o.push(mk.cspike(7060,CTOP)); o.push(mk.cspike(7380,CTOP)); o.push(mk.cspike(7700,CTOP));
+    o.push(mk.portal(7960,'grav',1));                        // flip back down to the floor
+    o.push(mk.spike(8360));                                  // after landing (~8110) clear
+    o.push(mk.spike(8680)); o.push(mk.spike(8720));          // double
+    o.push(mk.orb(8980,G-160,'red'));
+    o.push(mk.spike(9200));
+    o.push(mk.ground(8100,1500));                            // floor continues 8100..9600
+    o.push(mk.flag(9420));
+    L.push({ name:'Crystal Cavern', diff:2, speed:1, len:9540,
+      pal:{top:'#0a1430',bot:'#127f88',accent:'#37f0d6',ground:'#0e3a44',gline:'#43f0d0',obj:'#9bfff0'},
+      music:{bpm:136, ...PATTERNS.b}, objects:o });
+  })();
+
+  /* ---------- LEVEL 3 — MAGMA CIRCUIT (hard): cube 2x + wave + ship + cube 2x ---------- */
+  (()=>{
+    const o=[];
+    // cube intro, then speed 2x (obstacles spaced for the longer jump)
+    o.push(mk.ground(0,2520));
+    o.push(mk.spike(560)); o.push(mk.spike(600));
+    o.push(mk.spike(940));
+    o.push(mk.portal(1200,'speed',2));
+    o.push(mk.spike(1560));
+    o.push(mk.spike(2020)); o.push(mk.spike(2060));          // double (wide-spaced for 2x)
+    o.push(mk.spike(2460));
+    // WAVE 2x: open diagonal corridor (wide gaps so the thin wave threads it)
+    o.push(mk.portal(2520,'mode','wave'));
+    o.push(mk.ground(2580,2600)); o.push(mk.block(2580,CEIL,2600,40));
+    o.push(mk.block(3000,G-140,TILE,140));
+    o.push(mk.block(3460,CTOP,TILE,140));
+    o.push(mk.block(3920,G-140,TILE,140));
+    o.push(mk.block(4380,CTOP,TILE,140));
+    o.push(mk.block(4840,G-140,TILE,140));
+    // SHIP 1x: weave between staggered saws
+    o.push(mk.portal(5180,'mode','ship')); o.push(mk.portal(5220,'speed',1));
+    o.push(mk.ground(5260,2300)); o.push(mk.block(5260,CEIL,2300,40));
+    o.push(mk.saw(5620,G-130,38));
+    o.push(mk.saw(6000,CTOP+50,38));
+    o.push(mk.saw(6380,G-130,38));
+    o.push(mk.saw(6760,CTOP+50,38));
+    o.push(mk.saw(7140,G-130,38));
+    // cube 2x finish
+    o.push(mk.portal(7560,'mode','cube')); o.push(mk.portal(7600,'speed',2));
+    o.push(mk.ground(7560,2400));
+    o.push(mk.spike(8000)); o.push(mk.spike(8040));
+    o.push(mk.spike(8480));
+    o.push(mk.pad(8920,G,'yellow'));                         // lands ~9270 (2x airtime) clear
+    o.push(mk.spike(9560)); o.push(mk.spike(9600));
+    o.push(mk.flag(9860));
+    L.push({ name:'Magma Circuit', diff:3, speed:1, len:9980,
+      pal:{top:'#280808',bot:'#7a1f0a',accent:'#ff7a2d',ground:'#46140a',gline:'#ff8a3a',obj:'#ffc070'},
+      music:{bpm:150, ...PATTERNS.c}, objects:o });
+  })();
+
+  /* ---------- LEVEL 4 — VOID PROTOCOL (insane): robot + spider + ball 2x + ufo + cube ---------- */
+  (()=>{
+    const o=[];
+    o.push(mk.ground(0,1180));
+    o.push(mk.spike(420)); o.push(mk.spike(460));
+    o.push(mk.spike(800)); o.push(mk.spike(840));
+    // ROBOT: variable jumps over low blocks (<=2 tiles) and spikes
+    o.push(mk.portal(1180,'mode','robot'));
+    o.push(mk.ground(1240,2000));
+    o.push(mk.spike(1560)); o.push(mk.spike(1600));
+    o.push(mk.block(1880,G-TILE,80,TILE));                   // hop block
+    o.push(mk.block(2200,G-TILE*2,TILE,TILE*2));             // 2-tile wall (robot can clear)
+    o.push(mk.spike(2520)); o.push(mk.spike(2560));
+    o.push(mk.pad(2860,G,'red'));                            // red pad -> lands ~3120 clear
+    // SPIDER: instant snap between floor & ceiling to dodge alternating spikes
+    o.push(mk.portal(3240,'mode','spider'));
+    o.push(mk.ground(3300,2300)); o.push(mk.block(3300,CEIL,2300,40));
+    o.push(mk.spike(3680));
+    o.push(mk.cspike(4000,CTOP));
+    o.push(mk.spike(4320));
+    o.push(mk.cspike(4640,CTOP));
+    o.push(mk.spike(4960));
+    o.push(mk.cspike(5280,CTOP));
+    // BALL 2x: flip floor<->ceiling
+    o.push(mk.portal(5600,'mode','ball')); o.push(mk.portal(5640,'speed',2));
+    o.push(mk.ground(5680,2400)); o.push(mk.block(5680,CEIL,2400,40));
+    o.push(mk.spike(6120));
+    o.push(mk.cspike(6520,CTOP));
+    o.push(mk.spike(6920));
+    o.push(mk.cspike(7320,CTOP));
+    o.push(mk.spike(7720));
+    // UFO 1x: multi-hop over floor spikes & a low bump
+    o.push(mk.portal(8080,'mode','ufo')); o.push(mk.portal(8120,'speed',1));
+    o.push(mk.ground(8140,2000)); o.push(mk.block(8140,CEIL,2000,40));
+    o.push(mk.spike(8500));
+    o.push(mk.spike(8860)); o.push(mk.spike(8900));
+    o.push(mk.block(9260,G-TILE,80,TILE));
+    o.push(mk.spike(9620));
+    o.push(mk.spike(9980));
+    // cube 2x finish
+    o.push(mk.portal(10140,'mode','cube')); o.push(mk.portal(10180,'speed',2));
+    o.push(mk.ground(10140,2300));
+    o.push(mk.spike(10560)); o.push(mk.spike(10600));
+    o.push(mk.spike(11040));
+    o.push(mk.orb(11440,G-170,'red'));
+    o.push(mk.spike(11700)); o.push(mk.spike(11740));
+    o.push(mk.flag(12060));
+    L.push({ name:'Void Protocol', diff:4, speed:1, len:12180,
+      pal:{top:'#160a2a',bot:'#3d1370',accent:'#b98cff',ground:'#231047',gline:'#c69cff',obj:'#dcc0ff'},
+      music:{bpm:160, ...PATTERNS.d}, objects:o });
+  })();
+
+  return L;
+}
+
+/* music patterns (16-step). Frequencies in Hz; null = rest. */
+const NOTE={C2:65.4,D2:73.4,E2:82.4,F2:87.3,G2:98,A2:110,B2:123.5,
+  C3:130.8,D3:146.8,E3:164.8,F3:174.6,G3:196,A3:220,B3:246.9,
+  C4:261.6,D4:293.7,E4:329.6,F4:349.2,G4:392,A4:440,B4:493.9,C5:523.3,E5:659.3,G5:784};
+const PATTERNS={
+  a:{bass:[NOTE.A2,null,null,null,NOTE.A2,null,NOTE.F2,null,NOTE.G2,null,null,null,NOTE.G2,null,NOTE.E2,null],
+     lead:[NOTE.A4,NOTE.C5,NOTE.E5,NOTE.C5,NOTE.A4,null,NOTE.F4,null,NOTE.G4,NOTE.B4,NOTE.D4*2,NOTE.B4,NOTE.G4,null,NOTE.E4,null]},
+  b:{bass:[NOTE.D2,null,NOTE.D2,null,NOTE.F2,null,null,null,NOTE.G2,null,NOTE.G2,null,NOTE.A2,null,null,null],
+     lead:[NOTE.D4,NOTE.A4,NOTE.F4,NOTE.A4,NOTE.D4,NOTE.A4,NOTE.C5,NOTE.A4,NOTE.G4,NOTE.B4,NOTE.D5||587,NOTE.B4,NOTE.A4,NOTE.E5,NOTE.C5,NOTE.A4]},
+  c:{bass:[NOTE.E2,NOTE.E2,null,NOTE.E2,NOTE.G2,null,NOTE.G2,null,NOTE.A2,NOTE.A2,null,NOTE.A2,NOTE.B2,null,NOTE.D3,null],
+     lead:[NOTE.E4,NOTE.B4,NOTE.E5,NOTE.B4,NOTE.G4,NOTE.D4*2,NOTE.B4,NOTE.G4,NOTE.A4,NOTE.E5,NOTE.C5,NOTE.A4,NOTE.B4,NOTE.G5,NOTE.E5,NOTE.B4]},
+  d:{bass:[NOTE.C2,NOTE.C2,NOTE.C3,NOTE.C2,NOTE.G2,NOTE.G2,NOTE.G3,NOTE.G2,NOTE.A2,NOTE.A2,NOTE.A3,NOTE.A2,NOTE.F2,NOTE.F2,NOTE.F3,NOTE.F2],
+     lead:[NOTE.C5,NOTE.G4,NOTE.E5,NOTE.C5,NOTE.G5,NOTE.E5,NOTE.C5,NOTE.G4,NOTE.A4,NOTE.E5,NOTE.C5,NOTE.A4,NOTE.F4,NOTE.C5,NOTE.A4,NOTE.F4]},
+};
+
+let LEVELS = null;
+
+/* ========================================================================== *
+ *  SECTION 4 — LEVEL PROCESSING (split into solids / hazards / triggers)      *
+ * ========================================================================== */
+const BUCKET = 192;
+function objW(o){ return o.w || (o.r?o.r*2:40); }
+function bucketize(arr){
+  const B=new Map();
+  for(const o of arr){ const x0=o.x, x1=o.x+objW(o);
+    for(let b=Math.floor(x0/BUCKET); b<=Math.floor(x1/BUCKET); b++){
+      let a=B.get(b); if(!a){a=[];B.set(b,a);} a.push(o); } }
+  return B;
+}
+const _EMPTY=[];
+function bucketNear(B, x){
+  const b=Math.floor(x/BUCKET);
+  const r0=B.get(b-1), r1=B.get(b), r2=B.get(b+1);
+  if(!r0 && !r2) return r1||_EMPTY;       // common fast path
+  const out=[]; if(r0)for(const o of r0)out.push(o); if(r1)for(const o of r1)out.push(o); if(r2)for(const o of r2)out.push(o);
+  return out;
+}
+function prepLevel(level){
+  if(level._prepped) return level;
+  const solids=[], hazards=[], interactives=[], portals=[];
+  for(const o of level.objects){
+    if(o.type==='block') solids.push(o);
+    else if(o.type==='spike'||o.type==='saw') hazards.push(o);
+    else if(o.type==='orb'||o.type==='pad') interactives.push(o);
+    else if(o.type==='portal') portals.push(o);
+    else if(o.type==='flag') level.flagX=o.x;
+  }
+  level._solids=solids; level._hazards=hazards; level._inter=interactives; level._portals=portals;
+  level._solidB=bucketize(solids); level._hazB=bucketize(hazards);
+  level.endX = level.flagX!=null?level.flagX:level.len-100;
+  level._prepped=true;
+  return level;
+}
+
+// moving obstacle position at world-time t (saw paths / moving platforms)
+function objPos(o, t){
+  if(o.path==='y'){ return {x:o.x, y:o.y + Math.sin(t*o.speed)*o.range}; }
+  if(o.path==='x'){ return {x:o.x + Math.sin(t*o.speed)*o.range, y:o.y}; }
+  if(o.moving){ const r=o.range||80, sp=o.speed||1.2;
+    if(o.axis==='y') return {x:o.x, y:o.y0!=null?o.y0+Math.sin(t*sp)*r:o.y+Math.sin(t*sp)*r};
+    return {x:(o.x0!=null?o.x0:o.x)+Math.sin(t*sp)*r, y:o.y}; }
+  return {x:o.x, y:o.y};
+}
+
+/* ========================================================================== *
+ *  SECTION 5 — PLAYER / PHYSICS                                               *
+ *  All physics live in stepPhysics() so the BOT can simulate identically.     *
+ * ========================================================================== */
+function makePlayer(level){
+  return {
+    x:120, y:GROUND_TOP-SIZE_NORMAL/2, px:120, py:GROUND_TOP-SIZE_NORMAL/2,
+    vx:0, vy:0, size:SIZE_NORMAL, mode:'cube', gd:1, grounded:true,
+    speedMult:level.speed||1, speed:BASE_SPEED*(level.speed||1),
+    rot:0, robotRising:false, dead:false, won:false, t:0,
+    lastOrb:-1, lastPad:-1, lastPortal:-1, animSpin:0,
+  };
+}
+
+function playerHalf(p){ return p.size/2; }
+
+// solid (full) box
+function boxOf(p, cx, cy){ const h=p.size/2; return {l:cx-h,t:cy-h,r:cx+h,b:cy+h}; }
+function overlapRect(b, x,y,w,h){ return b.r>x && b.l<x+w && b.b>y && b.t<y+h; }
+
+function clampVy(p){
+  if(p.mode==='ship'){ if(p.vy> SHIP_VMAX)p.vy=SHIP_VMAX; if(p.vy<-SHIP_VMAX)p.vy=-SHIP_VMAX; }
+  else if(p.mode==='wave'){ /* set directly */ }
+  else { if(p.vy>VMAX)p.vy=VMAX; if(p.vy<-VMAX)p.vy=-VMAX; }
+}
+
+function spiderSnap(p, solids){
+  // flip gravity, then teleport to nearest surface in the NEW gravity direction
+  p.gd = -p.gd; p.vy=0;
+  const h=p.size/2; let best=null;
+  const px=p.x;
+  if(p.gd>0){ // search downward: nearest solid top below feet, else ground
+    let by=KILL_BOTTOM;
+    for(const s of solids){ if(px>s.x && px<s.x+s.w){ const top=s.y; if(top>=p.y-h && top<by) by=top; } }
+    p.y = by - h;
+  } else { // search upward: nearest solid bottom above head
+    let by=KILL_TOP;
+    for(const s of solids){ if(px>s.x && px<s.x+s.w){ const bot=s.y+s.h; if(bot<=p.y+h && bot>by) by=bot; } }
+    p.y = by + h;
+  }
+  p.grounded=true;
+}
+
+// Core single-substep physics update. Mutates p. `held`/`pressed` = jump input.
+function stepPhysics(p, held, pressed, dt, level){
+  if(p.dead||p.won) return;
+  p.px=p.x; p.py=p.y;
+  const inter=level._inter, portals=level._portals;
+  const solids=bucketNear(level._solidB, p.x);   // broad-phase: only nearby geometry
+
+  // ---- vertical control by mode ----
+  switch(p.mode){
+    case 'cube':
+      p.vy += GRAVITY*p.gd*dt;
+      if(pressed && p.grounded){ p.vy = -JUMP_VEL*p.gd; p.grounded=false; }
+      break;
+    case 'robot':
+      p.vy += GRAVITY*p.gd*dt;
+      if(pressed && p.grounded){ p.vy=-ROBOT_JUMP*p.gd; p.grounded=false; p.robotRising=true; }
+      if(p.robotRising){
+        if(!held && p.vy*p.gd<0) p.vy*=ROBOT_CUT, p.robotRising=false;
+        if(p.vy*p.gd>=0) p.robotRising=false;
+      }
+      break;
+    case 'ship':
+      p.vy += SHIP_GRAV*p.gd*dt;
+      if(held) p.vy += -SHIP_THRUST*p.gd*dt;
+      break;
+    case 'wave':
+      p.vy = (held? -1:1)*p.gd*p.speed;   // 45° diagonal tied to scroll speed
+      break;
+    case 'ufo':
+      p.vy += GRAVITY*p.gd*dt;
+      if(pressed){ p.vy = -UFO_HOP*p.gd; p.grounded=false; }
+      break;
+    case 'ball':
+      p.vy += GRAVITY*p.gd*dt;
+      if(pressed && p.grounded){ p.gd=-p.gd; p.grounded=false; }
+      break;
+    case 'spider':
+      p.vy += GRAVITY*p.gd*dt;
+      if(pressed){ spiderSnap(p, solids); }
+      break;
+  }
+  clampVy(p);
+
+  // ---- integrate ----
+  p.y += p.vy*dt;
+  p.x += p.speed*dt;
+
+  // ---- solid collisions (vertical landing / ceiling / side death) ----
+  p.grounded=false;
+  for(const s of solids){
+    let sx=s.x, sy=s.y;
+    if(s.moving){ const pp=objPos(s,p.t); sx=pp.x; sy=pp.y; }
+    const b=boxOf(p,p.x,p.y);
+    if(!(b.r>sx && b.l<sx+s.w && b.b>sy && b.t<sy+s.h)) continue;
+    const h=p.size/2;
+    const pbB=p.py+h, pbT=p.py-h, pbR=p.px+h, pbL=p.px-h;
+    const sT=sy, sB=sy+s.h;
+    // Coming from above the top surface -> rest on it (floor when gravity is down).
+    if(pbB <= sT + LAND_TOL && p.vy>=0){ p.y=sT-h; p.vy=0; p.grounded = (p.gd>0); continue; }
+    // Coming from below the bottom surface -> rest on underside (floor when gravity is up).
+    if(pbT >= sB - LAND_TOL && p.vy<=0){ p.y=sB+h; p.vy=0; p.grounded = (p.gd<0); continue; }
+    // Vertical bonk without grounding (e.g. head into a block) -> stop, no death.
+    if(pbT >= sB - LAND_TOL){ p.y=sB+h; if(p.vy<0)p.vy=0; continue; }
+    if(pbB <= sT + LAND_TOL){ p.y=sT-h; if(p.vy>0)p.vy=0; continue; }
+    // Anything else is a side-on wall hit -> death (classic GD rule).
+    p.dead=true; return;
+  }
+
+  // ---- portals (mode/grav/size/speed) : crossing-based, side-effect free ----
+  for(const pt of portals){
+    if(p.px < pt.x && p.x >= pt.x){
+      applyPortal(p, pt);
+    }
+  }
+
+  // ---- interactives: pads (auto) + orbs (on press) ----
+  for(let i=0;i<inter.length;i++){
+    const it=inter[i]; const b=boxOf(p,p.x,p.y);
+    const cx=it.x+ (it.type==='orb'?it.w/2:it.w/2), cy=it.y+(it.type==='orb'?it.h/2:it.h/2);
+    if(it.type==='pad'){
+      // pad sits as a thin plate; trigger when overlapping & moving into it
+      if(overlapRect(b, it.x, it.y-6, it.w, it.h+12)){
+        if(it.kind==='grav'){ if(p.lastPad!==i){ p.gd=-p.gd; p.lastPad=i; p.grounded=false; if(!p._sim)Audio2.sfx.pad(); } }
+        else { const pw = it.kind==='red'?1.32:1.0; p.vy = -JUMP_VEL*pw*p.gd; p.grounded=false; if(p.lastPad!==i){p.lastPad=i; if(!p._sim)Audio2.sfx.pad();} }
+      }
+    } else { // orb
+      const dx=p.x-cx, dy=p.y-cy;
+      if(dx*dx+dy*dy < 52*52){
+        if(pressed){
+          let pw = it.kind==='red'?1.28: it.kind==='pink'?0.72: 1.0;
+          if(it.kind==='blue'){ p.gd=-p.gd; }
+          else p.vy = -JUMP_VEL*pw*p.gd;
+          p.grounded=false; if(!p._sim)Audio2.sfx.orb();
+        }
+      }
+    }
+  }
+
+  // ---- hazards (instant death) ----
+  const hb=hazScale(p);
+  const hh=p.size*hb/2;
+  const hx0=p.x-hh, hy0=p.y-hh, hsz=hh*2;
+  for(const hz of bucketNear(level._hazB, p.x)){
+    let ox=hz.x, oy=hz.y;
+    if(hz.path){ const pp=objPos(hz,p.t); ox=pp.x; oy=pp.y; }
+    if(hz.type==='spike'){
+      // shrink to ~HAZ_SHRINK of visual, centered
+      const m=hz.w*(1-0.70)/2;
+      const sx=ox+m, sy=oy+ (hz.dir>0? hz.h*0.25:0), sw=hz.w-2*m, sht=hz.h*0.75;
+      if(hx0<sx+sw && hx0+hsz>sx && hy0<sy+sht && hy0+hsz>sy){ p.dead=true; return; }
+    } else { // saw circle
+      const cxx=ox+hz.r, cyy=oy+hz.r;
+      const nx=Math.max(hx0,Math.min(cxx,hx0+hsz)), ny=Math.max(hy0,Math.min(cyy,hy0+hsz));
+      const dx=cxx-nx, dy=cyy-ny; if(dx*dx+dy*dy < (hz.r*0.78)*(hz.r*0.78)){ p.dead=true; return; }
+    }
+  }
+
+  // ---- world bounds & finish ----
+  if(p.y>KILL_BOTTOM || p.y<KILL_TOP){ p.dead=true; return; }
+  if(p.x>=level.endX){ p.won=true; }
+
+  p.t += dt;
+}
+
+function hazScale(p){ return p.mode==='wave'? WAVE_HB : HAZ_SHRINK; }
+
+function applyPortal(p, pt){
+  switch(pt.kind){
+    case 'mode':
+      if(p.mode!==pt.val){ p.mode=pt.val; p.robotRising=false;
+        p.gd=1;   // section start always begins in normal gravity (a following grav portal may re-flip)
+        if(!p._sim) Audio2.sfx.portal(); }
+      break;
+    case 'grav': p.gd = pt.val; p.grounded=false; if(!p._sim)Audio2.sfx.portal(); break;
+    case 'size': p.size = pt.val==='mini'?SIZE_MINI:SIZE_NORMAL; if(!p._sim)Audio2.sfx.portal(); break;
+    case 'speed': p.speedMult=pt.val; p.speed=BASE_SPEED*pt.val;
+      if(!p._sim){ G.cam.targetZoom = pt.val>=3?0.78: pt.val>=2?0.9: pt.val<=0.5?1.18:1; Audio2.sfx.portal(); }
+      break;
+  }
+}
+
+/* ========================================================================== *
+ *  SECTION 6 — BOT AI (real-time, lookahead simulation; works from anywhere)  *
+ * ========================================================================== */
+/* The bot drives the SAME stepPhysics() the player uses, so its predictions are
+ * exact. Strategy: discrete modes (cube/robot/ball/ufo/spider) jump/flip/tap at the
+ * LATEST frame that still survives — found by simulating "defer one more step" with a
+ * feasibility policy. Continuous modes (ship/wave) steer toward the centre of the free
+ * vertical corridor read from upcoming geometry. Works from ANY state, no replay.     */
+
+// fast clone of the dynamic parts of the player for simulation
+function cloneP(p){
+  return {x:p.x,y:p.y,px:p.px,py:p.py,vx:p.vx,vy:p.vy,size:p.size,mode:p.mode,gd:p.gd,
+    grounded:p.grounded,speedMult:p.speedMult,speed:p.speed,rot:0,robotRising:p.robotRising,
+    dead:false,won:false,t:p.t,lastOrb:p.lastOrb,lastPad:p.lastPad,lastPortal:p.lastPortal,_sim:true};
+}
+// can this mode change its trajectory THIS step?
+function able(p){
+  if(p.mode==='cube'||p.mode==='robot'||p.mode==='ball') return p.grounded;
+  return true; // ufo / spider can always act; ship / wave steer continuously
+}
+// coast (no input) for n steps; return steps survived (1e9 if it reaches the flag)
+function survives(p0, level, n){
+  const p=cloneP(p0);
+  for(let i=0;i<n;i++){ stepPhysics(p,false,false,FIXED_DT,level); if(p.dead)return i; if(p.won)return 1e9; }
+  return n;
+}
+function coastDies(p, level, n){ return survives(p,level,n) < n; }
+
+// Simulate: coast `delay` steps, perform ONE action (jump/flip/tap), then coast
+// `horizon` steps. True if the player survives it all (or wins). Models a single
+// discrete action exactly (cube/ufo/ball/spider/robot can't usefully repeat within
+// the window) so it tells us whether one action clears the imminent geometry.
+function clearsWithSingleAction(p0, level, delay, horizon){
+  const p=cloneP(p0);
+  for(let i=0;i<delay;i++){ stepPhysics(p,false,false,FIXED_DT,level); if(p.dead)return false; if(p.won)return true; }
+  stepPhysics(p, true, true, FIXED_DT, level);   // the action frame
+  if(p.dead) return false; if(p.won) return true;
+  for(let i=0;i<horizon;i++){
+    const hold = (p.mode==='robot' && p.robotRising);  // robot holds for full jump height
+    stepPhysics(p, hold, false, FIXED_DT, level);
+    if(p.dead)return false; if(p.won)return true;
+  }
+  return true;
+}
+// ---- ship / wave: steer toward the centre of the free vertical corridor ----
+function corridorTarget(p, level, lookAhead){
+  const lx=p.x+lookAhead, half=p.size/2+12;
+  let lo=KILL_TOP+30, hi=KILL_BOTTOM-30;
+  for(const s of bucketNear(level._solidB, lx)){
+    let sx=s.x, sy=s.y; if(s.moving){const pp=objPos(s,p.t);sx=pp.x;sy=pp.y;}
+    if(lx>sx-half && lx<sx+s.w+half){
+      const top=sy, bot=sy+s.h;
+      if(bot<=p.y){ if(bot>lo) lo=bot; }
+      else if(top>=p.y){ if(top<hi) hi=top; }
+      else { if(p.y-top < bot-p.y){ if(top<hi)hi=top; } else { if(bot>lo)lo=bot; } }
+    }
+  }
+  for(const hz of bucketNear(level._hazB, lx)){
+    let ox=hz.x,oy=hz.y; if(hz.path){const pp=objPos(hz,p.t);ox=pp.x;oy=pp.y;}
+    const cx=ox+objW(hz)/2, cy=oy+(hz.h||hz.r*2)/2;
+    if(Math.abs(cx-lx)<82){ if(cy<p.y){ if(cy+48>lo)lo=cy+48; } else { if(cy-48<hi)hi=cy-48; } }
+  }
+  return (lo+hi)/2;
+}
+function botContinuous(p, level){
+  const look=Math.max(110, p.speed*0.22);
+  const tgt=corridorTarget(p, level, look);
+  const pred=p.y + p.vy*0.13;                 // small velocity lead = damping
+  const goUp=(p.gd>0)? (pred>tgt) : (pred<tgt);
+  return {held:goUp, pressed:false};
+}
+
+// ---- live per-tick decision (earliest-safe takeoff) ----
+// Discrete modes: if coasting is clear for the whole window, do nothing. Otherwise jump on
+// the EARLIEST frame where one action clears the imminent geometry. Jumping early (rather
+// than at the last possible frame) leaves the cube high over the obstacle = lots of margin,
+// and naturally clears singles, double-spikes, gaps and clusters. Works from any state.
+function botInput(p, level){
+  if(p.mode==='ship'||p.mode==='wave') return botContinuous(p, level);
+  if(p.mode==='robot' && p.robotRising) return {held:true, pressed:false}; // hold for full arc
+  if(!able(p)) return {held:false, pressed:false};                          // can't act this step
+  if(survives(p, level, ACT_H) >= ACT_H) return {held:false, pressed:false};// nothing imminent -> coast
+  if(clearsWithSingleAction(p, level, 0, ACT_H)) return {held:true, pressed:true};
+  // One action can't clear the window yet. For single-jump modes that just means "too early"
+  // -> keep coasting until the right frame. Only the air-hover modes (ufo / spider) need to
+  // act early, and only when it MEANINGFULLY buys time (not a 1-frame edge-of-horizon gain).
+  if(p.mode==='ufo' || p.mode==='spider'){
+    const sc=survives(p, level, ACT_H);
+    const tp=cloneP(p); stepPhysics(tp,true,true,FIXED_DT,level);
+    if(!tp.dead && survives(tp, level, ACT_H) > sc+8) return {held:true, pressed:true};
+  }
+  return {held:false, pressed:false};
+}
+
+/* ========================================================================== *
+ *  SECTION 7 — INPUT                                                          *
+ * ========================================================================== */
+const Input = { held:false, pressedEdge:false };
+function doPressDown(){
+  if(G.state!=='playing') return;
+  if(!Input.held){ Input.held=true; Input.pressedEdge=true; }
+}
+function doPressUp(){ Input.held=false; }
+
+window.addEventListener('keydown',(e)=>{
+  const k=e.key.toLowerCase();
+  if(k===' '||k==='arrowup'||k==='w'){ e.preventDefault(); Audio2.resume(); doPressDown(); }
+  else if(k==='p'||k==='escape'){ if(G.state==='playing') pauseGame(); else if(G.state==='paused') resumeGame(); }
+  else if(k==='z' && G.state==='playing' && G.practice) placeCheckpoint();
+  else if(k==='x' && G.state==='playing' && G.practice) clearCheckpoints();
+  else if(k==='i'){ registerIpress(); }
+  else if(k==='r' && G.state==='playing'){ restartLevel(); }
+});
+window.addEventListener('keyup',(e)=>{ const k=e.key.toLowerCase();
+  if(k===' '||k==='arrowup'||k==='w'){ doPressUp(); } });
+
+canvas.addEventListener('mousedown',(e)=>{ Audio2.resume(); doPressDown(); });
+window.addEventListener('mouseup',()=>doPressUp());
+canvas.addEventListener('touchstart',(e)=>{ e.preventDefault(); Audio2.resume(); doPressDown(); },{passive:false});
+window.addEventListener('touchend',(e)=>{ doPressUp(); });
+
+// triple-I -> toggle bot
+function registerIpress(){
+  const now=performance.now(); G.iPresses.push(now);
+  G.iPresses = G.iPresses.filter(t=>now-t<600);
+  if(G.iPresses.length>=3){ G.iPresses=[]; toggleBot(); }
+}
+function toggleBot(){
+  if(G.state!=='playing') return;
+  G.bot=!G.bot; G.botFlashT=1.0; Audio2.sfx.bot();
+  document.getElementById('botBadge').style.display = G.bot?'block':'none';
+  const bb=document.getElementById('botBanner');
+  bb.textContent = G.bot?'BOT MODE ENABLED':'BOT MODE DISABLED';
+  bb.style.color = G.bot?'#ffe14d':'#9fd0ff';
+  bb.style.borderColor = G.bot?'#ffe14d':'#9fd0ff';
+  bb.style.display='block';
+  setTimeout(()=>{ if(!G.bot) bb.style.display='none'; }, G.bot?2000:1400);
+}
+
+/* ========================================================================== *
+ *  SECTION 8 — PARTICLES & FX                                                 *
+ * ========================================================================== */
+function burst(x,y,color,n,spd){
+  for(let i=0;i<n;i++){ const a=Math.random()*Math.PI*2, s=spd*(0.3+Math.random());
+    G.particles.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s,life:1,max:0.4+Math.random()*0.5,
+      size:3+Math.random()*5,color}); }
+}
+function updateParticles(dt){
+  for(let i=G.particles.length-1;i>=0;i--){ const pp=G.particles[i];
+    pp.x+=pp.vx*dt; pp.y+=pp.vy*dt; pp.vy+=900*dt; pp.life-=dt/pp.max;
+    if(pp.life<=0) G.particles.splice(i,1); }
+  // player trail
+  for(let i=G.trail.length-1;i>=0;i--){ G.trail[i].life-=dt/0.4; if(G.trail[i].life<=0) G.trail.splice(i,1); }
+}
+function addShake(amt){ if(SETTINGS.shake) G.cam.shake=Math.min(1.4, G.cam.shake+amt); }
+
+/* ========================================================================== *
+ *  SECTION 9 — GAME FLOW                                                      *
+ * ========================================================================== */
+function startLevel(idx){
+  G.levelIdx=idx; G.level=prepLevel(LEVELS[idx]);
+  G.player=makePlayer(G.level);
+  G.attempts=1; G.startTime=performance.now(); G.elapsed=0;
+  G.particles.length=0; G.trail.length=0; G.checkpoints.length=0;
+  G.bot=false; G.deadT=0; G.won=false; G.style=0; G.bestStyleRun=0;
+  G.practice=SETTINGS.practiceDefault;
+  G.cam.x=G.player.x; G.cam.y=GROUND_TOP-120; G.cam.zoom=1; G.cam.targetZoom=1; G.cam.shake=0;
+  document.getElementById('botBadge').style.display='none';
+  document.getElementById('botBanner').style.display='none';
+  document.getElementById('practiceTag').style.display=G.practice?'block':'none';
+  document.getElementById('comboTag').style.display='block';
+  G.state='playing';
+  showOnly('hud');
+  Audio2.startMusic(G.level.music, G.level.music.bpm);
+  updateHUD();
+}
+function restartLevel(){
+  if(!G.level) return;
+  G.attempts++; G.player=makePlayer(G.level);
+  if(G.practice && G.checkpoints.length){ respawnAtCheckpoint(); }
+  G.startTime=performance.now(); G.elapsed=0; G.won=false; G.deadT=0; G.style=0;
+  G.state='playing'; updateHUD();
+}
+function respawnAtCheckpoint(){
+  const c=G.checkpoints[G.checkpoints.length-1];
+  Object.assign(G.player, c.snap);
+  G.player.dead=false; G.player.won=false;
+}
+function placeCheckpoint(){
+  const snap={}; for(const k of ['x','y','px','py','vx','vy','size','mode','gd','grounded','speedMult','speed','robotRising','t','lastOrb','lastPad','lastPortal'])
+    snap[k]=G.player[k];
+  G.checkpoints.push({x:G.player.x,y:G.player.y,snap});
+}
+function clearCheckpoints(){ G.checkpoints.length=0; }
+
+function onDeath(){
+  if(G.player.dead && G.deadT===0){
+    G.deadT=0.01; G.style=0;
+    const col=ICON_COLORS[SETTINGS.icon].a;
+    burst(G.player.x,G.player.y,col,26,520); burst(G.player.x,G.player.y,'#ffffff',10,360);
+    addShake(0.9); Audio2.sfx.death();
+  }
+}
+function finishLevel(){
+  G.won=true; G.state='complete';
+  G.elapsed=(performance.now()-G.startTime)/1000;
+  Audio2.stopMusic(); Audio2.sfx.complete();
+  const pr=PROGRESS[G.levelIdx]||{best:0,complete:false};
+  pr.best=100; pr.complete=true; PROGRESS[G.levelIdx]=pr; saveState();
+  document.getElementById('cAttempts').textContent=G.attempts;
+  document.getElementById('cTime').textContent=G.elapsed.toFixed(1)+'s';
+  document.getElementById('cStyle').textContent=G.bestStyleRun|0;
+  showOnly('complete'); document.getElementById('hud').classList.add('hidden');
+}
+function pauseGame(){
+  if(G.state!=='playing') return; G.state='paused';
+  document.getElementById('pauseAttempts').textContent=G.attempts;
+  document.getElementById('pauseProg').textContent=Math.floor(progressPct())+'%';
+  setToggle('pausePractice', G.practice);
+  showOnly('pause');
+}
+function resumeGame(){ if(G.state!=='paused')return; G.state='playing'; showOnly('hud'); }
+function quitToMenu(){
+  Audio2.stopMusic(); G.state='menu'; buildLobby(); showOnly('lobby'); document.getElementById('hud').classList.add('hidden');
+}
+function progressPct(){ if(!G.level) return 0; return Math.max(0,Math.min(100, (G.player.x/G.level.endX)*100)); }
+
+/* ========================================================================== *
+ *  SECTION 10 — UPDATE STEP (one fixed tick)                                  *
+ * ========================================================================== */
+function stepGame(dt){
+  const p=G.player;
+  // determine input for this tick
+  let held=Input.held, pressed=Input.pressedEdge;
+  if(G.bot){ const bi=botInput(p, G.level); held=bi.held; pressed=bi.pressed; }
+  Input.pressedEdge=false;
+
+  stepPhysics(p, held, pressed, dt, G.level);
+
+  // trail
+  if(!p.dead){ G.trail.push({x:p.x,y:p.y,life:1,size:p.size}); if(G.trail.length>26)G.trail.shift(); }
+  if(pressed && p.grounded===false && p.mode==='cube' && !G.bot){} // (hook for sfx already handled)
+
+  // style score: survive clean
+  if(!p.dead){ G.style += dt*10; if(G.style>G.bestStyleRun)G.bestStyleRun=G.style; }
+
+  if(p.won){ finishLevel(); return; }
+  if(p.dead){ onDeath(); }
+}
+
+/* ========================================================================== *
+ *  SECTION 11 — CAMERA & RENDER                                               *
+ * ========================================================================== */
+function resize(){
+  const w=window.innerWidth, h=window.innerHeight; DPR=Math.min(2,window.devicePixelRatio||1);
+  canvas.width=Math.max(1,Math.floor(w*DPR)); canvas.height=Math.max(1,Math.floor(h*DPR));
+  canvas.style.width=w+'px'; canvas.style.height=h+'px';
+  // fit the 480x270 pixel buffer onto the screen backing store (letterboxed)
+  scaleFit=Math.min(canvas.width/PW, canvas.height/PH);
+  offX=Math.floor((canvas.width-PW*scaleFit)/2); offY=Math.floor((canvas.height-PH*scaleFit)/2);
+}
+window.addEventListener('resize',resize);
+
+function updateCamera(dt){
+  const p=G.player; if(!p) return;
+  // horizontal: keep player ~32% from left
+  const z=G.cam.zoom;
+  const targetX = p.x + (0.5-0.32)*VIEW_W/z;
+  G.cam.x += (targetX-G.cam.x)*Math.min(1,dt*12);
+  // vertical: ease toward player but keep ground visible
+  let ty = p.y*0.35 + (GROUND_TOP-120)*0.65;
+  ty = Math.max(GROUND_TOP-360, Math.min(GROUND_TOP+40, ty));
+  G.cam.y += (ty-G.cam.y)*Math.min(1,dt*6);
+  // zoom easing
+  G.cam.zoom += (G.cam.targetZoom-G.cam.zoom)*Math.min(1,dt*4);
+  // shake decay
+  G.cam.shake*=Math.pow(0.0008,dt);
+  if(G.cam.shake<0.01)G.cam.shake=0;
+  G.cam.shakeX=(Math.random()*2-1)*G.cam.shake*22;
+  G.cam.shakeY=(Math.random()*2-1)*G.cam.shake*22;
+}
+
+function W2S(wx,wy){ const z=G.cam.zoom;
+  return [ (wx-G.cam.x)*z + VIEW_W/2 + G.cam.shakeX, (wy-G.cam.y)*z + VIEW_H/2 + G.cam.shakeY ]; }
+
+function render(){
+  // 1) draw the whole scene into the low-res buffer (logical coords scaled by BS)
+  ctx.setTransform(BS,0,0,BS,0,0);
+  ctx.imageSmoothingEnabled=false;
+  ctx.clearRect(0,0,VIEW_W,VIEW_H);
+  if(G.state==='menu'){ drawMenuBg(); }
+  else if(G.level){ drawBackground(); drawParallax(); drawLevel(); drawPlayer(); drawParticles(); }
+  // 2) blit the buffer onto the screen, scaled up with NO smoothing -> crisp pixels
+  screen.setTransform(1,0,0,1,0,0);
+  screen.imageSmoothingEnabled=false;
+  screen.fillStyle='#04060e'; screen.fillRect(0,0,canvas.width,canvas.height);
+  screen.drawImage(buf, 0,0,PW,PH, offX,offY, Math.ceil(PW*scaleFit), Math.ceil(PH*scaleFit));
+}
+
+/* ---- backgrounds ---- */
+let bgT=0;
+function drawBackground(){
+  const pal=G.level.pal;
+  const pulse = G.beatPulse;
+  // gradient sky, brightened a touch on every beat
+  const g=ctx.createLinearGradient(0,0,0,VIEW_H);
+  const b = 1 + pulse*0.18;
+  g.addColorStop(0, shade(pal.top,b)); g.addColorStop(1, shade(pal.bot,b));
+  ctx.fillStyle=g; ctx.fillRect(0,0,VIEW_W,VIEW_H);
+  if(pulse>0.02){ ctx.fillStyle='rgba(255,255,255,'+(pulse*0.05)+')'; ctx.fillRect(0,0,VIEW_W,VIEW_H); }
+}
+function drawParallax(){
+  const pal=G.level.pal, pulse=G.beatPulse;
+  // far layer: big slow rotating outlined squares
+  ctx.lineWidth=2;
+  for(let i=0;i<7;i++){
+    const span=2000, depth=0.12, sz=210;
+    let px=((i*711 - G.cam.x*depth)%span+span)%span - 200;
+    const py=120 + (i*97%360) + Math.sin(bgT*0.4+i)*14;
+    ctx.save(); ctx.translate(px,py); ctx.rotate(bgT*0.15 + i);
+    ctx.globalAlpha=0.06*(1+pulse*0.8); ctx.strokeStyle=pal.accent;
+    ctx.strokeRect(-sz/2,-sz/2,sz,sz);
+    ctx.restore();
+  }
+  // near layer: a scrolling diamond grid that pulses with the beat
+  const gap=120, depth=0.32;
+  const ox=((-G.cam.x*depth)%gap+gap)%gap;
+  ctx.globalAlpha=0.05+pulse*0.06; ctx.fillStyle=pal.accent;
+  for(let gx=-gap; gx<VIEW_W+gap; gx+=gap){
+    for(let gy=40; gy<560; gy+=gap){
+      const px=gx+ox, py=gy + (Math.floor((gx)/gap)%2)*gap/2;
+      const d=4+pulse*4;
+      ctx.beginPath(); ctx.moveTo(px,py-d); ctx.lineTo(px+d,py); ctx.lineTo(px,py+d); ctx.lineTo(px-d,py); ctx.closePath(); ctx.fill();
+    }
+  }
+  ctx.globalAlpha=1;
+}
+// lighten/darken a #rrggbb by factor f
+function shade(hex,f){
+  const n=parseInt(hex.slice(1),16); let r=(n>>16)&255,g=(n>>8)&255,b=n&255;
+  r=Math.min(255,r*f|0); g=Math.min(255,g*f|0); b=Math.min(255,b*f|0);
+  return 'rgb('+r+','+g+','+b+')';
+}
+
+/* ---- level geometry ---- */
+function drawLevel(){
+  const lv=G.level, pal=lv.pal, t=G.player?G.player.t:bgT;
+  const camL=G.cam.x-VIEW_W/G.cam.zoom, camR=G.cam.x+VIEW_W/G.cam.zoom;
+  // portals
+  for(const pt of lv._portals){ if(pt.x<camL-60||pt.x>camR+60)continue; drawPortal(pt); }
+  // solids -> beveled neon tile blocks
+  for(const s of lv._solids){ let sx=s.x,sy=s.y; if(s.moving){const pp=objPos(s,t);sx=pp.x;sy=pp.y;}
+    if(sx+s.w<camL||sx>camR)continue;
+    drawBlock(sx,sy,s.w,s.h,pal);
+  }
+  // hazards
+  for(const hz of lv._hazards){ let ox=hz.x,oy=hz.y; if(hz.path){const pp=objPos(hz,t);ox=pp.x;oy=pp.y;}
+    if(ox+ (hz.w||hz.r*2) <camL||ox>camR)continue;
+    if(hz.type==='spike') drawSpike(hz,ox,oy,pal);
+    else drawSaw(hz,ox,oy,pal,t);
+  }
+  // interactives
+  for(const it of lv._inter){ if(it.x<camL-40||it.x>camR+40)continue;
+    if(it.type==='orb') drawOrb(it); else drawPad(it,pal); }
+  // flag
+  if(lv.flagX!=null && lv.flagX>camL-80 && lv.flagX<camR+80) drawFlag(lv.flagX);
+}
+// Beveled neon tile block: dark body, lighter top face, glowing outline, faint tile grid.
+function drawBlock(sx,sy,w,h,pal){
+  const z=G.cam.zoom; const [x,y]=W2S(sx,sy); const W=w*z, H=h*z;
+  // body
+  const g=ctx.createLinearGradient(0,y,0,y+H);
+  g.addColorStop(0, shade(pal.ground,1.45)); g.addColorStop(0.10, pal.ground); g.addColorStop(1, shade(pal.ground,0.62));
+  ctx.fillStyle=g; ctx.fillRect(x,y,W,H);
+  // faint internal tile grid
+  ctx.strokeStyle='rgba(255,255,255,0.05)'; ctx.lineWidth=1;
+  const T=TILE*z;
+  ctx.beginPath();
+  for(let gx=x+T; gx<x+W-1; gx+=T){ ctx.moveTo(gx,y); ctx.lineTo(gx,y+H); }
+  for(let gy=y+T; gy<y+H-1; gy+=T){ ctx.moveTo(x,gy); ctx.lineTo(x+W,gy); }
+  ctx.stroke();
+  // bright top face highlight (the lit edge)
+  ctx.fillStyle=shade(pal.gline,1.05); ctx.globalAlpha=0.9;
+  ctx.fillRect(x, y, W, Math.max(2,4*z)); ctx.globalAlpha=1;
+  // neon outline
+  ctx.strokeStyle=pal.gline; ctx.lineWidth=2; ctx.shadowColor=pal.gline; ctx.shadowBlur=10*z;
+  ctx.strokeRect(x+1,y+1,W-2,H-2); ctx.shadowBlur=0;
+}
+function drawSpike(hz,ox,oy,pal){ const z=G.cam.zoom; const [x,y]=W2S(ox,oy); const w=hz.w*z,hh=hz.h*z;
+  const tipx=x+w/2;
+  ctx.beginPath();
+  if(hz.dir>0){ ctx.moveTo(x+w*0.06,y+hh); ctx.lineTo(tipx,y+hh*0.04); ctx.lineTo(x+w*0.94,y+hh); }
+  else { ctx.moveTo(x+w*0.06,y); ctx.lineTo(tipx,y+hh*0.96); ctx.lineTo(x+w*0.94,y); }
+  ctx.closePath();
+  const g=ctx.createLinearGradient(0,y,0,y+hh);
+  g.addColorStop(0, hz.dir>0?'#ffffff':pal.obj); g.addColorStop(0.5, pal.obj); g.addColorStop(1, hz.dir>0?shade(pal.obj,0.7):'#ffffff');
+  ctx.fillStyle=g; ctx.shadowColor=pal.obj; ctx.shadowBlur=10*z; ctx.fill(); ctx.shadowBlur=0;
+  ctx.strokeStyle='rgba(255,255,255,0.85)'; ctx.lineWidth=1.5; ctx.stroke();
+  // center highlight line
+  ctx.strokeStyle='rgba(255,255,255,0.4)'; ctx.lineWidth=1;
+  ctx.beginPath(); ctx.moveTo(tipx, hz.dir>0?y+hh*0.1:y+hh*0.9); ctx.lineTo(tipx, hz.dir>0?y+hh*0.85:y+hh*0.15); ctx.stroke();
+}
+function drawSaw(hz,ox,oy,pal,t){ const z=G.cam.zoom; const [x,y]=W2S(ox+hz.r,oy+hz.r); const r=hz.r*z;
+  ctx.save(); ctx.translate(x,y); ctx.rotate(t*8);
+  ctx.fillStyle='#cfd8e6'; ctx.shadowColor=pal.obj; ctx.shadowBlur=12;
+  const teeth=10; ctx.beginPath();
+  for(let i=0;i<teeth;i++){ const a=(i/teeth)*Math.PI*2; const a2=((i+0.5)/teeth)*Math.PI*2;
+    ctx.lineTo(Math.cos(a)*r, Math.sin(a)*r); ctx.lineTo(Math.cos(a2)*r*0.78, Math.sin(a2)*r*0.78); }
+  ctx.closePath(); ctx.fill(); ctx.shadowBlur=0;
+  ctx.fillStyle='#5b6b82'; ctx.beginPath(); ctx.arc(0,0,r*0.42,0,7); ctx.fill();
+  ctx.fillStyle='#0a0f1a'; ctx.beginPath(); ctx.arc(0,0,r*0.16,0,7); ctx.fill();
+  ctx.restore();
+}
+function drawOrb(it){ const z=G.cam.zoom; const [x,y]=W2S(it.x+it.w/2,it.y+it.h/2); const r=it.w/2*z*1.3;
+  const col= it.kind==='red'?'#ff4d4d': it.kind==='pink'?'#ff7ad0': it.kind==='blue'?'#5db6ff':'#ffe14d';
+  const pulse=1+Math.sin(bgT*6)*0.12;
+  ctx.strokeStyle=col; ctx.lineWidth=3.5; ctx.shadowColor=col; ctx.shadowBlur=14;
+  ctx.beginPath(); ctx.arc(x,y,r*pulse,0,7); ctx.stroke();
+  ctx.globalAlpha=0.35; ctx.beginPath(); ctx.arc(x,y,r*0.5*pulse,0,7); ctx.fillStyle=col; ctx.fill();
+  ctx.globalAlpha=1; ctx.shadowBlur=0;
+}
+function drawPad(it,pal){ const z=G.cam.zoom; const [x,y]=W2S(it.x,it.y); const w=it.w*z;
+  const col= it.kind==='grav'?'#5db6ff': it.kind==='red'?'#ff4d4d':'#ffe14d';
+  ctx.fillStyle=col; ctx.shadowColor=col; ctx.shadowBlur=12;
+  ctx.beginPath(); ctx.moveTo(x,y+10*z); ctx.lineTo(x+w/2,y-2*z); ctx.lineTo(x+w,y+10*z); ctx.closePath(); ctx.fill();
+  ctx.shadowBlur=0;
+}
+function drawPortal(pt){ const z=G.cam.zoom; const [x,y]=W2S(pt.x,pt.y); const ph=pt.h*z;
+  let col='#7b8cff', label='';
+  if(pt.kind==='mode'){ col=modeColor(pt.val); label=pt.val.toUpperCase(); }
+  else if(pt.kind==='grav'){ col='#ffe14d'; label=pt.val<0?'GRAV ↑':'GRAV ↓'; }
+  else if(pt.kind==='size'){ col='#9fffd0'; label=pt.val==='mini'?'MINI':'NORM'; }
+  else if(pt.kind==='speed'){ col='#ff7ad0'; label=pt.val+'×'; }
+  ctx.save(); ctx.globalAlpha=0.5;
+  ctx.fillStyle=col; ctx.shadowColor=col; ctx.shadowBlur=18;
+  ctx.fillRect(x-3, y, 6*z+6, ph);
+  ctx.globalAlpha=0.16; ctx.fillRect(x-14*z, y, 30*z, ph);
+  ctx.globalAlpha=1; ctx.shadowBlur=0;
+  // arch top
+  ctx.strokeStyle=col; ctx.lineWidth=3; ctx.beginPath(); ctx.arc(x+1.5*z, y, 16*z, Math.PI, 0); ctx.stroke();
+  ctx.restore();
+  ctx.fillStyle=col; ctx.font='bold 13px Segoe UI'; ctx.textAlign='center';
+  ctx.fillText(label, x+1.5*z, y-8);
+}
+function modeColor(m){ return ({cube:'#27e0ff',ship:'#ff7a2d',ball:'#ffe14d',ufo:'#7dff7a',wave:'#ff3ea5',robot:'#b18cff',spider:'#ff4d4d'})[m]||'#7b8cff'; }
+
+function drawFlag(fx){ const z=G.cam.zoom; const [x,y]=W2S(fx,GROUND_TOP-200);
+  ctx.strokeStyle='#fff'; ctx.lineWidth=4; ctx.beginPath(); ctx.moveTo(x,y); ctx.lineTo(x,y+200*z); ctx.stroke();
+  const wob=Math.sin(bgT*5)*8;
+  ctx.fillStyle='#5dffa0'; ctx.shadowColor='#5dffa0'; ctx.shadowBlur=14;
+  ctx.beginPath(); ctx.moveTo(x,y); ctx.lineTo(x+60*z+wob,y+18*z); ctx.lineTo(x,y+38*z); ctx.closePath(); ctx.fill();
+  ctx.shadowBlur=0;
+}
+
+/* ---- player ---- */
+function drawPlayer(){
+  const p=G.player; if(!p) return;
+  if(p.dead && G.deadT>0) return; // hidden during death burst
+  const z=G.cam.zoom; const [x,y]=W2S(p.x,p.y); const s=p.size*z;
+  const col=ICON_COLORS[SETTINGS.icon];
+  // trail
+  for(const tr of G.trail){ const [tx,ty]=W2S(tr.x,tr.y);
+    ctx.globalAlpha=tr.life*0.32; ctx.fillStyle=col.a;
+    const ts=tr.size*z*tr.life*0.9; ctx.fillRect(tx-ts/2,ty-ts/2,ts,ts); }
+  ctx.globalAlpha=1;
+
+  // rotation per mode (cube/robot tumble in air & snap flat on landing; ball rolls)
+  let rot=0;
+  if(p.mode==='cube'||p.mode==='robot'){ if(!p.grounded){ p.animSpin+= (p.speed/280)*0.17*p.gd; } else { p.animSpin=Math.round(p.animSpin/(Math.PI/2))*(Math.PI/2); } rot=p.animSpin; }
+  else if(p.mode==='ball'){ p.animSpin += (p.speed/210)*0.12*p.gd; rot=p.animSpin; }
+  else if(p.mode==='ship'||p.mode==='ufo'){ rot=Math.max(-0.6,Math.min(0.6,Math.atan2(p.vy,p.speed)*0.7)); }
+  else if(p.mode==='wave'){ rot = (p.gd>0? (Input.held||G.bot?-0.66:0.66) : (Input.held||G.bot?0.66:-0.66)); }
+  if(p.gd<0 && (p.mode==='cube'||p.mode==='robot'||p.mode==='ufo'||p.mode==='spider')) { /* flip handled by rot sign */ }
+
+  ctx.save(); ctx.translate(x,y);
+  if(p.gd<0 && p.mode!=='ball' && p.mode!=='wave') ctx.scale(1,-1);   // visually flip when on the ceiling
+  ctx.rotate(rot);
+  ctx.shadowColor=col.a; ctx.shadowBlur=18;
+  const body=ctx.createLinearGradient(-s/2,-s/2,s/2,s/2); body.addColorStop(0,shade(col.a,1.15)); body.addColorStop(1,col.b);
+
+  if(p.mode==='wave'){                                   // sleek triangle (diamond-ish)
+    const r=s*0.62; ctx.fillStyle=body;
+    ctx.beginPath(); ctx.moveTo(r,0); ctx.lineTo(-r*0.7,-r*0.72); ctx.lineTo(-r*0.45,0); ctx.lineTo(-r*0.7,r*0.72); ctx.closePath(); ctx.fill();
+    ctx.strokeStyle='#fff'; ctx.lineWidth=1.5; ctx.globalAlpha=.7; ctx.stroke(); ctx.globalAlpha=1;
+  } else if(p.mode==='ball'){                            // half-split rolling ball
+    ctx.fillStyle=body; ctx.beginPath(); ctx.arc(0,0,s/2,0,7); ctx.fill();
+    ctx.fillStyle='rgba(0,0,0,0.22)'; ctx.beginPath(); ctx.arc(0,0,s/2,-0.5,Math.PI-0.5); ctx.fill();
+    ctx.strokeStyle=shade(col.a,1.4); ctx.lineWidth=2; ctx.beginPath(); ctx.arc(0,0,s/2-1,0,7); ctx.stroke();
+    ctx.fillStyle='rgba(255,255,255,0.9)'; ctx.beginPath(); ctx.arc(0,0,s*0.13,0,7); ctx.fill();
+  } else if(p.mode==='ufo'){                             // saucer with dome
+    ctx.fillStyle=body; ctx.beginPath(); ctx.ellipse(0,s*0.08,s*0.62,s*0.3,0,0,7); ctx.fill();
+    ctx.strokeStyle=shade(col.a,1.4); ctx.lineWidth=2; ctx.stroke();
+    ctx.fillStyle=shade(col.a,1.3); ctx.beginPath(); ctx.arc(0,-s*0.12,s*0.28,Math.PI,0); ctx.fill();
+    ctx.fillStyle='rgba(255,255,255,0.5)'; ctx.beginPath(); ctx.arc(-s*0.07,-s*0.16,s*0.08,0,7); ctx.fill();
+  } else {                                               // cube / robot / ship / spider square icon
+    ctx.fillStyle=body; roundRect(-s/2,-s/2,s,s,6*z); ctx.fill();
+    // dark inner face + bright corner pixel = classic icon look
+    ctx.fillStyle='rgba(0,0,0,0.26)'; roundRect(-s*0.26,-s*0.26,s*0.52,s*0.52,4*z); ctx.fill();
+    ctx.fillStyle=shade(col.a,1.5); roundRect(-s*0.40,-s*0.40,s*0.20,s*0.20,3*z); ctx.fill();
+    // crisp dark outline
+    ctx.strokeStyle=shade(col.b,0.6); ctx.lineWidth=2; roundRect(-s/2+1,-s/2+1,s-2,s-2,6*z); ctx.stroke();
+    if(p.mode==='ship'){ ctx.fillStyle=col.b; ctx.globalAlpha=.85;
+      ctx.beginPath(); ctx.moveTo(-s*0.5,s*0.4); ctx.lineTo(-s*0.8,s*0.6); ctx.lineTo(-s*0.5,s*0.6); ctx.closePath(); ctx.fill(); ctx.globalAlpha=1; }
+    if(p.mode==='spider'){ ctx.strokeStyle=shade(col.a,1.4); ctx.lineWidth=2;
+      ctx.beginPath(); ctx.moveTo(-s*0.5,-s*0.1);ctx.lineTo(-s*0.82,-s*0.34); ctx.moveTo(s*0.5,-s*0.1);ctx.lineTo(s*0.82,-s*0.34);
+      ctx.moveTo(-s*0.5,s*0.2);ctx.lineTo(-s*0.82,s*0.4); ctx.moveTo(s*0.5,s*0.2);ctx.lineTo(s*0.82,s*0.4); ctx.stroke(); }
+  }
+  ctx.shadowBlur=0; ctx.restore();
+}
+function roundRect(x,y,w,h,r){ ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,y+h,r);
+  ctx.arcTo(x+w,y+h,x,y+h,r); ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath(); }
+
+function drawParticles(){
+  for(const pp of G.particles){ const [x,y]=W2S(pp.x,pp.y);
+    ctx.globalAlpha=Math.max(0,pp.life); ctx.fillStyle=pp.color;
+    const s=pp.size*G.cam.zoom*pp.life; ctx.fillRect(x-s/2,y-s/2,s,s); }
+  ctx.globalAlpha=1;
+}
+
+/* ---- menu background (idle cube preview) ---- */
+let menuCube={x:300,y:GROUND_TOP-20,vy:0,grounded:true,spin:0};
+function drawMenuBg(){
+  const g=ctx.createLinearGradient(0,0,0,VIEW_H);
+  const hue=(bgT*8)%360;
+  g.addColorStop(0,`hsl(${(hue)|0} 70% 14%)`); g.addColorStop(1,`hsl(${(hue+60)%360|0} 70% 22%)`);
+  ctx.fillStyle=g; ctx.fillRect(0,0,VIEW_W,VIEW_H);
+  // floating shapes
+  for(let i=0;i<16;i++){ const px=((i*173 + bgT*30*(1+i%3))%(VIEW_W+200))-100;
+    const py=120+ (i*53%500) + Math.sin(bgT+i)*18;
+    ctx.save(); ctx.translate(px,py); ctx.rotate(bgT*0.3+i);
+    ctx.globalAlpha=0.10; ctx.fillStyle='#9fd8ff'; ctx.fillRect(-30,-30,60,60); ctx.restore(); }
+  ctx.globalAlpha=1;
+  // idle cube auto-hopping
+  const ground=GROUND_TOP+60;
+  menuCube.vy+=2600*0.016; menuCube.y+=menuCube.vy*0.016;
+  if(menuCube.y>=ground-20){ menuCube.y=ground-20; menuCube.vy=-720; menuCube.grounded=true; menuCube.spin=Math.round(menuCube.spin/(Math.PI/2))*(Math.PI/2);}
+  else menuCube.spin+=0.12;
+  ctx.fillStyle='#0c2c5e'; ctx.fillRect(0,ground,VIEW_W,VIEW_H-ground);
+  ctx.strokeStyle='#3fb6ff'; ctx.lineWidth=3; ctx.beginPath(); ctx.moveTo(0,ground); ctx.lineTo(VIEW_W,ground); ctx.stroke();
+  ctx.save(); ctx.translate(menuCube.x,menuCube.y); ctx.rotate(menuCube.spin);
+  const col=ICON_COLORS[SETTINGS.icon]; ctx.shadowColor=col.a; ctx.shadowBlur=20;
+  const g2=ctx.createLinearGradient(-20,-20,20,20); g2.addColorStop(0,col.a); g2.addColorStop(1,col.b);
+  ctx.fillStyle=g2; roundRect(-20,-20,40,40,6); ctx.fill(); ctx.shadowBlur=0; ctx.restore();
+}
+
+/* ========================================================================== *
+ *  SECTION 12 — HUD / LOBBY / MENUS (DOM)                                     *
+ * ========================================================================== */
+function $(id){ return document.getElementById(id); }
+function showOnly(id){
+  for(const o of ['lobby','settings','pause','complete']) $(o).classList.add('hidden');
+  if(id==='hud'){ $('hud').classList.remove('hidden'); }
+  else { if(id!=='none') $(id).classList.remove('hidden'); }
+}
+function updateHUD(){
+  $('attempts').textContent='ATTEMPT '+G.attempts;
+  $('modeChip').textContent=(G.player?G.player.mode:'cube').toUpperCase();
+  $('practiceTag').style.display=G.practice?'block':'none';
+}
+function setToggle(id,on){ const t=$(id); t.classList.toggle('on',!!on); }
+
+function starStr(d){ return '★★★★★☆☆☆☆☆'.slice(5-d,10-d); }
+function buildLobby(){
+  const row=$('levelRow'); row.replaceChildren();
+  LEVELS.forEach((lv,i)=>{
+    const pr=PROGRESS[i]||{best:0,complete:false};
+    const card=document.createElement('div'); card.className='card glass';
+    const diffCol=['#5dffa0','#27e0ff','#ffd23e','#ff7a2d','#ff3ea5'][lv.diff]||'#fff';
+    card.innerHTML=`
+      <div class="thumb" style="background:linear-gradient(135deg,${lv.pal.top},${lv.pal.bot})">
+        ${pr.complete?'<div class="check">✔</div>':''}
+      </div>
+      <h3 style="color:${lv.pal.accent}">${lv.name}</h3>
+      <div class="meta">
+        <span class="stars" style="color:${diffCol}">${starStr(lv.diff)}</span>
+        <span class="pct" style="color:${pr.complete?'#5dffa0':'#9db8d0'}">${pr.complete?'100%':(pr.best?pr.best+'%':'NEW')}</span>
+      </div>
+      <div style="margin-top:10px"><button class="btn primary" style="width:100%">PLAY ▶</button></div>`;
+    card.querySelector('button').addEventListener('click',(e)=>{ e.stopPropagation(); transitionToLevel(i); });
+    card.addEventListener('click',()=>transitionToLevel(i));
+    row.appendChild(card);
+  });
+}
+function buildSwatches(){
+  const s=$('swatches'); s.replaceChildren();
+  ICON_COLORS.forEach((c,i)=>{ const d=document.createElement('div');
+    d.className='sw'+(i===SETTINGS.icon?' sel':''); d.style.background=`linear-gradient(135deg,${c.a},${c.b})`;
+    d.addEventListener('click',()=>{ SETTINGS.icon=i; saveState(); buildSwatches(); });
+    s.appendChild(d); });
+}
+function transitionToLevel(i){
+  const fade=$('fade'); fade.style.opacity='1';
+  setTimeout(()=>{ startLevel(i); fade.style.opacity='0'; },300);
+}
+
+/* wire menu buttons */
+function wireUI(){
+  $('settingsBtn').addEventListener('click',()=>{ showOnly('settings'); });
+  $('settingsClose').addEventListener('click',()=>{ showOnly('lobby'); });
+  $('musVol').addEventListener('input',e=>{ SETTINGS.music=e.target.value/100; Audio2.setMusic(SETTINGS.music); saveState(); });
+  $('sfxVol').addEventListener('input',e=>{ SETTINGS.sfx=e.target.value/100; Audio2.setSfx(SETTINGS.sfx); saveState(); });
+  $('practiceToggle').addEventListener('click',()=>{ SETTINGS.practiceDefault=!SETTINGS.practiceDefault; setToggle('practiceToggle',SETTINGS.practiceDefault); saveState(); });
+  $('shakeToggle').addEventListener('click',()=>{ SETTINGS.shake=!SETTINGS.shake; setToggle('shakeToggle',SETTINGS.shake); saveState(); });
+
+  $('pauseBtn').addEventListener('click',()=>{ if(G.state==='playing')pauseGame(); });
+  $('resumeBtn').addEventListener('click',resumeGame);
+  $('restartBtn').addEventListener('click',()=>{ G.attempts++; G.player=makePlayer(G.level); G.checkpoints.length=0; G.startTime=performance.now(); G.state='playing'; showOnly('hud'); updateHUD(); });
+  $('quitBtn').addEventListener('click',quitToMenu);
+  $('pausePractice').addEventListener('click',()=>{ G.practice=!G.practice; setToggle('pausePractice',G.practice); $('practiceTag').style.display=G.practice?'block':'none'; });
+
+  $('nextBtn').addEventListener('click',()=>{ const n=(G.levelIdx+1)%LEVELS.length; transitionToLevel(n); });
+  $('retryBtn').addEventListener('click',()=>{ transitionToLevel(G.levelIdx); });
+  $('menuBtn').addEventListener('click',quitToMenu);
+}
+
+/* ========================================================================== *
+ *  SECTION 13 — MAIN LOOP                                                     *
+ * ========================================================================== */
+let lastT=performance.now(), acc=0;
+function frame(now){
+  requestAnimationFrame(frame);
+  let dt=(now-lastT)/1000; lastT=now; if(dt>0.1)dt=0.1;
+  bgT+=dt;
+  // beat pulse decays
+  G.beatPulse*=Math.pow(0.0001,dt); if(G.beatPulse<0.01)G.beatPulse=0;
+
+  if(G.state==='playing'){
+    // death freeze -> respawn
+    if(G.player.dead){
+      G.deadT+=dt;
+      updateParticles(dt); updateCamera(dt);
+      if(G.deadT>0.32){ // respawn
+        if(G.practice && G.checkpoints.length){ G.attempts++; respawnAtCheckpoint(); G.player.dead=false; G.deadT=0; }
+        else { restartLevel(); }
+      }
+    } else {
+      acc+=dt;
+      let steps=0;
+      while(acc>=FIXED_DT && steps<8){ stepGame(FIXED_DT); acc-=FIXED_DT; steps++; if(G.state!=='playing')break; }
+      if(acc>FIXED_DT*8) acc=0;
+      updateParticles(dt); updateCamera(dt);
+    }
+    // HUD live
+    $('progFill').style.width=progressPct()+'%';
+    $('progPct').textContent=Math.floor(progressPct())+'%';
+    $('modeChip').textContent=(G.player.mode||'cube').toUpperCase();
+    $('comboTag').textContent='STYLE '+(G.style|0);
+  } else if(G.state==='complete'||G.state==='paused'){
+    updateParticles(dt);
+  }
+  render();
+}
+
+/* ========================================================================== *
+ *  SECTION 14 — BOOT                                                          *
+ * ========================================================================== */
+function boot(){
+  loadState();
+  LEVELS=buildLevels();
+  resize();
+  buildLobby(); buildSwatches(); wireUI();
+  // reflect settings into controls
+  $('musVol').value=SETTINGS.music*100; $('sfxVol').value=SETTINGS.sfx*100;
+  setToggle('practiceToggle',SETTINGS.practiceDefault); setToggle('shakeToggle',SETTINGS.shake);
+  showOnly('lobby');
+  requestAnimationFrame(frame);
+}
+boot();
+
+// expose for headless testing/verification
+window.__NR = { G, stepPhysics, makePlayer, prepLevel, LEVELS:()=>LEVELS, botInput, cloneP, FIXED_DT,
+  startLevel, buildLevels, render, survives, coastDies, buf, PW, PH };
+</script>
+</body>
+</html>

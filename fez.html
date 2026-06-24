@@ -1,0 +1,515 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
+<title>FEZ-LIKE — a 2D world that turns in 3D</title>
+<style>
+  html,body{margin:0;height:100%;background:#0b0a14;overflow:hidden;
+    font-family:"Courier New",monospace;color:#e8e6f0;}
+  #wrap{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;}
+  canvas{image-rendering:pixelated;image-rendering:crisp-edges;display:block;}
+  #cv{position:absolute;inset:0;width:100%;height:100%;}
+</style>
+</head>
+<body>
+<div id="wrap"><canvas id="cv"></canvas></div>
+<script>
+"use strict";
+//======================================================================
+//  A small FEZ-like.  One screen of a flat 2D platformer that is really
+//  a slab of voxels; press Q/E to rotate the whole world 90 degrees and
+//  the silhouette you walk on changes.  Collect the golden cubes.
+//  Original code & art — no assets from the real game.
+//======================================================================
+
+//---------------------------------------------------------------- canvas
+const cv  = document.getElementById('cv');
+const dctx= cv.getContext('2d');
+const VIEW_W = 480, VIEW_H = 270;          // low-res pixel buffer (16:9)
+const buf = document.createElement('canvas'); buf.width=VIEW_W; buf.height=VIEW_H;
+const bctx= buf.getContext('2d');
+bctx.imageSmoothingEnabled=false;
+let DPR=1, dispW=0, dispH=0, scaleS=1, offX=0, offY=0;
+
+function resize(){
+  DPR = Math.min(2, window.devicePixelRatio||1);
+  dispW = Math.max(1, Math.floor(window.innerWidth));
+  dispH = Math.max(1, Math.floor(window.innerHeight));
+  cv.width = Math.floor(dispW*DPR); cv.height=Math.floor(dispH*DPR);
+  cv.style.width=dispW+'px'; cv.style.height=dispH+'px';
+  dctx.setTransform(DPR,0,0,DPR,0,0);
+  dctx.imageSmoothingEnabled=false;
+  scaleS = Math.max(1, Math.floor(Math.min(dispW/VIEW_W, dispH/VIEW_H)));
+  offX = Math.floor((dispW - VIEW_W*scaleS)/2);
+  offY = Math.floor((dispH - VIEW_H*scaleS)/2);
+}
+window.addEventListener('resize', resize); resize();
+
+//---------------------------------------------------------------- audio
+let actx=null;
+function audio(){ if(!actx){ try{ actx=new (window.AudioContext||window.webkitAudioContext)(); }catch(e){} } return actx; }
+function blip(freq,dur,type,vol,slideTo){
+  const a=audio(); if(!a) return;
+  const t=a.currentTime, o=a.createOscillator(), g=a.createGain();
+  o.type=type||'square'; o.frequency.setValueAtTime(freq,t);
+  if(slideTo) o.frequency.exponentialRampToValueAtTime(slideTo,t+dur);
+  g.gain.setValueAtTime(0.0001,t);
+  g.gain.exponentialRampToValueAtTime(vol||0.18,t+0.01);
+  g.gain.exponentialRampToValueAtTime(0.0001,t+dur);
+  o.connect(g); g.connect(a.destination); o.start(t); o.stop(t+dur+0.02);
+}
+const SFX={
+  jump :()=>blip(420,0.16,'square',0.14,760),
+  land :()=>blip(150,0.08,'square',0.10,90),
+  rot  :()=>{blip(300,0.22,'sawtooth',0.08,520); blip(180,0.22,'triangle',0.06,300);},
+  cube :()=>{blip(660,0.10,'square',0.16,990); setTimeout(()=>blip(990,0.14,'square',0.14,1320),80);},
+  bit  :()=>blip(880,0.07,'square',0.12,1180),
+  win  :()=>{[523,659,784,1046].forEach((f,i)=>setTimeout(()=>blip(f,0.25,'triangle',0.18),i*140));},
+  die  :()=>blip(300,0.3,'sawtooth',0.14,80),
+};
+
+//---------------------------------------------------------------- input
+const keys={};
+const KEYMAP={ArrowLeft:'left',ArrowRight:'right',ArrowUp:'up',ArrowDown:'down',
+  KeyA:'left',KeyD:'right',KeyW:'up',KeyS:'down',Space:'jump',
+  KeyQ:'rotL',KeyE:'rotR',Comma:'rotL',Period:'rotR',KeyR:'reset',Enter:'start'};
+let edge={};      // one-shot presses
+addEventListener('keydown',e=>{
+  const k=KEYMAP[e.code]; if(!k) return;
+  if(!keys[k]) edge[k]=true;
+  keys[k]=true;
+  if(['ArrowLeft','ArrowRight','ArrowUp','ArrowDown','Space'].includes(e.code)) e.preventDefault();
+  if(GAME.state==='title'){ GAME.state='play'; audio(); }
+});
+addEventListener('keyup',e=>{ const k=KEYMAP[e.code]; if(k) keys[k]=false; });
+addEventListener('mousedown',()=>{ audio(); if(GAME.state==='title') GAME.state='play'; });
+
+//---------------------------------------------------------------- world
+const N=14, H=18;                 // grid is N x N footprint, H tall
+const cx=(N-1)/2, cz=(N-1)/2;     // rotation pivot (horizontal centre)
+const GRASS=0,STONE=1,WOOD=2,VINE=3;
+const TYPEDEF={
+  [GRASS]:{top:[96,182,90], side:[122,84,52]},
+  [STONE]:{top:[158,160,172],side:[112,112,128]},
+  [WOOD] :{top:[168,120,70], side:[122,84,46]},
+  [VINE] :{top:[74,158,74],  side:[52,116,52]},
+};
+const isSolidType=t=>t!==VINE;
+
+let blocks=[];                    // {x,y,z,type}
+function addBox(x0,x1,y0,y1,z0,z1,type){
+  for(let x=x0;x<=x1;x++)for(let y=y0;y<=y1;y++)for(let z=z0;z<=z1;z++)
+    blocks.push({x,y,z,type});
+}
+let collectibles=[];              // {x,y,z,kind:'cube'|'bit',taken,phase}
+function buildLevel(){
+  blocks=[]; collectibles=[];
+  // central plaza, top surface at y=3
+  addBox(5,8, 0,2, 5,8, GRASS);
+  // four arms reaching to the cardinal directions (all top y=3)
+  addBox(9,12, 0,2, 6,7, GRASS);   // +x  east
+  addBox(1,4 , 0,2, 6,7, GRASS);   // -x  west
+  addBox(6,7 , 0,2, 9,12, GRASS);  // +z  north
+  addBox(6,7 , 0,2, 1,4 , GRASS);  // -z  south
+  // a 2-high pedestal at the east tip (needs a jump)
+  addBox(12,12, 3,4, 6,7, STONE);
+  // climbable vine column on the plaza's north edge -> high platform
+  addBox(6,6, 3,9, 8,8, VINE);
+  addBox(5,7, 9,9, 8,9, STONE);    // high platform top y=10
+  // a little stone bump on the west arm
+  addBox(2,2, 3,3, 6,7, STONE);
+
+  // golden cubes — one down each arm (needs rotation to reach N/S vs E/W)
+  collectibles.push(cube(11.5,3,6.5));   // east arm
+  collectibles.push(cube(2.5 ,4,6.5));   // west arm (on the bump)
+  collectibles.push(cube(6.5 ,3,11.5));  // north arm
+  collectibles.push(cube(6.5 ,3,2.5));   // south arm
+  collectibles.push(cube(12  ,5,6.5));   // east pedestal (jump)
+  collectibles.push(cube(6   ,10,8.5));  // top of the vine climb
+  // eight bits scattered around — collect all 8 to assemble one more cube
+  const bitspots=[[5,3,5],[8,3,5],[5,3,8],[8,3,8],[3,3,6.5],[10,3,6.5],[6.5,3,4],[6.5,3,10]];
+  bitspots.forEach(b=>collectibles.push(bit(b[0],b[1],b[2])));
+}
+function cube(x,y,z){return{x,y,z,kind:'cube',taken:false,phase:Math.random()*6.28};}
+function bit (x,y,z){return{x,y,z,kind:'bit', taken:false,phase:Math.random()*6.28};}
+
+//---------------------------------------------- projection (orthographic + pitch)
+const PITCH=20*Math.PI/180, COSP=Math.cos(PITCH), SINP=Math.sin(PITCH);
+const SCALE=14;                                   // pixels per block
+function project(x,y,z,ct,st){
+  const dx=x-cx, dz=z-cz, dy=y;
+  const rx= dx*ct + dz*st;
+  const rz=-dx*st + dz*ct;
+  const ry2= dy*COSP - rz*SINP;
+  const rz2= dy*SINP + rz*COSP;
+  return {sx:rx*SCALE, sy:-ry2*SCALE, depth:rz2};
+}
+function normalCamZ(nx,ny,nz,ct,st){               // >0 => face toward camera
+  const rz=-nx*st + nz*ct;
+  return ny*SINP + rz*COSP;
+}
+// cube corner table + the six faces
+const CORN=[[0,0,0],[1,0,0],[1,1,0],[0,1,0],[0,0,1],[1,0,1],[1,1,1],[0,1,1]];
+const FACES=[
+  {i:[3,2,6,7],n:[0,1,0], k:'top'},   // top
+  {i:[0,1,5,4],n:[0,-1,0],k:'bot'},   // bottom
+  {i:[0,3,7,4],n:[-1,0,0],k:'side'},  // x-
+  {i:[1,2,6,5],n:[1,0,0], k:'side'},  // x+
+  {i:[0,1,2,3],n:[0,0,-1],k:'side'},  // z-
+  {i:[4,5,6,7],n:[0,0,1], k:'side'},  // z+
+];
+// pre-bake a css colour for every (type,face)
+const LIGHT=(()=>{const l=[0.35,0.92,0.18],m=Math.hypot(...l);return l.map(v=>v/m);})();
+const FACECOL={};
+for(const t in TYPEDEF){
+  FACECOL[t]=FACES.map(f=>{
+    let base = f.k==='top'?TYPEDEF[t].top : TYPEDEF[t].side;
+    let mul  = f.k==='bot'?0.55:1;
+    const dot=f.n[0]*LIGHT[0]+f.n[1]*LIGHT[1]+f.n[2]*LIGHT[2];
+    const b=Math.max(0.45, Math.min(1.05, 0.55+dot*0.7))*mul;
+    return 'rgb('+base.map(c=>Math.round(Math.min(255,c*b))).join(',')+')';
+  });
+}
+
+//---------------------------------------------- per-rotation projected grids
+let r=0;                                  // current integer rotation 0..3
+let solidGrid, climbGrid;                 // [col][y]  occupancy
+let solidDepths, climbDepths;             // [col][y]  list of depths present
+function colOf(x,z){ return r===0?x : r===1?z : r===2?(N-1-x) : (N-1-z); }
+function depOf(x,z){ return r===0?z : r===1?(N-1-x) : r===2?(N-1-z) : x; }
+function buildProjection(){
+  solidGrid=[]; climbGrid=[]; solidDepths=[]; climbDepths=[];
+  for(let c=0;c<N;c++){ solidGrid[c]=new Uint8Array(H); climbGrid[c]=new Uint8Array(H);
+    solidDepths[c]=[]; climbDepths[c]=[];
+    for(let y=0;y<H;y++){ solidDepths[c][y]=[]; climbDepths[c][y]=[]; } }
+  for(const b of blocks){
+    const c=colOf(b.x,b.z), d=depOf(b.x,b.z), y=b.y;
+    if(c<0||c>=N||y<0||y>=H) continue;
+    if(isSolidType(b.type)){ solidGrid[c][y]=1; solidDepths[c][y].push(d); }
+    else { climbGrid[c][y]=1; climbDepths[c][y].push(d); }
+  }
+}
+function solid(c,y){ return (c>=0&&c<N&&y>=0&&y<H) ? !!solidGrid[c][y] : false; }
+function nearestDepth(list,cur){           // pick depth closest to current, keeps avatar continuous
+  if(!list||!list.length) return null;
+  let best=list[0], bd=Math.abs(list[0]-cur);
+  for(let i=1;i<list.length;i++){ const d=Math.abs(list[i]-cur); if(d<bd){bd=d;best=list[i];} }
+  return best;
+}
+function snapToSolidFace(){                 // place avatar on the surface depth nearest where it already is
+  const c=Math.floor(getCol()), fc=Math.floor(P.y-1e-3);
+  if(c<0||c>=N||fc<0||fc>=H) return;
+  const nd=nearestDepth(solidDepths[c][fc], depOf(P.x,P.z));
+  if(nd!=null) setDepth(nd);
+}
+function snapToClimbFace(c,y){
+  const nd=nearestDepth(climbDepths[c]&&climbDepths[c][y], depOf(P.x,P.z));
+  if(nd!=null) setDepth(nd);
+}
+
+//---------------------------------------------- player
+const PW=0.62, PH=0.92, HW=PW/2;
+const GRAV=40, MOVE=6.4, JUMP=13.2, MAXFALL=24, CLIMB=5.5;
+const P={x:6.5,y:3,z:6.5, vy:0, grounded:false, climbing:false, coyote:0, facing:1};
+function getCol(){ return r===0?P.x : r===1?P.z : r===2?(N-1-P.x) : (N-1-P.z); }
+function setCol(c){ if(r===0)P.x=c; else if(r===1)P.z=c; else if(r===2)P.x=N-1-c; else P.z=N-1-c; }
+function setDepth(d){ if(r===0)P.z=d; else if(r===1)P.x=N-1-d; else if(r===2)P.z=N-1-d; else P.x=d; }
+function spawn(){ P.x=6.5;P.y=3;P.z=6.5;P.vy=0;P.grounded=true;P.climbing=false;P.coyote=0;
+  r=0; viewQ=0; rot=null; buildProjection(); snapToSolidFace(); }
+
+function colSpan(c){ return [Math.floor(c-HW+1e-4), Math.floor(c+HW-1e-4)]; }
+function groundedBelow(c){
+  const cell=Math.floor(P.y-1e-3), [a,b]=colSpan(c);
+  for(let cc=a;cc<=b;cc++) if(solid(cc,cell)) return true; return false;
+}
+function overlapSolid(c){
+  const [a,b]=colSpan(c), y0=Math.floor(P.y+1e-4), y1=Math.floor(P.y+PH-1e-4);
+  for(let cc=a;cc<=b;cc++)for(let yy=y0;yy<=y1;yy++) if(solid(cc,yy)) return true; return false;
+}
+
+//---------------------------------------------- rotation animation
+let viewQ=0;                       // displayed quarter-turn (float)
+let rot=null;                      // {from,to,t,dur}
+function startRotate(dir){
+  if(rot||GAME.state!=='play') return;
+  rot={from:viewQ, to:viewQ+dir, t:0, dur:0.5, dir};
+  SFX.rot();
+}
+function finishRotate(){
+  r=((rot.to%4)+4)%4; viewQ=r; rot=null;
+  buildProjection();
+  // un-stick if we ended up buried, then let physics settle
+  let guard=0; while(overlapSolid(getCol()) && P.y<H && guard++<40) P.y+=0.12;
+  P.grounded=false; P.coyote=0;
+}
+
+//---------------------------------------------- particles
+let parts=[];
+function spark(sx,sy,col,n){ for(let i=0;i<n;i++){ const a=Math.random()*6.28,s=20+Math.random()*60;
+  parts.push({x:sx,y:sy,vx:Math.cos(a)*s,vy:Math.sin(a)*s-20,life:0.5+Math.random()*0.4,col}); } }
+
+//---------------------------------------------- game state
+const GAME={state:'title', need:6, cubes:0, bits:0, bitsDone:false, deaths:0,
+  step, render, startRotate, spawn, P, buf, bctx, get rot(){return r;},
+  get blocks(){return blocks;}, get coll(){return collectibles;}};
+window.GAME=GAME;
+
+function resetGame(){ buildLevel(); GAME.cubes=0; GAME.bits=0; GAME.bitsDone=false; GAME.deaths=0; spawn(); }
+
+//---------------------------------------------- update
+function step(dt){
+  // edge presses always sampled
+  if(GAME.state==='title'){ edge={}; return; }
+  if(GAME.state==='win'){ if(edge.reset){resetGame();GAME.state='play';} edge={}; return; }
+
+  if(edge.reset){ resetGame(); edge={}; return; }
+  if(edge.rotL) startRotate(-1);
+  if(edge.rotR) startRotate(+1);
+
+  if(rot){                                   // world is turning — physics paused
+    rot.t+=dt;
+    const k=Math.min(1,rot.t/rot.dur);
+    const e=k<0.5?4*k*k*k:1-Math.pow(-2*k+2,3)/2;     // easeInOutCubic
+    viewQ=rot.from+(rot.to-rot.from)*e;
+    if(k>=1) finishRotate();
+    edge={}; updateParts(dt); return;
+  }
+
+  // ---- normal platforming ----
+  let c=getCol();
+  P.grounded=groundedBelow(c);
+  if(P.grounded) P.coyote=0.1; else P.coyote-=dt;
+
+  // climbing
+  const bodyY=Math.floor(P.y+PH*0.5);
+  const onVine = !!(climbGrid[Math.floor(c)] && climbGrid[Math.floor(c)][bodyY]);
+  if(onVine && (keys.up||keys.down) && !P.climbing){ P.climbing=true; P.vy=0; }
+  if(P.climbing && !onVine) P.climbing=false;
+
+  if(P.climbing){
+    snapToClimbFace(Math.floor(c),bodyY);
+    if(keys.up)   P.y+=CLIMB*dt;
+    if(keys.down) P.y-=CLIMB*dt;
+    if(edge.jump){ P.climbing=false; P.vy=JUMP*0.85; SFX.jump(); }
+  }else{
+    if(edge.jump && P.coyote>0){ P.vy=JUMP; P.grounded=false; P.coyote=0; SFX.jump(); }
+    P.vy-=GRAV*dt; if(P.vy<-MAXFALL)P.vy=-MAXFALL;
+  }
+
+  // horizontal
+  const md=(keys.right?1:0)-(keys.left?1:0);
+  if(md){ P.facing=md;
+    let tc=c+md*MOVE*dt;
+    if(md>0){ const edgeX=tc+HW, cell=Math.floor(edgeX), [a,b]=colSpan(P.y);
+      let yy0=Math.floor(P.y+1e-4), yy1=Math.floor(P.y+PH-1e-4), hit=false;
+      for(let y=yy0;y<=yy1;y++) if(solid(cell,y)){hit=true;break;}
+      if(hit) tc=cell-HW-1e-3;
+    }else{ const edgeX=tc-HW, cell=Math.floor(edgeX);
+      let yy0=Math.floor(P.y+1e-4), yy1=Math.floor(P.y+PH-1e-4), hit=false;
+      for(let y=yy0;y<=yy1;y++) if(solid(cell,y)){hit=true;break;}
+      if(hit) tc=cell+1+HW+1e-3;
+    }
+    setCol(tc); c=tc;
+  }
+
+  // vertical
+  const wasAir=!P.grounded;
+  P.y+=P.vy*dt;
+  const [a,b]=colSpan(c);
+  if(P.vy<0){ const cell=Math.floor(P.y);
+    for(let cc=a;cc<=b;cc++) if(solid(cc,cell)){ P.y=cell+1; if(wasAir&&P.vy<-3)SFX.land();
+      P.vy=0; P.grounded=true; break; } }
+  else if(P.vy>0){ const cell=Math.floor(P.y+PH);
+    for(let cc=a;cc<=b;cc++) if(solid(cc,cell)){ P.y=cell-PH; P.vy=0; break; } }
+
+  // keep the avatar resting at a continuous depth on the surface below it
+  if(P.grounded||groundedBelow(c)) snapToSolidFace();
+
+  // fell off the island
+  if(P.y<-7){ GAME.deaths++; SFX.die(); spawn(); }
+
+  // collectibles — reach them in the projection AND be at their depth
+  // (so a cube down a far arm needs you to rotate and walk out to it)
+  const pdep=depOf(P.x,P.z);
+  for(const it of collectibles){ if(it.taken) continue;
+    const ic=colOf(it.x,it.z), idep=depOf(it.x,it.z);
+    if(Math.abs(ic-c)<0.7 && Math.abs((it.y+0.4)-(P.y+PH*0.5))<0.95 && Math.abs(idep-pdep)<1.7){
+      it.taken=true;
+      const a=viewQ*Math.PI/2, pp=project(it.x,it.y+0.5,it.z,Math.cos(a),Math.sin(a));
+      if(it.kind==='cube'){ GAME.cubes++; SFX.cube(); spark(pp.sx,pp.sy,'#ffd24a',18); }
+      else { GAME.bits++; SFX.bit(); spark(pp.sx,pp.sy,'#fff0a0',8);
+             if(GAME.bits===8){ GAME.bitsDone=true; SFX.cube(); spark(pp.sx,pp.sy,'#ffe6a6',24); } }
+    }
+  }
+  if(GAME.cubes>=GAME.need && GAME.state==='play'){ GAME.state='win'; SFX.win(); }
+
+  updateParts(dt);
+  edge={};
+}
+function updateParts(dt){ for(const p of parts){ p.life-=dt; p.vy+=140*dt; p.x+=p.vx*dt; p.y+=p.vy*dt; }
+  parts=parts.filter(p=>p.life>0); }
+
+//---------------------------------------------- camera
+const cam={x:0,y:0};
+function cameraTo(ct,st){
+  const pp=project(P.x,P.y+PH*0.5,P.z,ct,st);
+  const tx=VIEW_W*0.5 - pp.sx, ty=VIEW_H*0.56 - pp.sy;
+  if(GAME.state==='title'){cam.x=tx;cam.y=ty;}
+  cam.x+=(tx-cam.x)*0.18; cam.y+=(ty-cam.y)*0.18;
+}
+
+//---------------------------------------------- render
+function render(){
+  const ang=viewQ*Math.PI/2, ct=Math.cos(ang), st=Math.sin(ang);
+  cameraTo(ct,st);
+  drawSky();
+
+  // depth-sorted scene: blocks + collectibles together (painter's algorithm)
+  const ox=cam.x, oy=cam.y;
+  const items=[];
+  for(const b of blocks){ const p=project(b.x+0.5,b.y+0.5,b.z+0.5,ct,st); items.push({d:p.depth,b}); }
+  for(const it of collectibles){ if(it.taken) continue;
+    const p=project(it.x,it.y+0.4,it.z,ct,st); items.push({d:p.depth,it}); }
+  items.sort((A,B)=>A.d-B.d);
+  for(const e of items){ if(e.b) drawCube(e.b,ct,st,ox,oy); else drawCollect(e.it,ct,st,ox,oy); }
+
+  drawPlayer(ct,st,ox,oy);
+  drawParts();
+
+  // blit pixel buffer to the display, integer-scaled
+  dctx.fillStyle='#05040a'; dctx.fillRect(0,0,dispW,dispH);
+  dctx.drawImage(buf,0,0,VIEW_W,VIEW_H, offX,offY, VIEW_W*scaleS, VIEW_H*scaleS);
+  drawHUD();
+}
+
+function drawSky(){
+  const g=bctx.createLinearGradient(0,0,0,VIEW_H);
+  g.addColorStop(0,'#2a1f48'); g.addColorStop(0.45,'#5b3f86');
+  g.addColorStop(0.8,'#b9678f'); g.addColorStop(1,'#e9a06b');
+  bctx.fillStyle=g; bctx.fillRect(0,0,VIEW_W,VIEW_H);
+  // parallax stars drift a touch with the camera & rotation
+  bctx.fillStyle='rgba(255,255,255,0.5)';
+  const px=cam.x*0.04, py=cam.y*0.04;
+  for(let i=0;i<60;i++){
+    const sx=((i*73.3+px)%(VIEW_W+20))-10;
+    const sy=((i*131.7+py*0.5)% (VIEW_H*0.7));
+    if((i%5)) bctx.fillRect(((sx%VIEW_W)+VIEW_W)%VIEW_W, sy, 1,1);
+  }
+}
+
+function drawCube(b,ct,st,ox,oy){
+  const cols=FACECOL[b.type];
+  for(let f=0;f<6;f++){ const F=FACES[f];
+    if(normalCamZ(F.n[0],F.n[1],F.n[2],ct,st)<=0.0001) continue;
+    bctx.beginPath();
+    for(let k=0;k<4;k++){ const o=CORN[F.i[k]];
+      const p=project(b.x+o[0],b.y+o[1],b.z+o[2],ct,st);
+      const X=p.sx+ox, Y=p.sy+oy;
+      if(k===0)bctx.moveTo(X,Y); else bctx.lineTo(X,Y);
+    }
+    bctx.closePath(); bctx.fillStyle=cols[f]; bctx.fill();
+  }
+}
+
+function drawCollect(it,ct,st,ox,oy){
+  const t=performance.now()/1000;
+  const bob=Math.sin(t*2+it.phase)*0.12;
+  const s=it.kind==='cube'?0.42:0.20;
+  const cxw=it.x, cyw=it.y+0.45+bob, czw=it.z;
+  const spin=t*1.6+it.phase;
+  // little spinning cube rendered as three quads
+  const cs=Math.cos(spin), ss=Math.sin(spin);
+  const verts=[];
+  for(const o of CORN){
+    const lx=(o[0]-0.5)*2*s, ly=(o[1]-0.5)*2*s, lz=(o[2]-0.5)*2*s;
+    const rx=lx*cs+lz*ss, rz=-lx*ss+lz*cs;       // self-spin about Y
+    const p=project(cxw+rx,cyw+ly,czw+rz,ct,st);
+    verts.push({X:p.sx+ox,Y:p.sy+oy});
+  }
+  const base=it.kind==='cube'?[[255,214,74],[224,168,40],[255,238,150]]:[[255,236,120],[212,170,40],[255,250,200]];
+  const faces=[[3,2,6,7],[1,2,6,5],[4,5,6,7]];
+  for(let fi=0;fi<3;fi++){ bctx.beginPath();
+    for(let k=0;k<4;k++){const v=verts[faces[fi][k]]; if(k===0)bctx.moveTo(v.X,v.Y);else bctx.lineTo(v.X,v.Y);}
+    bctx.closePath(); bctx.fillStyle='rgb('+base[fi].join(',')+')'; bctx.fill(); }
+}
+
+function drawPlayer(ct,st,ox,oy){
+  const p=project(P.x,P.y,P.z,ct,st);
+  const X=Math.round(p.sx+ox), Yfeet=Math.round(p.sy+oy);
+  const w=Math.round(PW*SCALE), h=Math.round(PH*SCALE);
+  const x0=X-Math.floor(w/2), y0=Yfeet-h;
+  // shadow
+  bctx.fillStyle='rgba(0,0,0,0.28)';
+  bctx.beginPath(); bctx.ellipse(X,Yfeet+1,w*0.6,3,0,0,6.28); bctx.fill();
+  // body (white) — slight squash while moving up/down
+  bctx.fillStyle='#f4f3fb'; bctx.fillRect(x0,y0+4,w,h-4);
+  bctx.fillStyle='#d7d6e6'; bctx.fillRect(x0,y0+h-3,w,3);     // foot shade
+  // fez hat (red) + tassel
+  bctx.fillStyle='#d23b3b'; bctx.fillRect(x0+1,y0,w-2,5);
+  bctx.fillStyle='#a82a2a'; bctx.fillRect(x0+1,y0+4,w-2,1);
+  bctx.fillStyle='#f0d24a'; bctx.fillRect(P.facing>0?x0+w-2:x0+1,y0-2,1,3);
+  // eyes
+  bctx.fillStyle='#26242f';
+  const ey=y0+8;
+  if(P.facing>0){ bctx.fillRect(x0+w-5,ey,2,2); bctx.fillRect(x0+w-2,ey,1,2); }
+  else          { bctx.fillRect(x0+2,ey,2,2);   bctx.fillRect(x0+1,ey,1,2); }
+}
+
+function drawParts(){ for(const p of parts){ bctx.globalAlpha=Math.max(0,Math.min(1,p.life*2));
+  bctx.fillStyle=p.col; bctx.fillRect(Math.round(p.x+cam.x),Math.round(p.y+cam.y),2,2); }
+  bctx.globalAlpha=1; }
+
+//---------------------------------------------- HUD / overlays (crisp text)
+function txt(s,x,y,size,col,align){ dctx.font='bold '+size+'px "Courier New",monospace';
+  dctx.textAlign=align||'left'; dctx.textBaseline='alphabetic';
+  dctx.fillStyle='rgba(0,0,0,0.55)'; dctx.fillText(s,x+2,y+2);
+  dctx.fillStyle=col||'#f3f1fb'; dctx.fillText(s,x,y); }
+function drawHUD(){
+  const U=scaleS, pad=14*Math.max(1,U/3);
+  // cube counter
+  const assembled=GAME.cubes+(GAME.bits>=8?1:0);
+  dctx.save();
+  // gold cube icon
+  const ix=pad, iy=pad, isz=18;
+  dctx.fillStyle='#ffd24a'; dctx.fillRect(ix,iy,isz,isz);
+  dctx.fillStyle='#e0a828'; dctx.fillRect(ix,iy+isz-4,isz,4);
+  dctx.fillStyle='#fff0a0'; dctx.fillRect(ix,iy,isz,4);
+  txt(assembled+' / '+GAME.need, ix+isz+10, iy+isz-2, 22, '#fff6d6');
+  // bits
+  txt('BITS '+GAME.bits+'/8'+(GAME.bitsDone?' *':''), ix, iy+isz+24, 14, GAME.bitsDone?'#9effa0':'#cfc8e6');
+  dctx.restore();
+
+  if(GAME.state==='title'){
+    dctx.fillStyle='rgba(8,6,16,0.55)'; dctx.fillRect(0,0,dispW,dispH);
+    txt('F E Z — L I K E', dispW/2, dispH*0.34, 48, '#ffe6a6','center');
+    txt('a flat world that turns in 3D', dispW/2, dispH*0.34+34, 18,'#cfc8e6','center');
+    const lines=['MOVE  ←/→  or  A/D',
+                 'JUMP  SPACE / W / ↑      CLIMB  ↑/↓ on vines',
+                 'ROTATE WORLD   Q  /  E',
+                 'collect '+GAME.need+' golden cubes  (+8 hidden bits)',
+                 '', 'PRESS  ENTER  TO START'];
+    lines.forEach((l,i)=>txt(l, dispW/2, dispH*0.52+i*26, i===5?22:16, i===5?'#9effa0':'#e8e6f0','center'));
+  }
+  if(GAME.state==='win'){
+    dctx.fillStyle='rgba(8,6,16,0.6)'; dctx.fillRect(0,0,dispW,dispH);
+    txt('THE WORLD IS WHOLE', dispW/2, dispH*0.42, 44, '#ffe6a6','center');
+    txt('all '+GAME.need+' cubes collected', dispW/2, dispH*0.42+36, 20, '#cfc8e6','center');
+    txt('PRESS  R  TO PLAY AGAIN', dispW/2, dispH*0.42+76, 18, '#9effa0','center');
+  }else{
+    txt('Q / E  rotate', dispW-14, dispH-16, 14, 'rgba(230,228,240,0.7)','right');
+  }
+}
+
+//---------------------------------------------- main loop
+resetGame();
+let last=performance.now();
+function frame(now){
+  let dt=(now-last)/1000; last=now; if(dt>0.05)dt=0.05;
+  step(dt); render();
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>

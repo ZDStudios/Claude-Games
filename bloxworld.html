@@ -1,0 +1,630 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>BLOXWORLD — a Roblox-style sandbox</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  html,body { width:100%; height:100%; overflow:hidden; background:#0e1116;
+    font-family:'Segoe UI',Helvetica,Arial,sans-serif; color:#fff; -webkit-user-select:none; user-select:none; }
+  #c { display:block; width:100vw; height:100vh; cursor:crosshair; }
+
+  /* ---- HUD ---- */
+  .hud { position:fixed; pointer-events:none; z-index:5; }
+  #brand { top:14px; left:16px; }
+  #brand .logo { font-weight:800; font-size:26px; letter-spacing:1px;
+    background:linear-gradient(90deg,#ff4757,#ffa502,#2ed573,#1e90ff,#a55eea);
+    -webkit-background-clip:text; background-clip:text; color:transparent; }
+  #brand .sub { font-size:11px; opacity:.6; margin-top:-2px; }
+
+  #stats { top:14px; right:16px; text-align:right; }
+  #stats .pill { display:inline-flex; align-items:center; gap:6px; background:rgba(20,24,32,.72);
+    border:1px solid rgba(255,255,255,.08); border-radius:20px; padding:6px 14px; margin-left:8px; font-weight:700; font-size:15px; }
+  #stats .robux { color:#2ec27e; }
+  #stats .hp { color:#ff6b6b; }
+
+  /* mode badge */
+  #mode { top:62px; left:16px; }
+  #mode .badge { display:inline-block; padding:6px 14px; border-radius:8px; font-weight:800; font-size:13px;
+    letter-spacing:1px; background:#1e90ff; box-shadow:0 4px 14px rgba(30,144,255,.4); }
+  #mode .badge.build { background:#ffa502; box-shadow:0 4px 14px rgba(255,165,2,.4); color:#1a1a1a; }
+
+  /* crosshair */
+  #cross { position:fixed; left:50%; top:50%; width:18px; height:18px; transform:translate(-50%,-50%); z-index:6; pointer-events:none; opacity:.85; }
+  #cross::before,#cross::after { content:''; position:absolute; background:#fff; box-shadow:0 0 2px #000; }
+  #cross::before { left:50%; top:0; width:2px; height:100%; transform:translateX(-50%); }
+  #cross::after  { top:50%; left:0; height:2px; width:100%; transform:translateY(-50%); }
+
+  /* palette */
+  #palette { bottom:18px; left:50%; transform:translateX(-50%); display:flex; gap:8px; padding:8px 10px;
+    background:rgba(16,20,28,.82); border:1px solid rgba(255,255,255,.08); border-radius:14px; pointer-events:auto; z-index:6;
+    transition:opacity .2s, transform .2s; }
+  #palette.hidden { opacity:0; transform:translate(-50%,30px); pointer-events:none; }
+  .swatch { width:34px; height:34px; border-radius:8px; cursor:pointer; position:relative;
+    border:2px solid rgba(255,255,255,.12); transition:transform .08s; }
+  .swatch:hover { transform:translateY(-3px); }
+  .swatch.sel { border-color:#fff; box-shadow:0 0 0 2px #1e90ff, 0 4px 10px rgba(0,0,0,.4); transform:translateY(-3px); }
+  .swatch .num { position:absolute; top:-7px; left:-3px; font-size:10px; font-weight:800; color:#fff;
+    text-shadow:0 1px 2px #000; }
+
+  /* toolbar */
+  #tools { bottom:18px; right:16px; display:flex; flex-direction:column; gap:8px; pointer-events:auto; z-index:6; }
+  .btn { pointer-events:auto; background:rgba(20,24,32,.85); border:1px solid rgba(255,255,255,.1); color:#fff;
+    border-radius:10px; padding:9px 14px; font-weight:700; font-size:13px; cursor:pointer; text-align:left; transition:.12s; }
+  .btn:hover { background:rgba(40,48,62,.95); border-color:rgba(255,255,255,.25); }
+  .btn small { opacity:.5; font-weight:600; }
+
+  /* help */
+  #help { bottom:18px; left:16px; max-width:230px; font-size:11.5px; line-height:1.7; opacity:.8;
+    background:rgba(16,20,28,.6); padding:10px 12px; border-radius:10px; border:1px solid rgba(255,255,255,.06); }
+  #help b { color:#ffd02e; }
+  kbd { background:#2a313d; border:1px solid #444c5a; border-bottom-width:2px; border-radius:4px; padding:1px 5px; font-size:10.5px; font-family:inherit; }
+
+  /* customize panel */
+  #custom { position:fixed; top:50%; left:50%; transform:translate(-50%,-50%); z-index:20; width:300px;
+    background:#161a22; border:1px solid rgba(255,255,255,.12); border-radius:16px; padding:20px; display:none;
+    box-shadow:0 30px 80px rgba(0,0,0,.6); }
+  #custom.show { display:block; }
+  #custom h3 { font-size:18px; margin-bottom:14px; }
+  #custom .row { display:flex; align-items:center; justify-content:space-between; margin:12px 0; }
+  #custom .row label { font-size:13px; opacity:.85; }
+  #custom input[type=color] { width:48px; height:30px; border:none; border-radius:6px; background:none; cursor:pointer; }
+  #custom input[type=text]{ background:#0e1116; border:1px solid #333; color:#fff; border-radius:6px; padding:6px 8px; width:140px; }
+  #custom .close { width:100%; margin-top:16px; text-align:center; background:#1e90ff; border:none; padding:10px; }
+  #custom .close:hover{ background:#1573d6; }
+
+  /* start overlay */
+  #start { position:fixed; inset:0; z-index:30; display:flex; flex-direction:column; align-items:center; justify-content:center;
+    background:radial-gradient(circle at 50% 35%, #1b2436, #0a0d13 75%); text-align:center; transition:opacity .3s; }
+  #start.gone { opacity:0; pointer-events:none; }
+  #start .big { font-weight:800; font-size:52px; letter-spacing:1px;
+    background:linear-gradient(90deg,#ff4757,#ffa502,#2ed573,#1e90ff,#a55eea);
+    -webkit-background-clip:text; background-clip:text; color:transparent; }
+  #start .tag { opacity:.7; margin:6px 0 26px; font-size:15px; }
+  #start .play { background:#2ed573; color:#06351c; border:none; font-weight:800; font-size:18px; padding:14px 46px;
+    border-radius:12px; cursor:pointer; box-shadow:0 10px 30px rgba(46,213,115,.35); }
+  #start .play:hover { transform:translateY(-2px); }
+  #start .keys { margin-top:24px; font-size:12px; opacity:.6; line-height:1.9; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+
+<div id="cross"></div>
+
+<div class="hud" id="brand"><div class="logo">BLOXWORLD</div><div class="sub">a Roblox-style sandbox</div></div>
+
+<div class="hud" id="stats">
+  <span class="pill robux">⬡ <span id="robux">0</span></span>
+  <span class="pill hp">❤ <span id="hp">100</span></span>
+</div>
+
+<div class="hud" id="mode"><span class="badge" id="modeBadge">PLAY</span></div>
+
+<div id="palette" class="hidden"></div>
+
+<div id="tools">
+  <button class="btn" id="bBuild">🔨 Build Mode <small>B</small></button>
+  <button class="btn" id="bCustom">🧍 Avatar <small>C</small></button>
+  <button class="btn" id="bSave">💾 Save <small>P</small></button>
+  <button class="btn" id="bLoad">📂 Load <small>L</small></button>
+  <button class="btn" id="bReset">↺ Reset World</button>
+</div>
+
+<div id="help">
+  <b>Move</b> WASD &nbsp; <b>Jump</b> <kbd>Space</kbd> &nbsp; <b>Sprint</b> <kbd>Shift</kbd><br>
+  <b>Look</b> Mouse &nbsp; <b>Zoom</b> Wheel<br>
+  <b>Build mode:</b> <kbd>L-Click</kbd> place · <kbd>R-Click</kbd> delete<br>
+  <b>Color</b> <kbd>1</kbd>–<kbd>9</kbd> or <kbd>Q</kbd>/<kbd>E</kbd> &nbsp; <b>Respawn</b> <kbd>R</kbd>
+</div>
+
+<div id="custom">
+  <h3>🧍 Customize Avatar</h3>
+  <div class="row"><label>Name</label><input type="text" id="cName" value="Guest" maxlength="14"></div>
+  <div class="row"><label>Skin</label><input type="color" id="cSkin" value="#f1c27d"></div>
+  <div class="row"><label>Shirt</label><input type="color" id="cShirt" value="#1e90ff"></div>
+  <div class="row"><label>Pants</label><input type="color" id="cPants" value="#2f3640"></div>
+  <div class="row"><label>Hat / Hair</label><input type="color" id="cHair" value="#5a3b1a"></div>
+  <button class="btn close" id="cClose">Done</button>
+</div>
+
+<div id="start">
+  <div class="big">BLOXWORLD</div>
+  <div class="tag">Walk · Build · Collect — your own blocky world</div>
+  <button class="play" id="playBtn">▶ Play</button>
+  <div class="keys">WASD move &nbsp;·&nbsp; Space jump &nbsp;·&nbsp; B build &nbsp;·&nbsp; mouse look<br>Click Play to lock the mouse. Press Esc to free it.</div>
+</div>
+
+<script>
+"use strict";
+//==================================================================================
+//  BLOXWORLD — a single-file Roblox-style 3D sandbox, built on raw WebGL.
+//==================================================================================
+
+//------------------------------------------------- math (column-major mat4 / mat3)
+const M = {
+  ident(){ return new Float32Array([1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1]); },
+  mul(a,b){ const o=new Float32Array(16);
+    for(let c=0;c<4;c++) for(let r=0;r<4;r++){ let s=0; for(let k=0;k<4;k++) s+=a[k*4+r]*b[c*4+k]; o[c*4+r]=s; }
+    return o; },
+  trans(x,y,z){ return new Float32Array([1,0,0,0, 0,1,0,0, 0,0,1,0, x,y,z,1]); },
+  scale(x,y,z){ return new Float32Array([x,0,0,0, 0,y,0,0, 0,0,z,0, 0,0,0,1]); },
+  rotX(a){ const c=Math.cos(a),s=Math.sin(a); return new Float32Array([1,0,0,0, 0,c,s,0, 0,-s,c,0, 0,0,0,1]); },
+  rotY(a){ const c=Math.cos(a),s=Math.sin(a); return new Float32Array([c,0,-s,0, 0,1,0,0, s,0,c,0, 0,0,0,1]); },
+  persp(fovy,asp,n,f){ const t=1/Math.tan(fovy/2); return new Float32Array([
+      t/asp,0,0,0, 0,t,0,0, 0,0,(f+n)/(n-f),-1, 0,0,2*f*n/(n-f),0]); },
+  look(e,ctr,up){
+    let zx=e[0]-ctr[0], zy=e[1]-ctr[1], zz=e[2]-ctr[2];
+    let zl=Math.hypot(zx,zy,zz)||1; zx/=zl; zy/=zl; zz/=zl;
+    let xx=up[1]*zz-up[2]*zy, xy=up[2]*zx-up[0]*zz, xz=up[0]*zy-up[1]*zx;
+    let xl=Math.hypot(xx,xy,xz)||1; xx/=xl; xy/=xl; xz/=xl;
+    const yx=zy*xz-zz*xy, yy=zz*xx-zx*xz, yz=zx*xy-zy*xx;
+    return new Float32Array([ xx,yx,zx,0, xy,yy,zy,0, xz,yz,zz,0,
+      -(xx*e[0]+xy*e[1]+xz*e[2]), -(yx*e[0]+yy*e[1]+yz*e[2]), -(zx*e[0]+zy*e[1]+zz*e[2]), 1 ]); },
+  // normal matrix (inverse of upper-left 3x3, row-major flattened) for affine transforms
+  normal(m){
+    const a00=m[0],a01=m[1],a02=m[2], a10=m[4],a11=m[5],a12=m[6], a20=m[8],a21=m[9],a22=m[10];
+    const b01=a22*a11-a12*a21, b11=-a22*a10+a12*a20, b21=a21*a10-a11*a20;
+    let det=a00*b01+a01*b11+a02*b21; if(!det) return new Float32Array([1,0,0,0,1,0,0,0,1]); det=1/det;
+    return new Float32Array([
+      b01*det, (-a22*a01+a02*a21)*det, (a12*a01-a02*a11)*det,
+      b11*det, (a22*a00-a02*a20)*det, (-a12*a00+a02*a10)*det,
+      b21*det, (-a21*a00+a01*a20)*det, (a11*a00-a01*a10)*det ]); }
+};
+function hex2rgb(h){ h=h.replace('#',''); return [parseInt(h.substr(0,2),16)/255, parseInt(h.substr(2,2),16)/255, parseInt(h.substr(4,2),16)/255]; }
+
+//------------------------------------------------- WebGL boot
+const canvas = document.getElementById('c');
+const gl = canvas.getContext('webgl', {antialias:true}) || canvas.getContext('experimental-webgl');
+if(!gl){ document.body.innerHTML = '<div style="padding:40px;font-family:sans-serif;color:#fff">WebGL is not supported by this browser.</div>'; throw new Error('no webgl'); }
+
+const VS = `
+attribute vec3 aPos; attribute vec3 aNormal; attribute vec2 aUV; attribute vec3 aColor;
+uniform mat4 uProj,uView,uModel; uniform mat3 uNormalMat;
+varying vec3 vNormal; varying vec2 vUV; varying vec3 vColor; varying float vDepth;
+void main(){
+  vec4 world = uModel*vec4(aPos,1.0);
+  vec4 view  = uView*world;
+  gl_Position = uProj*view;
+  vNormal = normalize(uNormalMat*aNormal);
+  vUV = aUV; vColor = aColor; vDepth = length(view.xyz);
+}`;
+const FS = `
+precision mediump float;
+varying vec3 vNormal; varying vec2 vUV; varying vec3 vColor; varying float vDepth;
+uniform sampler2D uTex; uniform vec3 uLightDir; uniform vec3 uFog; uniform float uFogD; uniform float uUseTex;
+void main(){
+  float d = max(dot(normalize(vNormal), normalize(uLightDir)), 0.0);
+  float light = 0.5 + 0.55*d;
+  vec3 tex = uUseTex>0.5 ? texture2D(uTex, vUV).rgb : vec3(1.0);
+  vec3 col = vColor * tex * light;
+  float fog = 1.0 - exp(-vDepth*vDepth*uFogD*uFogD);
+  col = mix(col, uFog, clamp(fog,0.0,1.0));
+  gl_FragColor = vec4(col, 1.0);
+}`;
+function compile(type,src){ const s=gl.createShader(type); gl.shaderSource(s,src); gl.compileShader(s);
+  if(!gl.getShaderParameter(s,gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s)); return s; }
+const prog = gl.createProgram();
+gl.attachShader(prog, compile(gl.VERTEX_SHADER,VS));
+gl.attachShader(prog, compile(gl.FRAGMENT_SHADER,FS));
+gl.linkProgram(prog);
+if(!gl.getProgramParameter(prog,gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(prog));
+gl.useProgram(prog);
+
+const A = { pos:gl.getAttribLocation(prog,'aPos'), norm:gl.getAttribLocation(prog,'aNormal'),
+            uv:gl.getAttribLocation(prog,'aUV'), color:gl.getAttribLocation(prog,'aColor') };
+const U = {}; ['uProj','uView','uModel','uNormalMat','uLightDir','uFog','uFogD','uUseTex','uTex']
+  .forEach(n=> U[n]=gl.getUniformLocation(prog,n));
+
+gl.enable(gl.DEPTH_TEST);
+// faces are emitted with consistent winding but to stay robust we keep culling off
+gl.disable(gl.CULL_FACE);
+
+//------------------------------------------------- stud texture (classic Roblox top)
+function makeStudTexture(){
+  const cv=document.createElement('canvas'); cv.width=64; cv.height=32; const x=cv.getContext('2d');
+  x.fillStyle='#ffffff'; x.fillRect(0,0,64,32);
+  // plain tile (right) — subtle edge shading so block borders read
+  x.strokeStyle='rgba(0,0,0,.10)'; x.lineWidth=2; x.strokeRect(33,1,30,30);
+  // stud tile (left)
+  x.strokeStyle='rgba(0,0,0,.10)'; x.strokeRect(1,1,30,30);
+  // the stud bump
+  x.beginPath(); x.arc(16,16,10,0,Math.PI*2);
+  x.strokeStyle='rgba(0,0,0,.22)'; x.lineWidth=3; x.stroke();
+  x.beginPath(); x.arc(14.5,14.5,8,0,Math.PI*2);
+  x.fillStyle='rgba(255,255,255,.55)'; x.fill();
+  const tex=gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D,tex);
+  gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,cv);
+  gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.NEAREST);
+  gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.NEAREST);
+  gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);
+  return tex;
+}
+const studTex = makeStudTexture();
+gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, studTex); gl.uniform1i(U.uTex,0);
+
+//------------------------------------------------- geometry: unit cube (for avatar/coins)
+function buildUnitCube(){
+  const p=[],n=[],u=[]; const a=0.5; const S=[0,0.5], P=[0.5,1]; // U regions: stud / plain
+  function f(v,nm,reg){ const uv=[[reg[0],0],[reg[1],0],[reg[1],1],[reg[0],1]];
+    for(const i of [0,1,2,0,2,3]){ p.push(v[i][0],v[i][1],v[i][2]); n.push(nm[0],nm[1],nm[2]); u.push(uv[i][0],uv[i][1]); } }
+  f([[-a,a,a],[a,a,a],[a,a,-a],[-a,a,-a]],[0,1,0],S);   // top
+  f([[-a,-a,-a],[a,-a,-a],[a,-a,a],[-a,-a,a]],[0,-1,0],P);
+  f([[-a,-a,a],[a,-a,a],[a,a,a],[-a,a,a]],[0,0,1],P);
+  f([[a,-a,-a],[-a,-a,-a],[-a,a,-a],[a,a,-a]],[0,0,-1],P);
+  f([[a,-a,a],[a,-a,-a],[a,a,-a],[a,a,a]],[1,0,0],P);
+  f([[-a,-a,-a],[-a,-a,a],[-a,a,a],[-a,a,-a]],[-1,0,0],P);
+  return {pos:new Float32Array(p),norm:new Float32Array(n),uv:new Float32Array(u),count:36};
+}
+const cube = buildUnitCube();
+const cubeBuf = { pos:gl.createBuffer(), norm:gl.createBuffer(), uv:gl.createBuffer() };
+gl.bindBuffer(gl.ARRAY_BUFFER,cubeBuf.pos);  gl.bufferData(gl.ARRAY_BUFFER,cube.pos,gl.STATIC_DRAW);
+gl.bindBuffer(gl.ARRAY_BUFFER,cubeBuf.norm); gl.bufferData(gl.ARRAY_BUFFER,cube.norm,gl.STATIC_DRAW);
+gl.bindBuffer(gl.ARRAY_BUFFER,cubeBuf.uv);   gl.bufferData(gl.ARRAY_BUFFER,cube.uv,gl.STATIC_DRAW);
+
+//------------------------------------------------- world (voxel grid of "parts")
+// face templates in local 0..1 cell coords
+const FACES=[
+  {d:[0,1,0],  reg:[0,0.5], v:[[0,1,1],[1,1,1],[1,1,0],[0,1,0]]},   // top -> studs
+  {d:[0,-1,0], reg:[0.5,1], v:[[0,0,0],[1,0,0],[1,0,1],[0,0,1]]},
+  {d:[0,0,1],  reg:[0.5,1], v:[[0,0,1],[1,0,1],[1,1,1],[0,1,1]]},
+  {d:[0,0,-1], reg:[0.5,1], v:[[1,0,0],[0,0,0],[0,1,0],[1,1,0]]},
+  {d:[1,0,0],  reg:[0.5,1], v:[[1,0,1],[1,0,0],[1,1,0],[1,1,1]]},
+  {d:[-1,0,0], reg:[0.5,1], v:[[0,0,0],[0,0,1],[0,1,1],[0,1,0]]},
+];
+const COLORS = ['#e2342b','#ff8a1e','#ffd02e','#8ed81a','#2faf3a','#1fc3d6','#2a73f0','#8a45e6','#ff5fa6','#f2f2f2','#23262b','#7b4a26']
+  .map(hex2rgb);
+const PAL_COUNT = COLORS.length;
+COLORS.push(hex2rgb('#9aa1a8')); // 12 baseplate A
+COLORS.push(hex2rgb('#b6bdc5')); // 13 baseplate B
+
+const blocks = new Map();                 // "x,y,z" -> color index
+const key=(x,y,z)=> x+','+y+','+z;
+const isSolid=(x,y,z)=> blocks.has(key(x,y,z));
+function setBlock(x,y,z,ci){ blocks.set(key(x,y,z),ci); }
+function delBlock(x,y,z){ blocks.delete(key(x,y,z)); }
+
+const worldBuf = { pos:gl.createBuffer(), norm:gl.createBuffer(), uv:gl.createBuffer(), color:gl.createBuffer(), count:0 };
+function rebuildWorld(){
+  const P=[],N=[],UV=[],C=[];
+  for(const [k,ci] of blocks){
+    const [x,y,z]=k.split(',').map(Number); const col=COLORS[ci];
+    for(const F of FACES){
+      if(isSolid(x+F.d[0],y+F.d[1],z+F.d[2])) continue;  // hidden face -> skip
+      const uv=[[F.reg[0],0],[F.reg[1],0],[F.reg[1],1],[F.reg[0],1]];
+      for(const i of [0,1,2,0,2,3]){
+        P.push(x+F.v[i][0], y+F.v[i][1], z+F.v[i][2]);
+        N.push(F.d[0],F.d[1],F.d[2]); UV.push(uv[i][0],uv[i][1]); C.push(col[0],col[1],col[2]);
+      }
+    }
+  }
+  worldBuf.count = P.length/3;
+  gl.bindBuffer(gl.ARRAY_BUFFER,worldBuf.pos);   gl.bufferData(gl.ARRAY_BUFFER,new Float32Array(P),gl.STATIC_DRAW);
+  gl.bindBuffer(gl.ARRAY_BUFFER,worldBuf.norm);  gl.bufferData(gl.ARRAY_BUFFER,new Float32Array(N),gl.STATIC_DRAW);
+  gl.bindBuffer(gl.ARRAY_BUFFER,worldBuf.uv);    gl.bufferData(gl.ARRAY_BUFFER,new Float32Array(UV),gl.STATIC_DRAW);
+  gl.bindBuffer(gl.ARRAY_BUFFER,worldBuf.color); gl.bufferData(gl.ARRAY_BUFFER,new Float32Array(C),gl.STATIC_DRAW);
+}
+
+//------------------------------------------------- starter world
+const coins = [];
+function genWorld(){
+  blocks.clear(); coins.length=0;
+  const R=20;
+  for(let x=-R;x<=R;x++) for(let z=-R;z<=R;z++) setBlock(x,0,z, ((x+z)&1)?13:12); // checkered baseplate
+  // spawn pad
+  for(let x=-2;x<=2;x++) for(let z=-2;z<=2;z++) setBlock(x,1,z, 9);
+  // staircase
+  for(let i=0;i<6;i++) for(let w=-1;w<=1;w++) setBlock(7+i, 1+i, w, 6);
+  // platform on top of stairs
+  for(let x=12;x<=16;x++) for(let z=-2;z<=2;z++) setBlock(x,6,z, 2);
+  // colored pillars
+  const pil=[[-10,8,1],[-13,5,4],[10,-10,0],[-8,-12,3]];
+  for(const [px,pz,col] of pil) for(let h=1;h<=4;h++) setBlock(px,h,pz,col);
+  // trees
+  function tree(tx,tz){ for(let h=1;h<=3;h++) setBlock(tx,h,tz,11);
+    for(let dx=-1;dx<=1;dx++) for(let dz=-1;dz<=1;dz++){ setBlock(tx+dx,4,tz+dz,4); }
+    setBlock(tx,5,tz,4); }
+  tree(-6,-6); tree(14,12); tree(-15,12);
+  // coins: floating, spinning
+  const cp=[[0,2,-5],[3,2,-8],[-3,2,-8],[7,3,0],[10,4,0],[13,8,0],[ -6,5,-6],[14,8,12],[-15,7,12],[ -10,2,8],[10,2,-12],[6,2,10]];
+  for(const [x,y,z] of cp) coins.push({x:x+0.5,y:y+0.5,z:z+0.5,got:false});
+  rebuildWorld();
+}
+
+//------------------------------------------------- player
+const player = { pos:[0.5,2.4,0.5], vx:0,vy:0,vz:0, onGround:false, phase:0, swing:0, yaw:0 };
+const HX=0.35, HY=1.2, HZ=0.35;             // AABB half extents
+const SPAWN=[0.5,3.0,0.5];
+const avatar = { skin:hex2rgb('#f1c27d'), shirt:hex2rgb('#1e90ff'), pants:hex2rgb('#2f3640'), hair:hex2rgb('#5a3b1a') };
+
+function collideAxis(axis, vel){
+  player.pos[axis]+=vel; if(vel===0) return;
+  const half=[HX,HY,HZ][axis];
+  const min=[player.pos[0]-HX,player.pos[1]-HY,player.pos[2]-HZ];
+  const max=[player.pos[0]+HX,player.pos[1]+HY,player.pos[2]+HZ];
+  const x0=Math.floor(min[0]),x1=Math.floor(max[0]);
+  const y0=Math.floor(min[1]),y1=Math.floor(max[1]);
+  const z0=Math.floor(min[2]),z1=Math.floor(max[2]);
+  for(let x=x0;x<=x1;x++) for(let y=y0;y<=y1;y++) for(let z=z0;z<=z1;z++){
+    if(!isSolid(x,y,z)) continue;
+    const cell=[x,y,z][axis];
+    if(vel>0){ player.pos[axis]=Math.min(player.pos[axis], cell-half-1e-3); }
+    else     { player.pos[axis]=Math.max(player.pos[axis], cell+1+half+1e-3); }
+    if(axis===1){ if(vel<0) player.onGround=true; player.vy=0; }
+  }
+}
+
+//------------------------------------------------- input
+const keys={}; let locked=false, buildMode=false, selColor=0, camDist=7, robux=0, hp=100;
+const mouse={dx:0,dy:0};
+let yaw=0.6, pitch=-0.25;
+
+addEventListener('keydown',e=>{
+  if(e.repeat){ keys[e.code]=true; return; }
+  keys[e.code]=true;
+  if(e.code==='KeyB') toggleBuild();
+  else if(e.code==='KeyC') toggleCustom();
+  else if(e.code==='KeyP') saveWorld();
+  else if(e.code==='KeyL') loadWorld();
+  else if(e.code==='KeyR') respawn();
+  else if(e.code==='KeyQ'){ selColor=(selColor+PAL_COUNT-1)%PAL_COUNT; updatePalette(); }
+  else if(e.code==='KeyE'){ selColor=(selColor+1)%PAL_COUNT; updatePalette(); }
+  else if(e.code.startsWith('Digit')){ const n=+e.code.slice(5); if(n>=1&&n<=9){ selColor=n-1; updatePalette(); } if(n===0){ selColor=9; updatePalette(); } }
+  if(e.code==='Space') e.preventDefault();
+});
+addEventListener('keyup',e=> keys[e.code]=false);
+
+canvas.addEventListener('click', ()=>{ if(!locked) canvas.requestPointerLock(); });
+document.addEventListener('pointerlockchange', ()=>{ locked = document.pointerLockElement===canvas; });
+document.addEventListener('mousemove', e=>{ if(!locked) return; yaw += e.movementX*0.0026; pitch -= e.movementY*0.0026;
+  pitch=Math.max(-1.45,Math.min(1.45,pitch)); });
+canvas.addEventListener('contextmenu', e=> e.preventDefault());
+canvas.addEventListener('mousedown', e=>{
+  if(!locked) return; audioInit();
+  if(buildMode){ if(e.button===0) placeBlock(); else if(e.button===2) deleteBlock(); }
+  else { player.swing = 1.4; } // wave/punch
+});
+addEventListener('wheel', e=>{ camDist=Math.max(3,Math.min(15, camDist + Math.sign(e.deltaY)*0.8)); }, {passive:true});
+
+//------------------------------------------------- camera look direction
+function lookDir(){ const cp=Math.cos(pitch);
+  return [ cp*Math.sin(yaw), Math.sin(pitch), -cp*Math.cos(yaw) ]; }
+
+//------------------------------------------------- voxel raycast (Amanatides–Woo)
+function raycast(maxD){
+  const tgt=[player.pos[0], player.pos[1]+0.3, player.pos[2]];
+  const dir=lookDir(); const len=Math.hypot(dir[0],dir[1],dir[2]); dir[0]/=len;dir[1]/=len;dir[2]/=len;
+  const o=[ tgt[0]-dir[0]*camDist, tgt[1]-dir[1]*camDist, tgt[2]-dir[2]*camDist ]; // from camera
+  let ix=Math.floor(o[0]),iy=Math.floor(o[1]),iz=Math.floor(o[2]);
+  const sx=dir[0]>0?1:-1, sy=dir[1]>0?1:-1, sz=dir[2]>0?1:-1;
+  const dX=dir[0]!==0?Math.abs(1/dir[0]):1e9, dY=dir[1]!==0?Math.abs(1/dir[1]):1e9, dZ=dir[2]!==0?Math.abs(1/dir[2]):1e9;
+  let mX=dir[0]>0?(ix+1-o[0])/dir[0]:(dir[0]<0?(ix-o[0])/dir[0]:1e9);
+  let mY=dir[1]>0?(iy+1-o[1])/dir[1]:(dir[1]<0?(iy-o[1])/dir[1]:1e9);
+  let mZ=dir[2]>0?(iz+1-o[2])/dir[2]:(dir[2]<0?(iz-o[2])/dir[2]:1e9);
+  let nx=0,ny=0,nz=0, t=0;
+  for(let i=0;i<256;i++){
+    if(isSolid(ix,iy,iz)) return {hit:[ix,iy,iz], n:[nx,ny,nz]};
+    if(mX<mY && mX<mZ){ ix+=sx; t=mX; mX+=dX; nx=-sx;ny=0;nz=0; }
+    else if(mY<mZ){ iy+=sy; t=mY; mY+=dY; nx=0;ny=-sy;nz=0; }
+    else { iz+=sz; t=mZ; mZ+=dZ; nx=0;ny=0;nz=-sz; }
+    if(t>maxD+camDist) break;
+  }
+  return null;
+}
+function overlapsPlayer(x,y,z){
+  return (x+1>player.pos[0]-HX && x<player.pos[0]+HX &&
+          y+1>player.pos[1]-HY && y<player.pos[1]+HY &&
+          z+1>player.pos[2]-HZ && z<player.pos[2]+HZ);
+}
+function placeBlock(){
+  const r=raycast(9); if(!r) return;
+  const x=r.hit[0]+r.n[0], y=r.hit[1]+r.n[1], z=r.hit[2]+r.n[2];
+  if(isSolid(x,y,z) || overlapsPlayer(x,y,z) || y<0) return;
+  setBlock(x,y,z,selColor); rebuildWorld(); beep(660,0.05);
+}
+function deleteBlock(){
+  const r=raycast(9); if(!r) return;
+  if(r.hit[1]<0) return;
+  delBlock(r.hit[0],r.hit[1],r.hit[2]); rebuildWorld(); beep(220,0.06);
+}
+
+//------------------------------------------------- drawing
+function bind(buf,loc,size){ gl.bindBuffer(gl.ARRAY_BUFFER,buf); gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc,size,gl.FLOAT,false,0,0); }
+function drawWorld(){
+  gl.uniformMatrix4fv(U.uModel,false,M.ident());
+  gl.uniformMatrix3fv(U.uNormalMat,false,new Float32Array([1,0,0,0,1,0,0,0,1]));
+  gl.uniform1f(U.uUseTex,1.0);
+  bind(worldBuf.pos,A.pos,3); bind(worldBuf.norm,A.norm,3); bind(worldBuf.uv,A.uv,2); bind(worldBuf.color,A.color,3);
+  gl.drawArrays(gl.TRIANGLES,0,worldBuf.count);
+}
+function drawCube(model,color){
+  gl.uniformMatrix4fv(U.uModel,false,model);
+  gl.uniformMatrix3fv(U.uNormalMat,false,M.normal(model));
+  gl.uniform1f(U.uUseTex,0.0);
+  bind(cubeBuf.pos,A.pos,3); bind(cubeBuf.norm,A.norm,3); bind(cubeBuf.uv,A.uv,2);
+  gl.disableVertexAttribArray(A.color); gl.vertexAttrib3f(A.color,color[0],color[1],color[2]);
+  gl.drawArrays(gl.TRIANGLES,0,cube.count);
+}
+// box(parentMatrix, w,h,d, color) — unit cube scaled & placed
+function box(parent, cx,cy,cz, w,h,d, color){
+  drawCube(M.mul(parent, M.mul(M.trans(cx,cy,cz), M.scale(w,h,d))), color);
+}
+
+function drawAvatar(){
+  const feet = M.mul(M.trans(player.pos[0], player.pos[1]-HY, player.pos[2]), M.rotY(player.yaw));
+  const legH=0.85, torsoH=0.85, torsoW=0.78, torsoD=0.42, headS=0.62, armH=0.82, armW=0.26;
+  const hipY=legH, shY=legH+torsoH;
+  const sw=player.swing;
+  // torso (shirt)
+  box(feet, 0, legH+torsoH/2, 0, torsoW,torsoH,torsoD, avatar.shirt);
+  // legs (pants) — swing opposite
+  for(const [side,sign] of [[-1,1],[1,-1]]){
+    const hip = M.mul(feet, M.mul(M.trans(side*0.19, hipY, 0), M.rotX(sw*sign)));
+    box(hip, 0,-legH/2,0, 0.32,legH,0.34, avatar.pants);
+  }
+  // arms (skin) — swing opposite to legs
+  for(const [side,sign] of [[-1,-1],[1,1]]){
+    const sh = M.mul(feet, M.mul(M.trans(side*(torsoW/2+armW/2), shY, 0), M.rotX(sw*sign)));
+    box(sh, 0,-armH/2,0, armW,armH,armW, avatar.shirt);
+    box(sh, 0,-armH+0.12,0, armW*1.02,0.18,armW*1.02, avatar.skin); // hand
+  }
+  // head (skin)
+  box(feet, 0, shY+headS/2, 0, headS,headS,headS, avatar.skin);
+  // hair / cap
+  box(feet, 0, shY+headS+0.05, 0, headS*1.04,0.18,headS*1.04, avatar.hair);
+  // eyes (front = local -z)
+  box(feet, -0.14, shY+headS/2+0.04, -headS/2, 0.1,0.12,0.04, [0.1,0.1,0.12]);
+  box(feet,  0.14, shY+headS/2+0.04, -headS/2, 0.1,0.12,0.04, [0.1,0.1,0.12]);
+}
+
+let coinSpin=0;
+function drawCoins(){
+  for(const c of coins){ if(c.got) continue;
+    const m=M.mul(M.mul(M.trans(c.x,c.y+Math.sin(coinSpin*2+c.x)*0.12,c.z), M.rotY(coinSpin*2)), M.scale(0.5,0.5,0.12));
+    drawCube(m,[1,0.82,0.15]);
+  }
+}
+
+//------------------------------------------------- update
+let last=performance.now();
+function update(dt){
+  // ---- movement input (camera-relative)
+  const sinY=Math.sin(yaw), cosY=Math.cos(yaw);
+  let mx=0,mz=0;
+  if(keys['KeyW']){ mx+=sinY; mz+=-cosY; }
+  if(keys['KeyS']){ mx+=-sinY; mz+=cosY; }
+  if(keys['KeyA']){ mx+=-cosY; mz+=-sinY; }
+  if(keys['KeyD']){ mx+=cosY; mz+=sinY; }
+  const ml=Math.hypot(mx,mz); const moving=ml>0.01;
+  const speed=(keys['ShiftLeft']||keys['ShiftRight'])?9:6;
+  if(moving){ mx/=ml; mz/=ml; player.yaw=Math.atan2(mx,-mz); }
+  player.vx=mx*speed; player.vz=mz*speed;
+  // gravity + jump
+  player.vy-=28*dt;
+  if(keys['Space'] && player.onGround){ player.vy=10; player.onGround=false; beep(440,0.05); }
+  player.onGround=false;
+  collideAxis(0,player.vx*dt);
+  collideAxis(1,player.vy*dt);
+  collideAxis(2,player.vz*dt);
+  // limb animation
+  if(moving){ player.phase += dt*speed*1.4; player.swing = Math.sin(player.phase)*0.7; }
+  else { player.swing *= Math.pow(0.0001,dt); if(Math.abs(player.swing)<0.01) player.swing=0; player.phase=0; }
+  // fell off the world
+  if(player.pos[1] < -25) respawn();
+  // coins
+  coinSpin += dt;
+  for(const c of coins){ if(c.got) continue;
+    const dx=c.x-player.pos[0], dy=c.y-player.pos[1], dz=c.z-player.pos[2];
+    if(dx*dx+dy*dy+dz*dz < 1.3*1.3){ c.got=true; robux++; document.getElementById('robux').textContent=robux; beep(880,0.08); beep(1320,0.08,0.06); }
+  }
+}
+function respawn(){ player.pos=[...SPAWN]; player.vx=player.vy=player.vz=0; }
+
+//------------------------------------------------- render
+function resize(){ const w=canvas.clientWidth, h=canvas.clientHeight, dpr=Math.min(devicePixelRatio||1,2);
+  canvas.width=w*dpr; canvas.height=h*dpr; gl.viewport(0,0,canvas.width,canvas.height); }
+addEventListener('resize',resize);
+
+function render(){
+  const aspect = canvas.width/canvas.height || 1.6;
+  const proj = M.persp(1.15, aspect, 0.08, 220);
+  const dir=lookDir();
+  const target=[player.pos[0], player.pos[1]+0.3, player.pos[2]];
+  const eye=[ target[0]-dir[0]*camDist, target[1]-dir[1]*camDist, target[2]-dir[2]*camDist ];
+  const view = M.look(eye,target,[0,1,0]);
+  gl.uniformMatrix4fv(U.uProj,false,proj);
+  gl.uniformMatrix4fv(U.uView,false,view);
+  gl.uniform3f(U.uLightDir, 0.4,1.0,0.6);
+  gl.uniform3f(U.uFog, 0.53,0.81,0.96);
+  gl.uniform1f(U.uFogD, 0.011);
+
+  gl.clearColor(0.53,0.81,0.96,1); gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);
+  drawWorld();
+  drawAvatar();
+  drawCoins();
+}
+
+function frame(now){
+  let dt=(now-last)/1000; last=now; if(dt>0.05) dt=0.05;
+  update(dt);
+  render();
+  requestAnimationFrame(frame);
+}
+
+//------------------------------------------------- audio
+let AC=null;
+function audioInit(){ if(!AC){ try{ AC=new (window.AudioContext||window.webkitAudioContext)(); }catch(e){} } }
+function beep(freq,dur,delay=0){ if(!AC) return; const t=AC.currentTime+delay;
+  const o=AC.createOscillator(), g=AC.createGain(); o.type='square'; o.frequency.value=freq;
+  o.connect(g); g.connect(AC.destination); g.gain.setValueAtTime(0.06,t); g.gain.exponentialRampToValueAtTime(0.0001,t+dur);
+  o.start(t); o.stop(t+dur+0.02); }
+
+//------------------------------------------------- UI wiring
+const palEl=document.getElementById('palette');
+function buildPalette(){ palEl.innerHTML='';
+  for(let i=0;i<PAL_COUNT;i++){ const c=COLORS[i]; const d=document.createElement('div');
+    d.className='swatch'; d.style.background=`rgb(${c[0]*255|0},${c[1]*255|0},${c[2]*255|0})`;
+    if(i<10) d.innerHTML=`<span class="num">${i<9?i+1:0}</span>`;
+    d.onclick=()=>{ selColor=i; updatePalette(); };
+    palEl.appendChild(d); }
+  updatePalette();
+}
+function updatePalette(){ [...palEl.children].forEach((el,i)=> el.classList.toggle('sel',i===selColor)); }
+
+function toggleBuild(){ buildMode=!buildMode;
+  document.getElementById('modeBadge').textContent=buildMode?'BUILD':'PLAY';
+  document.getElementById('modeBadge').classList.toggle('build',buildMode);
+  palEl.classList.toggle('hidden',!buildMode);
+  document.getElementById('cross').style.opacity = buildMode?'1':'0.45';
+}
+const customEl=document.getElementById('custom');
+function toggleCustom(){ const show=!customEl.classList.contains('show');
+  customEl.classList.toggle('show',show); if(show && locked) document.exitPointerLock(); }
+
+document.getElementById('bBuild').onclick=toggleBuild;
+document.getElementById('bCustom').onclick=toggleCustom;
+document.getElementById('bSave').onclick=saveWorld;
+document.getElementById('bLoad').onclick=loadWorld;
+document.getElementById('bReset').onclick=()=>{ genWorld(); };
+document.getElementById('cClose').onclick=()=> customEl.classList.remove('show');
+
+function applyAvatar(){
+  avatar.skin=hex2rgb(document.getElementById('cSkin').value);
+  avatar.shirt=hex2rgb(document.getElementById('cShirt').value);
+  avatar.pants=hex2rgb(document.getElementById('cPants').value);
+  avatar.hair=hex2rgb(document.getElementById('cHair').value);
+}
+['cSkin','cShirt','cPants','cHair'].forEach(id=> document.getElementById(id).oninput=applyAvatar);
+
+document.getElementById('playBtn').onclick=()=>{ document.getElementById('start').classList.add('gone'); audioInit(); canvas.requestPointerLock(); };
+
+//------------------------------------------------- save / load
+function saveWorld(){
+  const arr=[]; for(const [k,v] of blocks) arr.push(k+':'+v);
+  localStorage.setItem('bloxworld', arr.join('|'));
+  flash('💾 World saved');
+}
+function loadWorld(){
+  const s=localStorage.getItem('bloxworld'); if(!s){ flash('No saved world'); return; }
+  blocks.clear();
+  for(const e of s.split('|')){ const [k,v]=e.split(':'); blocks.set(k,+v); }
+  rebuildWorld(); flash('📂 World loaded');
+}
+let flashT=null;
+function flash(msg){ let f=document.getElementById('flash');
+  if(!f){ f=document.createElement('div'); f.id='flash'; f.style.cssText='position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:rgba(0,0,0,.8);padding:14px 28px;border-radius:12px;font-weight:700;z-index:40;pointer-events:none;transition:opacity .3s'; document.body.appendChild(f); }
+  f.textContent=msg; f.style.opacity='1'; clearTimeout(flashT); flashT=setTimeout(()=> f.style.opacity='0', 1200);
+}
+
+//------------------------------------------------- go
+resize();
+buildPalette();
+genWorld();
+document.getElementById('cross').style.opacity='0.45';
+render();                 // draw one frame immediately
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>

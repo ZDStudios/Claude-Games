@@ -1,0 +1,776 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>MONOLITH — an impossible journey</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html,body { width:100%; height:100%; overflow:hidden; background:#1a1730; font-family:'Trebuchet MS','Segoe UI',sans-serif; }
+  #stage { position:fixed; inset:0; }
+  canvas { position:absolute; inset:0; display:block; }
+
+  /* UI overlay */
+  #ui { position:fixed; inset:0; pointer-events:none; color:#fff; }
+  .top { position:absolute; top:24px; left:0; right:0; text-align:center;
+         opacity:0; transition:opacity 1.2s ease; }
+  .top.show { opacity:1; }
+  .chapter { font-size:13px; letter-spacing:6px; text-transform:uppercase; opacity:.65; font-weight:bold; }
+  .title { font-size:30px; letter-spacing:8px; text-transform:uppercase; font-weight:300; margin-top:6px;
+           text-shadow:0 2px 18px rgba(0,0,0,.35); }
+  .hint { position:absolute; bottom:30px; left:0; right:0; text-align:center; font-size:14px;
+          letter-spacing:2px; opacity:0; transition:opacity 1s ease; font-weight:300; }
+  .hint.show { opacity:.7; }
+
+  /* buttons */
+  .btns { position:absolute; top:18px; right:18px; pointer-events:auto; display:flex; gap:10px; }
+  .btn { width:38px; height:38px; border-radius:50%; border:1.5px solid rgba(255,255,255,.45);
+         background:rgba(255,255,255,.06); color:#fff; font-size:16px; cursor:pointer;
+         display:flex; align-items:center; justify-content:center; backdrop-filter:blur(4px);
+         transition:background .2s, transform .15s; }
+  .btn:hover { background:rgba(255,255,255,.18); transform:scale(1.08); }
+  .btn:active { transform:scale(.94); }
+
+  /* level select dots */
+  .levels { position:absolute; bottom:24px; right:22px; pointer-events:auto; display:flex; gap:12px; }
+  .dot { width:11px; height:11px; border-radius:50%; border:1.5px solid rgba(255,255,255,.5);
+         cursor:pointer; transition:all .2s; }
+  .dot.on { background:#fff; transform:scale(1.25); }
+  .dot.done { background:rgba(255,255,255,.55); }
+
+  /* fade overlay for transitions */
+  #fade { position:fixed; inset:0; background:#15122b; opacity:0; pointer-events:none;
+          transition:opacity .9s ease; z-index:5; }
+  #fade.on { opacity:1; }
+
+  /* title / start screen */
+  #start { position:fixed; inset:0; z-index:10; display:flex; flex-direction:column;
+           align-items:center; justify-content:center; text-align:center; color:#fff;
+           background:radial-gradient(circle at 50% 38%, #3a3568, #1a1730 70%);
+           transition:opacity 1s ease; }
+  #start.hide { opacity:0; pointer-events:none; }
+  #start h1 { font-size:54px; letter-spacing:16px; font-weight:200; }
+  #start .sub { margin-top:14px; font-size:14px; letter-spacing:5px; opacity:.65; text-transform:uppercase; }
+  #start .play { margin-top:46px; padding:14px 46px; border:1.5px solid rgba(255,255,255,.6);
+           border-radius:40px; font-size:15px; letter-spacing:4px; text-transform:uppercase;
+           cursor:pointer; background:rgba(255,255,255,.05); transition:all .25s; }
+  #start .play:hover { background:#fff; color:#2a2550; letter-spacing:5px; }
+  #start .credit { position:absolute; bottom:26px; font-size:11px; letter-spacing:2px; opacity:.4; }
+
+  /* win banner */
+  #win { position:fixed; inset:0; z-index:8; display:flex; flex-direction:column; align-items:center;
+         justify-content:center; color:#fff; text-align:center; pointer-events:none; opacity:0;
+         transition:opacity 1.2s ease; }
+  #win.on { opacity:1; pointer-events:auto; }
+  #win h2 { font-size:40px; letter-spacing:10px; font-weight:200; }
+  #win p { margin-top:16px; letter-spacing:3px; opacity:.7; }
+  #win .again { margin-top:40px; padding:12px 38px; border:1.5px solid rgba(255,255,255,.6);
+         border-radius:40px; letter-spacing:3px; text-transform:uppercase; cursor:pointer;
+         background:rgba(255,255,255,.05); transition:all .25s; font-size:14px; }
+  #win .again:hover { background:#fff; color:#2a2550; }
+</style>
+</head>
+<body>
+<div id="stage"><canvas id="cv"></canvas></div>
+
+<div id="ui">
+  <div class="top" id="topcard">
+    <div class="chapter" id="chapter">Chapter I</div>
+    <div class="title" id="ttl">Awakening</div>
+  </div>
+  <div class="hint" id="hint"></div>
+  <div class="btns">
+    <button class="btn" id="muteBtn" title="Sound">♪</button>
+    <button class="btn" id="resetBtn" title="Restart level">⟳</button>
+  </div>
+  <div class="levels" id="levels"></div>
+</div>
+
+<div id="fade"></div>
+
+<div id="win">
+  <h2>THE JOURNEY ENDS</h2>
+  <p>Ida has walked every impossible path.</p>
+  <button class="again" id="againBtn">Play again</button>
+</div>
+
+<div id="start">
+  <h1>MONOLITH</h1>
+  <div class="sub">an impossible journey</div>
+  <div class="play" id="playBtn">Begin</div>
+  <div class="credit">A Monument Valley–inspired isometric puzzle · tap to walk · drag the dials</div>
+</div>
+
+<script>
+"use strict";
+/* ============================================================================
+   MONOLITH — an isometric "impossible geometry" puzzle (Monument Valley clone)
+   Single file. Pure canvas. Original code & art.
+
+   Core idea (the Escher trick): the world is 3D, but two surfaces are
+   walkable-adjacent whenever their PROJECTED screen centers differ by exactly
+   one isometric step vector. On screen, climbing a stair and walking flat look
+   identical, so rotating/sliding a piece can connect places that are far apart
+   in real 3D space. All level geometry below was verified solvable offline.
+   ========================================================================== */
+
+const U = 28;                          // base isometric unit (world-screen px)
+const TH = 0.85;                       // block thickness (downward)
+const STEP_VECTORS = [                 // the 4 iso step deltas (world-screen)
+  [ U,  U*0.5], [-U,  U*0.5], [ U, -U*0.5], [-U, -U*0.5]
+];
+const ADJ_EPS = 5;
+
+/* ---- isometric projection (world -> world-screen, before view transform) ---- */
+function proj(x, y, z){ return { x:(x - z)*U, y:(x + z)*0.5*U - y*U }; }
+
+/* continuous rotation of (x,z) about pivot (cx,cz) by theta (radians) */
+function rotPoint(x, z, cx, cz, theta){
+  const dx = x - cx, dz = z - cz, c = Math.cos(theta), s = Math.sin(theta);
+  return [ cx + dx*c - dz*s, cz + dx*s + dz*c ];
+}
+
+/* Apply a piece's CURRENT (possibly animating) transform to a world point. */
+function pieceTransform(p, x, y, z){
+  if (p.type === 'rotate'){
+    const a = (p.anim||0) * Math.PI/2;
+    const [nx, nz] = rotPoint(x, z, p.pivot[0], p.pivot[1], a);
+    return [nx, y, nz];
+  }
+  if (p.type === 'slide'){
+    const t = (p.anim||0);
+    return [ x + p.axis[0]*t, y + p.axis[2]*t, z + p.axis[1]*t ];
+  }
+  return [x, y, z];
+}
+
+/* world-screen center of a tile, using a discrete or animated state */
+function tileScreen(p, t, useAnim){
+  let x = t.x+0.5, y = t.y, z = t.z+0.5;
+  if (p.type === 'rotate'){
+    const k = useAnim ? null : (p.state||0);
+    if (useAnim){ const r = pieceTransform(p, x, y, z); x=r[0]; y=r[1]; z=r[2]; }
+    else { const a=k*Math.PI/2; const [nx,nz]=rotPoint(x,z,p.pivot[0],p.pivot[1],a); x=nx; z=nz; }
+  } else if (p.type === 'slide'){
+    const t2 = useAnim ? (p.anim||0) : (p.state||0);
+    x += p.axis[0]*t2; z += p.axis[1]*t2; y += p.axis[2]*t2;
+  }
+  return proj(x, y, z);
+}
+
+/* =========================== LEVEL DATA (verified) ========================= */
+const LEVELS = [
+  { chapter:"Chapter I", title:"Awakening",
+    hint:"Tap a tile to guide Ida.",
+    palette:{ bgA:"#f3d9c6", bgB:"#e7b9a8", top:"#fbe9da", light:"#e9b6a0", dark:"#d99a86", accent:"#6a5acd", ida:"#fffaf5" },
+    pieces:[ { type:'static', tiles:[
+      {x:0,y:0,z:0},{x:1,y:0,z:0},{x:2,y:0,z:0},{x:3,y:0,z:0},
+      {x:3,y:0,z:1},{x:3,y:0,z:2},{x:3,y:0,z:3},
+      {x:3,y:1,z:4},{x:3,y:1,z:5}
+    ]} ],
+    start:"0_0", goal:"0_8" },
+
+  { chapter:"Chapter II", title:"The Pivot",
+    hint:"Drag the dial to turn the staircase.",
+    palette:{ bgA:"#cfe3e8", bgB:"#a7c6d6", top:"#eef4f3", light:"#bcd2d8", dark:"#9bb6c1", accent:"#e0735e", ida:"#fffaf5" },
+    pieces:[
+      { type:'static', tiles:[{x:0,y:0,z:0},{x:1,y:0,z:0},{x:2,y:0,z:0}] },
+      { type:'static', tiles:[{x:2,y:3,z:0},{x:2,y:3,z:1},{x:2,y:3,z:2}] },
+      { type:'rotate', pivot:[3,2], stateInit:0, knob:[3,1.5,2],
+        tiles:[{x:3,y:0,z:0},{x:3,y:1,z:1},{x:3,y:2,z:2},{x:3,y:3,z:3}] }
+    ],
+    start:"0_0", goal:"1_2" },
+
+  { chapter:"Chapter III", title:"Ascend",
+    hint:"Walk onto the platform, then drag it upward.",
+    palette:{ bgA:"#efe3f6", bgB:"#cdb6e6", top:"#f7eefc", light:"#d9c2ec", dark:"#bfa3da", accent:"#46c2a8", ida:"#fffaf5" },
+    pieces:[
+      { type:'static', tiles:[{x:0,y:0,z:0},{x:1,y:0,z:0},{x:2,y:0,z:0}] },
+      { type:'static', tiles:[{x:2,y:2,z:0},{x:3,y:2,z:0},{x:4,y:2,z:0}] },
+      { type:'slide', axis:[0,0,1], range:[0,1], stateInit:0, knob:[4,0,0],
+        tiles:[{x:3,y:0,z:0},{x:4,y:0,z:0}] }
+    ],
+    start:"0_0", goal:"1_2" },
+
+  { chapter:"Chapter IV", title:"The Spire",
+    hint:"Turn the arm to reach the spire.",
+    palette:{ bgA:"#fbe2c0", bgB:"#e7a6a0", top:"#fdeede", light:"#eeae9b", dark:"#d98a86", accent:"#5566c4", ida:"#fffaf5" },
+    pieces:[
+      { type:'static', tiles:[{x:0,y:0,z:0},{x:0,y:0,z:1},{x:0,y:0,z:2},{x:1,y:1,z:2},{x:2,y:2,z:2}] },
+      { type:'static', tiles:[{x:1,y:3,z:2},{x:1,y:3,z:3},{x:1,y:3,z:4}] },
+      { type:'rotate', pivot:[2,2], stateInit:0, knob:[2,2.5,2],
+        tiles:[{x:3,y:2,z:2},{x:4,y:2,z:2},{x:4,y:3,z:3}] }
+    ],
+    start:"0_0", goal:"1_2" }
+];
+
+/* ============================ ENGINE / GRAPH =============================== */
+function nodeKey(pi, ti){ return pi+"_"+ti; }
+
+/* build adjacency at the current REST state (uses integer p.state) */
+function buildGraph(level){
+  const nodes = [];
+  level.pieces.forEach((p, pi) => p.tiles.forEach((t, ti) => {
+    const c = tileScreen(p, t, false);
+    nodes.push({ key:nodeKey(pi,ti), pi, ti, sx:c.x, sy:c.y });
+  }));
+  const adj = {};
+  nodes.forEach(n => adj[n.key] = []);
+  for (let i=0;i<nodes.length;i++) for (let j=i+1;j<nodes.length;j++){
+    const a=nodes[i], b=nodes[j], dx=b.sx-a.sx, dy=b.sy-a.sy;
+    if (STEP_VECTORS.some(s => Math.abs(dx-s[0])<ADJ_EPS && Math.abs(dy-s[1])<ADJ_EPS)){
+      adj[a.key].push(b.key); adj[b.key].push(a.key);
+    }
+  }
+  return { nodes, adj };
+}
+
+function bfsPath(adj, start, goal){
+  if (start === goal) return [start];
+  const q=[start], seen={[start]:1}, prev={};
+  while(q.length){
+    const c=q.shift();
+    for (const n of (adj[c]||[])) if(!seen[n]){
+      seen[n]=1; prev[n]=c;
+      if (n===goal){ const p=[n]; let x=n; while(prev[x]){ x=prev[x]; p.unshift(x); } return p; }
+      q.push(n);
+    }
+  }
+  return null;
+}
+
+/* ============================== RUNTIME STATE ============================= */
+const cv = document.getElementById('cv');
+const ctx = cv.getContext('2d');
+let W=0, H=0, DPR=1;
+
+const game = {
+  levelIdx: 0,
+  level: null,
+  graph: null,
+  view: { scale:1, ox:0, oy:0 },
+  ida: null,           // { key, sx, sy }  (sx,sy in world-screen)
+  walking: null,       // { path:[keys], idx, t }
+  drag: null,          // active knob drag
+  pal: null,
+  solved: false,
+  t0: performance.now()
+};
+
+/* ----- node lookup helpers ----- */
+function nodeByKey(level, key){
+  const [pi,ti] = key.split('_').map(Number);
+  return { p:level.pieces[pi], t:level.pieces[pi].tiles[ti], pi, ti };
+}
+function nodeScreenAnim(level, key){           // world-screen, following animation
+  const n = nodeByKey(level, key);
+  return tileScreen(n.p, n.t, true);
+}
+
+/* =============================== VIEW FIT ================================= */
+function computeView(level){
+  let minx=1e9,maxx=-1e9,miny=1e9,maxy=-1e9;
+  const consider = (sx, sy)=>{ if(sx<minx)minx=sx; if(sx>maxx)maxx=sx; if(sy<miny)miny=sy; if(sy>maxy)maxy=sy; };
+  // sample every piece over every state it can occupy, including block corners
+  level.pieces.forEach(p=>{
+    const states = (p.type==='rotate') ? [0,1,2,3]
+                 : (p.type==='slide') ? [p.range[0], p.range[1]] : [0];
+    states.forEach(s=>{
+      const saveAnim=p.anim, saveState=p.state; p.anim=s; p.state=s;
+      p.tiles.forEach(t=>{
+        for(const cx of [t.x, t.x+1]) for(const cz of [t.z, t.z+1]) for(const cy of [t.y, t.y-TH]){
+          const [wx,wy,wz]=pieceTransform(p, cx, cy, cz);
+          const sp=proj(wx,wy,wz); consider(sp.x, sp.y);
+        }
+      });
+      p.anim=saveAnim; p.state=saveState;
+    });
+  });
+  const pad = 70;
+  const bw = (maxx-minx)||1, bh=(maxy-miny)||1;
+  const availW = Math.max(120, W-pad*2), availH = Math.max(120, H-pad*2);
+  const scale = Math.max(0.4, Math.min(availW/bw, availH/bh, 2.6));
+  const ox = W/2 - (minx+maxx)/2*scale;
+  const oy = H/2 - (miny+maxy)/2*scale + 10;
+  return { scale, ox, oy };
+}
+
+function toScreen(wsx, wsy){
+  return { x: wsx*game.view.scale + game.view.ox, y: wsy*game.view.scale + game.view.oy };
+}
+function fromScreen(px, py){
+  return { x:(px-game.view.ox)/game.view.scale, y:(py-game.view.oy)/game.view.scale };
+}
+
+/* ============================== RENDERING ================================= */
+function shade(hex, f){           // lighten(>1)/darken(<1)
+  const n=parseInt(hex.slice(1),16);
+  let r=(n>>16)&255, g=(n>>8)&255, b=n&255;
+  r=Math.min(255,Math.round(r*f)); g=Math.min(255,Math.round(g*f)); b=Math.min(255,Math.round(b*f));
+  return `rgb(${r},${g},${b})`;
+}
+
+/* gather draw-faces for one block (a tile) */
+function blockFaces(p, t, out){
+  const x0=t.x, x1=t.x+1, z0=t.z, z1=t.z+1, yt=t.y, yb=t.y-(t.h||TH);
+  // 8 corners -> transformed world + screen
+  const C={};
+  const tag=(a,b,c)=>a+''+b+''+c;
+  for(const ix of [0,1]) for(const iy of [0,1]) for(const iz of [0,1]){
+    const wx0 = ix? x1 : x0, wy0 = iy? yt : yb, wz0 = iz? z1 : z0;
+    const [wx,wy,wz]=pieceTransform(p, wx0, wy0, wz0);
+    C[tag(ix,iy,iz)] = { w:[wx,wy,wz], s:proj(wx,wy,wz) };
+  }
+  const faces = [
+    { id:'top', c:['010','011','111','110'] },   // +Y top
+    { id:'sx',  c:['100','110','111','101'] },    // +X
+    { id:'nx',  c:['000','001','011','010'] },    // -X
+    { id:'sz',  c:['001','101','111','011'] },    // +Z
+    { id:'nz',  c:['000','010','110','100'] },    // -Z
+    { id:'bot', c:['000','100','101','001'] }     // -Y
+  ];
+  // block screen center for left/right shading
+  const bc = proj(...pieceTransform(p, (x0+x1)/2, (yt+yb)/2, (z0+z1)/2));
+  const palette = game.pal;
+  faces.forEach(f=>{
+    const pts = f.c.map(k=>C[k].s);
+    const wsum = f.c.reduce((a,k)=>a + C[k].w[0]+C[k].w[1]+C[k].w[2], 0)/4; // depth
+    const cx = pts.reduce((a,q)=>a+q.x,0)/4, cy=pts.reduce((a,q)=>a+q.y,0)/4;
+    let color;
+    if (f.id==='top') color = palette.top;
+    else if (f.id==='bot') color = shade(palette.dark, .78);
+    else color = (cx >= bc.x) ? palette.light : palette.dark;
+    out.push({ depth:wsum, pts, color, kind:'face', isTop:f.id==='top', tileRef:t, piece:p });
+  });
+}
+
+/* Ida sprite as a depth-sorted item */
+function pushIda(out){
+  const s = nodeScreenAnim(game.level, game.ida.key);
+  game.ida.sx = s.x; game.ida.sy = s.y;
+  const n = nodeByKey(game.level, game.ida.key);
+  const [wx,wy,wz] = pieceTransform(n.p, n.t.x+0.5, n.t.y, n.t.z+0.5);
+  out.push({ depth: wx+wy+wz + 0.45, kind:'ida', sx:s.x, sy:s.y });
+}
+
+/* goal totem item */
+function pushTotem(out){
+  const key = game.level.goal;
+  const s = nodeScreenAnim(game.level, key);
+  const n = nodeByKey(game.level, key);
+  const [wx,wy,wz] = pieceTransform(n.p, n.t.x+0.5, n.t.y, n.t.z+0.5);
+  out.push({ depth: wx+wy+wz + 0.4, kind:'totem', sx:s.x, sy:s.y });
+}
+
+function drawFace(item){
+  const v = game.view;
+  ctx.beginPath();
+  item.pts.forEach((q,i)=>{ const x=q.x*v.scale+v.ox, y=q.y*v.scale+v.oy; i?ctx.lineTo(x,y):ctx.moveTo(x,y); });
+  ctx.closePath();
+  ctx.fillStyle = item.color;
+  ctx.fill();
+  // subtle edge for crisp geometric look
+  ctx.lineWidth = 1;
+  ctx.strokeStyle = item.color;
+  ctx.stroke();
+}
+
+function drawIda(item){
+  const sc = toScreen(item.sx, item.sy);
+  const v = game.view.scale;
+  const x = sc.x, y = sc.y;
+  const h = 30*v, w = 13*v;             // figure height/width
+  // shadow
+  ctx.save();
+  ctx.globalAlpha = .18; ctx.fillStyle = '#000';
+  ctx.beginPath(); ctx.ellipse(x, y+2*v, 11*v, 5*v, 0, 0, Math.PI*2); ctx.fill();
+  ctx.restore();
+  // body (robe) — trapezoid
+  ctx.fillStyle = game.pal.ida;
+  ctx.beginPath();
+  ctx.moveTo(x - w*0.34, y);
+  ctx.lineTo(x + w*0.34, y);
+  ctx.lineTo(x + w*0.22, y - h*0.52);
+  ctx.lineTo(x - w*0.22, y - h*0.52);
+  ctx.closePath(); ctx.fill();
+  // body shading
+  ctx.fillStyle = shade(game.pal.ida, .9);
+  ctx.beginPath();
+  ctx.moveTo(x, y); ctx.lineTo(x + w*0.34, y);
+  ctx.lineTo(x + w*0.22, y - h*0.52); ctx.lineTo(x, y - h*0.52);
+  ctx.closePath(); ctx.fill();
+  // head
+  ctx.fillStyle = game.pal.ida;
+  ctx.beginPath(); ctx.arc(x, y - h*0.60, 4.4*v, 0, Math.PI*2); ctx.fill();
+  // iconic tall hat (white crown)
+  ctx.fillStyle = game.pal.ida;
+  ctx.beginPath();
+  ctx.moveTo(x, y - h*1.02);
+  ctx.lineTo(x + 5.2*v, y - h*0.64);
+  ctx.lineTo(x - 5.2*v, y - h*0.64);
+  ctx.closePath(); ctx.fill();
+  // hat tip dot
+  ctx.fillStyle = game.pal.accent;
+  ctx.beginPath(); ctx.arc(x, y - h*1.02, 1.8*v, 0, Math.PI*2); ctx.fill();
+}
+
+function drawTotem(item){
+  const sc = toScreen(item.sx, item.sy);
+  const v = game.view.scale;
+  const x = sc.x, y = sc.y;
+  const t = (performance.now()-game.t0)/1000;
+  const pulse = 1 + Math.sin(t*2.2)*0.12;
+  // glow
+  const g = ctx.createRadialGradient(x, y-16*v, 1, x, y-16*v, 26*v*pulse);
+  g.addColorStop(0, game.pal.accent); g.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.save(); ctx.globalAlpha=.5; ctx.fillStyle=g;
+  ctx.beginPath(); ctx.arc(x, y-16*v, 26*v*pulse, 0, Math.PI*2); ctx.fill(); ctx.restore();
+  // floating diamond (sacred geometry marker)
+  const cy = y - 18*v - Math.sin(t*1.6)*2*v;
+  ctx.fillStyle = '#fff';
+  ctx.beginPath();
+  ctx.moveTo(x, cy-9*v); ctx.lineTo(x+7*v, cy); ctx.lineTo(x, cy+9*v); ctx.lineTo(x-7*v, cy);
+  ctx.closePath(); ctx.fill();
+  ctx.strokeStyle = game.pal.accent; ctx.lineWidth=2*v;
+  ctx.beginPath(); ctx.arc(x, cy, 12*v, 0, Math.PI*2); ctx.stroke();
+}
+
+/* knob (rotation dial / slide handle) */
+function knobScreen(p){
+  if (!p.knob) return null;
+  const [wx,wy,wz] = pieceTransform(p, p.knob[0], p.knob[1], p.knob[2]);
+  return proj(wx, wy, wz);
+}
+function drawKnobs(){
+  game.level.pieces.forEach(p=>{
+    if (p.type!=='rotate' && p.type!=='slide') return;
+    const ks = knobScreen(p); if(!ks) return;
+    const sc = toScreen(ks.x, ks.y);
+    const v = game.view.scale, R=15*v;
+    const hot = game.drag && game.drag.piece===p;
+    ctx.save();
+    ctx.globalAlpha = hot? .95 : .8;
+    ctx.fillStyle = 'rgba(255,255,255,.92)';
+    ctx.strokeStyle = game.pal.accent; ctx.lineWidth = 3*v;
+    ctx.beginPath(); ctx.arc(sc.x, sc.y, R, 0, Math.PI*2); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = game.pal.accent;
+    if (p.type==='rotate'){
+      // rotation glyph: two curved arrows
+      ctx.lineWidth=2.6*v; ctx.strokeStyle=game.pal.accent;
+      const a0=(p.anim||0)*Math.PI/2;
+      ctx.beginPath(); ctx.arc(sc.x, sc.y, R*0.5, a0+0.5, a0+2.5); ctx.stroke();
+      ctx.beginPath(); ctx.arc(sc.x, sc.y, R*0.5, a0+0.5+Math.PI, a0+2.5+Math.PI); ctx.stroke();
+    } else {
+      // slide glyph: up/down chevrons
+      ctx.lineWidth=2.6*v;
+      ctx.beginPath(); ctx.moveTo(sc.x-4*v, sc.y-1*v); ctx.lineTo(sc.x, sc.y-6*v); ctx.lineTo(sc.x+4*v, sc.y-1*v); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(sc.x-4*v, sc.y+2*v); ctx.lineTo(sc.x, sc.y+7*v); ctx.lineTo(sc.x+4*v, sc.y+2*v); ctx.stroke();
+    }
+    ctx.restore();
+  });
+}
+
+function render(){
+  // background gradient
+  const g = ctx.createLinearGradient(0,0,0,H);
+  g.addColorStop(0, game.pal.bgA); g.addColorStop(1, game.pal.bgB);
+  ctx.fillStyle = g; ctx.fillRect(0,0,W,H);
+
+  // collect all faces + sprites, depth sort, paint back-to-front
+  const items = [];
+  game.level.pieces.forEach(p => p.tiles.forEach(t => blockFaces(p, t, items)));
+  pushTotem(items);
+  pushIda(items);
+  items.sort((a,b)=> a.depth - b.depth);
+  for (const it of items){
+    if (it.kind==='face') drawFace(it);
+    else if (it.kind==='ida') drawIda(it);
+    else if (it.kind==='totem') drawTotem(it);
+  }
+  drawKnobs();
+}
+
+/* ============================== AUDIO (WebAudio) ========================== */
+const Audio = {
+  ctx:null, muted:false,
+  init(){ if(!this.ctx){ try{ this.ctx=new (window.AudioContext||window.webkitAudioContext)(); }catch(e){} } },
+  blip(freq, dur=0.12, type='sine', gain=0.18){
+    if (this.muted || !this.ctx) return;
+    const t=this.ctx.currentTime, o=this.ctx.createOscillator(), g=this.ctx.createGain();
+    o.type=type; o.frequency.value=freq;
+    g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(gain, t+0.01);
+    g.gain.exponentialRampToValueAtTime(0.0001, t+dur);
+    o.connect(g); g.connect(this.ctx.destination); o.start(t); o.stop(t+dur+0.02);
+  },
+  step(){ this.blip(300 + Math.random()*40, 0.10, 'sine', 0.10); },
+  turn(){ this.blip(180, 0.16, 'triangle', 0.12); },
+  win(){
+    const notes=[392,523,659,784,1046];
+    notes.forEach((f,i)=> setTimeout(()=>this.blip(f,0.5,'sine',0.16), i*120));
+  }
+};
+
+/* ============================== INTERACTION =============================== */
+function knobHit(px, py){
+  // nearest grabbable handle to the tap, with its page-pixel distance
+  let best=null, bd=1e9;
+  if (anyAnimating()) return null;
+  for (const p of game.level.pieces){
+    if (p.type!=='rotate' && p.type!=='slide') continue;
+    const ks=knobScreen(p); if(!ks) continue;
+    const sc=toScreen(ks.x, ks.y);
+    const d=Math.hypot(px-sc.x, py-sc.y);
+    if (d < 26*game.view.scale && d<bd){ bd=d; best=p; }
+  }
+  return best ? { piece:best, dist:bd } : null;
+}
+
+/* page-pixel distance from a tap to a tile's drawn center */
+function tileDist(px, py, key){
+  const s = nodeScreenAnim(game.level, key);
+  const sc = toScreen(s.x, s.y);
+  return Math.hypot(px-sc.x, py-sc.y);
+}
+
+function tileHit(px, py){
+  const ws = fromScreen(px, py);
+  // Among all tiles under the tap radius, pick the FRONTMOST one (greatest
+  // render depth) — that's the surface the player actually sees on top when
+  // two tiles overlap in screen space (the Escher case).
+  let best=null, bestDepth=-1e9;
+  game.graph.nodes.forEach(n=>{
+    const d=Math.hypot(ws.x-n.sx, ws.y-n.sy);
+    if (d < U*0.55){
+      const t = game.level.pieces[n.pi].tiles[n.ti];
+      const [wx,wy,wz] = pieceTransform(game.level.pieces[n.pi], t.x+0.5, t.y, t.z+0.5);
+      const depth = wx+wy+wz;
+      if (depth > bestDepth){ bestDepth = depth; best = n; }
+    }
+  });
+  return best ? best.key : null;
+}
+
+function anyAnimating(){
+  return game.level.pieces.some(p => (p.type==='rotate'||p.type==='slide') &&
+         Math.abs((p.anim||0)-(p.state||0))>0.001);
+}
+
+function onDown(px, py){
+  Audio.init();
+  if (game.solved) return;
+  if (anyAnimating()) return;
+  // Resolve ambiguity: a tap may fall near both a handle and a walkable tile.
+  // Pick whichever the player is actually closer to.
+  const knob = knobHit(px, py);
+  const target = tileHit(px, py);
+  const tDist = target ? tileDist(px, py, target) : Infinity;
+  if (knob && knob.dist <= tDist){
+    const kp = knob.piece;
+    const ks = knobScreen(kp); const sc=toScreen(ks.x,ks.y);
+    game.drag = { piece:kp, startState:kp.state||0,
+                  startAngle:Math.atan2(py-sc.y, px-sc.x),
+                  cx:sc.x, cy:sc.y, sx:px, sy:py, moved:false };
+    return;
+  }
+  // tap-to-move
+  if (!target) return;
+  const path = bfsPath(game.graph.adj, game.ida.key, target);
+  if (path && path.length>1){
+    game.walking = { path, idx:0, t:0 };
+  }
+}
+
+function onMove(px, py){
+  const d = game.drag; if(!d) return;
+  const p = d.piece;
+  if (Math.hypot(px-d.sx, py-d.sy) > 5) d.moved=true;
+  if (p.type==='rotate'){
+    const ang = Math.atan2(py-d.cy, px-d.cx);
+    let da = ang - d.startAngle;
+    while(da> Math.PI) da-=2*Math.PI;
+    while(da<-Math.PI) da+=2*Math.PI;
+    p.anim = d.startState + da/(Math.PI/2);
+  } else { // slide
+    const ks0 = proj(...pieceTransform({type:'static'}, p.knob[0], p.knob[1], p.knob[2])); // base (state 0)
+    // screen direction of +1 along axis
+    const a = proj(0,0,0), b = proj(p.axis[0], p.axis[2], p.axis[1]);
+    const dirx=(b.x-a.x), diry=(b.y-a.y), len2=dirx*dirx+diry*diry;
+    const ws = fromScreen(px,py);
+    // project pointer offset from knob-at-state0 onto axis dir
+    const k0 = proj(...pieceTransform(Object.assign({},p,{anim:0}), p.knob[0], p.knob[1], p.knob[2]));
+    const off = ((ws.x-k0.x)*dirx + (ws.y-k0.y)*diry)/len2;
+    p.anim = Math.max(p.range[0]-0.3, Math.min(p.range[1]+0.3, off));
+  }
+}
+
+function onUp(px, py){
+  const d = game.drag; if(!d){ return; }
+  const p = d.piece;
+  game.drag = null;
+  if (p.type==='rotate'){
+    let target = d.moved ? Math.round(p.anim) : (d.startState+1);
+    p.state = ((target%4)+4)%4;
+    Audio.turn();
+  } else {
+    let target = d.moved ? Math.round(p.anim) : (d.startState===p.range[1]?p.range[0]:p.range[1]);
+    target = Math.max(p.range[0], Math.min(p.range[1], target));
+    p.state = target;
+    Audio.turn();
+  }
+  // graph rebuilt when animation settles (in update loop)
+  game.pendingRebuild = true;
+}
+
+/* =============================== UPDATE LOOP ============================== */
+let last = performance.now();
+function update(dt){
+  // animate pieces toward state
+  game.level.pieces.forEach(p=>{
+    if (p.type==='rotate'||p.type==='slide'){
+      if (game.drag && game.drag.piece===p) return; // user controls anim
+      const target = p.state||0;
+      const cur = p.anim||0;
+      if (Math.abs(cur-target)>0.001){
+        const sp = (target-cur);
+        p.anim = cur + sp*Math.min(1, dt*9);
+        if (Math.abs(p.anim-target)<0.01) p.anim=target;
+      }
+    }
+  });
+  // rebuild graph once pieces are at rest
+  if (game.pendingRebuild && !anyAnimating()){
+    game.graph = buildGraph(game.level);
+    game.pendingRebuild = false;
+  }
+  // walking
+  if (game.walking && !anyAnimating()){
+    const wk = game.walking;
+    const fromKey = wk.path[wk.idx], toKey = wk.path[wk.idx+1];
+    if (!toKey){ game.walking=null; }
+    else {
+      wk.t += dt/0.20;
+      const a = nodeScreenAnim(game.level, fromKey);
+      const b = nodeScreenAnim(game.level, toKey);
+      if (wk.t>=1){
+        game.ida.key = toKey; wk.idx++; wk.t=0; Audio.step();
+        if (game.ida.key === game.level.goal) onSolve();
+      } else {
+        const e = wk.t<0.5 ? 2*wk.t*wk.t : 1-Math.pow(-2*wk.t+2,2)/2; // easeInOut
+        game.ida.sx = a.x + (b.x-a.x)*e;
+        game.ida.sy = a.y + (b.y-a.y)*e;
+      }
+    }
+  } else if (game.walking && anyAnimating()){
+    // pause walking while a piece animates (Ida rides it)
+  }
+}
+
+function loop(){
+  const now = performance.now();
+  const dt = Math.min(0.05, (now-last)/1000); last=now;
+  if (game.level){ update(dt); render(); }
+  requestAnimationFrame(loop);
+}
+
+/* ============================= LEVEL FLOW ================================= */
+function loadLevel(idx){
+  game.levelIdx = idx;
+  const def = LEVELS[idx];
+  // deep clone level so state resets cleanly
+  game.level = JSON.parse(JSON.stringify(def));
+  game.pal = game.level.palette;
+  game.level.pieces.forEach(p=>{
+    if (p.type==='rotate'||p.type==='slide'){ p.state=p.stateInit||0; p.anim=p.state; }
+  });
+  game.graph = buildGraph(game.level);
+  game.view = computeView(game.level);
+  game.ida = { key: game.level.start, sx:0, sy:0 };
+  const s = nodeScreenAnim(game.level, game.ida.key); game.ida.sx=s.x; game.ida.sy=s.y;
+  game.walking=null; game.drag=null; game.solved=false; game.pendingRebuild=false;
+  game.t0=performance.now();
+  // UI
+  document.getElementById('chapter').textContent = def.chapter;
+  document.getElementById('ttl').textContent = def.title;
+  const top = document.getElementById('topcard'); top.classList.remove('show');
+  void top.offsetWidth; top.classList.add('show');
+  const hint = document.getElementById('hint'); hint.textContent = def.hint;
+  hint.classList.remove('show'); setTimeout(()=>hint.classList.add('show'), 600);
+  setTimeout(()=>{ top.classList.remove('show'); }, 4200);
+  buildDots();
+}
+
+function onSolve(){
+  if (game.solved) return;
+  game.solved = true;
+  Audio.win();
+  const hint=document.getElementById('hint'); hint.classList.remove('show');
+  buildDots();
+  setTimeout(()=>{
+    if (game.levelIdx < LEVELS.length-1){
+      const fade=document.getElementById('fade'); fade.classList.add('on');
+      setTimeout(()=>{ loadLevel(game.levelIdx+1); fade.classList.remove('on'); }, 950);
+    } else {
+      const fade=document.getElementById('fade'); fade.classList.add('on');
+      setTimeout(()=>{ document.getElementById('win').classList.add('on'); }, 700);
+    }
+  }, 1200);
+}
+
+function buildDots(){
+  const box=document.getElementById('levels'); box.innerHTML='';
+  LEVELS.forEach((l,i)=>{
+    const d=document.createElement('div'); d.className='dot';
+    if (i===game.levelIdx) d.classList.add('on');
+    if (i<game.levelIdx || (i===game.levelIdx&&game.solved)) d.classList.add('done');
+    d.title=l.title;
+    d.onclick=()=>{ if(i!==game.levelIdx){ const f=document.getElementById('fade'); f.classList.add('on');
+      setTimeout(()=>{ loadLevel(i); f.classList.remove('on'); },700); } };
+    box.appendChild(d);
+  });
+}
+
+/* ============================== RESIZE / INPUT ============================ */
+function resize(){
+  DPR = Math.min(2, window.devicePixelRatio||1);
+  W = window.innerWidth || 1280; H = window.innerHeight || 800;
+  cv.width = W*DPR; cv.height = H*DPR;
+  cv.style.width=W+'px'; cv.style.height=H+'px';
+  ctx.setTransform(DPR,0,0,DPR,0,0);
+  if (game.level) game.view = computeView(game.level);
+}
+window.addEventListener('resize', resize);
+
+function pos(e){
+  const r=cv.getBoundingClientRect();
+  const t=e.touches?e.touches[0]:e;
+  return { x:(t.clientX-r.left), y:(t.clientY-r.top) };
+}
+cv.addEventListener('mousedown', e=>{ const p=pos(e); onDown(p.x,p.y); });
+window.addEventListener('mousemove', e=>{ if(game.drag){ const p=pos(e); onMove(p.x,p.y);} });
+window.addEventListener('mouseup', e=>{ const p=pos(e); onUp(p.x,p.y); });
+cv.addEventListener('touchstart', e=>{ e.preventDefault(); const p=pos(e); onDown(p.x,p.y); }, {passive:false});
+cv.addEventListener('touchmove', e=>{ e.preventDefault(); if(game.drag){ const p=pos(e); onMove(p.x,p.y);} }, {passive:false});
+cv.addEventListener('touchend', e=>{ e.preventDefault(); const t=e.changedTouches[0]; const r=cv.getBoundingClientRect(); onUp(t.clientX-r.left, t.clientY-r.top); }, {passive:false});
+
+/* buttons */
+document.getElementById('muteBtn').onclick = function(){
+  Audio.init(); Audio.muted=!Audio.muted; this.textContent=Audio.muted?'♪̷':'♪'; this.style.opacity=Audio.muted?.5:1;
+};
+document.getElementById('resetBtn').onclick = ()=> loadLevel(game.levelIdx);
+document.getElementById('playBtn').onclick = ()=>{
+  Audio.init();
+  document.getElementById('start').classList.add('hide');
+  loadLevel(0);
+};
+document.getElementById('againBtn').onclick = ()=>{
+  document.getElementById('win').classList.remove('on');
+  document.getElementById('fade').classList.remove('on');
+  loadLevel(0);
+};
+
+/* ============================== BOOT ===================================== */
+resize();
+loop();
+</script>
+</body>
+</html>

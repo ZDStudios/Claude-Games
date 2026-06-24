@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Stickman Hook</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 100%; height: 100%; overflow: hidden; background: #0d1b2a; }
+  body { font-family: 'Segoe UI', system-ui, sans-serif; -webkit-user-select: none; user-select: none; touch-action: none; }
+  #game { display: block; position: fixed; inset: 0; cursor: pointer; }
+  #hint { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%);
+          color: #fff; background: rgba(0,0,0,.35); padding: 9px 18px; border-radius: 20px;
+          font-size: 14px; letter-spacing: .3px; pointer-events: none; backdrop-filter: blur(4px);
+          transition: opacity .5s; text-align: center; }
+  #hint b { color: #7df3ff; }
+</style>
+</head>
+<body>
+<canvas id="game"></canvas>
+<div id="hint"><b>Hold</b> Mouse / Space to grab &amp; swing &nbsp;•&nbsp; release to fling &nbsp;•&nbsp; <b>A/D</b> or arrows to steer &nbsp;•&nbsp; <b>R</b> restart</div>
+<script>
+(() => {
+"use strict";
+
+// ===================== Canvas =====================
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+let W = 0, H = 0;
+function resize(){ W = canvas.width = innerWidth; H = canvas.height = innerHeight; }
+addEventListener('resize', resize); resize();
+
+// ===================== Helpers =====================
+const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
+const lerp  = (a, b, t) => a + (b - a) * t;
+function mulberry32(a){ return function(){ a|=0; a=a+0x6D2B79F5|0; let t=Math.imul(a^a>>>15,1|a); t=t+Math.imul(t^t>>>7,61|t)^t; return ((t^t>>>14)>>>0)/4294967296; }; }
+
+// ===================== Audio =====================
+let actx = null;
+function audio(){ if(!actx){ try{ actx = new (window.AudioContext||window.webkitAudioContext)(); }catch(e){} } return actx; }
+function blip(freq, dur, type, vol){
+  const a = audio(); if(!a) return;
+  const o = a.createOscillator(), g = a.createGain();
+  o.type = type || 'sine'; o.frequency.value = freq; g.gain.value = vol || 0.07;
+  o.connect(g); g.connect(a.destination);
+  const t = a.currentTime;
+  g.gain.setValueAtTime(g.gain.value, t);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  o.start(t); o.stop(t + dur);
+}
+const sGrab    = () => blip(680, 0.09, 'square',  0.045);
+const sRelease = () => blip(440, 0.08, 'sine',    0.035);
+const sDeath   = () => { blip(200,0.18,'sawtooth',0.07); setTimeout(()=>blip(110,0.26,'sawtooth',0.06),55); };
+const sWin     = () => { [523,659,784,1046].forEach((f,i)=>setTimeout(()=>blip(f,0.18,'triangle',0.06), i*110)); };
+
+// ===================== Tuned physics constants (validated) =====================
+const GRAV = 0.5, AIR = 0.9994, GRAB = 330, MIN_ROPE = 55;
+const SUB = 6, DT = 1/SUB, GSUB = GRAV*DT, AF = Math.pow(AIR, DT);
+const BOOST = 1.0014, MAX_SWING = 17, NUDGE = 0.26, GFRIC = Math.pow(0.95, DT);
+const GROUND_Y = 560, DEATH_Y = 760, PLAYER_R = 11;
+const LAUNCH_VX = 7.5, LAUNCH_VY = -15;
+
+// ===================== Level generation =====================
+function makeLevel(idx){
+  const rng = mulberry32(2024 + idx * 131);
+  const length = 5200 + idx * 1600;
+  const hooks = [], platforms = [], spikes = [];
+
+  // Continuous gently-waving ceiling of hooks
+  let hx = 420, phase = rng() * 6.28;
+  while (hx < length - 240){
+    const hy = 300 + Math.sin(hx * 0.0036 + phase) * 70 + (rng() - 0.5) * 22;
+    hooks.push({ x: hx, y: hy, t: rng() * 6.28 });
+    hx += 215 + rng() * 50;
+  }
+
+  // Ground platforms with gaps; spikes only on wide pads (always a hook overhead)
+  platforms.push({ x: -300, w: 1100, y: GROUND_Y });
+  let px = 900;
+  while (px < length - 500){
+    px += 185 + rng() * (135 + idx * 28);
+    const pw = 230 + rng() * 230;
+    platforms.push({ x: px, w: pw, y: GROUND_Y });
+    if (idx > 0 && pw > 200 && rng() < 0.34) spikes.push({ x: px + 70 + rng() * (pw - 160), w: 30 });
+    px += pw;
+  }
+  platforms.push({ x: length - 120, w: 700, y: GROUND_Y });
+
+  return { idx, length, hooks, platforms, spikes, finishX: length,
+           start: { x: 200, y: GROUND_Y - 14 } };
+}
+const NUM_LEVELS = 5;
+const levels = [];
+for (let i = 0; i < NUM_LEVELS; i++) levels.push(makeLevel(i));
+
+// ===================== Game state =====================
+let level, levelIdx = 0;
+let P, anchor, ropeLen, state, deathTimer, levelTime, startTime;
+let camX = 0, camY = 0;
+let trail = [], particles = [];
+const input = { hold: false, left: false, right: false };
+
+function bestTime(i){ const v = +localStorage.getItem('sh_best_' + i); return v > 0 ? v : null; }
+function setBest(i, t){ const b = bestTime(i); if (b === null || t < b) localStorage.setItem('sh_best_' + i, t.toFixed(2)); }
+
+function loadLevel(i){
+  levelIdx = clamp(i, 0, NUM_LEVELS - 1);
+  level = levels[levelIdx];
+  resetPlayer();
+  state = 'play';
+}
+function resetPlayer(){
+  const s = level.start;
+  P = { x: s.x, y: s.y, vx: LAUNCH_VX, vy: LAUNCH_VY };  // immediate up-forward launch
+  anchor = null; ropeLen = 0;
+  deathTimer = 0; trail.length = 0; particles.length = 0;
+  startTime = performance.now(); levelTime = 0;
+}
+
+function spawnParticles(x, y, color, n, spd){
+  for (let i = 0; i < n; i++){
+    const a = Math.random() * 6.28, v = spd * (0.4 + Math.random());
+    particles.push({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v - 1, life: 1, color });
+  }
+}
+function die(){
+  if (state !== 'play') return;
+  state = 'dead'; deathTimer = 0; anchor = null;
+  spawnParticles(P.x, P.y, '#ff5566', 28, 5); sDeath();
+}
+function win(){
+  if (state !== 'play') return;
+  setBest(levelIdx, levelTime);
+  spawnParticles(P.x, P.y, '#ffd166', 42, 6); sWin();
+  state = (levelIdx >= NUM_LEVELS - 1) ? 'gamewin' : 'win';
+}
+
+// ===================== Input =====================
+function findNearestHook(){
+  let best = null, bd = GRAB * GRAB;
+  for (const h of level.hooks){
+    const dx = h.x - P.x, dy = h.y - P.y, d = dx*dx + dy*dy;
+    if (d < bd){ bd = d; best = h; }
+  }
+  return best;
+}
+function tryGrab(){
+  const h = findNearestHook();
+  if (h){
+    anchor = h;
+    // fixed rope, capped so the swing arc clears the ground (no drag, no strangle)
+    const cap = Math.min(GRAB, GROUND_Y - h.y - 25);
+    ropeLen = clamp(Math.hypot(P.x - h.x, P.y - h.y), MIN_ROPE, cap);
+    sGrab(); spawnParticles(h.x, h.y, '#6cf', 8, 3); hideHint();
+  }
+}
+function release(){ if (anchor){ anchor = null; sRelease(); } }
+
+function pressDown(){
+  audio();
+  if (state === 'play'){ input.hold = true; if (!anchor) tryGrab(); }
+  else if (state === 'win')     loadLevel(levelIdx + 1);
+  else if (state === 'gamewin') loadLevel(0);
+}
+function pressUp(){ input.hold = false; release(); }
+
+canvas.addEventListener('mousedown', e => { e.preventDefault(); pressDown(); });
+addEventListener('mouseup', () => pressUp());
+canvas.addEventListener('touchstart', e => { e.preventDefault(); pressDown(); }, { passive:false });
+addEventListener('touchend', e => { e.preventDefault(); pressUp(); }, { passive:false });
+addEventListener('keydown', e => {
+  if (e.code === 'Space'){ e.preventDefault(); if (!input.hold) pressDown(); input.hold = true; }
+  else if (e.code === 'ArrowLeft'  || e.code === 'KeyA') input.left = true;
+  else if (e.code === 'ArrowRight' || e.code === 'KeyD') input.right = true;
+  else if (e.code === 'KeyR') loadLevel(levelIdx);
+  else if (e.code === 'Enter'){ if (state === 'win') loadLevel(levelIdx + 1); else if (state === 'gamewin') loadLevel(0); }
+});
+addEventListener('keyup', e => {
+  if (e.code === 'Space'){ input.hold = false; release(); }
+  else if (e.code === 'ArrowLeft'  || e.code === 'KeyA') input.left = false;
+  else if (e.code === 'ArrowRight' || e.code === 'KeyD') input.right = false;
+});
+
+const hintEl = document.getElementById('hint');
+let hintHidden = false;
+function hideHint(){ if (!hintHidden){ hintHidden = true; hintEl.style.opacity = '0'; } }
+
+// ===================== Physics (velocity-based, substepped) =====================
+function physics(){
+  if (state !== 'play') return;
+  levelTime = (performance.now() - startTime) / 1000;
+
+  if (input.hold && !anchor) tryGrab();
+  const steer = (input.right ? 1 : 0) - (input.left ? 1 : 0);
+
+  for (let s = 0; s < SUB; s++){
+    P.vx = P.vx * AF + steer * NUDGE * DT;
+    P.vy = P.vy * AF + GSUB;
+    P.x += P.vx * DT;
+    P.y += P.vy * DT;
+
+    if (anchor){
+      const dx = P.x - anchor.x, dy = P.y - anchor.y;
+      const d = Math.hypot(dx, dy) || 1e-9, ux = dx/d, uy = dy/d;
+      P.x = anchor.x + ux * ropeLen;            // hold rope length
+      P.y = anchor.y + uy * ropeLen;
+      const vr = P.vx*ux + P.vy*uy;             // remove radial velocity (taut rope)
+      P.vx -= vr*ux; P.vy -= vr*uy;
+      const sp = Math.hypot(P.vx, P.vy);        // gentle momentum boost up to a cap
+      if (sp > 0.5 && sp < MAX_SWING){ P.vx *= BOOST; P.vy *= BOOST; }
+    }
+
+    // ground / platform landing (low friction so swings skim, never get stuck)
+    for (const pl of level.platforms){
+      if (P.x > pl.x - PLAYER_R && P.x < pl.x + pl.w + PLAYER_R &&
+          P.y + PLAYER_R > pl.y && P.y + PLAYER_R < pl.y + 40 && P.vy >= 0){
+        P.y = pl.y - PLAYER_R; P.vy = 0; P.vx *= GFRIC;
+      }
+    }
+  }
+
+  // spikes
+  for (const sp of level.spikes){
+    if (P.x > sp.x - PLAYER_R && P.x < sp.x + sp.w + PLAYER_R && P.y + PLAYER_R > GROUND_Y - 28){ die(); return; }
+  }
+  if (P.y > DEATH_Y){ die(); return; }
+  if (P.x > level.finishX){ win(); return; }
+
+  // trail
+  const speed = Math.hypot(P.vx, P.vy);
+  if (speed > 3){ trail.push({ x: P.x, y: P.y, life: 1 }); if (trail.length > 24) trail.shift(); }
+}
+
+function stepEffects(){
+  for (let i = trail.length - 1; i >= 0; i--){ trail[i].life -= 0.045; if (trail[i].life <= 0) trail.splice(i,1); }
+  for (let i = particles.length - 1; i >= 0; i--){
+    const p = particles[i];
+    p.vy += 0.25; p.x += p.vx; p.y += p.vy; p.vx *= 0.98; p.life -= 0.025;
+    if (p.life <= 0) particles.splice(i, 1);
+  }
+  if (state === 'dead'){ deathTimer++; if (deathTimer > 32){ resetPlayer(); state = 'play'; } }
+}
+
+// ===================== Camera =====================
+function updateCamera(){
+  camX = lerp(camX, P.x - W * 0.34, 0.12);
+  camY = lerp(camY, P.y - H * 0.52, 0.10);
+  camX = clamp(camX, -60, Math.max(-60, level.finishX + 500 - W));
+  const minY = -200, maxY = Math.max(minY, DEATH_Y + 80 - H);
+  camY = clamp(camY, minY, maxY);
+}
+
+// ===================== Rendering =====================
+function drawBackground(){
+  const g = ctx.createLinearGradient(0, 0, 0, H);
+  g.addColorStop(0, '#1b2a4a'); g.addColorStop(0.5, '#33406b'); g.addColorStop(1, '#5a6aa0');
+  ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+
+  ctx.fillStyle = '#fff';
+  const sox = (-camX * 0.15);
+  for (let i = 0; i < 70; i++){
+    const bx = (i * 137.5), by = (i * 73.3) % (H * 0.62);
+    let x = ((bx + sox) % (W + 200) + (W + 200)) % (W + 200) - 100;
+    ctx.globalAlpha = 0.18 + 0.45 * ((i * 0.137) % 1);
+    ctx.fillRect(x, by, 2, 2);
+  }
+  ctx.globalAlpha = 1;
+
+  function hills(off, amp, base, color){
+    ctx.fillStyle = color; ctx.beginPath(); ctx.moveTo(0, H);
+    for (let x = 0; x <= W; x += 24){
+      const wx = x + camX * off;
+      ctx.lineTo(x, base + Math.sin(wx * 0.004) * amp + Math.sin(wx * 0.013) * amp * 0.4);
+    }
+    ctx.lineTo(W, H); ctx.closePath(); ctx.fill();
+  }
+  hills(0.25, 40, H * 0.60, 'rgba(40,55,95,0.6)');
+  hills(0.45, 60, H * 0.74, 'rgba(28,40,72,0.75)');
+}
+
+function drawWorld(){
+  ctx.save();
+  ctx.translate(-camX, -camY);
+
+  // platforms
+  const bottom = DEATH_Y + 240;
+  for (const pl of level.platforms){
+    if (pl.x + pl.w < camX - 40 || pl.x > camX + W + 40) continue;
+    ctx.fillStyle = '#2a2236'; ctx.fillRect(pl.x, pl.y, pl.w, bottom - pl.y);
+    ctx.fillStyle = '#46c46a'; ctx.fillRect(pl.x, pl.y, pl.w, 12);
+    ctx.fillStyle = '#3aa659'; ctx.fillRect(pl.x, pl.y + 12, pl.w, 5);
+  }
+
+  // spikes
+  ctx.fillStyle = '#e2e8f0';
+  for (const sp of level.spikes){
+    if (sp.x + sp.w < camX - 40 || sp.x > camX + W + 40) continue;
+    const n = 3, sw = sp.w / n;
+    for (let i = 0; i < n; i++){
+      const x = sp.x + i * sw;
+      ctx.beginPath(); ctx.moveTo(x, GROUND_Y); ctx.lineTo(x + sw/2, GROUND_Y - 28); ctx.lineTo(x + sw, GROUND_Y);
+      ctx.closePath(); ctx.fill();
+    }
+  }
+
+  // finish flag
+  const fx = level.finishX;
+  ctx.strokeStyle = '#fff'; ctx.lineWidth = 4;
+  ctx.beginPath(); ctx.moveTo(fx, GROUND_Y); ctx.lineTo(fx, GROUND_Y - 140); ctx.stroke();
+  ctx.fillStyle = '#ffd166';
+  ctx.beginPath(); ctx.moveTo(fx, GROUND_Y - 140); ctx.lineTo(fx + 58, GROUND_Y - 121); ctx.lineTo(fx, GROUND_Y - 102); ctx.closePath(); ctx.fill();
+
+  // hooks
+  const target = (state === 'play' && !anchor && input.hold) ? findNearestHook() : null;
+  const now = performance.now();
+  for (const h of level.hooks){
+    if (h.x < camX - 60 || h.x > camX + W + 60) continue;
+    const isAnchor = anchor === h, isTarget = target === h;
+    const pulse = 1 + Math.sin(now * 0.005 + h.t) * 0.15;
+    ctx.beginPath(); ctx.arc(h.x, h.y, 16 * pulse, 0, 6.283);
+    ctx.fillStyle = isAnchor ? 'rgba(120,230,255,0.35)' : isTarget ? 'rgba(255,220,120,0.30)' : 'rgba(120,180,255,0.13)';
+    ctx.fill();
+    ctx.beginPath(); ctx.arc(h.x, h.y, 7, 0, 6.283);
+    ctx.fillStyle = isAnchor ? '#7df3ff' : isTarget ? '#ffd166' : '#9cc4ff'; ctx.fill();
+    ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(255,255,255,0.85)';
+    ctx.beginPath(); ctx.arc(h.x, h.y, 7, 0, 6.283); ctx.stroke();
+  }
+  if (target){
+    ctx.strokeStyle = 'rgba(255,220,120,0.5)'; ctx.lineWidth = 2; ctx.setLineDash([6, 8]);
+    ctx.beginPath(); ctx.moveTo(P.x, P.y); ctx.lineTo(target.x, target.y); ctx.stroke(); ctx.setLineDash([]);
+  }
+
+  // trail
+  for (const t of trail){
+    ctx.globalAlpha = t.life * 0.4; ctx.fillStyle = '#7df3ff';
+    ctx.beginPath(); ctx.arc(t.x, t.y, 6 * t.life, 0, 6.283); ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+
+  // rope
+  if (anchor){
+    ctx.strokeStyle = '#cfd8e8'; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.moveTo(anchor.x, anchor.y); ctx.lineTo(P.x, P.y); ctx.stroke();
+  }
+
+  if (state !== 'dead') drawStickman();
+
+  for (const p of particles){
+    ctx.globalAlpha = Math.max(0, p.life); ctx.fillStyle = p.color;
+    ctx.fillRect(p.x - 2, p.y - 2, 4, 4);
+  }
+  ctx.globalAlpha = 1;
+  ctx.restore();
+}
+
+function drawStickman(){
+  let angle;
+  if (anchor) angle = Math.atan2(P.y - anchor.y, P.x - anchor.x);
+  else { const sp = Math.hypot(P.vx, P.vy); angle = sp > 1.5 ? Math.atan2(P.vy, P.vx) : Math.PI/2; }
+  const t = performance.now() * 0.001;
+  const limb = (x, y, a, l) => [x + Math.cos(a)*l, y + Math.sin(a)*l];
+
+  const neck = limb(P.x, P.y, angle, 15);
+  const head = limb(P.x, P.y, angle, 8);
+  const hip  = limb(P.x, P.y, angle, 38);
+
+  ctx.lineWidth = 5; ctx.lineCap = 'round'; ctx.strokeStyle = '#f4f7ff';
+  ctx.beginPath(); ctx.moveTo(neck[0], neck[1]); ctx.lineTo(hip[0], hip[1]); ctx.stroke();
+
+  ctx.beginPath();
+  if (anchor){
+    ctx.moveTo(neck[0], neck[1]); ctx.lineTo(P.x, P.y);
+    const h2 = limb(P.x, P.y, angle + Math.PI, 3); ctx.moveTo(neck[0], neck[1]); ctx.lineTo(h2[0], h2[1]);
+  } else {
+    const aSwing = Math.sin(t * 9) * 0.4;
+    const a1 = limb(neck[0], neck[1], angle - 2.2 + aSwing, 17);
+    const a2 = limb(neck[0], neck[1], angle - 2.0 - aSwing, 17);
+    ctx.moveTo(neck[0], neck[1]); ctx.lineTo(a1[0], a1[1]);
+    ctx.moveTo(neck[0], neck[1]); ctx.lineTo(a2[0], a2[1]);
+  }
+  ctx.stroke();
+
+  const lSwing = Math.sin(t * 8) * 0.35 + clamp(P.vx * 0.02, -0.4, 0.4);
+  const l1 = limb(hip[0], hip[1], angle + 0.45 + lSwing, 22);
+  const l2 = limb(hip[0], hip[1], angle - 0.45 + lSwing, 22);
+  ctx.beginPath();
+  ctx.moveTo(hip[0], hip[1]); ctx.lineTo(l1[0], l1[1]);
+  ctx.moveTo(hip[0], hip[1]); ctx.lineTo(l2[0], l2[1]);
+  ctx.stroke();
+
+  ctx.fillStyle = '#f4f7ff';
+  ctx.beginPath(); ctx.arc(head[0], head[1], 9, 0, 6.283); ctx.fill();
+  ctx.strokeStyle = '#7df3ff'; ctx.lineWidth = 2.5;
+  ctx.beginPath(); ctx.arc(head[0], head[1], 9, 0, 6.283); ctx.stroke();
+}
+
+// ===================== HUD =====================
+const fmt = t => t.toFixed(2) + 's';
+function roundRect(x, y, w, h, r){
+  ctx.beginPath();
+  ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r);
+  ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath();
+}
+function drawHUD(){
+  ctx.fillStyle = 'rgba(0,0,0,0.32)'; roundRect(14, 14, 200, 70, 12); ctx.fill();
+  ctx.fillStyle = '#fff'; ctx.font = 'bold 18px Segoe UI';
+  ctx.fillText('Level ' + (levelIdx + 1) + ' / ' + NUM_LEVELS, 28, 40);
+  ctx.font = '15px Segoe UI'; ctx.fillStyle = '#cfe'; ctx.fillText('Time  ' + fmt(levelTime), 28, 64);
+  const b = bestTime(levelIdx);
+  if (b !== null){ ctx.fillStyle = '#ffd166'; ctx.fillText('Best ' + fmt(b), 134, 64); }
+
+  const prog = clamp((P.x - level.start.x) / (level.finishX - level.start.x), 0, 1);
+  const bw = Math.min(360, W - 240);
+  ctx.fillStyle = 'rgba(0,0,0,0.3)'; roundRect(W/2 - bw/2, 22, bw, 12, 6); ctx.fill();
+  ctx.fillStyle = '#46c46a'; roundRect(W/2 - bw/2, 22, bw * prog, 12, 6); ctx.fill();
+
+  if (state === 'win' || state === 'gamewin') drawOverlay();
+}
+function drawOverlay(){
+  ctx.fillStyle = 'rgba(10,16,30,0.72)'; ctx.fillRect(0, 0, W, H);
+  ctx.textAlign = 'center';
+  ctx.fillStyle = '#ffd166'; ctx.font = 'bold 52px Segoe UI';
+  ctx.fillText(state === 'gamewin' ? 'YOU WIN!' : 'Level Complete!', W/2, H/2 - 50);
+  ctx.fillStyle = '#fff'; ctx.font = '24px Segoe UI'; ctx.fillText('Time: ' + fmt(levelTime), W/2, H/2);
+  const b = bestTime(levelIdx);
+  if (b !== null){ ctx.fillStyle = '#cfe'; ctx.font = '18px Segoe UI'; ctx.fillText('Best: ' + fmt(b), W/2, H/2 + 30); }
+  ctx.fillStyle = '#7df3ff'; ctx.font = '20px Segoe UI';
+  ctx.fillText(state === 'gamewin' ? 'Click / Enter to play again' : 'Click / Enter for next level', W/2, H/2 + 76);
+  ctx.textAlign = 'left';
+}
+
+// ===================== Main loop =====================
+let acc = 0, last = performance.now();
+const STEP = 1000 / 60;
+function frame(now){
+  let dt = now - last; last = now;
+  if (dt > 100) dt = 100;
+  acc += dt;
+  let guard = 0;
+  while (acc >= STEP && guard++ < 5){ physics(); stepEffects(); acc -= STEP; }
+  updateCamera();
+  drawBackground();
+  drawWorld();
+  if (state === 'dead'){ ctx.fillStyle = 'rgba(255,40,60,' + clamp(0.4 - deathTimer*0.012, 0, 0.4) + ')'; ctx.fillRect(0,0,W,H); }
+  drawHUD();
+  requestAnimationFrame(frame);
+}
+
+loadLevel(0);
+requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
