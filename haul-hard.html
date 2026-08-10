@@ -248,6 +248,8 @@ input[type=range]::-moz-range-thumb{width:14px;height:14px;border-radius:50%;bac
 #tFlip{left:78px;top:14px}
 #tCam{left:130px;top:14px}
 #tHorn{left:182px;top:14px}
+#tForm{left:240px;top:14px;font-size:15px;padding:6px 14px}
+#tTow{left:284px;top:14px}
 #tPause{right:14px;top:14px}
 @media(max-width:520px){
   #gauge{width:210px;height:120px;right:6px;bottom:150px}
@@ -311,6 +313,8 @@ input[type=range]::-moz-range-thumb{width:14px;height:14px;border-radius:50%;bac
   <div class="tc-mini" id="tFlip">FLIP</div>
   <div class="tc-mini" id="tCam">CAM</div>
   <div class="tc-mini" id="tHorn">HORN</div>
+  <div class="tc-mini" id="tForm">✈</div>
+  <div class="tc-mini" id="tTow">TOW</div>
   <div class="tc-mini" id="tPause">❚❚</div>
 </div>
 
@@ -334,8 +338,9 @@ input[type=range]::-moz-range-thumb{width:14px;height:14px;border-radius:50%;bac
       <button data-go="settings"><span class="k">4</span>SETTINGS<small>quality · audio · controls</small></button>
     </div>
     <div class="credit">
-      WASD drive · SPACE jump · X handbrake · H horn · G diff · Z low range · V telemetry<br>
-      SHIFT/CTRL gears · R reset · C camera · F flip · drag mouse to look around<br>
+      <b style="color:var(--sapphire)">C = aeroplane · N = boat</b> — mid-air is fine · V drops the trailer<br>
+      WASD drive · SPACE jump · X handbrake · H horn · G diff · Z low range · T telemetry<br>
+      SHIFT/CTRL gears · R reset · B camera · F flip · drag mouse to look around<br>
       Everything here — geometry, textures, audio, terrain — is generated at runtime.
     </div>
   </div>
@@ -402,20 +407,29 @@ input[type=range]::-moz-range-thumb{width:14px;height:14px;border-radius:50%;bac
       <div><span>Horn</span><kbd>H</kbd></div>
       <div><span>Diff lock</span><kbd>G</kbd></div>
       <div><span>Low range</span><kbd>Z</kbd></div>
-      <div><span>Telemetry</span><kbd>V</kbd></div>
+      <div><span>Telemetry</span><kbd>T</kbd></div>
       <div><span>Shift up</span><kbd>SHIFT</kbd></div>
       <div><span>Shift down</span><kbd>CTRL</kbd></div>
       <div><span>Clutch</span><kbd>Q</kbd></div>
       <div><span>Reset truck</span><kbd>R</kbd></div>
       <div><span>Flip upright</span><kbd>F</kbd></div>
-      <div><span>Cycle camera</span><kbd>C</kbd></div>
+      <div><span>Transform ✈ plane</span><kbd>C</kbd></div>
+      <div><span>Transform ⛵ boat</span><kbd>N</kbd></div>
+      <div><span>Drop / hitch trailer</span><kbd>V</kbd></div>
+      <div><span>Cycle camera</span><kbd>B</kbd></div>
       <div><span>Free look</span><kbd>DRAG LMB</kbd></div>
       <div><span>Recentre view</span><kbd>DBL CLICK</kbd></div>
+      <div><span>Fly: pitch</span><kbd>W / S</kbd></div>
+      <div><span>Fly: roll</span><kbd>A / D</kbd></div>
+      <div><span>Fly: rudder</span><kbd>Q / E</kbd></div>
+      <div><span>Fly: throttle</span><kbd>SHIFT / CTRL</kbd></div>
+      <div><span>Fly: afterburner</span><kbd>SPACE</kbd></div>
+      <div><span>Fly: air brake</span><kbd>X</kbd></div>
       <div><span>Headlights</span><kbd>L</kbd></div>
       <div><span>Hitch / drop trailer</span><kbd>T</kbd></div>
       <div><span>Air pitch / roll</span><kbd>WASD in air</kbd></div>
       <div><span>Pause</span><kbd>ESC / P</kbd></div>
-      <div><span>Next level</span><kbd>N</kbd></div>
+      <div><span>Next level</span><kbd>]</kbd></div>
     </div>
   </div>
 </div>
@@ -617,6 +631,7 @@ const store = {
   truck: 'pickup',
   trailer: 'none',
   tune: {},               // truckId -> {susp, gear, grip, ...}
+  ordnance: false,        // missile launchers found (triple-tap I) — persists
   settings: {
     quality: 'auto',       // low | med | high | auto
     shadows: true,
@@ -627,6 +642,8 @@ const store = {
     tc: true,              // on by default: these are torquey rear-drive trucks
     esc: false,
     noFlip: false,         // gyro keeps it on its wheels — drift mode
+    autoBoat: false,       // fold into a boat automatically on hitting water
+    missiles: true,        // only does anything once `store.ordnance` is true
     roughness: 0.35,       // open-world terrain detail; 0 = glass, 1 = rally stage
     tyreModel: true,       // tyre temperature + wear affect grip
     telemetry: false,
@@ -647,8 +664,8 @@ try {
     Object.assign(store, d);
     store.settings = Object.assign({
       quality: 'auto', shadows: true, volume: 0.75, power: 1, mouseLook: true,
-      abs: true, tc: true, esc: false, noFlip: false, roughness: 0.35,
-      tyreModel: true, telemetry: false,
+      abs: true, tc: true, esc: false, noFlip: false, autoBoat: false, roughness: 0.35,
+      missiles: true, tyreModel: true, telemetry: false,
       gearbox: 'auto', units: 'kmh',
       steerAssist: true, slowmo: true, shake: true, fps: false, tilt: false, invertPitch: false,
     }, d.settings || {});
@@ -886,6 +903,37 @@ const Audio_ = (() => {
       burst({ type: 'sine', freq: 180, dur: 0.18, gain: 0.22, sweep: 2.4 });
       burst({ freq: 900, dur: 0.12, gain: 0.10, filt: 'bandpass', q: 2, sweep: 0.4 });
     },
+    /** Servo whine and clunks while the bodywork folds. */
+    transform(toPlane) {
+      if (!ready) return;
+      for (let i = 0; i < 7; i++) {
+        setTimeout(() => burst({ freq: 300 + Math.random() * 900, dur: 0.09,
+          gain: 0.13, filt: 'bandpass', q: 5, sweep: 0.5 }), i * 150 + Math.random() * 70);
+      }
+      burst({ type: 'sawtooth', freq: toPlane ? 320 : 1500, dur: 1.15, gain: 0.11,
+              filt: 'bandpass', q: 3, sweep: toPlane ? 4.5 : 0.22 });
+      setTimeout(() => burst({ type: 'sine', freq: 90, dur: 0.4, gain: 0.3, sweep: 0.5 }), 1050);
+    },
+    /** Jet turbine, pitched by throttle and airspeed. */
+    jet(level, speed) {
+      if (!ready) return;
+      const e = nodes.engine;
+      if (level <= 0.001) { if (nodes.jetG) tgt(nodes.jetG.gain, 0, 0.25); return; }
+      if (!nodes.jetG) {
+        const g = ctx.createGain(); g.gain.value = 0;
+        const f = ctx.createBiquadFilter(); f.type = 'bandpass'; f.Q.value = 1.4;
+        const o = ctx.createOscillator(); o.type = 'sawtooth';
+        const og = ctx.createGain(); og.gain.value = 0.16;
+        const nz = ctx.createBufferSource(); nz.buffer = noiseBuf; nz.loop = true;
+        const ng = ctx.createGain(); ng.gain.value = 0.5;
+        o.connect(og); og.connect(g); nz.connect(ng); ng.connect(g);
+        g.connect(f); f.connect(comp); o.start(); nz.start();
+        nodes.jetG = g; nodes.jetO = o; nodes.jetF = f;
+      }
+      tgt(nodes.jetG.gain, 0.16 + level * 0.20, 0.12);
+      tgt(nodes.jetO.frequency, 340 + level * 620 + speed * 3, 0.1);
+      tgt(nodes.jetF.frequency, 900 + level * 2400 + speed * 12, 0.12);
+    },
     ui(kind) {
       if (!ready) return;
       const f = kind === 'ok' ? 880 : kind === 'bad' ? 210 : kind === 'star' ? 1320 : 620;
@@ -903,6 +951,23 @@ const Audio_ = (() => {
     splash(s) {
       if (!ready) return;
       burst({ freq: 1800, dur: 0.35, gain: 0.1 + s * 0.25, filt: 'bandpass', q: 1.2, sweep: 0.25 });
+    },
+    /* --------------------------------------------------------- ordnance -- */
+    launch() {
+      if (!ready) return;
+      // a hiss that sweeps up as the motor lights, plus a hollow tube thump
+      burst({ freq: 900, dur: 0.45, gain: 0.30, filt: 'bandpass', q: 0.8, sweep: 3.2 });
+      burst({ type: 'square', freq: 150, dur: 0.09, gain: 0.20, sweep: 0.35 });
+    },
+    explode(s) {
+      if (!ready) return;
+      const k = clamp01(s);
+      burst({ type: 'sine', freq: 70 + k * 40, dur: 0.9 + k * 0.5, gain: 0.4 + k * 0.5, sweep: 0.16 });
+      burst({ freq: 420, dur: 0.55 + k * 0.4, gain: 0.28 + k * 0.4, filt: 'lowpass', q: 0.9, sweep: 0.14 });
+      burst({ freq: 5200, dur: 0.16, gain: 0.10 + k * 0.16, filt: 'highpass', q: 0.7, sweep: 0.3 });
+      // a lazy tail of rubble a beat later
+      setTimeout(() => { if (ready) burst({ freq: 1600, dur: 0.5, gain: 0.05 + k * 0.09,
+                                            filt: 'bandpass', q: 1.4, sweep: 0.4 }); }, 180);
     },
   };
   return api;
@@ -1188,6 +1253,110 @@ function wedgeG(width, len, height, hex) {
   paint(g, hex);
   return g;
 }
+/* ------------------------------------------------- lofted (curved) solids
+ * Everything else in the game is stacked boxes, which is the look we want for
+ * trucks. A road car needs actual curvature, so its bodywork is skinned from a
+ * stack of cross-sections instead. */
+
+/**
+ * One closed cross-section: a superellipse, sampled anticlockwise starting at
+ * +X. `pTop`/`pBot` are the squareness exponents — 2 is an ellipse, 8 is very
+ * nearly a rectangle. Splitting them lets a car section have a flat floor and
+ * a domed roof, which is exactly the shape a car body is.
+ */
+function seRing(n, w, top, bot, yc, pTop, pBot) {
+  const pts = [];
+  const se = (v, p) => (v < 0 ? -1 : 1) * Math.pow(Math.abs(v), 2 / p);
+  for (let i = 0; i < n; i++) {
+    const a = (i / n) * TAU;
+    const c = Math.cos(a), s = Math.sin(a);
+    const up = s >= 0;
+    pts.push([w * se(c, up ? pTop : pBot), yc + (up ? top : bot) * se(s, up ? pTop : pBot)]);
+  }
+  return pts;
+}
+
+/**
+ * Skin a stack of cross-sections into one closed solid and cap both ends.
+ * Sections must run back-to-front (increasing z) and share a point count.
+ * Winding is chosen so the faces point outwards.
+ */
+function loftGeo(sections, hex) {
+  const v = [];
+  const tri = (a, b, c) => v.push(a[0], a[1], a[2], b[0], b[1], b[2], c[0], c[1], c[2]);
+  const N = sections[0].pts.length;
+  const at = (s, i) => [s.pts[i][0], s.pts[i][1], s.z];
+  for (let k = 0; k < sections.length - 1; k++) {
+    const A = sections[k], B = sections[k + 1];
+    for (let i = 0; i < N; i++) {
+      const j = (i + 1) % N;
+      const a0 = at(A, i), a1 = at(A, j), b0 = at(B, i), b1 = at(B, j);
+      tri(a0, b1, b0); tri(a0, a1, b1);
+    }
+  }
+  const first = sections[0], last = sections[sections.length - 1];
+  for (let i = 1; i < N - 1; i++) {
+    tri(at(last, 0), at(last, i), at(last, i + 1));       // nose cap, +Z
+    tri(at(first, 0), at(first, i + 1), at(first, i));    // tail cap, -Z
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(v), 3));
+  g.setAttribute('uv', new THREE.BufferAttribute(new Float32Array((v.length / 3) * 2), 2));
+  smoothNormals(g);
+  paint(g, hex);
+  return g;
+}
+
+/**
+ * Average normals across coincident vertices. `computeVertexNormals` on a
+ * non-indexed geometry gives one normal per face, so a lofted body would come
+ * out faceted; this welds by rounded position first and hands back a smooth
+ * shell. Box faces are unaffected — their four corners already agree.
+ */
+function smoothNormals(g, weldTo = 1e4, from = 0, to = -1) {
+  if (!g.attributes.normal) g.computeVertexNormals();
+  const p = g.attributes.position.array, n = g.attributes.normal.array;
+  const count = to < 0 ? g.attributes.position.count : to;
+  const acc = new Map();
+  for (let i = from; i < count; i++) {
+    const k = Math.round(p[i * 3] * weldTo) + '|' + Math.round(p[i * 3 + 1] * weldTo) + '|' +
+              Math.round(p[i * 3 + 2] * weldTo);
+    let e = acc.get(k);
+    if (!e) { e = [0, 0, 0]; acc.set(k, e); }
+    e[0] += n[i * 3]; e[1] += n[i * 3 + 1]; e[2] += n[i * 3 + 2];
+  }
+  for (const e of acc.values()) {
+    const l = Math.hypot(e[0], e[1], e[2]) || 1;
+    e[0] /= l; e[1] /= l; e[2] /= l;
+  }
+  for (let i = from; i < count; i++) {
+    const k = Math.round(p[i * 3] * weldTo) + '|' + Math.round(p[i * 3 + 1] * weldTo) + '|' +
+              Math.round(p[i * 3 + 2] * weldTo);
+    const e = acc.get(k);
+    n[i * 3] = e[0]; n[i * 3 + 1] = e[1]; n[i * 3 + 2] = e[2];
+  }
+  g.attributes.normal.needsUpdate = true;
+  return g;
+}
+
+/**
+ * A run of boxes tracing an arc in the YZ plane — wheel-arch lips, roll hoops,
+ * pipe bends. `a` is measured from straight up, so 0 is the crown of the arch
+ * and ±PI/2 are the two ends. A box rotated by `a` about X puts its long axis
+ * exactly on the tangent there.
+ */
+function arcBoxes(radius, a0, a1, segs, bw, bt, hex, centre) {
+  const parts = [];
+  const cx = centre ? centre[0] : 0, cy = centre ? centre[1] : 0, cz = centre ? centre[2] : 0;
+  for (let i = 0; i < segs; i++) {
+    const a = a0 + (a1 - a0) * ((i + 0.5) / segs);
+    const chord = Math.abs(a1 - a0) / segs * radius * 1.16;
+    parts.push(boxG(bw, bt, chord, hex,
+      [cx, cy + Math.cos(a) * radius, cz + Math.sin(a) * radius], [a, 0, 0]));
+  }
+  return parts;
+}
+
 const VC = { vertexColors: true };
 
 /* Flat-shaded, vertex-coloured standard material — the workhorse look. */
@@ -1272,6 +1441,7 @@ const SURF = {
   ice:    { grip: 0.22, rollNoise: 0.14, dust: 0xbcd8f0, soft: 0.002, wetMul: 0.85, name: 'ICE'     },
   mud:    { grip: 0.46, rollNoise: 0.75, dust: 0x4c3a28, soft: 0.085, wetMul: 1.00, name: 'MUD'     },
   water:  { grip: 0.30, rollNoise: 0.50, dust: 0x6fa8c8, soft: 0.140, wetMul: 1.00, name: 'WATER'   },
+  snow:   { grip: 0.40, rollNoise: 0.30, dust: 0xe8f1fa, soft: 0.055, wetMul: 1.00, name: 'SNOW'    },
   rubber: { grip: 1.30, rollNoise: 0.20, dust: 0x585b70, soft: 0.008, wetMul: 0.85, name: 'GRIP'    },
 };
 const surfaceOf = (body) => (body && body.surface && SURF[body.surface]) || SURF.road;
@@ -1718,6 +1888,19 @@ class Vehicle {
     this.upC = new CANNON.Vec3(0, 1, 0);
     this.jumpCD = 0;
     this.diffLock = false;
+    this.morph = 0;              // 0 = truck, 1 = aeroplane (driven by TruckRig)
+    this.boat = 0;               // 0 = truck, 1 = boat
+    this.throttleLevel = 0.7;    // jet throttle, separate from the road throttle
+    this.aoa = 0;
+    this.stalling = false;
+    this.inWater = false;
+    // buoyancy sample points, out where the outrigger floats deploy
+    const ex = hullExtents(spec);
+    this.hullDraft = Math.max(0.6, ex.hy * 0.9);
+    this.hullPoints = [];
+    for (const z of [ex.frontZ * 0.7, 0, ex.backZ * 0.7]) {
+      for (const sx of [-1, 1]) this.hullPoints.push(CV(sx * ex.hw * 1.3, -ex.hy * 0.35, z));
+    }
     this.odo = 0;            // metres travelled, all-time for this rig
     this.trip = 0;           // metres since the last reset
     this.airTotal = 0;       // seconds spent airborne
@@ -1896,6 +2079,8 @@ class Vehicle {
       driveTorque = this.drive.update(dt, ctrl.throttle, drivenOmega, nDriven,
                                       dmgMul, ctrl.auto && this.wheelsOnGround > 0, drivenInertia);
       this.drive.clutchIn = ctrl.clutch;
+      // jets or the water jet take over from the road wheels
+      driveTorque *= (1 - clamp01(Math.max(this.morph, this.boat) * 1.4));
     }
 
     const brakeMul = 1 - 0.4 * this.damage;
@@ -2098,16 +2283,21 @@ class Vehicle {
     if (sp2 > 0.4) {
       const spd = Math.sqrt(sp2);
       // drag is what actually caps top speed, so the cheat has to thin it out
-      const F = 0.5 * 1.2 * this.spec.aero.cd * cheatDrag() * this.spec.aero.area * sp2;
+      // a deployed air brake is worth about half again as much drag
+      const ab = this.aeroBrake || 0;
+      const F = 0.5 * 1.2 * this.spec.aero.cd * (1 + ab * 0.55) * cheatDrag() *
+                this.spec.aero.area * sp2;
       vset(cvA, -v.x / spd * F, -v.y / spd * F, -v.z / spd * F);
       b.force.x += cvA.x; b.force.y += cvA.y; b.force.z += cvA.z;
       if (this.spec.aero.downforce) {
-        const df = this.spec.aero.downforce * sp2;
+        const df = this.spec.aero.downforce * (1 + ab * 0.40) * sp2;
         b.force.y -= df;
       }
     }
     if (this.isTrailer) return;
 
+    // Once the wings are out, aerofoils do the flying instead.
+    if (this.morph > 0.3) return;
     // In-air attitude control — levels mode lives or dies on this. Authority
     // ramps in over the first third of a second so that clipping a kerb or
     // hopping a bump doesn't instantly pitch you onto your roof.
@@ -2152,8 +2342,11 @@ class Vehicle {
     this.suspension(dt);
     this.tyres(dt, ctrl);
     this.aero(dt, ctrl);
+    this.flight(dt, ctrl);
+    this.buoyancy(dt, ctrl);
     this.stability(dt);
-    this.antiFlip(dt, ctrl, grounded);
+    // the gyro would fight every aerobatic manoeuvre, so it stands down in flight
+    if (this.morph < 0.3) this.antiFlip(dt, ctrl, grounded);
 
     if (this.jumpCD > 0) this.jumpCD -= dt;
     this.airTime = grounded === 0 ? this.airTime + dt : 0;
@@ -2170,6 +2363,135 @@ class Vehicle {
     this.gLat = damp(this.gLat, acc(vdot(v, this.rightC), vdot(this._lastV, this.rightC)), 12, dt);
     this.gVert = damp(this.gVert, acc(vdot(v, this.upC), vdot(this._lastV, this.upC)), 12, dt);
     vcopy(this._lastV, v);
+  }
+
+  /** Add a torque about a world-space axis. */
+  torqueAbout(axis, mag) {
+    const b = this.body;
+    b.torque.x += axis.x * mag; b.torque.y += axis.y * mag; b.torque.z += axis.z * mag;
+  }
+
+  /**
+   * Aerodynamics, faded in with the transform so a half-folded truck gets half
+   * the wing. Lift and drag from a stalling lift curve, a weathervane term that
+   * points the nose into the airflow, and control moments that scale with
+   * dynamic pressure so you can't pirouette at a standstill.
+   */
+  flight(dt, ctrl) {
+    const auth = this.morph;
+    if (auth < 0.02) return;
+    const sp = this.spec.flight;
+    if (!sp) return;
+    const b = this.body, v = b.velocity;
+    const spd = vlen(v);
+    const S = this.spec.mass * sp.wing;
+    const q = 0.5 * 1.225 * spd * spd;
+
+    const vf = vdot(v, this.fwdC), vu = vdot(v, this.upC), vr = vdot(v, this.rightC);
+    const ref = Math.max(6, Math.abs(vf));
+    const aoa = spd > 3 ? Math.atan2(-vu, ref) : 0;
+    const beta = spd > 3 ? Math.atan2(vr, ref) : 0;
+    const stall = deg(sp.stall);
+    // CL0 is the wing's built-in incidence. With almost none, the aircraft had
+    // to rotate to fly, and it cannot rotate on the ground because the truck's
+    // stiff suspension resists it — so it just accelerated forever without
+    // leaving the tarmac. A proper incidence lets it fly itself off.
+    let CL = 5.0 * aoa + 0.55;
+    const aa = Math.abs(aoa);
+    if (aa > stall) CL *= Math.max(0.30, 1 - (aa - stall) / deg(22));
+    CL = clamp(CL, -1.6, 1.6);
+    this.aoa = aoa;
+    this.stalling = aa > stall && spd > 10;
+
+    const L = q * S * CL * auth;
+    const D = (q * S * (0.030 + 0.05 * CL * CL) + q * S * 0.010) * auth;
+    const Y = -q * S * 0.8 * beta * auth;
+    const T = this.spec.mass * sp.thrust * this.throttleLevel * auth;
+
+    let fx = this.upC.x * L + this.rightC.x * Y + this.fwdC.x * T;
+    let fy = this.upC.y * L + this.rightC.y * Y + this.fwdC.y * T;
+    let fz = this.upC.z * L + this.rightC.z * Y + this.fwdC.z * T;
+    if (spd > 0.2) { fx -= v.x / spd * D; fy -= v.y / spd * D; fz -= v.z / spd * D; }
+    b.force.x += fx; b.force.y += fy; b.force.z += fz;
+
+    // ---- control moments -------------------------------------------------
+    const I = b.inertia;
+    const cq = clamp01(spd / 26) * auth;
+    // rightC is the body +X, which with forward=+Z and up=+Y points LEFT, so a
+    // positive moment about it pitches the nose DOWN — hence the sign flip.
+    this.torqueAbout(this.rightC, -(ctrl.aPitch || 0) * sp.pitch * (I.x + I.z) * 0.5 * cq);
+    this.torqueAbout(this.fwdC, (ctrl.aRoll || 0) * sp.roll * I.z * cq);
+    this.torqueAbout(this.upC, -(ctrl.aYaw || 0) * sp.yaw * I.y * cq);
+
+    // ---- static stability: swing the nose into the airflow ---------------
+    const wv = q * S * 0.38 * auth;
+    this.torqueAbout(this.rightC, aoa * wv * 0.9);
+    this.torqueAbout(this.upC, beta * wv * 0.9);
+
+    // ---- rate damping ----------------------------------------------------
+    const w = b.angularVelocity, dmp = sp.damp * (0.25 + cq);
+    this.torqueAbout(this.fwdC, -vdot(w, this.fwdC) * I.z * dmp);
+    this.torqueAbout(this.rightC, -vdot(w, this.rightC) * I.x * dmp);
+    this.torqueAbout(this.upC, -vdot(w, this.upC) * I.y * dmp * 1.3);
+  }
+
+  /**
+   * Buoyancy and water propulsion. Six sample points along the hull each get a
+   * spring-and-damper against the water line, which gives pitch and roll on
+   * the surface for free; thrust, a big lateral resistance so it carves instead
+   * of sliding, and a speed-scaled rudder do the rest.
+   *
+   * Runs even in truck form (doing nothing) because it is what sets `inWater`
+   * for the auto-convert check.
+   */
+  buoyancy(dt, ctrl) {
+    const b = this.body;
+    let water = false;
+    if (terrainQuery && terrainQuery(b.position.x, b.position.z, groundHit)) {
+      water = groundHit.surface === 'water' && b.position.y < WATER_Y + 3;
+    }
+    this.inWater = water;
+    const bt = this.boat;
+    if (bt < 0.02 || !water) return;
+
+    const pts = this.hullPoints, n = pts.length;
+    const mg = this.spec.mass * 9.82;
+    const dampC = (this.spec.mass / n) * 2.6 * bt;
+    let wet = 0;
+    for (const p of pts) {
+      b.pointToWorldFrame(p, cvA);
+      const d = WATER_Y - cvA.y;
+      if (d <= 0) continue;
+      wet++;
+      const f = (mg / n) * clamp(d / this.hullDraft, 0, 1.8) * 2.2 * bt;
+      velAtPoint(b, cvA, scratchVel);
+      // heave is damped hard, surge barely at all — a big horizontal term here
+      // quietly caps the top speed at a crawl
+      vset(cvC, -scratchVel.x * dampC * 0.04,
+                f - scratchVel.y * dampC,
+                -scratchVel.z * dampC * 0.04);
+      vsub_(cvB, cvA, b.position);
+      b.applyForce(cvC, cvB);
+    }
+    if (!wet) return;
+    const frac = wet / n;
+
+    const v = b.velocity;
+    const vf = vdot(v, this.fwdC), vr = vdot(v, this.rightC);
+    const thrust = this.spec.mass * 9.0 * (ctrl.throttle - ctrl.brake * 0.8) * bt * frac;
+    const drag = -vf * Math.abs(vf) * this.spec.mass * 0.010 * bt * frac;
+    const side = -vr * this.spec.mass * 1.6 * bt * frac;
+    b.force.x += this.fwdC.x * (thrust + drag) + this.rightC.x * side;
+    b.force.y += this.fwdC.y * (thrust + drag) + this.rightC.y * side;
+    b.force.z += this.fwdC.z * (thrust + drag) + this.rightC.z * side;
+
+    const I = b.inertia, w = b.angularVelocity;
+    const rudder = -ctrl.steer * I.y * 2.4 * clamp01(Math.abs(vf) / 5) * bt * frac *
+                   (vf < -0.5 ? -1 : 1);
+    this.torqueAbout(this.upC, rudder);
+    this.torqueAbout(this.upC, -vdot(w, this.upC) * I.y * 1.2 * bt * frac);
+    this.torqueAbout(this.fwdC, -vdot(w, this.fwdC) * I.z * 2.0 * bt * frac);
+    this.torqueAbout(this.rightC, -vdot(w, this.rightC) * I.x * 1.6 * bt * frac);
   }
 
   /**
@@ -2247,7 +2569,7 @@ class Vehicle {
       w.angVel = 0; w.spin = 0; w.susLen = w.rest; w.compression = 0;
       w.temp = 25; w.wear = 0; w.absCut = 0; w.tcCut = 0;
     }
-    this.trip = 0; this.jumpCD = 0;
+    this.trip = 0; this.jumpCD = 0; this.throttleLevel = 0.7;
     if (this.drive) { this.drive.omega = this.drive.idle * TAU / 60; this.drive.gear = 1;
                       this.drive.pending = 1; this.drive.shiftT = 0; this.drive.boost = 0; }
     this.steerAngle = 0;
@@ -2285,6 +2607,8 @@ const TRUCK_BASE = {
   airControl: { pitch: 3.4, roll: 4.4, yaw: 1.7, damp: 1.0 },
   gears: { shiftTime: 0.22, efficiency: 0.92 },
   seedPull: 0.5,
+  /** Flight mode. `wing` and `thrust` are per-kilogram so every rig flies. */
+  flight: { wing: 0.015, thrust: 7.0, pitch: 5.5, roll: 6.0, yaw: 1.5, damp: 1.7, stall: 17 },
 };
 
 const TRUCKS = {
@@ -2456,6 +2780,53 @@ const TRUCKS = {
            lights: [0.58, 0.20, 2.02], smokeZ: 1.5, toughness: 1.35 },
   },
 
+  /* ------------------------------------------------------------- hypercar */
+  // The one vehicle in the game with real bodywork rather than stacked boxes:
+  // its shell is lofted from cross-sections (see buildHyperBody), shaded
+  // smooth, and painted with a clearcoat. Everything about it is deliberately
+  // sharper than the trucks — light, stiff, revvy, and stuck to the road by
+  // downforce rather than by mass.
+  hyper: {
+    id: 'hyper', name: 'AURORA GT-9', klass: 'HYPERCAR',
+    desc: 'Carbon tub, active aero, eight-speed twin clutch. Nothing else here comes close.',
+    paint: 0xf38ba8, trim: 0x181825, mass: 1420,
+    colliders: [
+      { s: [1.72, 0.42, 3.30], p: [0, -0.02, 0] },
+      { s: [1.36, 0.32, 0.90], p: [0, 0.02, 1.94] },
+      { s: [1.62, 0.34, 0.90], p: [0, 0.05, -1.92] },
+      { s: [1.30, 0.42, 1.86], p: [0, 0.36, -0.16] },
+    ],
+    wheelDef: { radius: 0.40, width: 0.34, rest: 0.26 },
+    // All-wheel drive with a heavy rear bias — it will still light up the rears
+    // out of a hairpin, but it puts 700 N·m down instead of just smoking them.
+    // The track is set wider than the tub so the wheels sit out where you can
+    // see them, under their arches.
+    wheels: [
+      { x: -0.82, y: 0.00, z: 1.42, steer: 1, drive: 0.40, brake: 1.25, handbrake: 0, axle: 0 },
+      { x: 0.82, y: 0.00, z: 1.42, steer: 1, drive: 0.40, brake: 1.25, handbrake: 0, axle: 0 },
+      { x: -0.84, y: 0.00, z: -1.46, steer: 0, drive: 1.00, brake: 0.82, handbrake: 1, axle: 1 },
+      { x: 0.84, y: 0.00, z: -1.46, steer: 0, drive: 1.00, brake: 0.82, handbrake: 1, axle: 1 },
+    ],
+    engine: { peakTorque: 700, redline: 8400, idle: 1050, limiter: 8800, inertia: 0.22, turbo: 0.30 },
+    gears: { ratios: [3.05, 2.16, 1.68, 1.34, 1.09, 0.90, 0.76, 0.64], reverse: 2.90, final: 3.55,
+             shiftTime: 0.07, efficiency: 0.95 },
+    brakeTorque: 5400, handbrakeTorque: 3400,
+    susp: { rest: 0.26, stiffness: 1.55, damping: 1.35, arb: 0.88, staticFrac: 0.30 },
+    tyre: { grip: 1.36, rollInfluence: 0.045, rollDrag: 0.82 },
+    steer: { maxDeg: 33, speedFalloff: 120, minFactor: 0.36, rate: 300 },
+    // 4.2 N per (m/s)^2 is roughly its own weight again in downforce at
+    // 200 km/h, and close to three times that flat out. Enough to make it
+    // corner like it's on rails, and to make it go light the instant you lift.
+    aero: { cd: 0.34, area: 1.94, downforce: 4.2 },
+    airControl: { pitch: 4.4, roll: 5.8, yaw: 2.2, damp: 1.0 },
+    flight: { wing: 0.018, thrust: 9.5, pitch: 6.2, roll: 7.0, yaw: 1.7, damp: 1.7, stall: 19 },
+    hitch: [0, 0.30, -2.15],
+    bed: { p: [0, 0.06, -0.10], s: [1.00, 0.44, 0.90] }, payload: 120,
+    rig: { camScale: 0.82, hood: [0, 0.56, 1.50], cockpit: [-0.30, 0.50, 0.10],
+           lights: [0.48, -0.03, 2.12], lightScale: 0.46, smokeZ: -1.7, toughness: 1.15,
+           smooth: true, wheel: 'alloy', wing: true },
+  },
+
   /* ------------------------------------------------------- 8x8 heavy hauler */
   titan: {
     id: 'titan', name: 'TITAN 8x8', klass: 'HEAVY HAULER',
@@ -2495,7 +2866,7 @@ const TRUCKS = {
            lights: [1.00, 0.55, 3.85], smokeZ: 2.4, toughness: 0.85 },
   },
 };
-const TRUCK_IDS = ['pickup', 'rally', 'monster', 'semi', 'dump', 'titan'];
+const TRUCK_IDS = ['pickup', 'rally', 'hyper', 'monster', 'semi', 'dump', 'titan'];
 
 /** Default tuning per truck (all multipliers, 1 = stock). */
 function defaultTune() {
@@ -2539,6 +2910,60 @@ function makeSpec(id) {
 }
 
 /* ------------------------------------------------------- bodywork meshes */
+
+/**
+ * Forged multi-spoke alloy with a real (drilled, spinning) brake disc behind
+ * it. Only the hypercar wears these — the trucks keep their chunky steelies.
+ */
+function alloyWheel(radius, width, rimColor, tyreColor) {
+  const parts = [];
+  const R = radius, W = width;
+  // tyre carcass: three stacked cylinders so the shoulders round off
+  // The carcass is deliberately narrower than the rim assembly. A cylinder has
+  // solid end caps, so a tyre as wide as the wheel simply covers the rim up and
+  // you end up with a black disc that looks like a tractor tyre.
+  parts.push(cylG(R, R, W * 0.66, 20, tyreColor, [0, 0, 0], [0, 0, PI / 2]));
+  parts.push(cylG(R * 0.985, R * 0.985, W * 0.90, 20, tyreColor, [0, 0, 0], [0, 0, PI / 2]));
+  parts.push(cylG(R * 0.955, R * 0.955, W * 0.92, 20, 0x1b1b26, [0, 0, 0], [0, 0, PI / 2]));
+  // Fine directional tread. Position (cos a, sin a) with an X rotation of `a`
+  // puts local +Y on the radius and local +Z on the tangent, which is the
+  // convention every arc in this file uses. Kept shallow — deep blocks make a
+  // road tyre look like something off a tractor.
+  for (let i = 0; i < 26; i++) {
+    const a = i / 26 * TAU;
+    parts.push(boxG(W * 0.58, R * 0.030, R * 0.13, 0x101018,
+      [0, Math.cos(a) * R * 0.992, Math.sin(a) * R * 0.992], [a, 0, 0.16]));
+  }
+  // rim barrel + polished outer lip — a low-profile tyre means a big rim, and
+  // the barrel is wider than the carcass so its face is what you actually see
+  parts.push(cylG(R * 0.80, R * 0.80, W * 1.00, 20, rimColor, [0, 0, 0], [0, 0, PI / 2]));
+  for (const sx of [-1, 1]) {
+    parts.push(cylG(R * 0.83, R * 0.81, W * 0.07, 20, 0xb8bcc8,
+      [sx * W * 0.50, 0, 0], [0, 0, PI / 2]));
+  }
+  // Ten spokes, each twisted about its own length so they catch the light.
+  // Local +Y is the radial run; the Y rotation happens before the X one, so it
+  // twists the blade rather than swinging it round the rim.
+  for (let i = 0; i < 10; i++) {
+    const a = i / 10 * TAU;
+    parts.push(boxG(W * 0.18, R * 0.74, R * 0.115, rimColor,
+      [W * 0.44, Math.cos(a) * R * 0.42, Math.sin(a) * R * 0.42], [a, 0.16, 0]));
+  }
+  // centre lock and hub cap
+  parts.push(cylG(R * 0.18, R * 0.18, W * 0.26, 6, 0xf9e2af, [W * 0.58, 0, 0], [0, 0, PI / 2]));
+  parts.push(cylG(R * 0.28, R * 0.28, W * 0.18, 12, rimColor, [W * 0.50, 0, 0], [0, 0, PI / 2]));
+  // carbon-ceramic disc, drilled, just inboard of the spoke faces
+  parts.push(cylG(R * 0.70, R * 0.70, W * 0.09, 20, 0x4a4a58, [W * 0.28, 0, 0], [0, 0, PI / 2]));
+  for (let i = 0; i < 12; i++) {
+    const a = i / 12 * TAU;
+    parts.push(cylG(R * 0.045, R * 0.045, W * 0.12, 5, 0x14141c,
+      [W * 0.30, Math.cos(a) * R * 0.53, Math.sin(a) * R * 0.53], [0, 0, PI / 2]));
+  }
+  // bell
+  parts.push(cylG(R * 0.26, R * 0.26, W * 0.24, 10, 0x6c7086, [W * 0.34, 0, 0], [0, 0, PI / 2]));
+  return mergeGeoms(parts);
+}
+
 function wheelGeometry(radius, width, hubColor, tyreColor) {
   const parts = [];
   // tyre: a faceted torus-ish ring made from a low-segment cylinder + tread blocks
@@ -2558,6 +2983,123 @@ function wheelGeometry(radius, width, hubColor, tyreColor) {
       [0, Math.sin(a) * radius * 0.97, Math.cos(a) * radius * 0.97], [a, 0, 0]));
   }
   return mergeGeoms(parts);
+}
+
+/**
+ * The AURORA's shell. Two lofted solids — the tub and the canopy — plus the
+ * hard details that read as a car: splitter, diffuser, arches, intakes, deck
+ * slats, mirrors, quad pipes. Returns the merged decoration; the rear wing is
+ * built separately so it can move.
+ */
+function buildHyperBody(paint, trim) {
+  const body = [];
+  const carbon = 0x1a1a24, dark = 0x0d0d14, glass = 0x13202e, gold = 0xd8a657;
+
+  /* ---- lofted tub: nose, waist, haunches, tail cut ----------------------
+   * A closed loft can't have holes cut in it for the wheels, so the wheel
+   * arches are made instead by shaping the sections: over each axle the body
+   * is at its widest but its floor is high and its lower corners are rounded
+   * hard away (a low `pBot`), which tucks the bodywork up and out of the way
+   * and leaves a third of each tyre standing proud below the sill. Bolting
+   * separate arch hoops on instead just looked like mudguards.
+   * (z, half-width, top, bottom, centre y, lower-corner squareness) */
+  const tub = [
+    [-2.30, 0.58, 0.14, 0.11, 0.06, 3.0], [-2.15, 0.80, 0.22, 0.17, 0.03, 3.2],
+    [-1.94, 0.97, 0.27, 0.15, 0.02, 1.7], [-1.46, 0.99, 0.28, 0.12, 0.00, 1.4],
+    [-1.05, 0.87, 0.26, 0.23, 0.00, 3.8], [-0.35, 0.83, 0.24, 0.25, 0.00, 4.6],
+    [0.35, 0.84, 0.22, 0.25, 0.00, 4.6], [0.95, 0.90, 0.19, 0.21, -0.01, 3.2],
+    [1.42, 0.97, 0.15, 0.12, -0.02, 1.4], [1.86, 0.84, 0.11, 0.16, -0.04, 2.4],
+    [2.14, 0.64, 0.08, 0.15, -0.07, 3.0], [2.32, 0.40, 0.05, 0.10, -0.10, 3.0],
+  ];
+  body.push(loftGeo(tub.map(s =>
+    ({ z: s[0], pts: seRing(18, s[1], s[2], s[3], s[4], 3.0, s[5]) })), paint));
+
+  /* ---- canopy: a glass teardrop sunk into the beltline ------------------ */
+  const cab = [
+    [-1.32, 0.26, 0.03, 0.10, 0.24], [-1.02, 0.52, 0.13, 0.10, 0.24],
+    [-0.66, 0.63, 0.24, 0.10, 0.24], [-0.26, 0.66, 0.30, 0.10, 0.24],
+    [0.20, 0.64, 0.28, 0.10, 0.24], [0.60, 0.56, 0.20, 0.10, 0.24],
+    [1.00, 0.42, 0.04, 0.10, 0.24],
+  ];
+  body.push(loftGeo(cab.map(s =>
+    ({ z: s[0], pts: seRing(14, s[1], s[2], s[3], s[4], 2.4, 6.0) })), glass));
+  // painted roof spine and the four pillars, so it isn't one dark blob
+  body.push(boxG(0.34, 0.05, 0.94, paint, [0, 0.54, -0.10]));
+  for (const sx of [-1, 1]) {
+    body.push(boxG(0.07, 0.20, 0.74, carbon, [sx * 0.51, 0.42, 0.45], [0.36, 0, sx * 0.10]));
+    body.push(boxG(0.07, 0.17, 0.60, carbon, [sx * 0.48, 0.40, -0.86], [-0.44, 0, sx * -0.08]));
+  }
+
+  /* ---- arch trim and flank vents ---------------------------------------- */
+  for (const sx of [-1, 1]) {
+    // a thin carbon lip tracing the arch opening in the bodywork itself
+    for (const [wz, wx, ar] of [[1.42, 0.955, 0.30], [-1.46, 0.975, 0.32]]) {
+      body.push(...arcBoxes(ar, -1.45, 1.45, 7, 0.05, 0.05, carbon, [sx * wx, -0.02, wz]));
+    }
+    // louvres in the flank, venting the front arch
+    for (let i = 0; i < 3; i++) {
+      body.push(boxG(0.045, 0.04, 0.19, carbon, [sx * 0.905, -0.02 + i * 0.075, 0.98], [0.22, 0, 0]));
+    }
+  }
+
+  /* ---- aero furniture --------------------------------------------------- */
+  // (the splitter itself is a detachable panel — see buildTruckVisual)
+  body.push(boxG(1.34, 0.09, 0.14, carbon, [0, -0.24, 2.24], [0.24, 0, 0]));   // front lip
+  body.push(boxG(0.90, 0.10, 0.26, dark, [0, -0.12, 2.24]));                   // grille
+  for (const sx of [-1, 1]) {
+    body.push(boxG(0.26, 0.035, 0.20, carbon, [sx * 0.66, -0.13, 2.06], [-0.28, 0, sx * 0.14]));
+    body.push(boxG(0.26, 0.035, 0.17, carbon, [sx * 0.70, -0.04, 2.00], [-0.28, 0, sx * 0.14]));
+    body.push(boxG(0.11, 0.09, 1.30, carbon, [sx * 0.85, -0.26, -0.05]));      // side skirt
+    // side intake: a dark recess with a body-colour blade over it
+    body.push(boxG(0.09, 0.26, 0.72, dark, [sx * 0.845, 0.04, -0.66]));
+    body.push(boxG(0.06, 0.055, 0.76, paint, [sx * 0.885, 0.15, -0.66]));
+    body.push(boxG(0.06, 0.055, 0.76, paint, [sx * 0.885, -0.07, -0.66]));
+    body.push(boxG(0.28, 0.04, 0.24, carbon, [sx * 0.46, 0.19, 1.76], [-0.14, 0, 0])); // bonnet vent
+    // mirror on a stalk
+    body.push(boxG(0.17, 0.035, 0.045, carbon, [sx * 0.74, 0.27, 0.72], [0, sx * 0.30, 0]));
+    body.push(boxG(0.06, 0.11, 0.19, paint, [sx * 0.84, 0.29, 0.74], [0, sx * 0.22, 0]));
+  }
+  // rear diffuser: floor plate plus five strakes, tucked under the tail
+  body.push(boxG(1.42, 0.045, 0.54, carbon, [0, -0.26, -1.98], [-0.26, 0, 0]));
+  for (let i = -2; i <= 2; i++) {
+    body.push(boxG(0.045, 0.17, 0.52, dark, [i * 0.32, -0.20, -1.98], [-0.26, 0, 0]));
+  }
+  // engine bay cover: dark mesh with six slats over it
+  body.push(boxG(1.00, 0.045, 0.72, dark, [0, 0.27, -1.18]));
+  for (let i = 0; i < 6; i++) {
+    body.push(boxG(0.96, 0.045, 0.06, carbon, [0, 0.30 + i * 0.004, -0.90 - i * 0.13], [0.30, 0, 0]));
+  }
+  // rear deck buttresses running back from the canopy
+  for (const sx of [-1, 1]) {
+    body.push(boxG(0.12, 0.16, 0.86, paint, [sx * 0.58, 0.28, -1.26], [0.16, 0, 0]));
+  }
+  // quad pipes and the crash structure they poke through
+  body.push(boxG(1.02, 0.22, 0.12, carbon, [0, -0.02, -2.30]));
+  for (const sx of [-1, 1]) {
+    body.push(cylG(0.062, 0.072, 0.24, 8, 0x8f96a8, [sx * 0.12, 0.00, -2.38], [PI / 2, 0, 0]));
+    body.push(cylG(0.062, 0.072, 0.24, 8, 0x8f96a8, [sx * 0.28, 0.00, -2.38], [PI / 2, 0, 0]));
+  }
+  // roof snorkel feeding the engine
+  body.push(boxG(0.22, 0.13, 0.50, carbon, [0, 0.56, -0.70], [0.20, 0, 0]));
+  body.push(boxG(0.17, 0.10, 0.09, dark, [0, 0.59, -0.46]));
+  return body;
+}
+
+/** The active rear wing — its own mesh so it can rise and tilt in flight. */
+function buildHyperWing(paint, trim) {
+  const carbon = 0x1a1a24;
+  const parts = [
+    boxG(1.54, 0.05, 0.30, carbon, [0, 0, 0]),                        // main plane
+    boxG(1.54, 0.045, 0.09, carbon, [0, 0.022, -0.18], [0.34, 0, 0]), // gurney flap
+    boxG(1.50, 0.035, 0.12, paint, [0, -0.026, 0.13], [-0.18, 0, 0]), // leading edge
+  ];
+  for (const sx of [-1, 1]) {
+    parts.push(boxG(0.04, 0.24, 0.44, carbon, [sx * 0.77, 0.02, -0.02]));   // endplate
+    parts.push(boxG(0.08, 0.26, 0.08, carbon, [sx * 0.40, -0.15, -0.05]));  // swan-neck stay
+  }
+  const m = new THREE.Mesh(mergeGeoms(parts), vcMat({ roughness: 0.44, metalness: 0.35 }));
+  m.castShadow = true;
+  return m;
 }
 
 function buildTruckVisual(spec) {
@@ -2672,6 +3214,25 @@ function buildTruckVisual(spec) {
                   local: [0.83, 0.44, -0.15], size: [0.1, 0.44, 1.0], mass: 11, thresh: 0.5 });
   }
 
+  let smoothVerts = 0;      // the leading run of vertices that must stay smooth
+  if (spec.id === 'hyper') {
+    const hb = buildHyperBody(paint, trim);
+    // the two lofted shells come first, so they occupy [0, smoothVerts) of the
+    // merged buffer — that's the only range that gets averaged normals
+    smoothVerts = hb[0].attributes.position.count + hb[1].attributes.position.count;
+    for (const g of hb) P(g);
+    // Detachable pieces have to sit clear of the lofted shell: detaching works
+    // by collapsing every vertex inside the panel's box, so a panel that
+    // overlapped the loft would tear a hole in the bodywork. These three stand
+    // proud of it by 25 mm or more.
+    // Only one merged panel: detaching works by collapsing every vertex inside
+    // the panel's box, and a door skin sitting flush on a lofted flank would
+    // take a hole in the bodywork with it. The rear wing detaches too, but it
+    // is its own mesh and is shed separately (see TruckRig.updateActiveAero).
+    panels.push({ name: 'splitter', g: boxG(1.62, 0.05, 0.36, 0x1a1a24, [0, -0.32, 2.06], null, 2),
+                  local: [0, -0.32, 2.06], size: [1.62, 0.05, 0.36], mass: 9, thresh: 0.24 });
+  }
+
   if (spec.id === 'titan') {
     P(boxG(2.30, 0.70, 8.20, trim, [0, 0.02, 0], null, S));           // ladder frame
     P(boxG(2.44, 1.55, 2.30, paint, [0, 1.30, 2.50], null, S));       // forward cab
@@ -2706,15 +3267,41 @@ function buildTruckVisual(spec) {
   const headMat = new THREE.MeshBasicMaterial({ color: 0xfff4d0 });
   const tailMat = new THREE.MeshBasicMaterial({ color: 0x8a2b3d });
   const heads = new THREE.Group(), tails = new THREE.Group();
+  const ls = (spec.rig && spec.rig.lightScale) || 1;
   for (const sx of [-1, 1]) {
-    const m = new THREE.Mesh(new THREE.BoxGeometry(0.30, 0.18, 0.10), headMat);
+    const m = new THREE.Mesh(new THREE.BoxGeometry(0.30 * ls, 0.18 * ls, 0.10), headMat);
     m.position.set(sx * lightX, lightY, lightZ); heads.add(m);
-    const t = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.16, 0.08), tailMat);
-    t.position.set(sx * lightX, lightY + 0.15, -lightZ * 0.98); tails.add(t);
+    const t = new THREE.Mesh(new THREE.BoxGeometry(0.24 * ls, 0.16 * ls, 0.08), tailMat);
+    t.position.set(sx * lightX, lightY + 0.15 * ls, -lightZ * 0.98); tails.add(t);
+  }
+  // the hypercar gets signature lighting: L-shaped daytime runners and a
+  // full-width tail bar, both driven by the same materials as everything else
+  if (spec.id === 'hyper') {
+    for (const sx of [-1, 1]) {
+      const drl = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.17, 0.05), headMat);
+      drl.position.set(sx * 0.64, 0.00, 2.02); heads.add(drl);
+      const drl2 = new THREE.Mesh(new THREE.BoxGeometry(0.26, 0.045, 0.05), headMat);
+      drl2.position.set(sx * 0.53, -0.08, 2.06); heads.add(drl2);
+    }
+    const bar = new THREE.Mesh(new THREE.BoxGeometry(1.06, 0.06, 0.05), tailMat);
+    bar.position.set(0, 0.16, -2.30); tails.add(bar);
+    const bar2 = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.10, 0.05), tailMat);
+    bar2.position.set(0, 0.03, -2.32); tails.add(bar2);
   }
 
   const geo = mergeGeoms(body.concat(panels.map(p => p.g)));
-  const material = vcMat({ roughness: 0.62, metalness: 0.22 });
+  // A lofted shell needs smooth shading and a clearcoat to read as car paint;
+  // every other rig keeps the flat-shaded low-poly look on purpose.
+  // Metalness has to stay low: a metallic surface has no diffuse term, and with
+  // no environment map to reflect there is nothing to replace it with, so a
+  // half-metal car paint comes out grey and washed out whatever colour you
+  // give it. Colour from the diffuse, shine from the clearcoat.
+  const smooth = !!(spec.rig && spec.rig.smooth);
+  const material = smooth
+    ? new THREE.MeshPhysicalMaterial({
+        vertexColors: true, flatShading: false, roughness: 0.38, metalness: 0.10,
+        clearcoat: 1.0, clearcoatRoughness: 0.06 })
+    : vcMat({ roughness: 0.62, metalness: 0.22 });
   const chassis = new THREE.Mesh(geo, material);
   chassis.castShadow = true; chassis.receiveShadow = true;
   group.add(chassis, heads, tails);
@@ -2726,7 +3313,271 @@ function buildTruckVisual(spec) {
     p.g = null;   // geometry already merged; a fresh box is made on detach
   }
 
-  return { group, chassis, panels, heads, tails, material, headMat, tailMat };
+  // the active rear wing rides on its own mesh so it can rise and tilt
+  let wing = null;
+  if (spec.rig && spec.rig.wing) {
+    wing = buildHyperWing(paint, trim);
+    wing.position.set(0, 0.38, -1.94);
+    group.add(wing);
+  }
+
+  return { group, chassis, panels, heads, tails, material, headMat, tailMat, wing, smoothVerts };
+}
+
+/* ===========================================================================
+ * 6b. FLIGHT MODE — the truck folds itself into an aeroplane
+ *
+ * Every deployable part exists from the start, parked *inside* the hull at a
+ * fraction of its size. Transforming interpolates each one from its stowed
+ * pose to its deployed pose on its own slice of the timeline, so panels appear
+ * to slide and swing out of the bodywork in sequence rather than blinking into
+ * existence. Nothing is created or destroyed mid-transform, which is what
+ * keeps it from looking glitchy.
+ * ========================================================================= */
+
+/** Tapered, swept wing solid — 8 corners, 12 triangles, flat shaded. */
+function wingGeo(span, rootChord, tipChord, thick, sweep, hex) {
+  const rh = rootChord / 2, th2 = tipChord / 2, ty = thick / 2;
+  // root at x=0, tip at x=span, chord runs along z, sweep pulls the tip back
+  const R = [[0, -ty, -rh], [0, -ty, rh], [0, ty, rh], [0, ty, -rh]];
+  const T = [[span, -ty * 0.5, -sweep - th2], [span, -ty * 0.5, -sweep + th2],
+             [span, ty * 0.5, -sweep + th2], [span, ty * 0.5, -sweep - th2]];
+  const v = [];
+  const quad = (a, b, c, d) => { v.push(...a, ...b, ...c, ...a, ...c, ...d); };
+  quad(R[0], R[1], R[2], R[3]);            // root rib
+  quad(T[3], T[2], T[1], T[0]);            // tip rib
+  quad(R[1], T[1], T[2], R[2]);            // trailing edge
+  quad(R[3], T[3], T[0], R[0]);            // leading edge
+  quad(R[2], T[2], T[3], R[3]);            // upper surface
+  quad(R[0], T[0], T[1], R[1]);            // lower surface
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(v), 3));
+  g.computeVertexNormals();
+  g.setAttribute('uv', new THREE.BufferAttribute(new Float32Array((v.length / 3) * 2), 2));
+  paint(g, hex);
+  return g;
+}
+
+let _planeMat = null, _glowMat = null;
+function planeMaterial() {
+  if (!_planeMat) { _planeMat = vcMat({ roughness: 0.55, metalness: 0.35 }); _planeMat.__keep = true; }
+  return _planeMat;
+}
+function glowMaterial() {
+  if (!_glowMat) {
+    _glowMat = new THREE.MeshBasicMaterial({ color: 0x89dceb, transparent: true, opacity: 0.9 });
+    _glowMat.__keep = true;
+  }
+  return _glowMat;
+}
+
+/**
+ * Build every deployable part for one truck.
+ * Each entry carries a stowed pose, a deployed pose, and the slice of the
+ * 0..1 transform timeline over which it travels.
+ */
+function buildPlaneKit(spec) {
+  const group = new THREE.Group();
+  // Size off the FULL hull, not just the first collider — since the trucks got
+  // split into a low middle box plus raised nose/tail blocks, collider[0] is
+  // only the middle section, and everything ended up scaled to a stub of the
+  // real body and buried inside the panels.
+  let hw = 0.6, hy = 0.6, frontZ = 1, backZ = -1;
+  for (const c of spec.colliders) {
+    hw = Math.max(hw, Math.abs(c.p[0]) + c.s[0] / 2);
+    hy = Math.max(hy, c.p[1] + c.s[1] / 2);
+    frontZ = Math.max(frontZ, c.p[2] + c.s[2] / 2);
+    backZ = Math.min(backZ, c.p[2] - c.s[2] / 2);
+  }
+  const hl = Math.max(frontZ, -backZ);
+  const paintC = spec.paint, trimC = spec.trim;
+  const parts = [];
+  const mat = planeMaterial();
+
+  /** pose helper */
+  const P = (p, r, s) => ({ p: p || [0, 0, 0], r: r || [0, 0, 0], s: s || [1, 1, 1] });
+  const add = (geo, from, to, t0, t1, material) => {
+    const m = new THREE.Mesh(geo, material || mat);
+    m.castShadow = true;
+    m.position.set(from.p[0], from.p[1], from.p[2]);
+    m.rotation.set(from.r[0], from.r[1], from.r[2]);
+    m.scale.set(from.s[0], from.s[1], from.s[2]);
+    group.add(m);
+    parts.push({ mesh: m, from, to, t0, t1 });
+    return m;
+  };
+
+  const span = hw * 3.1, chord = hl * 0.62;
+  const wingY = hy * 0.34, wingZ = -hl * 0.10;
+  const jetX = hw + hw * 0.42;
+
+  /**
+   * Mirrored wing. Rotating 180 degrees about Y flips the sweep as well as the
+   * side, which left one wing swept back and the other swept forward — so the
+   * sweep is negated first and the rotation puts it right. Mirroring by scaling
+   * -1 would be simpler but inverts the winding and the face vanishes.
+   */
+  const wingFor = (sx, sp, root, tip, thick, sweep, hex) => {
+    const g = wingGeo(sp, root, tip, thick, sx < 0 ? -sweep : sweep, hex);
+    if (sx < 0) xform(g, null, [0, PI, 0]);
+    return g;
+  };
+
+  // ---- main wings: folded flat inside the flanks, swing down and out -------
+  for (const sx of [-1, 1]) {
+    add(wingFor(sx, span, chord, chord * 0.45, 0.20, chord * 0.42, paintC),
+      P([sx * hw * 0.3, wingY - 0.15, wingZ], [0, 0, sx * -1.35], [0.10, 1, 0.7]),
+      P([sx * hw * 1.02, wingY, wingZ], [0, 0, sx * -0.06], [1, 1, 1]),
+      0.14, 0.62);
+    // wingtip winglet, unfolds a beat later
+    add(boxG(0.14, 0.9, chord * 0.42, trimC, [0, 0.45, 0]),
+      P([sx * hw * 0.4, wingY, wingZ], [0, 0, 0], [1, 0.05, 1]),
+      P([sx * (hw * 1.02 + span * 0.97), wingY + 0.06, wingZ - chord * 0.40], [0, 0, sx * -0.18], [1, 1, 1]),
+      0.45, 0.80);
+  }
+
+  // ---- tail boom telescopes out of the back ----
+  const boomLen = hl * 0.95;
+  add(boxG(hw * 0.7, hw * 0.55, boomLen, trimC, [0, 0, -boomLen / 2]),
+    P([0, hy * 0.25, backZ + hl * 0.35], [0, 0, 0], [1, 1, 0.08]),
+    P([0, hy * 0.25, backZ + hl * 0.02], [0, 0, 0], [1, 1, 1]),
+    0.05, 0.50);
+
+  // ---- vertical fin rises out of the boom ----
+  // +PI/2 about Z, so the span runs UP; -PI/2 hung it under the aircraft
+  add(wingGeo(hl * 0.62, chord * 0.70, chord * 0.34, 0.16, chord * 0.38, paintC),
+    P([0, hy * 0.2, backZ - hl * 0.10], [0, 0, PI / 2], [0.06, 1, 1]),
+    P([0, hy * 0.38, backZ - hl * 0.52], [0, 0, PI / 2], [1, 1, 1]),
+    0.52, 0.86);
+
+  // ---- tailplanes slide out sideways ----
+  for (const sx of [-1, 1]) {
+    add(wingFor(sx, hw * 1.25, chord * 0.55, chord * 0.30, 0.14, chord * 0.28, paintC),
+      P([0, hy * 0.26, backZ - hl * 0.05], [0, 0, 0], [0.05, 1, 1]),
+      P([sx * hw * 0.28, hy * 0.28, backZ - hl * 0.42], [0, 0, sx * -0.10], [1, 1, 1]),
+      0.58, 0.90);
+  }
+
+  // ---- nose cone extends forward, clear of the bumper ----
+  add(mergeGeoms([
+      cylG(0.06, hw * 0.62, hl * 0.55, 7, paintC, [0, 0, 0], [PI / 2, 0, 0]),
+      boxG(hw * 0.5, 0.16, hl * 0.2, trimC, [0, -hw * 0.22, hl * 0.10]),
+    ]),
+    P([0, hy * 0.15, frontZ - hl * 0.30], [0, 0, 0], [0.7, 0.7, 0.05]),
+    P([0, hy * 0.15, frontZ + hl * 0.28], [0, 0, 0], [1, 1, 1]),
+    0.40, 0.78);
+
+  // ---- two thrusters swing out clear of the flanks ----
+  const jets = [];
+  for (const sx of [-1, 1]) {
+    add(mergeGeoms([
+        cylG(hw * 0.34, hw * 0.30, hl * 0.55, 8, trimC, [0, 0, 0], [PI / 2, 0, 0]),
+        cylG(hw * 0.36, hw * 0.36, 0.14, 8, 0x9399b2, [0, 0, -hl * 0.275], [PI / 2, 0, 0]),
+      ]),
+      P([sx * hw * 0.3, hy * 0.15, -hl * 0.2], [0, 0, 0], [0.15, 0.15, 0.4]),
+      P([sx * jetX, hy * 0.10, backZ + hl * 0.42], [0, 0, 0], [1, 1, 1]),
+      0.28, 0.70);
+    const flame = new THREE.Mesh(
+      paint(toNonIndexed(new THREE.ConeGeometry(hw * 0.26, hl * 0.8, 8)), 0x89dceb),
+      glowMaterial());
+    flame.rotation.x = PI / 2;
+    flame.position.set(sx * jetX, hy * 0.10, backZ + hl * 0.42 - hl * 0.68);
+    flame.visible = false;
+    group.add(flame);
+    jets.push(flame);
+  }
+
+  // ---- canard fins pop out of the nose ----
+  for (const sx of [-1, 1]) {
+    add(wingFor(sx, hw * 0.72, chord * 0.36, chord * 0.2, 0.12, chord * 0.20, trimC),
+      P([0, hy * 0.35, frontZ - hl * 0.3], [0, 0, 0], [0.05, 1, 1]),
+      P([sx * hw * 0.55, hy * 0.40, frontZ - hl * 0.02], [0, 0, sx * 0.22], [1, 1, 1]),
+      0.66, 0.94);
+  }
+
+  group.visible = false;
+  return { group, parts, jets };
+}
+
+/** Hull extents shared by both conversion kits. */
+function hullExtents(spec) {
+  let hw = 0.6, hy = 0.6, frontZ = 1, backZ = -1;
+  for (const c of spec.colliders) {
+    hw = Math.max(hw, Math.abs(c.p[0]) + c.s[0] / 2);
+    hy = Math.max(hy, c.p[1] + c.s[1] / 2);
+    frontZ = Math.max(frontZ, c.p[2] + c.s[2] / 2);
+    backZ = Math.min(backZ, c.p[2] - c.s[2] / 2);
+  }
+  return { hw, hy, frontZ, backZ, hl: Math.max(frontZ, -backZ) };
+}
+
+/**
+ * Boat kit: outrigger floats swing down out of the flanks, a bow wedge slides
+ * forward to throw spray, and a jet nozzle plus rudder drop out of the tail.
+ * Same staged-timeline trick as the aeroplane, so it folds rather than pops.
+ */
+function buildBoatKit(spec) {
+  const group = new THREE.Group();
+  const { hw, hy, frontZ, backZ, hl } = hullExtents(spec);
+  const parts = [];
+  const mat = planeMaterial();
+  const P = (p, r, s) => ({ p: p || [0, 0, 0], r: r || [0, 0, 0], s: s || [1, 1, 1] });
+  const add = (geo, from, to, t0, t1, material) => {
+    const m = new THREE.Mesh(geo, material || mat);
+    m.castShadow = true;
+    m.position.set(from.p[0], from.p[1], from.p[2]);
+    m.rotation.set(from.r[0], from.r[1], from.r[2]);
+    m.scale.set(from.s[0], from.s[1], from.s[2]);
+    group.add(m);
+    parts.push({ mesh: m, from, to, t0, t1 });
+    return m;
+  };
+
+  const floatLen = (frontZ - backZ) * 0.92, floatW = hw * 0.62;
+  // ---- outrigger floats -------------------------------------------------
+  for (const sx of [-1, 1]) {
+    const g = mergeGeoms([
+      boxG(floatW, hw * 0.62, floatLen * 0.74, spec.paint, [0, 0, -floatLen * 0.1]),
+      xform(wedgeG(floatW, floatLen * 0.32, hw * 0.58, spec.paint),
+            [0, -hw * 0.31, floatLen * 0.27], [0, PI, 0]),
+      boxG(floatW * 1.06, 0.10, floatLen * 0.74, 0x89dceb, [0, hw * 0.31, -floatLen * 0.1]),
+    ]);
+    add(g,
+      P([sx * hw * 0.25, hy * 0.1, 0], [0, 0, sx * 1.1], [0.12, 1, 0.6]),
+      P([sx * (hw + floatW * 0.55), -hy * 0.30, 0], [0, 0, 0], [1, 1, 1]),
+      0.06, 0.60);
+    // strut linking the float to the body
+    add(boxG(0.16, 0.16, hw * 1.5, 0x585b70, [0, 0, 0], [0, 0, PI / 2]),
+      P([sx * hw * 0.3, hy * 0.05, -hl * 0.1], [0, 0, PI / 2], [1, 1, 0.05]),
+      P([sx * hw * 0.62, -hy * 0.12, -hl * 0.1], [0, 0, PI / 2], [1, 1, 1]),
+      0.20, 0.62);
+  }
+
+  // ---- bow spray deflector ----------------------------------------------
+  add(xform(wedgeG(hw * 1.7, hl * 0.55, hy * 0.5, spec.trim), [0, 0, 0], [0, PI, 0]),
+    P([0, -hy * 0.05, frontZ - hl * 0.35], [0, 0, 0], [0.6, 0.3, 0.05]),
+    P([0, -hy * 0.18, frontZ + hl * 0.12], [0, 0, 0], [1, 1, 1]),
+    0.34, 0.76);
+
+  // ---- water-jet nozzle + rudder ----------------------------------------
+  add(mergeGeoms([
+      cylG(hw * 0.30, hw * 0.24, hl * 0.34, 8, 0x585b70, [0, 0, 0], [PI / 2, 0, 0]),
+      boxG(0.14, hy * 0.62, hl * 0.30, 0x9399b2, [0, -hy * 0.28, -hl * 0.06]),
+    ]),
+    P([0, -hy * 0.05, backZ + hl * 0.25], [0, 0, 0], [0.2, 0.2, 0.2]),
+    P([0, -hy * 0.20, backZ - hl * 0.10], [0, 0, 0], [1, 1, 1]),
+    0.42, 0.85);
+
+  const wake = new THREE.Mesh(
+    paint(toNonIndexed(new THREE.ConeGeometry(hw * 0.34, hl * 0.7, 8)), 0xbfe6f5),
+    glowMaterial().clone());   // its own material: opacity is animated separately
+  wake.rotation.x = -PI / 2;
+  wake.position.set(0, -hy * 0.20, backZ - hl * 0.5);
+  wake.visible = false;
+  group.add(wake);
+
+  group.visible = false;
+  return { group, parts, jets: [wake] };
 }
 
 /* ------------------------------------------------------------- truck rig */
@@ -2745,6 +3596,9 @@ class TruckRig {
     this.panels = vis.panels;
     this.heads = vis.heads; this.tails = vis.tails;
     this.headMat = vis.headMat; this.tailMat = vis.tailMat;
+    this.wing = vis.wing || null;         // active aero, hypercar only
+    this.wingT = 0;
+    this.smoothVerts = vis.smoothVerts || 0;
     scene.add(this.group);
 
     // deformation buffers
@@ -2755,8 +3609,11 @@ class TruckRig {
 
     // wheels
     const wd = this.spec.wheelDef;
-    const wgeo = wheelGeometry(wd.radius, wd.width, this.spec.trim, 0x252534);
-    this.wheelMat = vcMat({ roughness: 0.94, metalness: 0.02 });
+    const alloy = this.spec.rig && this.spec.rig.wheel === 'alloy';
+    const wgeo = alloy ? alloyWheel(wd.radius, wd.width, 0x9aa0b4, 0x22222c)
+                       : wheelGeometry(wd.radius, wd.width, this.spec.trim, 0x252534);
+    this.wheelMat = alloy ? vcMat({ roughness: 0.52, metalness: 0.60, flatShading: false })
+                          : vcMat({ roughness: 0.94, metalness: 0.02 });
     this.wheelMeshes = this.vehicle.wheels.map(w => {
       const m = new THREE.Mesh(wgeo, this.wheelMat);
       m.castShadow = true;
@@ -2785,6 +3642,24 @@ class TruckRig {
     this.cargo = [];
     this.hitchConstraint = null;
     this.trailer = null;
+
+    // ---- conversion kits ----
+    const kit = buildPlaneKit(this.spec);
+    this.planeGroup = kit.group; this.planeParts = kit.parts; this.jets = kit.jets;
+    this.group.add(this.planeGroup);
+    const bkit = buildBoatKit(this.spec);
+    this.boatGroup = bkit.group; this.boatParts = bkit.parts; this.wake = bkit.jets[0];
+    this.group.add(this.boatGroup);
+    // ---- missile pods (hidden until the launchers are unlocked and armed) ----
+    const pods = buildLauncherPods(this.spec);
+    this.podGroup = pods.group;
+    this.muzzles = pods.muzzles;
+    this.group.add(this.podGroup);
+
+    this.form = 'car';        // what we are becoming: car | plane | boat
+    this.morph = 0;           // aeroplane deployment, 0..1
+    this.boatMorph = 0;       // boat deployment, 0..1
+    this.landTimer = 0;
 
     this.vehicle.body.addEventListener('collide', (e) => this.onCollide(e));
   }
@@ -2979,6 +3854,128 @@ class TruckRig {
     Game.toast('WHEEL OFF', 'bad');
   }
 
+  /* ---------------------------------------------------------- transform */
+  get busy() {
+    return (this.morph > 0 && this.morph < 1) || (this.boatMorph > 0 && this.boatMorph < 1);
+  }
+
+  /**
+   * Become `want` ('car' | 'plane' | 'boat'). Works mid-air, on purpose.
+   * Returns false if a fold is already in progress.
+   */
+  setForm(want, quiet) {
+    if (this.busy || want === this.form) return false;
+    this.form = want;
+    if (want === 'plane') {
+      this.planeGroup.visible = true;
+      // Match the jet throttle to how fast you were already going, so folding
+      // at speed carries that speed into the air instead of bogging down while
+      // the engines spool from a fixed setting.
+      this.vehicle.throttleLevel = clamp(this.vehicle.speedAbs / 46, 0.55, 1.15);
+    }
+    if (want === 'boat') this.boatGroup.visible = true;
+    // neither a plane nor a boat can drag a trailer around
+    if (want !== 'car' && Game.trailer && Game.trailer.hitched) Game.trailer.unhitch();
+    if (!quiet) { Audio_.transform(want !== 'car'); Cam.addShake(0.25); }
+    return true;
+  }
+  /** C toggles the aeroplane, N toggles the boat. */
+  toggleForm() { return this.setForm(this.form === 'plane' ? 'car' : 'plane'); }
+  toggleBoat() { return this.setForm(this.form === 'boat' ? 'car' : 'boat'); }
+
+  /** Ease one kit's deployment toward its target and pose every part. */
+  _poseKit(parts, value) {
+    for (const p of parts) {
+      const t = smoothstep(clamp01((value - p.t0) / (p.t1 - p.t0)));
+      const f = p.from, o = p.to, m = p.mesh;
+      m.position.set(lerp(f.p[0], o.p[0], t), lerp(f.p[1], o.p[1], t), lerp(f.p[2], o.p[2], t));
+      m.rotation.set(lerp(f.r[0], o.r[0], t), lerp(f.r[1], o.r[1], t), lerp(f.r[2], o.r[2], t));
+      m.scale.set(lerp(f.s[0], o.s[0], t), lerp(f.s[1], o.s[1], t), lerp(f.s[2], o.s[2], t));
+    }
+  }
+
+  /** Drive both morph timelines and pose everything. */
+  updateForm(dt) {
+    const rate = 1 / 1.25;                       // 1.25 s door to door
+    const wantPlane = this.form === 'plane' ? 1 : 0;
+    const wantBoat = this.form === 'boat' ? 1 : 0;
+    this.morph = moveTowards(this.morph, wantPlane, rate * dt);
+    this.boatMorph = moveTowards(this.boatMorph, wantBoat, rate * dt);
+    if (this.morph <= 0) this.planeGroup.visible = false;
+    if (this.boatMorph <= 0) this.boatGroup.visible = false;
+    this.vehicle.morph = this.morph;
+    this.vehicle.boat = this.boatMorph;
+
+    if (this.morph > 0) {
+      this._poseKit(this.planeParts, this.morph);
+      const thr = this.vehicle.throttleLevel * clamp01((this.morph - 0.55) / 0.3);
+      for (const j of this.jets) {
+        j.visible = thr > 0.02;
+        const s = 0.35 + thr * 1.5 + Math.random() * 0.12;
+        j.scale.set(0.8 + thr * 0.3, s, 0.8 + thr * 0.3);
+        j.material.opacity = 0.35 + thr * 0.5;
+      }
+    } else for (const j of this.jets) j.visible = false;
+
+    if (this.boatMorph > 0) {
+      this._poseKit(this.boatParts, this.boatMorph);
+      const w = clamp01((this.boatMorph - 0.6) / 0.3) * clamp01(this.vehicle.speedAbs / 9) *
+                (this.vehicle.inWater ? 1 : 0);
+      this.wake.visible = w > 0.03;
+      this.wake.scale.set(0.7 + w * 0.8, 0.5 + w * 1.9 + Math.random() * 0.15, 0.7 + w * 0.8);
+      this.wake.material.opacity = 0.25 + w * 0.45;
+    } else this.wake.visible = false;
+  }
+
+  /**
+   * Active rear wing. It creeps up with speed, snaps to full air-brake angle
+   * the moment you stand on the pedal, and lies flat again in flight mode so
+   * it isn't fighting the aeroplane's own tail. Purely cosmetic apart from the
+   * small drag penalty the air-brake position adds.
+   */
+  /** Rip the wing off and let it tumble away. Purely a set piece. */
+  shedWing() {
+    const w = this.wing;
+    this.wing = null;
+    this.vehicle.aeroBrake = 0;
+    tmpV.copy(w.position); this.group.localToWorld(tmpV);
+    this.group.remove(w);
+    w.position.copy(tmpV);
+    w.quaternion.copy(this.group.quaternion);
+    scene.add(w);
+    const body = makeBody({
+      mass: 14, pos: [tmpV.x, tmpV.y, tmpV.z], material: PMAT.metal, surface: 'metal',
+      group: GROUP.DEBRIS, mask: GROUP.WORLD | GROUP.TERRAIN | GROUP.DEBRIS,
+      linearDamping: 0.06, angularDamping: 0.05,
+    });
+    addBox(body, 1.6, 0.3, 0.5);
+    body.updateMassProperties();
+    body.quaternion.copy(this.vehicle.body.quaternion);
+    const bv = this.vehicle.body.velocity;
+    body.velocity.set(bv.x * 0.9, bv.y * 0.5 + 3.4, bv.z * 0.9);
+    body.angularVelocity.set((Math.random() - 0.5) * 11, (Math.random() - 0.5) * 8,
+                             (Math.random() - 0.5) * 11);
+    FX.addDebris(body, w, 25);
+    Audio_.impact(0.4, true);
+    UI.toast('REAR WING GONE', 'bad');
+  }
+
+  updateActiveAero(dt) {
+    if (this.wing && this.damage > 0.62) { this.shedWing(); return; }
+    if (!this.wing) return;
+    const v = this.vehicle;
+    const braking = Game.ctrl.brake > 0.3 || Game.ctrl.handbrake > 0.3;
+    const fast = clamp01((v.speedAbs - 16) / 34);
+    let want = fast * 0.45;
+    if (braking && v.speedAbs > 12) want = 1;
+    if (this.morph > 0.2 || this.boatMorph > 0.2) want = 0;
+    this.wingT = damp(this.wingT, want, braking ? 12 : 4, dt);
+    const t = this.wingT;
+    this.wing.position.set(0, 0.38 + t * 0.26, -1.94 - t * 0.08);
+    this.wing.rotation.x = -t * 0.62;          // nose-up = more drag, more grip
+    v.aeroBrake = t;
+  }
+
   /* ------------------------------------------------------------- update */
   setLights(on) {
     this.lightsOn = on;
@@ -2988,14 +3985,40 @@ class TruckRig {
 
   update(dt) {
     const v = this.vehicle;
+    this.updateForm(dt);
     v.syncWheelVisuals();
     this.group.position.copy(v.pos);
     this.group.quaternion.copy(v.quat);
+    // stow the wheels: airborne as a plane, or afloat as a boat
+    const conv = Math.max(this.morph, this.boatMorph);
+    if (conv > 0.001) {
+      const gearDown = this.boatMorph > 0.5 ? !v.inWater : (v.grounded > 0 || v.airTime < 0.9);
+      const want = gearDown ? 0 : 1;
+      this.gear = damp(this.gear == null ? 0 : this.gear, want, 4, dt) * smoothstep(conv);
+      if (this.gear > 0.002) {
+        for (const w of v.wheels) {
+          if (!w.mesh) continue;
+          tmpV.set(w.local.x * 0.30, w.local.y + 0.42, w.local.z * 0.82);
+          this.group.localToWorld(tmpV);
+          w.mesh.position.lerp(tmpV, this.gear);
+          w.mesh.scale.setScalar(1 - this.gear * 0.72);
+        }
+      } else {
+        for (const w of v.wheels) if (w.mesh) w.mesh.scale.setScalar(1);
+      }
+    }
     if (this.needNormals) {
-      this.chassisMesh.geometry.computeVertexNormals();
-      this.chassisMesh.geometry.computeBoundingSphere();
+      const g = this.chassisMesh.geometry;
+      g.computeVertexNormals();
+      // Per-face normals would turn the lofted shell faceted the moment it took
+      // its first scrape, so re-average just that leading run of vertices. The
+      // boxes behind it want their hard edges and are left alone.
+      if (this.smoothVerts) smoothNormals(g, 1e4, 0, this.smoothVerts);
+      g.computeBoundingSphere();
       this.needNormals = false;
     }
+    this.updateActiveAero(dt);
+    if (this.podGroup) this.podGroup.visible = Weapons.armed;
     // brake lights
     const braking = Game.ctrl.brake > 0.15 || Game.ctrl.handbrake > 0.15;
     this.tailMat.color.setHex(braking ? 0xf38ba8 : (this.lightsOn ? 0x9a3346 : 0x5a2030));
@@ -3057,6 +4080,16 @@ const TRAILERS = {
     cargoZone: { p: [0, 1.4, -0.3], s: [2.1, 2.2, 8.4] },
   },
 };
+
+/**
+ * The box trailer is a 3.4 t semi-trailer: its axles sit right at the back, so
+ * it drops about 14 kN of tongue weight on the hitch. A 2 t pickup weighs less
+ * than that in total and simply gets levered onto its roof. Heavy tractors only.
+ */
+function trailerAllowed(truckId, trailerId) {
+  if (trailerId !== 'box') return true;
+  return (TRUCKS[truckId] ? TRUCKS[truckId].mass : 0) >= 4000;
+}
 
 function makeTrailerSpec(id) {
   const p = TRAILERS[id];
@@ -3517,6 +4550,85 @@ const FX = {
     }
   },
 
+  /* ------------------------------------------------------------ ordnance */
+  /** Expanding shockwave rings, recycled from a small pool. */
+  initBlastRings() {
+    this.rings = [];
+    const geo = new THREE.RingGeometry(0.7, 1.0, 28);
+    geo.rotateX(-PI / 2);
+    for (let i = 0; i < 6; i++) {
+      const m = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({
+        color: 0xfab387, transparent: true, opacity: 0, side: THREE.DoubleSide, depthWrite: false,
+      }));
+      m.visible = false; m.renderOrder = 3;
+      scene.add(m);
+      this.rings.push({ mesh: m, t: 0, life: 0, max: 1 });
+    }
+    this._ringI = 0;
+  },
+  blastRing(p, radius, life) {
+    if (!this.rings) this.initBlastRings();
+    const r = this.rings[this._ringI]; this._ringI = (this._ringI + 1) % this.rings.length;
+    r.mesh.position.set(p.x, p.y + 0.4, p.z);
+    r.mesh.visible = true;
+    r.t = 0; r.life = life; r.max = radius;
+  },
+  updateRings(dt) {
+    if (!this.rings) return;
+    for (const r of this.rings) {
+      if (!r.mesh.visible) continue;
+      r.t += dt / r.life;
+      if (r.t >= 1) { r.mesh.visible = false; continue; }
+      const s = r.max * (1 - Math.pow(1 - r.t, 2.4));
+      r.mesh.scale.set(s, 1, s);
+      r.mesh.material.opacity = (1 - r.t) * 0.55;
+    }
+  },
+
+  /**
+   * A warhead going off: white-hot core, a fireball that climbs and cools into
+   * smoke, a ring of dirt thrown out along the ground, and a shockwave.
+   * `power` is 0..1 and scales everything including the shake.
+   */
+  explosion(p, power) {
+    const k = clamp01(power);
+    const n = Math.round((IS_MOBILE ? 14 : 26) * (0.5 + k));
+    // core flash
+    for (let i = 0; i < n; i++) {
+      const a = Math.random() * TAU, e = Math.random() * PI - PI / 2;
+      const sp = (3 + Math.random() * 13) * (0.6 + k);
+      this.sparkPool.spawn(p.x, p.y, p.z,
+        Math.cos(a) * Math.cos(e) * sp, Math.sin(e) * sp + 3, Math.sin(a) * Math.cos(e) * sp,
+        0.5 + Math.random() * 0.9 * (1 + k), 1.0, 0.82, 0.42,
+        0.18 + Math.random() * 0.35, -6, 1.6, 2.2);
+    }
+    // rolling fireball, cooling to soot as it rises
+    for (let i = 0; i < n; i++) {
+      const a = Math.random() * TAU;
+      const sp = (1.5 + Math.random() * 7) * (0.6 + k);
+      const warm = Math.random();
+      this.dustPool.spawn(p.x, p.y + 0.3, p.z,
+        Math.cos(a) * sp, 1.5 + Math.random() * 8 * k, Math.sin(a) * sp,
+        (1.4 + Math.random() * 2.4) * (0.6 + k),
+        0.55 + warm * 0.45, 0.30 + warm * 0.22, 0.18,
+        0.7 + Math.random() * 1.1, 1.6, 0.85, 3.4);
+    }
+    // dirt and grit thrown along the ground
+    for (let i = 0; i < n; i++) {
+      const a = Math.random() * TAU;
+      const sp = (7 + Math.random() * 18) * (0.6 + k);
+      this.dustPool.spawn(p.x, p.y, p.z,
+        Math.cos(a) * sp, 1 + Math.random() * 5, Math.sin(a) * sp,
+        0.5 + Math.random() * 1.1, 0.34, 0.30, 0.27,
+        0.9 + Math.random() * 1.2, -6, 1.0, 2.6);
+    }
+    this.blastRing(p, 6 + k * 22, 0.55 + k * 0.25);
+    Audio_.explode(k);
+    // shake falls off with distance so a hit across the valley is only a rumble
+    const d = camera.position.distanceTo(p);
+    Cam.addShake(clamp01((0.5 + k) * 60 / (d * d + 40)) * 1.6);
+  },
+
   /* ----------------------------------------------- per-wheel ground effects */
   wheelFX(vehicle, dt) {
     for (const w of vehicle.wheels) {
@@ -3626,12 +4738,329 @@ const FX = {
     this.dustPool.update(dt);
     this.sparkPool.update(dt);
     this.updateDebris(dt);
+    this.updateRings(dt);
   },
   reset() {
     this.skids.clear();
     this.clearDebris();
     for (let i = 0; i < this.dustPool.max; i++) this.dustPool.life[i] = 0;
     for (let i = 0; i < this.sparkPool.max; i++) this.sparkPool.life[i] = 0;
+  },
+};
+
+/* ===========================================================================
+ * 8b. ORDNANCE — missile launchers
+ *
+ * Hidden until you find them: tap I three times inside two seconds. After
+ * that they live in Settings like anything else, and a fourth triple-tap
+ * arms/stows them without going through the menu.
+ *
+ * The rockets fly on a scripted trajectory (constant thrust along their own
+ * nose, with a little droop) rather than being thrown at the solver — that
+ * keeps them predictable to aim while still being real bodies that collide.
+ * ========================================================================= */
+
+const UNIT_Z = new THREE.Vector3(0, 0, 1);
+
+const MISSILE = {
+  speed: 82,        // m/s, on top of whatever the launch platform was doing
+  life: 7,          // seconds before it self-destructs
+  mass: 26,
+  droop: 2.6,       // m/s^2 of gravity it does NOT cancel — a gentle arc
+  radius: 22,       // blast radius in metres
+  ammo: 6,
+  reload: 1.6,      // seconds per rocket back in the rack
+  cooldown: 0.28,   // minimum spacing between launches
+};
+
+/** The rocket itself: body tube, nose cone, motor bell, four tail fins. */
+function missileGeometry() {
+  const parts = [
+    cylG(0.075, 0.075, 1.00, 8, 0xcdd6f4, [0, 0, 0], [PI / 2, 0, 0]),
+    cylG(0.006, 0.075, 0.34, 8, 0xf38ba8, [0, 0, 0.66], [PI / 2, 0, 0]),
+    cylG(0.088, 0.070, 0.12, 8, 0x585b70, [0, 0, -0.54], [PI / 2, 0, 0]),
+    boxG(0.16, 0.16, 0.10, 0xf9e2af, [0, 0, 0.22]),
+  ];
+  for (let i = 0; i < 4; i++) {
+    const a = i / 4 * TAU;
+    // rotating a fin by -a about Z puts its local +Y on the radius at angle a
+    parts.push(boxG(0.022, 0.22, 0.30, 0xf38ba8,
+      [Math.sin(a) * 0.13, Math.cos(a) * 0.13, -0.36], [0, 0, -a]));
+  }
+  return mergeGeoms(parts);
+}
+
+/** Two four-tube pods that fold out of the flanks when the launchers are armed. */
+function buildLauncherPods(spec) {
+  const { hw, hy, backZ } = hullExtents(spec);
+  const group = new THREE.Group();
+  const muzzles = [];
+  const parts = [];
+  for (const sx of [-1, 1]) {
+    const px = sx * hw * 0.88, py = hy * 0.58, pz = backZ * 0.26;
+    parts.push(boxG(0.36, 0.32, 1.10, 0x3a3f52, [px, py, pz]));
+    parts.push(boxG(0.40, 0.06, 0.30, 0x585b70, [px, py + 0.18, pz - 0.42]));
+    for (const [ox, oy] of [[-0.085, 0.075], [0.085, 0.075], [-0.085, -0.075], [0.085, -0.075]]) {
+      parts.push(cylG(0.058, 0.058, 1.16, 8, 0x11111b, [px + ox, py + oy, pz], [PI / 2, 0, 0]));
+    }
+    parts.push(boxG(0.22, 0.14, 0.34, 0x6c7086, [px - sx * 0.24, py - 0.06, pz]));  // mount arm
+    muzzles.push([px, py, pz + 0.62]);
+  }
+  const mesh = new THREE.Mesh(mergeGeoms(parts), vcMat({ roughness: 0.58, metalness: 0.42 }));
+  mesh.castShadow = true;
+  group.add(mesh);
+  group.visible = false;
+  return { group, muzzles };
+}
+
+const Weapons = {
+  live: [], ammo: MISSILE.ammo, cool: 0, reload: 0,
+  geo: null, mat: null, flameMat: null, next: 0, fireBtn: null,
+
+  get armed() { return !!(store.ordnance && store.settings.missiles); },
+
+  init() {
+    canvasEl.addEventListener('contextmenu', (e) => { e.preventDefault(); });
+    canvasEl.addEventListener('pointerdown', (e) => {
+      if (e.button !== 2) return;
+      e.preventDefault();
+      if (UI.current !== null || Game.paused) return;
+      this.fire();
+    });
+    if (IS_TOUCH) {
+      const b = document.createElement('div');
+      b.id = 'tFire';
+      b.textContent = 'FIRE';
+      b.style.cssText = 'position:absolute;right:14px;bottom:210px;width:74px;height:74px;' +
+        'border-radius:50%;display:none;align-items:center;justify-content:center;' +
+        'font:700 12px JetBrains Mono,monospace;letter-spacing:.1em;color:#11111b;' +
+        'background:rgba(243,139,168,.85);border:2px solid #f38ba8;z-index:30;touch-action:none';
+      b.addEventListener('pointerdown', (e) => { e.preventDefault(); this.fire(); });
+      document.body.appendChild(b);
+      this.fireBtn = b;
+    }
+  },
+
+  /** Unlock (or, once unlocked, arm/stow) — the triple-tap on I lands here. */
+  discover() {
+    if (!store.ordnance) {
+      store.ordnance = true;
+      store.settings.missiles = true;
+      this.ammo = MISSILE.ammo;
+      saveStore();
+      UI.center('ORDNANCE UNLOCKED', 'RIGHT CLICK to fire · toggle in Settings', 3400);
+      Audio_.chime(3);
+      if (UI.current === 'settings') UI.buildSettings();
+    } else {
+      store.settings.missiles = !store.settings.missiles;
+      saveStore();
+      UI.toast('MISSILES ' + (store.settings.missiles ? 'ARMED' : 'STOWED'),
+        store.settings.missiles ? 'ok' : null);
+      if (UI.current === 'settings') UI.buildSettings();
+    }
+  },
+
+  fire() {
+    if (!this.armed || !Game.rig || Game.paused) return;
+    if (this.cool > 0) return;
+    if (this.ammo <= 0) { Audio_.ui('bad'); UI.toast('RACK EMPTY — RELOADING', 'bad'); return; }
+    const rig = Game.rig;
+    if (!this.geo) {
+      this.geo = missileGeometry();
+      this.mat = vcMat({ roughness: 0.5, metalness: 0.4 });
+      this.mat.__keep = true;
+      this.flameMat = new THREE.MeshBasicMaterial({ color: 0xfab387, transparent: true, opacity: 0.85 });
+      this.flameMat.__keep = true;
+    }
+
+    // Aiming: heading from the camera, so mouse-look points the rockets, but
+    // elevation from the vehicle's own nose plus five degrees. Firing straight
+    // down the camera looked obvious and was useless — a chase cam sits eight
+    // degrees nose-down, which planted every shot in the dirt thirteen metres
+    // ahead, inside its own blast radius. Nose-relative elevation also means a
+    // diving aeroplane strafes the ground exactly where it is pointing.
+    camera.getWorldDirection(tmpV);
+    let hx = tmpV.x, hz = tmpV.z;
+    let hl = Math.hypot(hx, hz);
+    if (hl < 1e-4) { const f = rig.vehicle.fwdC; hx = f.x; hz = f.z; hl = Math.hypot(hx, hz) || 1; }
+    const noseY = clamp(rig.vehicle.fwdC.y, -0.985, 0.985);
+    const elev = Math.asin(noseY) + 0.09;
+    const ce = Math.cos(elev);
+    tmpV.set(hx / hl * ce, Math.sin(elev), hz / hl * ce).normalize();
+
+    // alternate pods so it looks like a real ripple
+    const muz = (rig.muzzles && rig.muzzles.length) ? rig.muzzles[this.next % rig.muzzles.length]
+                                                    : [0, 1, 1];
+    this.next++;
+    tmpV2.set(muz[0], muz[1], muz[2]);
+    rig.group.localToWorld(tmpV2);
+    // push the spawn clear of our own bodywork along the firing line
+    tmpV2.addScaledVector(tmpV, 1.6);
+
+    const body = makeBody({
+      mass: MISSILE.mass, pos: [tmpV2.x, tmpV2.y, tmpV2.z], material: PMAT.metal,
+      group: GROUP.DEBRIS,
+      // deliberately not GROUP.VEHICLE — a rocket leaving the tube must not
+      // clip the rig that fired it. The blast still reaches you.
+      mask: GROUP.WORLD | GROUP.TERRAIN | GROUP.DEBRIS | GROUP.CARGO,
+      linearDamping: 0, angularDamping: 0.9, surface: 'metal',
+    });
+    addBox(body, 0.16, 0.16, 1.30);
+    body.updateMassProperties();
+    body.allowSleep = false;
+
+    const vv = rig.vehicle.body.velocity;
+    const m = {
+      body, dir: tmpV.clone(), t: 0, dead: false,
+      speed: MISSILE.speed + Math.max(0, vv.x * tmpV.x + vv.y * tmpV.y + vv.z * tmpV.z),
+      mesh: new THREE.Mesh(this.geo, this.mat),
+    };
+    m.mesh.castShadow = true;
+    const flame = new THREE.Mesh(
+      paint(toNonIndexed(new THREE.ConeGeometry(0.11, 0.9, 7)), 0xfab387), this.flameMat);
+    flame.rotation.x = -PI / 2;
+    flame.position.z = -1.05;
+    m.mesh.add(flame);
+    m.flame = flame;
+    // anything solid ends the flight; update() picks the flag up the same frame
+    body.addEventListener('collide', () => { m.dead = true; });
+    scene.add(m.mesh);
+    world.addBody(body);
+    this.live.push(m);
+
+    this.ammo--;
+    this.cool = MISSILE.cooldown;
+    if (this.reload <= 0) this.reload = MISSILE.reload;
+    Audio_.launch();
+    Cam.addShake(0.22);
+    FX.smoke(tmpV2, 0.7, 0x9399b2);
+  },
+
+  update(dt) {
+    if (this.cool > 0) this.cool -= dt;
+    if (this.ammo < MISSILE.ammo) {
+      this.reload -= dt;
+      if (this.reload <= 0) {
+        this.ammo++;
+        this.reload = this.ammo < MISSILE.ammo ? MISSILE.reload : 0;
+      }
+    }
+    for (let i = this.live.length - 1; i >= 0; i--) {
+      const m = this.live[i];
+      m.t += dt;
+      const b = m.body;
+      // gentle droop, then re-normalise so the nose follows the flight path
+      m.dir.y -= MISSILE.droop * dt / Math.max(m.speed, 1);
+      m.dir.normalize();
+      b.velocity.set(m.dir.x * m.speed, m.dir.y * m.speed, m.dir.z * m.speed);
+      b.angularVelocity.set(0, 0, 0);
+      tmpQ.setFromUnitVectors(UNIT_Z, m.dir);
+      b.quaternion.set(tmpQ.x, tmpQ.y, tmpQ.z, tmpQ.w);
+      m.mesh.position.set(b.position.x, b.position.y, b.position.z);
+      m.mesh.quaternion.copy(tmpQ);
+      m.flame.scale.setScalar(0.75 + Math.random() * 0.5);
+      if (Math.random() < 0.8) {
+        FX.dust(m.mesh.position, (Math.random() - 0.5) * 1.4, 0.6,
+          (Math.random() - 0.5) * 1.4, 0.5, 0xb8bcc8, 0.7);
+      }
+
+      // Safety-arm delay, exactly like the real thing: for the first tenth of a
+      // second (about eight metres) nothing sets the warhead off, so leaving
+      // the tube next to your own bodywork is never fatal.
+      const armed = m.t > 0.10;
+      let hit = armed && m.dead;
+      // The heightfield only has collision within a couple of chunks, so the
+      // ground is checked analytically as well — otherwise a long shot sails
+      // straight through the hillside it was aimed at.
+      if (armed && !hit && terrainQuery && terrainQuery(b.position.x, b.position.z, groundHit)) {
+        if (b.position.y - groundHit.y < 0.7) hit = true;
+      }
+      if (armed && !hit && World.built && b.position.y < WATER_Y + 0.2) hit = true;
+      if (!hit && m.t > MISSILE.life) hit = true;
+      if (hit) {
+        this.detonate(m);
+        this.live.splice(i, 1);
+      }
+    }
+  },
+
+  detonate(m) {
+    const p = m.mesh.position.clone();
+    scene.remove(m.mesh);
+    if (m.flame) m.flame.geometry.dispose();
+    try { world.removeBody(m.body); } catch (e) {}
+    const wet = World.built && p.y < WATER_Y + 0.5;
+    if (wet) { FX.splash(p, 1.4); Audio_.splash(0.9); }
+    this.blast(p, 1);
+  },
+
+  /**
+   * Everything a warhead does to the world: shoves and spins nearby dynamic
+   * bodies, marks breakable props as smashed, scorches the ground, and hurts
+   * whoever set it off if they were standing too close.
+   */
+  blast(p, power) {
+    const R = MISSILE.radius * power;
+    FX.explosion(p, power);
+    for (const b of world.bodies) {
+      if (b.mass <= 0 || !b.position) continue;
+      const dx = b.position.x - p.x, dy = b.position.y - p.y, dz = b.position.z - p.z;
+      const d = Math.hypot(dx, dy, dz);
+      if (d > R) continue;
+      const f = 1 - d / R;
+      // velocity change rather than an impulse: cannon-es and cannon.js 0.6.2
+      // disagree about whether applyImpulse takes a world or a relative point
+      const dv = f * f * 34 * power;
+      const inv = 1 / Math.max(d, 0.6);
+      if (b.wakeUp) b.wakeUp();
+      b.velocity.x += dx * inv * dv;
+      b.velocity.y += dy * inv * dv + dv * 0.55;      // bias upwards — things fly
+      b.velocity.z += dz * inv * dv;
+      b.angularVelocity.x += (Math.random() - 0.5) * dv * 0.7;
+      b.angularVelocity.y += (Math.random() - 0.5) * dv * 0.7;
+      b.angularVelocity.z += (Math.random() - 0.5) * dv * 0.7;
+      if (b.breakable && !b.smashed) {
+        b.smashed = true;
+        FX.debrisPuff(V3(b.position.x, b.position.y, b.position.z), 0.7);
+      }
+    }
+    // scorch the ground under the blast
+    if (terrainQuery && terrainQuery(p.x, p.z, groundHit) && Math.abs(p.y - groundHit.y) < 6) {
+      const r = 2.2 + power * 2.4;
+      for (let i = 0; i < 6; i++) {
+        const a0 = i / 6 * TAU, a1 = (i + 1) / 6 * TAU;
+        const y = groundHit.y + 0.06;
+        FX.skids.quad(
+          V3(p.x, y, p.z), V3(p.x + Math.cos(a0) * r, y, p.z + Math.sin(a0) * r),
+          V3(p.x + Math.cos(a1) * r * 0.5, y, p.z + Math.sin(a1) * r * 0.5),
+          V3(p.x + Math.cos(a1) * r, y, p.z + Math.sin(a1) * r), 0.55);
+      }
+    }
+    // self-inflicted damage — there is a reason not to shoot your own bumper
+    const rig = Game.rig;
+    if (rig) {
+      const d = rig.vehicle.pos.distanceTo(p);
+      if (d < R) {
+        // only the inner two thirds actually hurts — outside that it is a shove
+        // and a shake, so a near miss is exciting rather than a write-off
+        const f = clamp01((1 - d / R) - 0.34) / 0.66;
+        rig.damage = clamp01(rig.damage + f * f * 0.22);
+        rig.totalImpact += f * 30000;
+        Cam.addShake((1 - d / R) * 1.2);
+        if (f > 0.6) Game.crashCam(f);
+      }
+    }
+  },
+
+  reset() {
+    for (const m of this.live) {
+      scene.remove(m.mesh);
+      if (m.flame) m.flame.geometry.dispose();
+      try { world.removeBody(m.body); } catch (e) {}
+    }
+    this.live.length = 0;
+    this.ammo = MISSILE.ammo;
+    this.cool = 0; this.reload = 0;
   },
 };
 
@@ -3741,6 +5170,9 @@ const Cam = {
   orbitAngle: 0,
   fov: 62,
   _tmpA: new THREE.Vector3(), _tmpB: new THREE.Vector3(), _look: new THREE.Vector3(),
+  _f: new THREE.Vector3(), _u: new THREE.Vector3(), _ru: new THREE.Vector3(),
+  _off: new THREE.Vector3(), _rt: new THREE.Vector3(),
+  camUp: new THREE.Vector3(0, 1, 0),
 
   /* ---- free look: drag with the left mouse button, let go and it stays put
      until it drifts back to centre a couple of seconds later ---- */
@@ -3844,10 +5276,48 @@ const Cam = {
     this.updateLook(dt);
     const oy = this.orbitYaw, op = this.orbitPitch;
     const freeLook = this.looking;
+    const fly = rig.morph || 0;
+    camera.up.set(0, 1, 0);         // road default; the aircraft cam overrides it
+
+    if (this.mode === 0 && fly > 0.5) {
+      // ---- aircraft chase ------------------------------------------------
+      // A heading-only chase cam works for a car and falls apart for a plane:
+      // climb, roll or invert and it sits stubbornly level and above you. This
+      // one rides the aircraft's own axes, so it stays behind the tail through
+      // pitch, roll and inverted flight.
+      const f = this._f.set(v.fwdC.x, v.fwdC.y, v.fwdC.z).normalize();
+      const bu = this._u.set(v.upC.x, v.upC.y, v.upC.z).normalize();
+      // "no-roll" up, then blended part way toward the body up so rolls read
+      // without the whole horizon spinning and making you seasick
+      const refUp = this._ru.set(0, 1, 0).addScaledVector(f, -f.y);
+      if (refUp.lengthSq() < 0.03) refUp.copy(bu); else refUp.normalize();
+      refUp.lerp(bu, 0.45).normalize();
+      this.camUp.lerp(refUp, 1 - Math.exp(-6 * dt));
+      if (this.camUp.lengthSq() < 1e-6) this.camUp.copy(bu);
+      this.camUp.normalize();
+
+      const back = (11.5 + kmh * 0.032) * sz;
+      const high = 3.4 * sz;
+      const off = this._off.copy(f).multiplyScalar(-back).addScaledVector(this.camUp, high);
+      if (oy || op) {                      // free look orbits around the aircraft
+        off.applyAxisAngle(this.camUp, oy);
+        this._rt.crossVectors(f, this.camUp).normalize();
+        off.applyAxisAngle(this._rt, -op);
+      }
+      wantPos.copy(bodyPos).add(off);
+      const gy = groundHeightAt(wantPos.x, wantPos.z);
+      if (wantPos.y < gy + 2.0) wantPos.y = gy + 2.0;
+      wantLook.copy(bodyPos).addScaledVector(f, 7 + kmh * 0.022);
+      camera.up.copy(this.camUp);
+      this.applyTo(wantPos, wantLook, dt,
+        lerp(5.5, 13, clamp01(kmh / 220)), 62 + clamp01(kmh / 280) * 20);
+      return;
+    }
 
     if (this.mode === 0) {          // ---- chase
-      const back = (7.2 + kmh * 0.026) * sz;
-      const up = (2.9 + clamp01(v.airTime * 0.8) * 2.4) * sz;
+      // give the aeroplane more room; the wingspan is wider than the truck
+      const back = (7.2 + kmh * 0.026 + fly * 6) * sz;
+      const up = (2.9 + clamp01(v.airTime * 0.8) * 2.4 + fly * 1.6) * sz;
       // free look swings the camera round the truck without moving the truck
       const ya = this.yaw + oy;
       const s = Math.sin(ya), c = Math.cos(ya);
@@ -3932,6 +5402,7 @@ const Cam = {
     this.look.copy(v.pos);
     this.shake = 0; this.crashT = 0;
     this.orbitYaw = 0; this.orbitPitch = 0; this.dragging = false;
+    this.camUp.set(0, 1, 0); camera.up.set(0, 1, 0);
     camera.position.copy(this.pos);
     camera.lookAt(this.look);
   },
@@ -4696,8 +6167,10 @@ const HOME_R = 1000;                          // radius of the hand-built region
 const WORLD_SIZE = 2000;
 const WORLD_HALF = WORLD_SIZE / 2;
 
-const SURF_ID = ['grass', 'dirt', 'road', 'sand', 'gravel', 'mud', 'water'];
-const SURF_COLOR = [0x4f7a45, 0x6b543c, 0x36364a, 0xbfa878, 0x74736f, 0x40311f, 0x2b5d78];
+const WATER_Y = 1.0;            // height of the water sheet, shared with boat mode
+const SURF_ID = ['grass', 'dirt', 'road', 'sand', 'gravel', 'mud', 'water', 'snow'];
+const SURF_COLOR = [0x4f7a45, 0x6b543c, 0x36364a, 0xbfa878, 0x74736f, 0x40311f, 0x2b5d78, 0xdde7f2];
+const SNOW_LINE = 112;          // metres; above this the ground goes white and slick
 
 /* ------------------------------------------------------------- noise ----- */
 function makeNoise2D(seed) {
@@ -4751,9 +6224,51 @@ function initWorldGen(seed) {
   const PARK = { x: 430, z: 470, r: 250 };
   const RIVER_X = (z) => -80 + Math.sin(z * 0.0032) * 190 + Math.sin(z * 0.0091 + 1.4) * 70;
   const HIGHWAY_Z = 180;
-  World.landmarks = { TOWN, QUARRY, PARK, HIGHWAY_Z, RIVER_X };
+  // Spire Peak: a proper mountain with a tarmac hill-climb spiralling up it and
+  // a flat pad on top to launch off. `pad` is the radius of that summit.
+  // `pitch` (radius lost per turn) has to comfortably exceed the road width
+  // plus its blend, or consecutive turns merge into one long off-camber slope.
+  // The road also has to be wide relative to the 8 m terrain grid and its 5-tap
+  // smooth, or the ledge gets averaged straight back into the hillside.
+  const PEAK = { x: -820, z: -780, r: 300, h: 122, pad: 34, pitch: 58, w: 13 };
+  // Panhandle Field: a 620 m runway, which is what flight mode has been missing
+  const AIRFIELD = { x: -700, z: 700, half: 310, halfW: 26, y: 0 };
+  const MARINA = { z: -100 };            // jetty + boat ramp on the river
+  const WINDFARM = { x: 640, z: -120, step: 82, n: 7 };
+  World.landmarks = { TOWN, QUARRY, PARK, HIGHWAY_Z, RIVER_X, PEAK, AIRFIELD, MARINA, WINDFARM };
+  // the runway plateau sits at whatever the natural ground there happens to be
+  AIRFIELD.y = Math.round(baseTerrain(AIRFIELD.x, AIRFIELD.z));
+  MARINA.x = RIVER_X(MARINA.z);
   World.heights.clear(); World.surfs.clear();
   buildTracks();
+}
+
+/**
+ * Where a point sits relative to the hill-climb road, or null if it is nowhere
+ * near it. The road is an Archimedean spiral: one turn loses `pitch` metres of
+ * radius, so for any bearing there is a ladder of candidate radii and the
+ * nearest one is the turn you are standing on.
+ */
+function spiralRoad(x, z) {
+  const P = World.landmarks.PEAK;
+  const dx = x - P.x, dz = z - P.z;
+  const d = Math.hypot(dx, dz);
+  const R0 = P.r * 0.90;
+  if (d > R0 || d < P.pad * 0.7) return null;
+  const th = (Math.atan2(dz, dx) + PI) / TAU;            // 0..1 round the mountain
+  const m = Math.round((R0 - d) / P.pitch - th);
+  const dc = R0 - P.pitch * (m + th);
+  if (dc < P.pad || dc > R0) return null;
+  const off = d - dc;
+  if (Math.abs(off) > P.w + 7) return null;
+  return { off, dc, d };
+}
+
+/** Height of the mountain cone alone, flat-topped at the summit pad. */
+function peakCone(r) {
+  const P = World.landmarks.PEAK;
+  const t = clamp01(1 - Math.max(r, P.pad) / P.r);
+  return P.h * t * t * (3 - 2 * t);
 }
 
 /** Dirt tracks around the home region, hashed into 32 m buckets for lookup. */
@@ -4835,16 +6350,18 @@ function baseTerrain(x, z) {
   y += n2(x * 0.0006, z * 0.0006) * 22;                 // broad undulation
   y += n2(x * 0.00013 + 40, z * 0.00013 - 21) * 70;     // continental variation
   y = y * 0.9 + 12;
-
-  // river — runs the whole length of the world
-  const dRiver = Math.abs(x - L.RIVER_X(z));
-  if (dRiver < 130) {
-    y -= smoothstep(1 - dRiver / 130) * 30;
-    if (dRiver < 34) y = Math.min(y, 1.2 - (1 - dRiver / 34) * 6);
-  }
   // highway — runs east/west for ever
   const dHw = Math.abs(z - L.HIGHWAY_Z);
   if (dHw < 70) y = lerp(y, 26, smoothstep(1 - dHw / 70) * 0.94);
+  return y;
+}
+
+/** The river, cut last so it wins over anything else that flattened the map. */
+function carveRiver(x, z, y) {
+  const d = Math.abs(x - World.landmarks.RIVER_X(z));
+  if (d >= 130) return y;
+  y -= smoothstep(1 - d / 130) * 30;
+  if (d < 34) y = Math.min(y, 1.2 - (1 - d / 34) * 6);
   return y;
 }
 
@@ -4867,6 +6384,29 @@ function worldHeight(x, z) {
     if (dP < L.PARK.r + 80) {
       y = lerp(y, 22, smoothstep(1 - clamp01((dP - L.PARK.r * 0.4) / (L.PARK.r * 0.8))) * 0.98);
     }
+    // --- Spire Peak, and the road cut into its flank ----------------------
+    const dM = Math.hypot(x - L.PEAK.x, z - L.PEAK.z);
+    if (dM < L.PEAK.r) {
+      y += peakCone(dM);
+      const sr = spiralRoad(x, z);
+      if (sr) {
+        // Take the height the road centreline has at this bearing, so the ledge
+        // is level across its width. Swapping only the cone term left the noise
+        // in, which put an 11% camber on the whole climb.
+        const k = sr.dc / sr.d;
+        const target = baseTerrain(L.PEAK.x + (x - L.PEAK.x) * k,
+                                   L.PEAK.z + (z - L.PEAK.z) * k) + peakCone(sr.dc);
+        const w = smoothstep(1 - clamp01((Math.abs(sr.off) - L.PEAK.w) / 7));
+        y = lerp(y, target, w);
+      }
+    }
+    // --- Panhandle Field: a runway needs to be genuinely flat -------------
+    const A = L.AIRFIELD;
+    const ax = Math.abs(x - A.x) - A.half, az = Math.abs(z - A.z) - A.halfW;
+    if (ax < 96 && az < 96) {
+      const out = Math.max(Math.max(ax, az), 0);
+      y = lerp(y, A.y, smoothstep(1 - clamp01(out / 96)) * 0.99);
+    }
     // flatten along the dirt tracks
     const dt = trackDist(x, z);
     if (dt < 22) {
@@ -4875,7 +6415,10 @@ function worldHeight(x, z) {
       y = lerp(y, sum / 4, smoothstep(1 - dt / 22) * 0.8);
     }
   }
-  return y;
+  // The river is cut LAST so it wins. Applied before the town plateau it got
+  // filled straight back in, leaving terrain 25 m above the water sheet while
+  // the map still claimed the surface was water.
+  return carveRiver(x, z, y);
 }
 
 /** Surface id at any point. */
@@ -4890,6 +6433,18 @@ function worldSurface(x, z) {
   if (dHw < 13) return 2;
   if (dHw < 22) return 4;
   if (Math.abs(x) < HOME_R + 260 && Math.abs(z) < HOME_R + 260) {
+    const A = L.AIRFIELD;
+    if (Math.abs(x - A.x) < A.half + 30 && Math.abs(z - A.z) < A.halfW + 34) {
+      return (Math.abs(x - A.x) < A.half && Math.abs(z - A.z) < A.halfW) ? 2 : 4;
+    }
+    // gate the spiral lookup on the mountain's footprint — it costs an atan2
+    // and this runs for every terrain sample in the home region
+    const dPk = Math.hypot(x - L.PEAK.x, z - L.PEAK.z);
+    if (dPk < L.PEAK.r) {
+      if (dPk < L.PEAK.pad) return 4;                        // summit pad
+      const sr = spiralRoad(x, z);
+      if (sr && Math.abs(sr.off) < L.PEAK.w) return 2;       // hill-climb tarmac
+    }
     if (Math.hypot(x - L.TOWN.x, z - L.TOWN.z) < L.TOWN.r) return 2;
     if (Math.hypot(x - L.QUARRY.x, z - L.QUARRY.z) < L.QUARRY.r) return 4;
     if (Math.hypot(x - L.PARK.x, z - L.PARK.z) < L.PARK.r) return 2;
@@ -4922,9 +6477,18 @@ function chunkData(cx, cz) {
     const rj = j + 1;
     for (let i = 0; i <= C; i++) {
       const ri = i + 1, rk = ri + rj * W;
-      h[i + j * (C + 1)] =
-        (raw[rk] * 4 + raw[rk - 1] + raw[rk + 1] + raw[rk - W] + raw[rk + W]) / 8;
-      s[i + j * (C + 1)] = worldSurface(cx * CHUNK_SIZE + i * CELL, wz);
+      const hv = (raw[rk] * 4 + raw[rk - 1] + raw[rk + 1] + raw[rk - W] + raw[rk + W]) / 8;
+      h[i + j * (C + 1)] = hv;
+      // Reconcile the surface against the ACTUAL height. Otherwise a stretch of
+      // river that some plateau filled in still reports "water", and boat mode
+      // fires on dry land 25 m above the water sheet.
+      let sid = worldSurface(cx * CHUNK_SIZE + i * CELL, wz);
+      if (hv < WATER_Y + 0.25) sid = 6;
+      else if (sid === 6) sid = 3;              // dry riverbed reads as sand
+      // snow line: anything high enough goes white and slippery, but a road
+      // that was gritted stays a road
+      else if (hv > SNOW_LINE && sid !== 2) sid = 7;
+      s[i + j * (C + 1)] = sid;
     }
   }
   World.heights.set(key, h);
@@ -5063,7 +6627,47 @@ function buildChunkScenery(cx, cz, h, s) {
     const slope = Math.abs(h[k + 1] - y) + Math.abs(h[k + C + 1] - y);
     if (slope > 7) continue;
     const kind = rng();
-    if (kind < 0.55 && sid !== 3) {
+    // What grows here depends on what you are standing on and how high up you
+    // are — pine forest low down, snow-dusted trees on the peaks, cactus and
+    // scrub on the sand, bare boulder fields on gravel.
+    if (sid === 7 || y > SNOW_LINE) {
+      if (kind < 0.42) {
+        const hgt = rng.range(5, 11);
+        parts.push(cylG(0.3, 0.55, hgt * 0.30, 5, 0x3b2f28, [x, y + hgt * 0.15, z]));
+        for (let b = 0; b < 3; b++) {
+          const r = (1 - b * 0.30) * hgt * 0.26;
+          parts.push(cylG(0.04, r, hgt * 0.32, 6, b === 2 ? 0xe8f1fa : 0x2f5238,
+            [x, y + hgt * (0.30 + b * 0.21), z]));
+        }
+      } else {
+        const r = rng.range(1.0, 2.8);
+        parts.push(sphG(r, 0x8d94a4, [x, y + r * 0.35, z], 5, 3));
+        parts.push(sphG(r * 0.72, 0xe4edf7, [x, y + r * 0.68, z], 5, 3));
+      }
+    } else if (sid === 3) {
+      if (kind < 0.34) {                                   // saguaro
+        const hgt = rng.range(2.4, 4.6);
+        parts.push(cylG(0.22, 0.28, hgt, 7, 0x4e7a44, [x, y + hgt / 2, z]));
+        for (const sx of [-1, 1]) {
+          if (rng() < 0.45) continue;
+          const ah = rng.range(0.8, 1.6);
+          parts.push(cylG(0.15, 0.15, ah, 6, 0x4e7a44,
+            [x + sx * 0.42, y + hgt * 0.55, z], [0, 0, sx * -1.1]));
+          parts.push(cylG(0.15, 0.15, ah * 0.8, 6, 0x4e7a44,
+            [x + sx * 0.64, y + hgt * 0.55 + ah * 0.45, z]));
+        }
+      } else if (kind < 0.72) {                            // dead bush
+        const r = rng.range(0.5, 1.3);
+        parts.push(sphG(r, 0x8a7350, [x, y + r * 0.6, z], 5, 3));
+      } else {
+        const r = rng.range(0.7, 2.2);
+        parts.push(sphG(r, 0xa89572, [x, y + r * 0.3, z], 5, 3));
+      }
+    } else if (sid === 4) {
+      const r = rng.range(1.0, 3.6);                       // boulder field
+      parts.push(sphG(r, rng() < 0.5 ? 0x6f6d6a : 0x7c7a76, [x, y + r * 0.36, z], 6, 4));
+      if (rng() < 0.3) parts.push(sphG(r * 0.5, 0x63615e, [x + r, y + r * 0.2, z + r * 0.4], 5, 3));
+    } else if (kind < 0.52) {
       const hgt = rng.range(7, 16);
       parts.push(cylG(0.4, 0.7, hgt * 0.35, 5, 0x4a3728, [x, y + hgt * 0.17, z]));
       for (let b = 0; b < 3; b++) {
@@ -5071,12 +6675,30 @@ function buildChunkScenery(cx, cz, h, s) {
         parts.push(cylG(0.05, r, hgt * 0.34, 6, b === 0 ? 0x3d6b3a : 0x47773f,
           [x, y + hgt * (0.32 + b * 0.22), z]));
       }
-    } else if (kind < 0.86) {
+    } else if (kind < 0.66) {                              // broadleaf
+      const hgt = rng.range(6, 12);
+      parts.push(cylG(0.32, 0.5, hgt * 0.55, 5, 0x53412e, [x, y + hgt * 0.27, z]));
+      const cr = hgt * 0.30;
+      parts.push(sphG(cr, 0x53853f, [x, y + hgt * 0.66, z], 6, 4));
+      parts.push(sphG(cr * 0.7, 0x467038, [x + cr * 0.5, y + hgt * 0.52, z - cr * 0.4], 5, 3));
+    } else if (kind < 0.80) {
       const r = rng.range(0.9, 3.2);
       parts.push(sphG(r, 0x6f6d6a, [x, y + r * 0.4, z], 6, 4));
-    } else {
+    } else if (kind < 0.92) {
       const hgt = rng.range(1.2, 2.6);
       parts.push(boxG(rng.range(0.4, 0.9), hgt, rng.range(0.4, 0.9), 0x5c7a3f, [x, y + hgt / 2, z]));
+    } else {
+      // Stacked log pile. The logs lie along one axis and the stack runs along
+      // the other — two fixed orientations rather than a free yaw, because a
+      // single Euler can't both spin the cylinder and keep the stack square.
+      const alongZ = rng() < 0.5;
+      for (let l = 0; l < 5; l++) {
+        const row = l < 3 ? 0 : 1;
+        const k2 = (l < 3 ? l - 1 : l - 3.5) * 0.56;
+        parts.push(cylG(0.26, 0.26, rng.range(2.6, 3.6), 6, 0x6b4d33,
+          [x + (alongZ ? k2 : 0), y + 0.26 + row * 0.48, z + (alongZ ? 0 : k2)],
+          alongZ ? [PI / 2, 0, 0] : [0, 0, PI / 2]));
+      }
     }
   }
   // one in eight chunks gets a jump, so there is always something to find
@@ -5301,6 +6923,9 @@ function buildTown(rng) {
       if (rng() < 0.18) continue;
       const x = T.x + bx * 44 + rng.range(-6, 6);
       const z = T.z + bz * 44 + rng.range(-6, 6);
+      // the river is cut after the town plateau, so a block placed too near it
+      // ends up standing in the water — leave the banks clear
+      if (Math.abs(x - World.landmarks.RIVER_X(z)) < 58) continue;
       const w = rng.range(14, 26), d = rng.range(14, 26), hgt = rng.range(8, 30);
       const gy = terrainH(x, z);
       addStaticBox(w, hgt, d, x, gy + hgt / 2 - 0.6, z, 0, rng.pick(cols), 'road');
@@ -5416,6 +7041,8 @@ function buildStuntPark(rng) {
   }
   // corkscrew loop, with the same eased entry the levels use
   pieceLoop({ p: [P.x - 30, gy, P.z - 200], R: 14, shift: 13, w: 10 });
+  // a banked drift bowl in the far corner of the park
+  buildDriftBowl(P.x - 160, P.z + 160, 30, 9);
   // stacked platforms and a gap jump
   for (let i = 0; i < 5; i++) {
     addStaticBox(20, 3, 20, P.x + 150, gy + 1.5 + i * 3, P.z + i * 26 - 40, 0, 0x585b70, 'road');
@@ -5456,6 +7083,362 @@ function buildCorkscrew(x, y, z, R, w, shift) {
   stage.add(null, mesh);
 }
 
+/* ==================================================== new map landmarks ==
+ * Everything below is hand-placed in the home region. Each builder owns its
+ * own bodies and meshes and registers them with `stage`, so switching modes
+ * tears the whole lot down in one go.
+ * ======================================================================== */
+
+/** Emissive-looking decoration — runway lights, neon, buoy tops. */
+let _lightMat = null;
+function lightMaterial() {
+  if (!_lightMat) {
+    _lightMat = new THREE.MeshBasicMaterial({ vertexColors: true });
+    _lightMat.__keep = true;
+  }
+  return _lightMat;
+}
+
+/**
+ * PANHANDLE FIELD — 620 m of runway, two hangars and a tower.
+ *
+ * The strip is a real slab rather than painted terrain: the heightfield is
+ * smoothed per chunk and a couple of centimetres of ripple is enough to unstick
+ * a nose wheel at 170 km/h. A flat, grippy deck makes takeoffs repeatable.
+ */
+function buildAirfield(rng) {
+  const A = World.landmarks.AIRFIELD;
+  const y = A.y;
+  const deco = [], lights = [];
+  // Runway in eight slabs. One 620 m box would give the broadphase an AABB the
+  // size of the map to test everything against.
+  const SEG = 8, segLen = (A.half * 2) / SEG;
+  for (let i = 0; i < SEG; i++) {
+    const cx = A.x - A.half + segLen * (i + 0.5);
+    addStaticBox(segLen, 0.4, A.halfW * 2, cx, y + 0.15, A.z, 0, 0x2a2a3a, 'road');
+  }
+  // taxiway out to the apron
+  addStaticBox(70, 0.4, 130, A.x + 150, y + 0.15, A.z - 100, 0, 0x30303f, 'road');
+
+  // centre-line dashes and threshold bars
+  for (let i = -14; i <= 14; i++) {
+    deco.push(boxG(14, 0.06, 1.1, 0xcdd6f4, [A.x + i * 21, y + 0.37, A.z]));
+  }
+  for (const sx of [-1, 1]) {
+    for (let k = -3; k <= 3; k++) {
+      deco.push(boxG(22, 0.06, 1.8, 0xbac2de, [A.x + sx * (A.half - 16), y + 0.37, A.z + k * 5]));
+    }
+    deco.push(boxG(1.0, 0.06, A.halfW * 2, 0x9399b2, [A.x + sx * (A.half - 1), y + 0.37, A.z]));
+  }
+  // edge lights, every 40 m down both sides
+  for (let x = -A.half; x <= A.half; x += 40) {
+    for (const sx of [-1, 1]) {
+      lights.push(boxG(0.5, 0.5, 0.5, sx > 0 ? 0xf9e2af : 0x89b4fa,
+        [A.x + x, y + 0.6, A.z + sx * (A.halfW + 2.5)]));
+    }
+  }
+  // approach lights off the east threshold
+  for (let i = 1; i <= 6; i++) {
+    lights.push(boxG(3.4, 0.4, 0.4, 0xa6e3a1, [A.x + A.half + i * 18, y + 0.7, A.z]));
+  }
+
+  // two hangars: three slabs each, open to the apron
+  for (let hgt = 0; hgt < 2; hgt++) {
+    const hx = A.x + 90 + hgt * 66, hz = A.z - 78;
+    addStaticBox(2.0, 15, 46, hx - 25, y + 7.5, hz, 0, 0x6c7086, 'metal');
+    addStaticBox(2.0, 15, 46, hx + 25, y + 7.5, hz, 0, 0x6c7086, 'metal');
+    addStaticBox(52, 2.0, 46, hx, y + 15.5, hz, 0, 0x585b70, 'metal');
+    addStaticBox(52, 15, 2.0, hx, y + 7.5, hz - 23, 0, 0x7f849c, 'metal');
+    for (let r = 0; r < 7; r++) {
+      deco.push(boxG(52.4, 0.5, 0.7, 0x45475a, [hx, y + 2 + r * 2.1, hz + 23]));
+    }
+    deco.push(boxG(20, 2.6, 0.6, 0xf9e2af, [hx, y + 13, hz + 23.4]));
+  }
+
+  // control tower
+  const tx = A.x - 130, tz = A.z - 64;
+  addStaticBox(9, 20, 9, tx, y + 10, tz, 0, 0x7f849c, 'road');
+  addStaticBox(15, 5, 15, tx, y + 22.5, tz, 0, 0x45475a, 'road');
+  deco.push(boxG(15.4, 3.4, 15.4, 0x14202c, [tx, y + 22.4, tz]));
+  deco.push(boxG(16.6, 0.8, 16.6, 0x585b70, [tx, y + 25.2, tz]));
+  deco.push(cylG(0.16, 0.16, 9, 5, 0x9399b2, [tx, y + 29.6, tz]));
+  lights.push(boxG(0.8, 0.8, 0.8, 0xf38ba8, [tx, y + 34.2, tz]));
+
+  // windsock, and a pair of fuel bowsers to smash
+  const wx = A.x - 40, wz = A.z + A.halfW + 16;
+  deco.push(cylG(0.14, 0.2, 9, 5, 0xbac2de, [wx, y + 4.5, wz]));
+  for (let i = 0; i < 4; i++) {
+    deco.push(cylG(0.75 - i * 0.12, 0.9 - i * 0.12, 1.3, 7, i % 2 ? 0xf38ba8 : 0xf9e2af,
+      [wx + 0.8 + i * 1.3, y + 8.4, wz], [0, 0, PI / 2]));
+  }
+  for (let i = 0; i < 2; i++) {
+    addStaticBox(3.0, 2.4, 6.0, A.x + 40 + i * 9, y + 1.4, A.z - 52, 0, 0xf9e2af, 'metal', true, 900);
+  }
+
+  const m = new THREE.Mesh(mergeGeoms(deco), vcMat({ roughness: 0.8 }));
+  m.receiveShadow = true; m.castShadow = true;
+  stage.add(null, m);
+  const lm = new THREE.Mesh(mergeGeoms(lights), lightMaterial());
+  stage.add(null, lm);
+}
+
+/**
+ * SPIRE PEAK furniture — the hill-climb is cut into the terrain itself, so all
+ * this adds is the guard rails you can knock off it and a launch ramp on top.
+ */
+function buildPeak(rng) {
+  const P = World.landmarks.PEAK;
+  const deco = [];
+  // marker posts down the outside of the climb, one every eighth of a turn
+  const R0 = P.r * 0.90;
+  for (let turn = 0; turn < 6; turn++) {
+    for (let k = 0; k < 10; k++) {
+      const f = turn + k / 10;
+      const dc = R0 - P.pitch * f;
+      if (dc < P.pad + 6) break;
+      const th = (k / 10) * TAU - PI;
+      const x = P.x + Math.cos(th) * (dc + P.w + 1.2);
+      const z = P.z + Math.sin(th) * (dc + P.w + 1.2);
+      const gy = terrainH(x, z);
+      deco.push(cylG(0.12, 0.14, 1.5, 4, 0xf38ba8, [x, gy + 0.75, z]));
+      deco.push(boxG(0.5, 0.3, 0.12, 0xf9e2af, [x, gy + 1.5, z]));
+    }
+  }
+  // summit: a ramp pointing off the north face, and a radio mast
+  const sy = terrainH(P.x, P.z);
+  buildKicker(P.x, P.z + P.pad * 0.45, 0, 14, 26, 8, 'road');
+  deco.push(cylG(0.3, 0.5, 26, 5, 0x9399b2, [P.x - 14, sy + 13, P.z - 12]));
+  for (let i = 1; i <= 3; i++) {
+    deco.push(boxG(6 - i * 1.4, 0.3, 0.3, 0x585b70, [P.x - 14, sy + 8 + i * 5.5, P.z - 12]));
+  }
+  addStaticBox(9, 4, 9, P.x + 16, sy + 2, P.z - 8, 0.4, 0x585b70, 'road');
+  const m = new THREE.Mesh(mergeGeoms(deco), vcMat({ roughness: 0.82 }));
+  m.castShadow = true;
+  stage.add(null, m);
+}
+
+/**
+ * THE MARINA — jetty, boat ramp and a slalom of buoys down the river. Gives
+ * boat mode somewhere to actually be a boat.
+ */
+function buildMarina(rng) {
+  const M = World.landmarks.MARINA;
+  const RX = World.landmarks.RIVER_X;
+  const bankX = M.x - 46;
+  const deckY = WATER_Y + 2.4;
+  const deco = [], lights = [];
+
+  // jetty deck on stilts, running along the river
+  for (let i = 0; i < 6; i++) {
+    const z = M.z - 60 + i * 24;
+    addStaticBox(9, 0.6, 24, M.x - 26, deckY, z, 0, 0x8a6b4a, 'wood');
+    for (const sx of [-1, 1]) {
+      deco.push(cylG(0.24, 0.24, deckY + 3, 6, 0x5a4530, [M.x - 26 + sx * 3.6, deckY - 1.6, z - 9]));
+    }
+    if (i % 2 === 0) lights.push(boxG(0.4, 0.7, 0.4, 0xf9e2af, [M.x - 21.6, deckY + 0.8, z - 9]));
+  }
+  // gangway back to dry land
+  const gy = terrainH(bankX - 12, M.z);
+  addStaticBox(26, 0.6, 6, (bankX - 12 + M.x - 30) / 2, (gy + deckY) / 2 + 0.4, M.z,
+    0, 0x8a6b4a, 'wood');
+  // Slipway: a slab that runs off the bank and carries on under the surface,
+  // so you can drive straight in and fold into a boat without a drop.
+  const spZ = M.z + 46, spX = M.x - 40, spLen = 32;
+  const spTop = terrainH(spX - spLen / 2, spZ);
+  const spBot = WATER_Y - 1.6;
+  const pitch = Math.atan2(spTop - spBot, spLen);
+  const spBody = makeBody({ pos: [spX, (spTop + spBot) / 2, spZ], surface: 'road' });
+  const spQ = new CANNON.Quaternion(); spQ.setFromEuler(0, 0, -pitch);   // +X runs downhill
+  const spSlab = Math.hypot(spTop - spBot, spLen);
+  spBody.addShape(new CANNON.Box(CV(spSlab / 2, 0.4, 7)), CV(0, 0, 0), spQ);
+  const spMesh = new THREE.Mesh(
+    boxG(spSlab, 0.8, 14, 0x4a4a5c, [0, 0, 0], [0, 0, -pitch]), vcMat({ roughness: 0.9 }));
+  spMesh.position.set(spX, (spTop + spBot) / 2, spZ);
+  spMesh.receiveShadow = true;
+  stage.add(spBody, spMesh);
+
+  // two boathouses and a small crane on the bank
+  for (let i = 0; i < 2; i++) {
+    const bx = bankX - 26, bz = M.z - 40 + i * 54;
+    const by = terrainH(bx, bz);
+    addStaticBox(16, 7, 20, bx, by + 3.5, bz, 0, i ? 0x6c7086 : 0x7f849c, 'wood');
+    deco.push(boxG(17.5, 1.0, 21.5, 0x45475a, [bx, by + 7.4, bz]));
+  }
+  const cx = bankX - 6, cz = M.z + 66, cy = terrainH(cx, cz);
+  deco.push(boxG(1.2, 14, 1.2, 0xf9e2af, [cx, cy + 7, cz]));
+  deco.push(boxG(1.0, 1.0, 14, 0xf9e2af, [cx, cy + 13.6, cz + 6]));
+  deco.push(cylG(0.08, 0.08, 7, 4, 0x9399b2, [cx, cy + 10, cz + 12]));
+
+  // slalom buoys: alternating sides, bobbing on the surface
+  const buoys = [];
+  for (let i = 0; i < 12; i++) {
+    const z = M.z - 130 + i * 26;
+    const side = (i % 2 ? 1 : -1) * 14;
+    const bx = RX(z) + side;
+    const g = mergeGeoms([
+      cylG(0.9, 1.2, 1.6, 8, i % 2 ? 0xf38ba8 : 0xf9e2af, [0, 0, 0]),
+      cylG(0.12, 0.12, 2.2, 4, 0xbac2de, [0, 1.6, 0]),
+      boxG(0.7, 0.5, 0.06, 0xcdd6f4, [0.3, 2.5, 0]),
+    ]);
+    const mesh = new THREE.Mesh(g, vcMat({ roughness: 0.7 }));
+    mesh.position.set(bx, WATER_Y, z);
+    mesh.castShadow = true;
+    stage.add(null, mesh);
+    buoys.push({ mesh, phase: i * 0.9 });
+  }
+  stage.addUpdater((dt, t) => {
+    for (const b of buoys) {
+      b.mesh.position.y = WATER_Y + Math.sin(t * 1.5 + b.phase) * 0.22;
+      b.mesh.rotation.z = Math.sin(t * 1.2 + b.phase) * 0.09;
+      b.mesh.rotation.x = Math.cos(t * 1.1 + b.phase * 1.3) * 0.07;
+    }
+  });
+
+  const m = new THREE.Mesh(mergeGeoms(deco), vcMat({ roughness: 0.85 }));
+  m.castShadow = true; m.receiveShadow = true;
+  stage.add(null, m);
+  stage.add(null, new THREE.Mesh(mergeGeoms(lights), lightMaterial()));
+}
+
+/** THE WIND FARM — seven turbines on the ridge, blades actually turning. */
+function buildWindFarm(rng) {
+  const W = World.landmarks.WINDFARM;
+  const rotors = [];
+  for (let i = 0; i < W.n; i++) {
+    const x = W.x + i * W.step, z = W.z + Math.sin(i * 1.7) * 70;
+    const gy = terrainH(x, z);
+    const H = rng.range(48, 62);
+    // tower: a real collider, so you can wrap a truck round it
+    const body = makeBody({ pos: [x, gy + H / 2, z], surface: 'metal' });
+    body.addShape(new CANNON.Box(CV(1.6, H / 2, 1.6)));
+    const tower = new THREE.Mesh(mergeGeoms([
+      cylG(1.1, 2.2, H, 8, 0xdfe4ee, [0, H / 2, 0]),
+      boxG(6, 1.2, 6, 0x9399b2, [0, 0.6, 0]),
+    ]), vcMat({ roughness: 0.7 }));
+    tower.position.set(x, gy, z);
+    tower.castShadow = true;
+    stage.add(body, null);
+    stage.add(null, tower);
+
+    // nacelle + hub, yawed so the farm doesn't look regimented
+    const yaw = rng.range(-0.5, 0.5);
+    const nac = new THREE.Mesh(mergeGeoms([
+      boxG(2.4, 2.4, 8.0, 0xeff1f5, [0, 0, -1.2]),
+      cylG(1.0, 1.4, 1.8, 8, 0xeff1f5, [0, 0, 2.6], [PI / 2, 0, 0]),
+    ]), vcMat({ roughness: 0.6 }));
+    nac.position.set(x, gy + H, z);
+    nac.rotation.y = yaw;
+    nac.castShadow = true;
+    stage.add(null, nac);
+
+    // three blades in a group that spins about the hub axis
+    const bladeParts = [];
+    for (let b = 0; b < 3; b++) {
+      const a = b / 3 * TAU;
+      const L = rng.range(22, 28);
+      bladeParts.push(boxG(0.9, L, 0.30, 0xf5f7fb,
+        [Math.sin(a) * L * 0.5, Math.cos(a) * L * 0.5, 0], [0, 0, -a]));
+      bladeParts.push(boxG(1.5, 3.0, 0.5, 0xdfe4ee,
+        [Math.sin(a) * 2.0, Math.cos(a) * 2.0, 0], [0, 0, -a]));
+    }
+    const rot = new THREE.Mesh(mergeGeoms(bladeParts), vcMat({ roughness: 0.55 }));
+    rot.castShadow = true;
+    const hub = new THREE.Group();
+    hub.position.set(x, gy + H, z);
+    hub.rotation.y = yaw;
+    hub.add(rot);
+    rot.position.z = 3.4;
+    stage.add(null, hub);
+    rotors.push({ rot, spd: rng.range(0.5, 0.95) });
+  }
+  stage.addUpdater((dt) => { for (const r of rotors) r.rot.rotation.z += r.spd * dt; });
+}
+
+/** THE TRUCK STOP — a lit canopy, pumps, a diner and somewhere to turn round. */
+function buildTruckStop(rng) {
+  const Z = World.landmarks.HIGHWAY_Z;
+  const x0 = -300, z0 = Z + 62;
+  const y = terrainH(x0, z0);
+  const deco = [], lights = [];
+  addStaticBox(140, 0.4, 74, x0, y + 0.15, z0, 0, 0x30303f, 'road');   // apron
+  // canopy on six pillars
+  for (let i = -1; i <= 1; i++) for (const sz of [-1, 1]) {
+    addStaticBox(1.2, 6.4, 1.2, x0 + i * 16, y + 3.4, z0 + sz * 8, 0, 0x9399b2, 'metal');
+  }
+  addStaticBox(46, 1.4, 22, x0, y + 7.2, z0, 0, 0xf38ba8, 'metal');
+  deco.push(boxG(47, 0.5, 23, 0xeff1f5, [x0, y + 6.3, z0]));
+  for (let i = -2; i <= 2; i++) {
+    lights.push(boxG(3.4, 0.3, 3.4, 0xfff4d0, [x0 + i * 9, y + 6.4, z0]));
+  }
+  // pumps
+  for (let i = -1; i <= 1; i++) for (const sz of [-1, 1]) {
+    addStaticBox(1.6, 2.2, 1.0, x0 + i * 16, y + 1.3, z0 + sz * 3.6, 0, 0xbac2de, 'metal', true, 260);
+    deco.push(boxG(1.0, 0.7, 0.1, 0x89dceb, [x0 + i * 16, y + 2.0, z0 + sz * 4.2]));
+  }
+  // diner
+  const dx = x0 + 52, dz = z0 + 14;
+  const dy = terrainH(dx, dz);
+  addStaticBox(24, 7, 18, dx, dy + 3.5, dz, 0, 0x7f849c, 'road');
+  deco.push(boxG(25.5, 1.0, 19.5, 0x45475a, [dx, dy + 7.2, dz]));
+  deco.push(boxG(22, 3.2, 0.3, 0x11111b, [dx, dy + 3.4, dz - 9.2]));
+  lights.push(boxG(11, 1.6, 0.3, 0xf38ba8, [dx, dy + 8.6, dz - 9.2]));
+  lights.push(boxG(0.6, 4.2, 0.6, 0xf9e2af, [dx - 13, dy + 9.5, dz - 9]));
+  // parked trailers along the back fence
+  for (let i = 0; i < 4; i++) {
+    const px = x0 - 46 + i * 17, pz = z0 - 24;
+    const py = terrainH(px, pz);
+    addStaticBox(2.6, 3.4, 12, px, py + 2.6, pz, 0.06, rng.pick([0x89b4fa, 0xa6e3a1, 0xf9e2af, 0xcba6f7]),
+      'metal', true, 2600);
+  }
+  // lamp posts
+  for (let i = -2; i <= 2; i++) {
+    const lx = x0 + i * 30, lz = z0 + 32;
+    const ly = terrainH(lx, lz);
+    deco.push(cylG(0.16, 0.22, 9, 6, 0x585b70, [lx, ly + 4.5, lz]));
+    lights.push(boxG(1.4, 0.4, 2.4, 0xfff4d0, [lx, ly + 9.1, lz]));
+  }
+  const m = new THREE.Mesh(mergeGeoms(deco), vcMat({ roughness: 0.8 }));
+  m.castShadow = true; m.receiveShadow = true;
+  stage.add(null, m);
+  stage.add(null, new THREE.Mesh(mergeGeoms(lights), lightMaterial()));
+}
+
+/**
+ * THE DRIFT BOWL — a flat pan ringed by a banked wall. Enter, get the tail out
+ * and let the banking hold you there.
+ */
+function buildDriftBowl(x, z, innerR, bankH) {
+  const gy = terrainH(x, z);
+  const SEG = 26, RIN = innerR, W = 17;
+  const parts = [];
+  const bodies = [];
+  let body = null, n = 0;
+  const ang = Math.atan2(bankH, W);
+  const slab = Math.hypot(bankH, W);
+  for (let i = 0; i < SEG; i++) {
+    if (n === 0) { body = makeBody({ pos: [x, gy, z], surface: 'road' }); bodies.push(body); }
+    const a = (i + 0.5) / SEG * TAU;
+    const chord = TAU * (RIN + W / 2) / SEG * 1.14;
+    const rx = Math.cos(a), rz = Math.sin(a);
+    // one slab per segment, tipped outwards to make the banking
+    const q = new CANNON.Quaternion();
+    q.setFromEuler(0, -a, ang);
+    body.addShape(new CANNON.Box(CV(slab / 2, 0.3, chord / 2)),
+      CV(rx * (RIN + W / 2), bankH / 2, rz * (RIN + W / 2)), q);
+    parts.push(boxG(slab, 0.6, chord, i % 2 ? 0x45475a : 0x3b3c50,
+      [rx * (RIN + W / 2), bankH / 2, rz * (RIN + W / 2)], [0, -a, ang]));
+    parts.push(boxG(slab * 0.06, 0.1, chord, i % 2 ? 0xf9e2af : 0x45475a,
+      [rx * (RIN + W * 0.98), bankH * 0.99, rz * (RIN + W * 0.98)], [0, -a, ang]));
+    n++;
+    if (n >= 6) { body.updateMassProperties(); body.updateBoundingRadius(); stage.add(body, null); n = 0; }
+  }
+  if (n > 0) { body.updateMassProperties(); body.updateBoundingRadius(); stage.add(body, null); }
+  const mesh = new THREE.Mesh(mergeGeoms(parts), vcMat({ roughness: 0.72, metalness: 0.15 }));
+  mesh.position.set(x, gy, z);
+  mesh.castShadow = true; mesh.receiveShadow = true;
+  stage.add(null, mesh);
+}
+
 function buildRiverAndBridges(rng) {
   const RIVER_X = World.landmarks.RIVER_X;
   // water sheet
@@ -5465,21 +7448,63 @@ function buildRiverAndBridges(rng) {
     color: 0x2b5d78, transparent: true, opacity: 0.82, roughness: 0.16, metalness: 0.35,
     side: THREE.DoubleSide,   // visible from under the surface too
   }));
-  water.position.y = 1.0;
+  water.position.y = WATER_Y;
   water.receiveShadow = false;
   World.water = water;
   stage.add(null, water);
 
   // jump ramps facing each other across the water, plus one proper bridge
+  // 62 m from the centreline is still inside the carved channel, which left
+  // these ramps standing in the water. 96 m puts them up on the bank.
   for (const z of [-620, -180, 260, 700]) {
     const rx = RIVER_X(z);
-    buildKicker(rx - 62, z, PI * 0.5, 16, 30, 8, 'dirt');
-    buildKicker(rx + 62, z, PI * 1.5, 16, 30, 8, 'dirt');
+    buildKicker(rx - 96, z, PI * 0.5, 16, 34, 9, 'dirt');
+    buildKicker(rx + 96, z, PI * 1.5, 16, 34, 9, 'dirt');
   }
-  const bz = 180;   // the highway crosses on a bridge
+  // The highway crosses on a proper suspension bridge — towers, main cables in
+  // a catenary and vertical hangers down to the deck.
+  const bz = 180;
   const rx = RIVER_X(bz);
   addStaticBox(150, 2.2, 26, rx, 25, bz, 0, 0x45475a, 'road');
   for (const sx of [-1, 1]) addStaticBox(150, 2.0, 1.2, rx, 27, bz + sx * 13, 0, 0xf9e2af, 'metal');
+  const deco = [], SPAN = 62, TOW = 34, DECK = 26.1;
+  for (const tx of [-SPAN, SPAN]) {
+    for (const sz of [-1, 1]) {
+      addStaticBox(4.0, TOW, 4.0, rx + tx, DECK + TOW / 2, bz + sz * 12, 0, 0xbac2de, 'metal');
+    }
+    deco.push(boxG(5.0, 2.0, 30, 0x9399b2, [rx + tx, DECK + TOW, bz]));
+    deco.push(boxG(5.0, 2.0, 30, 0x9399b2, [rx + tx, DECK + TOW * 0.62, bz]));
+  }
+  // main cable: a chain of short segments following y = sag * (u^2)
+  for (const sz of [-1, 1]) {
+    const zc = bz + sz * 12;
+    const N = 22, top = DECK + TOW, sag = 22;
+    let prev = null;
+    for (let i = 0; i <= N; i++) {
+      const u = (i / N) * 2 - 1;                      // -1..1 across the span
+      const x = rx + u * SPAN, y = top - sag * (1 - u * u);
+      if (prev) {
+        const dx = x - prev[0], dy = y - prev[1];
+        deco.push(boxG(Math.hypot(dx, dy), 0.34, 0.34, 0xdfe4ee,
+          [(x + prev[0]) / 2, (y + prev[1]) / 2, zc], [0, 0, Math.atan2(dy, dx)]));
+        // hanger down to the deck
+        if (i % 2 === 0 && y > DECK + 3) {
+          deco.push(boxG(0.18, y - DECK, 0.18, 0xbac2de, [x, (y + DECK) / 2, zc]));
+        }
+      }
+      prev = [x, y];
+    }
+    // back-stays out to the anchorages
+    for (const sx of [-1, 1]) {
+      const ax = rx + sx * (SPAN + 34);
+      deco.push(boxG(Math.hypot(34, TOW), 0.34, 0.34, 0xdfe4ee,
+        [rx + sx * (SPAN + 17), DECK + TOW / 2, zc], [0, 0, Math.atan2(-sx * TOW, 34)]));
+      if (sx > 0) addStaticBox(7, 6, 7, ax, DECK + 1, zc, 0, 0x7f849c, 'road');
+    }
+  }
+  const bm = new THREE.Mesh(mergeGeoms(deco), vcMat({ roughness: 0.62, metalness: 0.4 }));
+  bm.castShadow = true;
+  stage.add(null, bm);
 }
 
 function buildHighway(rng) {
@@ -5537,15 +7562,42 @@ function buildActivities(rng) {
   });
 
   // --- time trials ------------------------------------------------------
+  // The hill climb and the buoy run get their gates from a closed form rather
+  // than from a dirt-track path, so they carry their own `custom` list.
+  const climbGates = [];
+  {
+    const P = L.PEAK, R0 = P.r * 0.90;
+    const turns = (R0 - P.pad) / P.pitch;
+    for (let k = 0; k <= 9; k++) {
+      const f = (k / 9) * turns * 0.96;
+      const dc = R0 - P.pitch * f;
+      if (dc < P.pad) break;
+      const th = (f - Math.floor(f)) * TAU - PI;
+      climbGates.push(spot(P.x + Math.cos(th) * dc, P.z + Math.sin(th) * dc));
+    }
+    climbGates.push(spot(P.x, P.z));
+  }
+  const buoyGates = [];
+  for (let k = 0; k < 8; k++) {
+    const z = L.MARINA.z - 120 + k * 30;
+    buoyGates.push([L.RIVER_X(z), WATER_Y + 0.4, z]);
+  }
   const trials = [
     { name: 'DIRT SPRINT', path: World.tracks[0], limit: 95 },
     { name: 'HIGHWAY BLAST', path: null, limit: 80, straight: [[-780, L.HIGHWAY_Z], [760, L.HIGHWAY_Z]] },
     { name: 'PARK CIRCUIT', path: World.tracks[3], limit: 105 },
     { name: 'QUARRY DESCENT', path: World.tracks[2], limit: 120 },
+    { name: 'RUNWAY DASH', path: null, limit: 42,
+      straight: [[L.AIRFIELD.x - L.AIRFIELD.half + 10, L.AIRFIELD.z],
+                 [L.AIRFIELD.x + L.AIRFIELD.half - 10, L.AIRFIELD.z]] },
+    { name: 'SUMMIT CLIMB', custom: climbGates, limit: 180 },
+    { name: 'BUOY SLALOM', custom: buoyGates, limit: 110 },
   ];
   trials.forEach((t, i) => {
     let gates = [];
-    if (t.straight) {
+    if (t.custom) {
+      gates = t.custom;
+    } else if (t.straight) {
       for (let k = 0; k <= 7; k++) {
         const x = lerp(t.straight[0][0], t.straight[1][0], k / 7);
         const z = lerp(t.straight[0][1], t.straight[1][1], k / 7);
@@ -5590,6 +7642,27 @@ function buildActivities(rng) {
     });
   });
 
+  // --- speed traps ------------------------------------------------------
+  // Drive through the beam above the posted number. No timer, no route — it is
+  // just a target to aim a fast car at.
+  const traps = [
+    ['HIGHWAY TRAP', -60, L.HIGHWAY_Z, 190],
+    ['RUNWAY TRAP', L.AIRFIELD.x + 120, L.AIRFIELD.z, 240],
+    ['BRIDGE TRAP', L.RIVER_X(-620) + 10, -620, 130],
+  ];
+  traps.forEach((t, i) => {
+    const p = spot(t[1], t[2]);
+    // gantry over the road so the trap reads as a piece of the world
+    for (const sx of [-1, 1]) {
+      addStaticBox(0.7, 8, 0.7, t[1], p[1] + 4, t[2] + sx * 13, 0, 0x585b70, 'metal');
+    }
+    addStaticBox(0.8, 0.8, 27, t[1], p[1] + 8.2, t[2], 0, 0x89b4fa, 'metal');
+    World.activities.push({
+      kind: 'trap', name: t[0], pos: p, target: t[3], radius: 13,
+      state: 'idle', best: 0, index: i,
+    });
+  });
+
   // --- hidden ramps -----------------------------------------------------
   for (let i = 0; i < 8; i++) {
     const a = rng() * TAU, r = rng.range(250, 880);
@@ -5601,7 +7674,8 @@ function buildActivities(rng) {
 
   // marker visuals
   for (const a of World.activities) {
-    const col = a.kind === 'delivery' ? 0xf9e2af : a.kind === 'trial' ? 0x89b4fa : 0xf38ba8;
+    const col = a.kind === 'delivery' ? 0xf9e2af : a.kind === 'trial' ? 0x89b4fa :
+                a.kind === 'trap' ? 0x94e2d5 : 0xf38ba8;
     const p = a.kind === 'delivery' ? a.from : a.kind === 'trial' ? a.gates[0] : a.pos;
     const m = markerMesh(col, a.radius * 0.75, 12);
     m.position.set(p[0], p[1], p[2]);
@@ -5659,6 +7733,11 @@ function buildOpenWorld(seed) {
   buildTown(rng);
   buildQuarry(rng);
   buildStuntPark(rng);
+  buildAirfield(rng);
+  buildPeak(rng);
+  buildMarina(rng);
+  buildWindFarm(rng);
+  buildTruckStop(rng);
   buildActivities(rng);
   Minimap.init();
   World.built = true;
@@ -5721,6 +7800,8 @@ const Input = {
     tap('tReset', () => Game.resetTruck());
     tap('tFlip', () => Game.flipTruck());
     tap('tCam', () => Cam.cycle());
+    tap('tForm', () => Game.transform());
+    tap('tTow', () => Game.toggleTrailer());
     tap('tPause', () => Game.togglePause());
 
     // steering pad
@@ -5820,6 +7901,24 @@ const Input = {
     ctrl.pitch = throttle - brake;
     ctrl.roll = -steer;
     ctrl.yaw = 0;
+
+    // ---- flight controls, live once the wings are out --------------------
+    if (vehicle.morph > 0.15) {
+      ctrl.aPitch = (K['s'] || K['ArrowDown'] ? 1 : 0) - (K['w'] || K['ArrowUp'] ? 1 : 0);
+      ctrl.aRoll = ctrl.steer;
+      ctrl.aYaw = (K['e'] ? 1 : 0) - (K['q'] ? 1 : 0);
+      if (IS_TOUCH) { ctrl.aPitch = this.touch.brake - this.touch.gas; ctrl.aRoll = this.touch.steer; }
+      let tThr = vehicle.throttleLevel;
+      if (K['Shift']) tThr += 0.85 * dt;
+      if (K['Control']) tThr -= 0.85 * dt;
+      if (K[' ']) tThr = 1.35;                            // afterburner
+      if (K['x'] || this.touch.hand) tThr -= 1.6 * dt;    // air brake
+      vehicle.throttleLevel = clamp(tThr, 0, 1.35);
+      ctrl.throttle = 0; ctrl.brake = 0; ctrl.handbrake = 0;
+      ctrl.pitch = 0; ctrl.roll = 0;
+    } else {
+      ctrl.aPitch = 0; ctrl.aRoll = 0; ctrl.aYaw = 0;
+    }
 
     // horn, held
     const horn = !!K['h'] || this.touch.horn > 0;
@@ -5951,7 +8050,12 @@ const UI = {
       d.className = 'tk' + (id === store.truck ? ' sel' : '');
       d.innerHTML = `<div class="nm">${t.name}</div><div class="ds">${t.klass} · ${(t.mass / 1000).toFixed(1)} t</div>`;
       d.addEventListener('click', () => {
-        store.truck = id; saveStore(); this.buildGarage(); Game.rebuildGarageTruck(); Audio_.ui('ok');
+        store.truck = id;
+        if (!trailerAllowed(id, store.trailer)) {
+          store.trailer = 'flatbed';
+          this.toast(t.name + ' IS TOO LIGHT FOR THE BOX — FLATBED FITTED', 'bad');
+        }
+        saveStore(); this.buildGarage(); Game.rebuildGarageTruck(); Audio_.ui('ok');
       });
       list.appendChild(d);
     }
@@ -6004,8 +8108,15 @@ const UI = {
       });
     }
     document.querySelectorAll('#trailerSeg button').forEach(b => {
+      const ok = trailerAllowed(store.truck, b.dataset.tr);
       b.classList.toggle('on', b.dataset.tr === store.trailer);
+      b.disabled = !ok;
+      b.style.opacity = ok ? '' : '0.35';
+      if (!ok) b.title = 'Needs a tractor of 4 tonnes or more';
       b.onclick = () => {
+        if (!trailerAllowed(store.truck, b.dataset.tr)) {
+          this.toast('THIS RIG IS TOO LIGHT FOR THE BOX TRAILER', 'bad'); return;
+        }
         store.trailer = b.dataset.tr; saveStore();
         document.querySelectorAll('#trailerSeg button').forEach(x => x.classList.toggle('on', x === b));
         Game.rebuildGarageTruck(); Audio_.ui();
@@ -6027,10 +8138,14 @@ const UI = {
       { k: 'tc', label: 'Traction control', sub: 'cuts torque when a driven wheel spins', bool: true },
       { k: 'esc', label: 'Stability control', sub: 'damps the yaw rate — kills most spins, and most drifts', bool: true },
       { k: 'noFlip', label: 'No-flip gyro', sub: 'cannot roll or pitch over — yaw stays free, so it drifts beautifully', bool: true },
+      { k: 'autoBoat', label: 'Auto boat mode', sub: 'fold into a boat the moment you hit water, and back on dry land', bool: true },
+      // only appears once you have found the launchers
+      ...(store.ordnance ? [{ k: 'missiles', label: 'Missile launchers',
+        sub: 'RIGHT CLICK to fire · six in the rack, one back every 1.6 s', bool: true }] : []),
       { k: 'tyreModel', label: 'Tyre wear & temperature', sub: 'grip changes as tyres heat up and wear out', bool: true },
       { k: 'telemetry', label: 'Telemetry panel', sub: 'toggle in game with V', bool: true },
       { k: 'steerAssist', label: 'Counter-steer assist', sub: 'helps catch slides on a keyboard', bool: true },
-      { k: 'slowmo', label: 'Slow motion', sub: 'big air and crash cam', bool: true },
+      { k: 'slowmo', label: 'Slow motion', sub: 'Levels only — free roam always runs at full speed', bool: true },
       { k: 'shake', label: 'Screen shake', bool: true },
       { k: 'invertPitch', label: 'Invert air pitch', bool: true },
       { k: 'mouseLook', label: 'Mouse look', sub: 'drag with left mouse to look around', bool: true },
@@ -6137,18 +8252,35 @@ const UI = {
     c.beginPath(); c.moveTo(cx - Math.cos(na) * 18, cy - Math.sin(na) * 18);
     c.lineTo(cx + Math.cos(na) * (R - 6), cy + Math.sin(na) * (R - 6)); c.stroke();
 
-    // gear
-    const gear = d ? d.gear : 0;
-    const gtxt = d ? (d.shiftT > 0 ? '—' : gear === 0 ? 'N' : gear < 0 ? 'R' : String(gear)) : '—';
-    c.fillStyle = '#cdd6f4'; c.textAlign = 'center'; c.textBaseline = 'middle';
-    c.font = '800 62px "JetBrains Mono",monospace';
-    c.fillText(gtxt, cx, cy + 4);
-    c.font = '500 15px "JetBrains Mono",monospace';
-    c.fillStyle = '#7f849c';
-    c.fillText(store.settings.gearbox === 'auto' ? 'AUTO' : 'MANUAL', cx, cy + 52);
-    c.fillStyle = '#6c7086';
-    c.font = '500 14px "JetBrains Mono",monospace';
-    c.fillText(Math.round(rpm) + ' RPM', cx, cy - 52);
+    // centre readout: gear on the road, throttle in the air
+    const flying = rig.morph > 0.15;
+    c.textAlign = 'center'; c.textBaseline = 'middle';
+    if (flying) {
+      const thr = Math.round(v.throttleLevel * 100);
+      c.fillStyle = thr > 100 ? '#f38ba8' : '#cdd6f4';
+      c.font = '800 54px "JetBrains Mono",monospace';
+      c.fillText(thr + '%', cx, cy + 4);
+      c.font = '500 15px "JetBrains Mono",monospace';
+      c.fillStyle = v.stalling ? '#f38ba8' : '#7f849c';
+      c.fillText(v.stalling ? 'STALL' : 'THROTTLE', cx, cy + 52);
+      const gy = groundHeightAt(v.pos.x, v.pos.z);
+      const alt = isFinite(gy) ? Math.max(0, v.pos.y - gy) : v.pos.y;
+      c.fillStyle = '#6c7086';
+      c.font = '500 14px "JetBrains Mono",monospace';
+      c.fillText(Math.round(alt) + ' m AGL', cx, cy - 52);
+    } else {
+      const gear = d ? d.gear : 0;
+      const gtxt = d ? (d.shiftT > 0 ? '—' : gear === 0 ? 'N' : gear < 0 ? 'R' : String(gear)) : '—';
+      c.fillStyle = '#cdd6f4';
+      c.font = '800 62px "JetBrains Mono",monospace';
+      c.fillText(gtxt, cx, cy + 4);
+      c.font = '500 15px "JetBrains Mono",monospace';
+      c.fillStyle = '#7f849c';
+      c.fillText(store.settings.gearbox === 'auto' ? 'AUTO' : 'MANUAL', cx, cy + 52);
+      c.fillStyle = '#6c7086';
+      c.font = '500 14px "JetBrains Mono",monospace';
+      c.fillText(Math.round(rpm) + ' RPM', cx, cy - 52);
+    }
 
     // speed readout
     const mph = store.settings.units === 'mph';
@@ -6291,9 +8423,14 @@ const UI = {
     const s = store.settings, v = rig.vehicle, d = v.drive;
     const any = v.wheels.some(w => w.absCut > 0.2);
     const tc = v.wheels.some(w => w.tcCut > 0.2);
+    const flying = rig.morph > 0.15, boating = rig.boatMorph > 0.15;
     const tags = [
-      ['ABS', s.abs, any], ['TC', s.tc, tc], ['ESC', s.esc, v.escActive],
+      ['FLIGHT', flying, flying && v.stalling], ['BOAT', boating, boating && v.inWater],
+      ['ABS', s.abs && !flying, any],
+      ['TC', s.tc && !flying, tc], ['ESC', s.esc && !flying, v.escActive],
       ['DIFF', v.diffLock, v.diffLock], ['LOW', !!(d && d.lowRange), !!(d && d.lowRange)],
+      ['TOW', !!(Game.trailer && Game.trailer.hitched), false],
+      ['MSL ' + Weapons.ammo, Weapons.armed, Weapons.armed && Weapons.ammo > 0],
     ];
     if (!this._tagEls || this._tagEls.length !== tags.length) {
       this.aidTags.innerHTML = tags.map(t => `<span>${t[0]}</span>`).join('');
@@ -6301,10 +8438,13 @@ const UI = {
     }
     tags.forEach((t, i) => {
       const el = this._tagEls[i];
+      // the ammo tag changes its own label, so the text is rewritten every frame
+      if (el.textContent !== t[0]) el.textContent = t[0];
       el.classList.toggle('on', !!t[2]);
       el.classList.toggle('lit', !!t[1] && !t[2]);
       el.style.opacity = t[1] ? '1' : '0.35';
     });
+    if (Weapons.fireBtn) Weapons.fireBtn.style.display = Weapons.armed ? 'flex' : 'none';
   },
 
   updateHUD(rig, dt) {
@@ -6344,7 +8484,11 @@ function fmtClock(h) {
  * ========================================================================= */
 
 const FIXED = 1 / 120;
-const MAX_SUB = 5;
+// dt is clamped to 50 ms, so allow enough substeps to actually cover it. At 5
+// a heavy frame could only simulate 42 ms of the 50, and the shortfall was
+// silently discarded — the world quietly ran slow whenever the frame rate dipped,
+// which reads as gravity that changes strength.
+const MAX_SUB = 7;
 
 const Game = {
   mode: 'boot',              // boot | menu | levels | world | garage
@@ -6398,6 +8542,7 @@ const Game = {
   /* ------------------------------------------------------------- staging */
   clearStage() {
     FX.reset();
+    Weapons.reset();
     if (this.cargo) { this.cargo.dispose(); this.cargo = null; }
     if (this.trailer) { this.trailer.dispose(); this.trailer = null; }
     if (this.rig) { this.rig.dispose(); this.rig = null; }
@@ -6412,6 +8557,7 @@ const Game = {
     this.rig = new TruckRig(store.truck, { pos, yaw });
     this.rig.setLights(false);
     this.spawn = { p: pos.slice(), yaw };
+    if (!trailerAllowed(store.truck, store.trailer)) store.trailer = 'flatbed';
     if (withTrailer && store.trailer !== 'none') {
       this.trailer = new Trailer(store.trailer, this.rig);
       this.trailer.hitch(this.rig);
@@ -6552,7 +8698,10 @@ const Game = {
     scene.fog.near = 180; scene.fog.far = Quality.drawDist * 1.35;
     Sky.set(9, 0.12);
     const L = World.landmarks;
-    this.spawnTruck(findClearSpawn(L.TOWN.x, L.TOWN.z, 11), 0, true);
+    // a hitched trailer adds ten metres behind the cab — clear room for it too,
+    // or it spawns inside a building and levers the whole rig onto its side
+    const need = store.trailer !== 'none' ? 22 : 11;
+    this.spawnTruck(findClearSpawn(L.TOWN.x, L.TOWN.z, need), 0, true);
     Cam.setMode(0);
     this.paused = false; this.finished = false;
     this.runTime = 0; this.runTop = 0;
@@ -6619,10 +8768,20 @@ const Game = {
   shake(a) { Cam.addShake(a); },
   crashCam(s) {
     if (!store.settings.slowmo) return;
+    // in the air the crash cam would rip you out of the chase view mid-flight
+    if (this.rig && this.rig.morph > 0.15) return;
     if (this.rig) Cam.crash(s, this.rig.vehicle.pos);
   },
 
   onKey(k, e) {
+    // Triple-tap I inside two seconds. Works anywhere, including the menus —
+    // it is a cheat code, not a control.
+    if (k === 'i') {
+      const now = performance.now();
+      this._iTaps = (this._iTaps || []).filter(t => now - t < 2000);
+      this._iTaps.push(now);
+      if (this._iTaps.length >= 3) { this._iTaps.length = 0; Weapons.discover(); }
+    }
     if (k === 'Escape' || k === 'p') {
       // ESC out of the in-run Settings panel goes back to the pause menu
       if (UI.current === 'settings' && this.paused) { UI.show('pause'); return; }
@@ -6641,13 +8800,16 @@ const Game = {
     if (this.paused) return;
     if (k === 'r') this.resetTruck();
     if (k === 'f') this.flipTruck();
-    if (k === 'c') Cam.cycle();
-    if (k === ' ') this.jump();
+    if (k === 'b') Cam.cycle();
+    if (k === 'c') this.transform();
+    if (k === 'v') this.toggleTrailer();
+    if (k === ' ' && (!this.rig || this.rig.morph < 0.15)) this.jump();
     if (k === 'l' && this.rig) { this.rig.setLights(!this.rig.lightsOn); }
-    if (k === 'Shift') this.shiftUp();
-    if (k === 'Control') this.shiftDown();
-    if (k === 'n' && this.mode === 'levels') this.nextLevel();
-    if (k === 'v') { store.settings.telemetry = !store.settings.telemetry; saveStore();
+    if (k === 'Shift' && (!this.rig || this.rig.morph < 0.15)) this.shiftUp();
+    if (k === 'Control' && (!this.rig || this.rig.morph < 0.15)) this.shiftDown();
+    if (k === 'n') this.transformBoat();
+    if (k === ']' && this.mode === 'levels') this.nextLevel();
+    if (k === 't') { store.settings.telemetry = !store.settings.telemetry; saveStore();
                      UI.telemetry.classList.toggle('hide', !store.settings.telemetry); }
     if (k === 'g' && this.rig) {
       const v = this.rig.vehicle; v.diffLock = !v.diffLock;
@@ -6659,13 +8821,47 @@ const Game = {
       else { d.lowRange = !d.lowRange;
              UI.toast(d.lowRange ? 'LOW RANGE' : 'HIGH RANGE', d.lowRange ? 'ok' : null); }
     }
-    if (k === 't' && this.trailer) {
-      if (this.trailer.hitched) this.trailer.unhitch();
-      else {
-        const d = this.trailer.vehicle.pos.distanceTo(this.rig.vehicle.pos);
-        if (d < 18) { this.trailer.realign(this.rig); this.trailer.hitch(this.rig); }
-        else UI.toast('TRAILER TOO FAR', 'bad');
-      }
+  },
+
+  /** V — drop or pick up the trailer, in either form. */
+  toggleTrailer() {
+    if (!this.trailer) { UI.toast('NO TRAILER FITTED — see the garage'); return; }
+    if (this.trailer.hitched) { this.trailer.unhitch(); return; }
+    if (this.rig && this.rig.morph > 0.15) { UI.toast('CANNOT TOW IN FLIGHT MODE', 'bad'); return; }
+    const d = this.trailer.vehicle.pos.distanceTo(this.rig.vehicle.pos);
+    if (d < 22) { this.trailer.realign(this.rig); this.trailer.hitch(this.rig); }
+    else UI.toast('TRAILER TOO FAR (' + Math.round(d) + ' m)', 'bad');
+  },
+
+  /** C — fold between truck and aeroplane. */
+  transform() {
+    if (!this.rig) return;
+    if (!this.rig.toggleForm()) return;
+    const toPlane = this.rig.form === 'plane';
+    UI.center(toPlane ? 'FLIGHT MODE' : 'ROAD MODE',
+      toPlane ? 'W/S pitch · A/D roll · Q/E rudder · SHIFT/CTRL throttle · SPACE burner' : '', 2600);
+  },
+
+  /** N — fold between truck and boat. */
+  transformBoat() {
+    if (!this.rig) return;
+    if (!this.rig.toggleBoat()) return;
+    const toBoat = this.rig.form === 'boat';
+    UI.center(toBoat ? 'BOAT MODE' : 'ROAD MODE',
+      toBoat ? 'W/S throttle · A/D rudder — find some water' : '', 2400);
+  },
+
+  /** Fold into a boat the moment we touch water, if the setting is on. */
+  autoBoatCheck(dt) {
+    const rig = this.rig;
+    if (!store.settings.autoBoat || !rig || rig.busy) return;
+    const wet = rig.vehicle.inWater;
+    if (wet) {
+      rig.landTimer = 0;
+      if (rig.form === 'car') { rig.setForm('boat'); UI.center('BOAT MODE', 'auto', 1500); }
+    } else if (rig.form === 'boat') {
+      rig.landTimer += dt;
+      if (rig.landTimer > 1.6) { rig.landTimer = 0; rig.setForm('car'); UI.center('ROAD MODE', 'auto', 1400); }
     }
   },
 
@@ -6716,6 +8912,24 @@ const Game = {
           }
           if (a.timer > a.limit) { a.state = 'idle'; a.gateIndex = 0;
             UI.center('TIME UP', a.name, 1600); Audio_.ui('bad'); this.clearObjective(); }
+        }
+      } else if (a.kind === 'trap') {
+        // fires once per pass: latch on the way in, judge on the way out
+        const kmh = rig.vehicle.speedAbs * 3.6;
+        if (d < a.radius) {
+          a.peak = Math.max(a.peak || 0, kmh);
+          a.inside = true;
+        } else if (a.inside) {
+          a.inside = false;
+          const got = Math.round(a.peak || 0);
+          a.peak = 0;
+          if (got > a.best) a.best = got;
+          if (got >= a.target) {
+            UI.center('CLOCKED ' + got + ' KM/H', a.name + ' · target ' + a.target, 2400);
+            Audio_.chime(got >= a.target * 1.25 ? 3 : 2);
+          } else if (got > 30) {
+            UI.toast(got + ' KM/H — NEEDS ' + a.target, 'bad');
+          }
         }
       } else if (a.kind === 'smash') {
         if (a.state === 'idle' && d < a.radius) this.startSmash(a);
@@ -6876,13 +9090,20 @@ const Game = {
       }
 
       // ---- slow motion
+      // This was firing on almost every jump — and permanently while flying,
+      // since an aeroplane is always airborne and always high. Running at 42%
+      // speed most of the time is exactly what makes gravity feel inconsistent
+      // and glitchy, so it is now a rare, genuinely-big-air event only.
       let ts = 1;
-      if (store.settings.slowmo) {
-        const high = v.airTime > 0.5 && (v.pos.y - groundHeightAt(v.pos.x, v.pos.z)) > 4.5;
-        if (v.airTime > 0.5 && (this.mode === 'levels' || high)) ts = 0.42;
-        if (Cam.crashT > 0) ts = 0.34;
+      const converted = rig.morph > 0.05 || rig.boatMorph > 0.05;
+      // Levels only. In free roam the clock now runs at 1.0 always, so a fall
+      // is a fall every single time — a time scale that keeps sliding to 42%
+      // is indistinguishable from gravity that keeps changing its mind.
+      if (store.settings.slowmo && !converted && this.mode === 'levels') {
+        if (v.airTime > 0.9) ts = 0.5;
+        if (Cam.crashT > 0) ts = 0.4;
       }
-      this.timeScale = damp(this.timeScale, ts, 9, dt);
+      this.timeScale = damp(this.timeScale, ts, 7, dt);
       $('slowmoTint').style.opacity = String((1 - this.timeScale) * 1.4);
 
       // wet roads lose grip; the tyre model reads this every substep
@@ -6903,11 +9124,14 @@ const Game = {
       FX.wheelFX(v, dt);
       if (this.trailer) FX.wheelFX(this.trailer.vehicle, dt);
       FX.update(dt * this.timeScale);
+      Weapons.update(dt * this.timeScale);
 
       // ---- audio
       const d = v.drive;
-      Audio_.engine(d ? d.rpm : 800, d ? d.limiter : 6000, this.ctrl.throttle,
-        d ? d.load : 0, d ? d.boost : 0, inMenu ? 0.5 : 0);
+      const flying = rig.morph > 0.15;
+      Audio_.engine(d ? d.rpm : 800, d ? d.effLimiter : 6000, this.ctrl.throttle,
+        d ? d.load : 0, d ? d.boost : 0, inMenu ? 0.5 : (flying ? 0.85 : 0));
+      Audio_.jet(flying ? v.throttleLevel * rig.morph : 0, v.speedAbs);
       Audio_.ambience(v.speedAbs, v.maxSkid, v.rollNoise, FX.rainAmount, FX.wetness > 0.3);
 
       // ---- mode logic
@@ -6968,6 +9192,7 @@ const Game = {
     // stream terrain around the truck — this is what makes the map endless
     Chunks.update(v.pos.x, v.pos.z);
     Minimap.update(dt, v.pos.x, v.pos.z);
+    this.autoBoatCheck(dt);
     Sky.advance(dt, 1.1);
     this.updateWeatherCycle(dt);
     FX.rainAmount = damp(FX.rainAmount, this.weatherTarget, 0.25, dt);
@@ -7033,7 +9258,8 @@ addEventListener('orientationchange', () => setTimeout(onResize, 250));
 
 /* A small handle for poking at the sim from the console. */
 window.HAULHARD = { Game, World, Chunks, Minimap, Sky, FX, Cam, Quality, TRUCKS, LEVELS, TRAILERS,
-                    world, scene, camera, renderer, store, Audio_, THREE, CANNON,
+                    Weapons, MISSILE, UI, Input, world, scene, camera, renderer, store, Audio_,
+                    THREE, CANNON, worldHeight, worldSurface, spiralRoad,
                     ground: (x, z) => { const o = {}; chunkTerrainQuery(x, z, o); return o; } };
 
 /* ------------------------------------------------------------------ boot */
@@ -7042,6 +9268,7 @@ Sky.init();
 FX.init();
 Input.init();
 Cam.initLook();
+Weapons.init();
 UI.init();
 Game.applySettings();
 Sky.set(10, 0.15);
