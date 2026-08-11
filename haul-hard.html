@@ -197,6 +197,18 @@ input[type=range]::-moz-range-thumb{width:14px;height:14px;border-radius:50%;bac
   text-transform:uppercase;margin-top:6px;font-weight:500}
 #toast{position:fixed;left:50%;top:76px;transform:translateX(-50%);z-index:30;display:grid;gap:6px;
   justify-items:center;pointer-events:none}
+/* ---- spawn picker ---- */
+.spawnBtns{display:grid;gap:11px;margin-top:8px}
+.spawnBtns button{width:100%;text-align:left;padding:17px 20px;font-size:15px;
+  display:flex;align-items:center;gap:14px}
+.spawnBtns button small{margin-left:auto;color:var(--ov0);font-weight:400;font-size:11px;
+  text-align:right;max-width:58%}
+.spawnBtns button.ghost small{color:var(--s2)}
+.spawnSub{margin-top:22px;color:var(--ov0);font-size:10px;letter-spacing:.16em}
+.spawnMarks{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+.spawnMarks button{padding:8px 13px;font-size:11px}
+.spawnMarks button i{font-style:normal;color:var(--ov0);margin-left:7px;font-weight:400}
+
 /* ---- multiplayer ---- */
 .txt{font-family:var(--mono);font-size:13px;font-weight:700;letter-spacing:.04em;width:250px;
   padding:9px 11px;border-radius:9px;background:var(--crust);color:var(--text);
@@ -397,6 +409,22 @@ input[type=range]::-moz-range-thumb{width:14px;height:14px;border-radius:50%;bac
   </div>
 </div>
 
+<!-- ======================= SPAWN PICKER ======================= -->
+<div id="spawnPick" class="screen hide">
+  <div class="sheet panel" style="width:min(700px,100%)">
+    <div class="hdr">
+      <button class="ghost" data-go="menu">← BACK</button>
+      <div><h2>Drop point</h2><div class="sub" id="spSub">where do you want to start?</div></div>
+    </div>
+    <div class="spawnBtns">
+      <button class="primary" id="spCity">THE CITY<small>downtown, among the towers</small></button>
+      <button id="spRandom">ANYWHERE<small>a random clear spot somewhere in the world</small></button>
+    </div>
+    <div class="spawnSub">OR PICK A LANDMARK</div>
+    <div class="spawnMarks" id="spMarks"></div>
+  </div>
+</div>
+
 <!-- ======================= MULTIPLAYER ======================= -->
 <div id="multi" class="screen hide">
   <div class="sheet panel" style="width:min(760px,100%)">
@@ -423,6 +451,8 @@ input[type=range]::-moz-range-thumb{width:14px;height:14px;border-radius:50%;bac
     </div>
 
     <div class="mpHelp">
+      <b>Drop point</b> — you start wherever you last picked on the OPEN WORLD screen,
+      nudged clear of the other players.<br><br>
       <b>Hosting</b> — put <code>server.js</code> next to <code>index.html</code> and run
       <code>node server.js</code>. It prints a <code>http://…</code> address for everyone
       on your network and a <code>host:port</code> to paste in the box above.<br><br>
@@ -710,6 +740,7 @@ const store = {
   ordnance: false,        // missile launchers found (triple-tap I) — persists
   playerName: '',         // multiplayer handle
   servers: [],            // recently joined addresses
+  spawnMode: 'city',      // 'city' | 'random' | a landmark key
   settings: {
     quality: 'auto',       // low | med | high | auto
     shadows: true,
@@ -8469,10 +8500,10 @@ function buildAirfield(rng) {
   const SEG = 8, segLen = (A.half * 2) / SEG;
   for (let i = 0; i < SEG; i++) {
     const cx = A.x - A.half + segLen * (i + 0.5);
-    addStaticBox(segLen, 0.4, A.halfW * 2, cx, y + 0.15, A.z, 0, 0x2a2a3a, 'road');
+    addStaticBox(segLen, 0.4, A.halfW * 2, cx, y + 0.15, A.z, 0, 0x2a2a3a, 'road').body.driveOver = true;
   }
   // taxiway out to the apron
-  addStaticBox(70, 0.4, 130, A.x + 150, y + 0.15, A.z - 100, 0, 0x30303f, 'road');
+  addStaticBox(70, 0.4, 130, A.x + 150, y + 0.15, A.z - 100, 0, 0x30303f, 'road').body.driveOver = true;
 
   // centre-line dashes and threshold bars
   for (let i = -14; i <= 14; i++) {
@@ -8585,7 +8616,7 @@ function buildMarina(rng) {
   // jetty deck on stilts, running along the river
   for (let i = 0; i < 6; i++) {
     const z = M.z - 60 + i * 24;
-    addStaticBox(9, 0.6, 24, M.x - 26, deckY, z, 0, 0x8a6b4a, 'wood');
+    addStaticBox(9, 0.6, 24, M.x - 26, deckY, z, 0, 0x8a6b4a, 'wood').body.driveOver = true;
     for (const sx of [-1, 1]) {
       deco.push(cylG(0.24, 0.24, deckY + 3, 6, 0x5a4530, [M.x - 26 + sx * 3.6, deckY - 1.6, z - 9]));
     }
@@ -8720,7 +8751,7 @@ function buildTruckStop(rng) {
   // hundred metres into the air.
   const deck = y + 0.35;
   const deco = [], lights = [];
-  addStaticBox(140, 0.4, 74, x0, y + 0.15, z0, 0, 0x30303f, 'road');   // apron
+  addStaticBox(140, 0.4, 74, x0, y + 0.15, z0, 0, 0x30303f, 'road').body.driveOver = true;  // apron
   // canopy on six pillars
   for (let i = -1; i <= 1; i++) for (const sz of [-1, 1]) {
     addStaticBox(1.2, 6.4, 1.2, x0 + i * 16, deck + 3.2, z0 + sz * 8, 0, 0x9399b2, 'metal');
@@ -9051,7 +9082,26 @@ function buildActivities(rng) {
  */
 function findClearSpawn(x0, z0, clearance) {
   const need = clearance || 9;
-  const solids = stage.bodies.filter(b => b.mass === 0 && b !== terrainBody && b.shapes.length);
+  // `driveOver` marks flat decks — runway, apron, jetty. They are things you
+  // land ON, not things to avoid, and treating them as obstacles pushed every
+  // airfield spawn forty metres off into the gravel.
+  const solids = stage.bodies.filter(b =>
+    b.mass === 0 && b !== terrainBody && b.shapes.length && !b.driveOver);
+  const decks = stage.bodies.filter(b => b.driveOver);
+  // ...but ignoring a deck is only half the job. Drop onto the terrain under a
+  // runway or a filling-station apron and you start inside the slab, which the
+  // solver resolves by flipping you onto your roof. Land on top of it instead.
+  const deckTop = (x, z, y) => {
+    let best = y;
+    for (const b of decks) {
+      if (b.updateAABB) b.updateAABB(); else if (b.computeAABB) b.computeAABB();
+      const a = b.aabb;
+      if (x < a.lowerBound.x || x > a.upperBound.x) continue;
+      if (z < a.lowerBound.z || z > a.upperBound.z) continue;
+      if (a.upperBound.y > best && a.upperBound.y < y + 8) best = a.upperBound.y;
+    }
+    return best;
+  };
   const blocked = (x, z, y) => {
     for (const b of solids) {
       // cannon-es calls it updateAABB(), the old UMD build computeAABB()
@@ -9072,10 +9122,67 @@ function findClearSpawn(x0, z0, clearance) {
       if (!terrainQuery(x, z, groundHit)) continue;
       if (groundHit.surface === 'water' || groundHit.ny < 0.93) continue;
       if (blocked(x, z, groundHit.y)) continue;
-      return [x, groundHit.y + 1.6, z];
+      return [x, deckTop(x, z, groundHit.y) + 1.6, z];
     }
   }
-  return [x0, terrainH(x0, z0) + 3, z0];
+  return [x0, deckTop(x0, z0, terrainH(x0, z0)) + 3, z0];
+}
+
+/* ------------------------------------------------------------ drop points */
+/**
+ * The named places you can start from. Everything is resolved lazily against
+ * `World.landmarks`, because the picker is drawn before the world exists.
+ */
+function spawnPoints() {
+  const L = World.landmarks;
+  if (!L) return [];
+  return [
+    { key: 'city', name: 'THE CITY', sub: 'downtown', x: L.TOWN.x, z: L.TOWN.z, clear: 11 },
+    { key: 'airfield', name: 'PANHANDLE FIELD', sub: 'runway',
+      x: L.AIRFIELD.x - L.AIRFIELD.half + 40, z: L.AIRFIELD.z, clear: 9 },
+    { key: 'peak', name: 'SPIRE PEAK', sub: 'summit', x: L.PEAK.x, z: L.PEAK.z - L.PEAK.pad * 0.5, clear: 9 },
+    // off-centre and with plenty of clearance: the pit is terraced and strewn
+    // with boulders, and the exact middle leaves you perched on one of them
+    { key: 'quarry', name: 'THE QUARRY', sub: 'pit floor',
+      x: L.QUARRY.x - 110, z: L.QUARRY.z + 85, clear: 17 },
+    { key: 'park', name: 'STUNT PARK', sub: 'ramps', x: L.PARK.x, z: L.PARK.z, clear: 12 },
+    { key: 'marina', name: 'THE MARINA', sub: 'slipway', x: L.MARINA.x - 62, z: L.MARINA.z + 46, clear: 9 },
+    { key: 'stop', name: 'TRUCK STOP', sub: 'highway', x: -300, z: L.HIGHWAY_Z + 62, clear: 10 },
+    { key: 'windfarm', name: 'WIND FARM', sub: 'the ridge', x: L.WINDFARM.x + 240, z: L.WINDFARM.z, clear: 10 },
+  ];
+}
+
+/**
+ * Somewhere — anywhere — you could plausibly be dropped. Rejects water, cliffs
+ * and anything below the waterline, and gives up onto the edge of town rather
+ * than returning nothing.
+ */
+function randomSpawnPoint(radius) {
+  const R = radius || 2600;
+  for (let i = 0; i < 80; i++) {
+    const a = Math.random() * TAU;
+    const r = Math.sqrt(Math.random()) * R;      // sqrt keeps it uniform over the disc
+    const x = Math.cos(a) * r, z = Math.sin(a) * r;
+    if (!terrainQuery || !terrainQuery(x, z, groundHit)) continue;
+    if (groundHit.surface === 'water') continue;
+    if (groundHit.y < WATER_Y + 2) continue;
+    if (groundHit.ny < 0.94) continue;           // not on the side of a mountain
+    return [x, z];
+  }
+  const L = World.landmarks;
+  return [L.TOWN.x + 220, L.TOWN.z + 220];
+}
+
+/** Nearest named place to (x,z), for the "you are here" line on landing. */
+function placeName(x, z) {
+  let best = null, bd = 1e9;
+  for (const p of spawnPoints()) {
+    const d = Math.hypot(x - p.x, z - p.z);
+    if (d < bd) { bd = d; best = p; }
+  }
+  if (!best || bd > 900) return 'THE MIDDLE OF NOWHERE';
+  if (bd < 130) return best.name;
+  return Math.round(bd / 100) * 100 + ' M FROM ' + best.name;
 }
 
 /* --------------------------------------------------------- build it all -- */
@@ -9308,7 +9415,7 @@ const Input = {
 const $ = (id) => document.getElementById(id);
 
 const UI = {
-  screens: ['menu', 'levelSelect', 'garage', 'multi', 'settings', 'pause', 'results'],
+  screens: ['menu', 'levelSelect', 'garage', 'spawnPick', 'multi', 'settings', 'pause', 'results'],
   current: 'menu',
   camTag: null,
 
@@ -9349,7 +9456,7 @@ const UI = {
     $('tuneReset').addEventListener('click', () => {
       store.tune[store.truck] = defaultTune(); saveStore(); Game.rebuildGarageTruck(); Audio_.ui();
     });
-    $('gDrive').addEventListener('click', () => { Audio_.ui('ok'); Game.startWorld(); });
+    $('gDrive').addEventListener('click', () => { Audio_.ui('ok'); Game.go('world'); });
     this.buildSettings();
   },
 
@@ -9496,6 +9603,39 @@ const UI = {
         Game.rebuildGarageTruck(); Audio_.ui();
       };
     });
+  },
+
+  /* -------------------------------------------------------- drop points */
+  buildSpawnPick() {
+    // The picker is drawn before the world exists, and the landmark positions
+    // it lists are seed-independent constants, so seeding the generator here is
+    // enough to name them. buildOpenWorld re-seeds properly on launch.
+    if (!World.landmarks) initWorldGen(20260807);
+    const go = (mode) => {
+      store.spawnMode = mode; saveStore();
+      Audio_.ui('ok');
+      Net.disconnect(true);
+      Game.startWorld(null, false, mode);
+    };
+    const city = $('spCity'), rand = $('spRandom');
+    city.onclick = () => go('city');
+    rand.onclick = () => go('random');
+    city.classList.toggle('primary', store.spawnMode !== 'random');
+    rand.classList.toggle('primary', store.spawnMode === 'random');
+
+    const box = $('spMarks');
+    box.innerHTML = '';
+    for (const p of spawnPoints()) {
+      if (p.key === 'city') continue;             // it has its own big button
+      const b = document.createElement('button');
+      b.className = store.spawnMode === p.key ? '' : 'ghost';
+      b.innerHTML = p.name + '<i>' + p.sub + '</i>';
+      b.onclick = () => go(p.key);
+      box.appendChild(b);
+    }
+    $('spSub').textContent = store.trailer !== 'none'
+      ? 'towing — you need a bit more room to land'
+      : 'where do you want to start?';
   },
 
   /* -------------------------------------------------------- multiplayer */
@@ -9952,8 +10092,10 @@ const Game = {
       if (!this.rig) this.buildShowroom();
       UI.buildMultiplayer(); UI.show('multi'); UI.setHUD(false);
     } else if (where === 'world') {
-      Net.disconnect(true);
-      this.startWorld();
+      // pick a drop point first; the buttons on that screen do the launching
+      this.mode = this.mode === 'boot' ? 'menu' : this.mode;
+      if (!this.rig) this.buildShowroom();
+      UI.buildSpawnPick(); UI.show('spawnPick'); UI.setHUD(false);
     }
   },
 
@@ -10112,8 +10254,12 @@ const Game = {
   },
 
   /* ----------------------------------------------------------- world ---- */
-  /** `seed` is supplied by the server in multiplayer so everyone shares a map. */
-  startWorld(seed, online) {
+  /**
+   * `seed` is supplied by the server in multiplayer so everyone shares a map.
+   * `spawn` is 'city', 'random', or the key of a landmark; it falls back to
+   * whatever you last chose on the drop-point screen.
+   */
+  startWorld(seed, online, spawn) {
     this.mode = 'world';
     this._showroom = false;
     boot(0.6, 'generating terrain…');
@@ -10124,14 +10270,26 @@ const Game = {
     const L = World.landmarks;
     // a hitched trailer adds ten metres behind the cab — clear room for it too,
     // or it spawns inside a building and levers the whole rig onto its side
-    const need = store.trailer !== 'none' ? 22 : 11;
-    // online, fan the spawns out around the town so nobody lands on anybody
-    let sx = L.TOWN.x, sz = L.TOWN.z;
+    // ---- work out where to put you ---------------------------------------
+    const mode = spawn || store.spawnMode || 'city';
+    let sx, sz, need = store.trailer !== 'none' ? 22 : 11;
+    if (mode === 'random') {
+      const p = randomSpawnPoint();
+      sx = p[0]; sz = p[1];
+    } else {
+      const pt = spawnPoints().find(p => p.key === mode) || spawnPoints()[0];
+      sx = pt.x; sz = pt.z;
+      need = Math.max(need, pt.clear);
+    }
+    // online, fan the spawns out so nobody lands on top of anybody
     if (online && Net.id) {
       const a = (Net.id * 2.399963) % TAU;          // golden angle, so ids spread
       sx += Math.cos(a) * 46; sz += Math.sin(a) * 46;
     }
+    // a distant drop point needs its ground streamed in before anything lands
+    Chunks.ensureAround(sx, sz, 2);
     this.spawnTruck(findClearSpawn(sx, sz, need), 0, true);
+    this.spawnPlace = placeName(sx, sz);
     Cam.setMode(0);
     this.paused = false; this.finished = false;
     this.runTime = 0; this.runTop = 0;
@@ -10143,7 +10301,7 @@ const Game = {
     $('timerSub').textContent = '';
     $('timer').textContent = '';
     $('loadMeter').classList.remove('hide');
-    if (!online) UI.center('OPEN WORLD', '2 km of nothing to stop you', 2200);
+    if (!online) UI.center('OPEN WORLD', this.spawnPlace || '', 2400);
     Audio_.setEngineOn(true);
     this.activeJob = null;
     this.weatherTimer = 55; this.weatherTarget = 0;
