@@ -197,6 +197,39 @@ input[type=range]::-moz-range-thumb{width:14px;height:14px;border-radius:50%;bac
   text-transform:uppercase;margin-top:6px;font-weight:500}
 #toast{position:fixed;left:50%;top:76px;transform:translateX(-50%);z-index:30;display:grid;gap:6px;
   justify-items:center;pointer-events:none}
+/* ---- multiplayer ---- */
+.txt{font-family:var(--mono);font-size:13px;font-weight:700;letter-spacing:.04em;width:250px;
+  padding:9px 11px;border-radius:9px;background:var(--crust);color:var(--text);
+  border:1px solid var(--s1);outline:none}
+.txt:focus{border-color:var(--sapphire)}
+.mpRecent{display:flex;flex-wrap:wrap;gap:7px;margin-top:12px}
+.mpRecent button{padding:5px 10px;font-size:10px;font-weight:400;letter-spacing:.08em}
+.mpStatus{margin-top:14px;min-height:19px;font-size:11px;letter-spacing:.1em;color:var(--ov1)}
+.mpStatus.ok{color:var(--green)}
+.mpStatus.bad{color:var(--red)}
+.mpStatus.busy{color:var(--yellow)}
+.mpHelp{margin-top:20px;padding-top:16px;border-top:1px solid var(--s0);
+  color:var(--ov0);font-size:10.5px;line-height:1.75;font-weight:400}
+.mpHelp code{color:var(--sapphire);background:var(--crust);padding:1px 5px;border-radius:4px}
+.mpHelp b{color:var(--sub0)}
+#netPanel{position:absolute;right:14px;top:104px;width:194px;padding:9px 11px;border-radius:11px;
+  background:rgba(17,17,27,.82);border:1px solid var(--s0);font-size:10px;letter-spacing:.08em}
+#netPanel .nHdr{color:var(--teal);font-weight:700;margin-bottom:6px;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#netPanel .nRow{display:flex;justify-content:space-between;gap:8px;color:var(--sub0);padding:1.5px 0}
+#netPanel .nRow i{font-style:normal;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#netPanel .nRow b{color:var(--ov1);font-weight:400}
+#netPanel .nMe i{color:var(--text)}
+#chatLog{position:absolute;left:14px;bottom:150px;width:min(430px,40vw);
+  display:flex;flex-direction:column;gap:3px;pointer-events:none}
+#chatLog div{font-size:11px;letter-spacing:.04em;color:var(--sub1);
+  background:rgba(17,17,27,.62);border-radius:6px;padding:3px 8px;align-self:flex-start;
+  max-width:100%;word-break:break-word}
+#chatLog div b{font-weight:700}
+#chatInput{position:absolute;left:14px;bottom:118px;width:min(430px,40vw);
+  font-family:var(--mono);font-size:12px;padding:8px 11px;border-radius:8px;
+  background:rgba(17,17,27,.95);color:var(--text);border:1px solid var(--sapphire);outline:none}
+.nameTag{font-family:var(--mono)}
 .toastItem{background:rgba(24,24,37,.95);border:1px solid var(--s1);border-left:3px solid var(--peach);
   border-radius:9px;padding:8px 15px;font-size:12px;color:var(--text);
   animation:tin .25s ease-out;box-shadow:0 10px 26px rgba(0,0,0,.5)}
@@ -293,6 +326,10 @@ input[type=range]::-moz-range-thumb{width:14px;height:14px;border-radius:50%;bac
   <canvas id="telemetry" width="620" height="740" class="hide"></canvas>
   <div id="aidTags"></div>
   <div id="centerMsg"></div>
+  <div id="netPanel" class="hide"></div>
+  <div id="chatLog"></div>
+  <input id="chatInput" class="hide" type="text" maxlength="140" spellcheck="false"
+         placeholder="say something · ENTER to send · ESC to close">
 </div>
 <div id="fps" class="hide"></div>
 <div id="vig" class="hide"></div>
@@ -335,7 +372,8 @@ input[type=range]::-moz-range-thumb{width:14px;height:14px;border-radius:50%;bac
       <button class="primary" data-go="levels"><span class="k">1</span>LEVELS<small id="mmLevels"></small></button>
       <button data-go="world"><span class="k">2</span>OPEN WORLD<small>2km sandbox</small></button>
       <button data-go="garage"><span class="k">3</span>GARAGE<small id="mmTruck"></small></button>
-      <button data-go="settings"><span class="k">4</span>SETTINGS<small>quality · audio · controls</small></button>
+      <button data-go="multi"><span class="k">4</span>MULTIPLAYER<small>join a friend's server</small></button>
+      <button data-go="settings"><span class="k">5</span>SETTINGS<small>quality · audio · controls</small></button>
     </div>
     <div class="credit">
       <b style="color:var(--sapphire)">C = aeroplane · N = boat</b> — mid-air is fine · V drops the trailer<br>
@@ -356,6 +394,44 @@ input[type=range]::-moz-range-thumb{width:14px;height:14px;border-radius:50%;bac
       <button class="ghost" id="unlockAll">UNLOCK ALL</button>
     </div>
     <div class="lvGrid" id="lvGrid"></div>
+  </div>
+</div>
+
+<!-- ======================= MULTIPLAYER ======================= -->
+<div id="multi" class="screen hide">
+  <div class="sheet panel" style="width:min(760px,100%)">
+    <div class="hdr">
+      <button class="ghost" data-go="menu">← BACK</button>
+      <div><h2>Multiplayer</h2><div class="sub" id="mpSub">same map, same weather, everyone's trucks</div></div>
+    </div>
+
+    <div class="setRow">
+      <div class="lbl">Server address<small>what the host's window printed — 192.168.x.x:8787</small></div>
+      <input id="mpAddr" class="txt" type="text" spellcheck="false" placeholder="192.168.1.20:8787">
+    </div>
+    <div class="setRow">
+      <div class="lbl">Your name<small>shown above your truck</small></div>
+      <input id="mpName" class="txt" type="text" spellcheck="false" maxlength="16" placeholder="DRIVER">
+    </div>
+
+    <div id="mpRecent" class="mpRecent"></div>
+    <div id="mpStatus" class="mpStatus"></div>
+
+    <div style="display:flex;gap:10px;margin-top:16px">
+      <button class="primary" id="mpConnect" style="flex:1">CONNECT</button>
+      <button class="ghost" id="mpDisconnect">DISCONNECT</button>
+    </div>
+
+    <div class="mpHelp">
+      <b>Hosting</b> — put <code>server.js</code> next to <code>index.html</code> and run
+      <code>node server.js</code>. It prints a <code>http://…</code> address for everyone
+      on your network and a <code>host:port</code> to paste in the box above.<br><br>
+      <b>If you loaded this page from GitHub Pages</b> it is served over <b>https</b>, and a
+      browser will not let an https page talk to a plain socket on a home network. Two ways
+      round it: open the <code>http://…</code> address the server printed instead of the
+      GitHub one — that copy can connect to anything — or host over https behind a tunnel.
+      Connecting to <code>localhost</code> works from either page.
+    </div>
   </div>
 </div>
 
@@ -632,6 +708,8 @@ const store = {
   trailer: 'none',
   tune: {},               // truckId -> {susp, gear, grip, ...}
   ordnance: false,        // missile launchers found (triple-tap I) — persists
+  playerName: '',         // multiplayer handle
+  servers: [],            // recently joined addresses
   settings: {
     quality: 'auto',       // low | med | high | auto
     shadows: true,
@@ -642,6 +720,7 @@ const store = {
     tc: true,              // on by default: these are torquey rear-drive trucks
     esc: false,
     noFlip: false,         // gyro keeps it on its wheels — drift mode
+    noDamage: false,       // invulnerable bodywork — crashes still bang, nothing dents
     autoBoat: false,       // fold into a boat automatically on hitting water
     missiles: true,        // only does anything once `store.ordnance` is true
     roughness: 0.35,       // open-world terrain detail; 0 = glass, 1 = rally stage
@@ -664,7 +743,8 @@ try {
     Object.assign(store, d);
     store.settings = Object.assign({
       quality: 'auto', shadows: true, volume: 0.75, power: 1, mouseLook: true,
-      abs: true, tc: true, esc: false, noFlip: false, autoBoat: false, roughness: 0.35,
+      abs: true, tc: true, esc: false, noFlip: false, noDamage: false,
+      autoBoat: false, roughness: 0.35,
       missiles: true, tyreModel: true, telemetry: false,
       gearbox: 'auto', units: 'kmh',
       steerAssist: true, slowmo: true, shake: true, fps: false, tilt: false, invertPitch: false,
@@ -2876,10 +2956,14 @@ function tuneFor(id) {
   if (!store.tune[id]) store.tune[id] = defaultTune();
   return Object.assign(defaultTune(), store.tune[id]);
 }
-/** Merge a preset with the garage tuning into a live spec. */
-function makeSpec(id) {
+/**
+ * Merge a preset with the garage tuning into a live spec.
+ * `tuneOverride` exists for other people's trucks in multiplayer — their rig
+ * must not inherit whatever you happen to have on the tuning sliders.
+ */
+function makeSpec(id, tuneOverride) {
   const p = TRUCKS[id];
-  const t = tuneFor(id);
+  const t = tuneOverride || tuneFor(id);
   const s = JSON.parse(JSON.stringify(TRUCK_BASE));
   const deep = (dst, src) => {
     for (const k in src) {
@@ -2934,9 +3018,10 @@ function alloyWheel(radius, width, rimColor, tyreColor) {
     parts.push(boxG(W * 0.58, R * 0.030, R * 0.13, 0x101018,
       [0, Math.cos(a) * R * 0.992, Math.sin(a) * R * 0.992], [a, 0, 0.16]));
   }
-  // rim barrel + polished outer lip — a low-profile tyre means a big rim, and
-  // the barrel is wider than the carcass so its face is what you actually see
-  parts.push(cylG(R * 0.80, R * 0.80, W * 1.00, 20, rimColor, [0, 0, 0], [0, 0, PI / 2]));
+  // Dark inner dish, then the spokes standing proud of it. The dish has to be
+  // narrower than the spoke faces or its own end cap hides them and the wheel
+  // renders as one blank disc.
+  parts.push(cylG(R * 0.80, R * 0.80, W * 0.84, 20, 0x23262f, [0, 0, 0], [0, 0, PI / 2]));
   for (const sx of [-1, 1]) {
     parts.push(cylG(R * 0.83, R * 0.81, W * 0.07, 20, 0xb8bcc8,
       [sx * W * 0.50, 0, 0], [0, 0, PI / 2]));
@@ -2946,21 +3031,21 @@ function alloyWheel(radius, width, rimColor, tyreColor) {
   // twists the blade rather than swinging it round the rim.
   for (let i = 0; i < 10; i++) {
     const a = i / 10 * TAU;
-    parts.push(boxG(W * 0.18, R * 0.74, R * 0.115, rimColor,
-      [W * 0.44, Math.cos(a) * R * 0.42, Math.sin(a) * R * 0.42], [a, 0.16, 0]));
+    parts.push(boxG(W * 0.20, R * 0.76, R * 0.115, rimColor,
+      [W * 0.50, Math.cos(a) * R * 0.42, Math.sin(a) * R * 0.42], [a, 0.16, 0]));
   }
   // centre lock and hub cap
-  parts.push(cylG(R * 0.18, R * 0.18, W * 0.26, 6, 0xf9e2af, [W * 0.58, 0, 0], [0, 0, PI / 2]));
-  parts.push(cylG(R * 0.28, R * 0.28, W * 0.18, 12, rimColor, [W * 0.50, 0, 0], [0, 0, PI / 2]));
-  // carbon-ceramic disc, drilled, just inboard of the spoke faces
-  parts.push(cylG(R * 0.70, R * 0.70, W * 0.09, 20, 0x4a4a58, [W * 0.28, 0, 0], [0, 0, PI / 2]));
+  parts.push(cylG(R * 0.17, R * 0.17, W * 0.24, 6, 0xf9e2af, [W * 0.66, 0, 0], [0, 0, PI / 2]));
+  parts.push(cylG(R * 0.26, R * 0.26, W * 0.18, 12, rimColor, [W * 0.58, 0, 0], [0, 0, PI / 2]));
+  // carbon-ceramic disc, drilled, behind the dish and visible from inboard
+  parts.push(cylG(R * 0.70, R * 0.70, W * 0.09, 20, 0x4a4a58, [-W * 0.30, 0, 0], [0, 0, PI / 2]));
   for (let i = 0; i < 12; i++) {
     const a = i / 12 * TAU;
     parts.push(cylG(R * 0.045, R * 0.045, W * 0.12, 5, 0x14141c,
-      [W * 0.30, Math.cos(a) * R * 0.53, Math.sin(a) * R * 0.53], [0, 0, PI / 2]));
+      [-W * 0.32, Math.cos(a) * R * 0.53, Math.sin(a) * R * 0.53], [0, 0, PI / 2]));
   }
   // bell
-  parts.push(cylG(R * 0.26, R * 0.26, W * 0.24, 10, 0x6c7086, [W * 0.34, 0, 0], [0, 0, PI / 2]));
+  parts.push(cylG(R * 0.26, R * 0.26, W * 0.24, 10, 0x6c7086, [-W * 0.20, 0, 0], [0, 0, PI / 2]));
   return mergeGeoms(parts);
 }
 
@@ -3580,6 +3665,21 @@ function buildBoatKit(spec) {
   return { group, parts, jets: [wake] };
 }
 
+/**
+ * Pose every part of a conversion kit at `value` along the 0..1 timeline.
+ * Free-standing because network players get posed the same way, and they have
+ * no TruckRig behind them — just meshes and a stream of numbers.
+ */
+function poseKit(parts, value) {
+  for (const p of parts) {
+    const t = smoothstep(clamp01((value - p.t0) / (p.t1 - p.t0)));
+    const f = p.from, o = p.to, m = p.mesh;
+    m.position.set(lerp(f.p[0], o.p[0], t), lerp(f.p[1], o.p[1], t), lerp(f.p[2], o.p[2], t));
+    m.rotation.set(lerp(f.r[0], o.r[0], t), lerp(f.r[1], o.r[1], t), lerp(f.r[2], o.r[2], t));
+    m.scale.set(lerp(f.s[0], o.s[0], t), lerp(f.s[1], o.s[1], t), lerp(f.s[2], o.s[2], t));
+  }
+}
+
 /* ------------------------------------------------------------- truck rig */
 const DENT_RADIUS = 1.15;
 
@@ -3719,6 +3819,10 @@ class TruckRig {
     Game.shake(strength * 1.5);
     if (strength > 0.16) Game.crashCam(strength);
 
+    // Invulnerable rigs still spark, bang and shake — the crash reads exactly
+    // the same, the bodywork just doesn't wear it.
+    if (store.settings.noDamage) return;
+
     // dent the bodywork
     this.dent(worldPoint, worldNormal, strength);
 
@@ -3729,6 +3833,8 @@ class TruckRig {
   }
 
   addDamage(d) {
+    if (store.settings.noDamage) { this.damage = 0; this.vehicle.damage = 0;
+                                   this.vehicle.health = 1; return; }
     this.damage = clamp01(this.damage + d);
     this.vehicle.damage = this.damage;
     this.vehicle.health = 1 - this.damage;
@@ -3854,6 +3960,39 @@ class TruckRig {
     Game.toast('WHEEL OFF', 'bad');
   }
 
+  /**
+   * Put it back to showroom condition: dents pushed out, panels back on, wheels
+   * back on, wing refitted. Used when Indestructible is switched on mid-drive —
+   * turning the setting on should hand you a clean truck, not freeze a wreck.
+   */
+  repair() {
+    const g = this.chassisMesh.geometry, pos = g.attributes.position;
+    pos.array.set(this.basePos);
+    pos.needsUpdate = true;
+    this.dentAmt.fill(0);
+    this.needNormals = true;
+    for (const p of this.panels) p.gone = false;
+    this.detachedPanels = 0;
+    this.damage = 0; this.totalImpact = 0;
+    this.vehicle.damage = 0; this.vehicle.health = 1;
+    this.wheelDamage = this.vehicle.wheels.map(() => 0);
+    for (const w of this.vehicle.wheels) {
+      if (!w.detached) continue;
+      w.detached = false;
+      const m = new THREE.Mesh(this.wheelMeshes[0] ? this.wheelMeshes[0].geometry : null,
+                               this.wheelMat);
+      m.castShadow = true;
+      scene.add(m);
+      w.mesh = m;
+    }
+    if (!this.wing && this.spec.rig && this.spec.rig.wing) {
+      this.wing = buildHyperWing(this.spec.paint, this.spec.trim);
+      this.wing.position.set(0, 0.38, -1.94);
+      this.group.add(this.wing);
+      this.wingT = 0;
+    }
+  }
+
   /* ---------------------------------------------------------- transform */
   get busy() {
     return (this.morph > 0 && this.morph < 1) || (this.boatMorph > 0 && this.boatMorph < 1);
@@ -3884,15 +4023,7 @@ class TruckRig {
   toggleBoat() { return this.setForm(this.form === 'boat' ? 'car' : 'boat'); }
 
   /** Ease one kit's deployment toward its target and pose every part. */
-  _poseKit(parts, value) {
-    for (const p of parts) {
-      const t = smoothstep(clamp01((value - p.t0) / (p.t1 - p.t0)));
-      const f = p.from, o = p.to, m = p.mesh;
-      m.position.set(lerp(f.p[0], o.p[0], t), lerp(f.p[1], o.p[1], t), lerp(f.p[2], o.p[2], t));
-      m.rotation.set(lerp(f.r[0], o.r[0], t), lerp(f.r[1], o.r[1], t), lerp(f.r[2], o.r[2], t));
-      m.scale.set(lerp(f.s[0], o.s[0], t), lerp(f.s[1], o.s[1], t), lerp(f.s[2], o.s[2], t));
-    }
-  }
+  _poseKit(parts, value) { poseKit(parts, value); }
 
   /** Drive both morph timelines and pose everything. */
   updateForm(dt) {
@@ -3961,7 +4092,7 @@ class TruckRig {
   }
 
   updateActiveAero(dt) {
-    if (this.wing && this.damage > 0.62) { this.shedWing(); return; }
+    if (this.wing && this.damage > 0.62 && !store.settings.noDamage) { this.shedWing(); return; }
     if (!this.wing) return;
     const v = this.vehicle;
     const braking = Game.ctrl.brake > 0.3 || Game.ctrl.handbrake > 0.3;
@@ -4797,7 +4928,9 @@ function buildLauncherPods(spec) {
   const muzzles = [];
   const parts = [];
   for (const sx of [-1, 1]) {
-    const px = sx * hw * 0.88, py = hy * 0.58, pz = backZ * 0.26;
+    // mounted high on the flank: a low pod puts the muzzle barely above the
+    // ground-proximity fuse, so the rocket trips it on the first rise
+    const px = sx * hw * 0.88, py = hy * 0.72 + 0.16, pz = backZ * 0.26;
     parts.push(boxG(0.36, 0.32, 1.10, 0x3a3f52, [px, py, pz]));
     parts.push(boxG(0.40, 0.06, 0.30, 0x585b70, [px, py + 0.18, pz - 0.42]));
     for (const [ox, oy] of [[-0.085, 0.075], [0.085, 0.075], [-0.085, -0.075], [0.085, -0.075]]) {
@@ -4884,7 +5017,14 @@ const Weapons = {
     let hl = Math.hypot(hx, hz);
     if (hl < 1e-4) { const f = rig.vehicle.fwdC; hx = f.x; hz = f.z; hl = Math.hypot(hx, hz) || 1; }
     const noseY = clamp(rig.vehicle.fwdC.y, -0.985, 0.985);
-    const elev = Math.asin(noseY) + 0.09;
+    let elev = Math.asin(noseY) + 0.09;
+    // On the road the rocket must never leave the tube pointing down: parked
+    // nose-first into a dip, the chassis pitch alone was enough to cancel the
+    // launch elevation and detonate the warhead four metres in front of the
+    // bumper. Airborne and afloat there is no clamp, so a diving aeroplane can
+    // still strafe whatever it is pointed at.
+    const onRoad = rig.morph < 0.2 && rig.boatMorph < 0.2;
+    if (onRoad) elev = Math.max(elev, 0.10);
     const ce = Math.cos(elev);
     tmpV.set(hx / hl * ce, Math.sin(elev), hz / hl * ce).normalize();
 
@@ -4934,6 +5074,56 @@ const Weapons = {
     Audio_.launch();
     Cam.addShake(0.22);
     FX.smoke(tmpV2, 0.7, 0x9399b2);
+    Net.sendShoot(tmpV2, tmpV, m.speed);
+  },
+
+  /**
+   * Somebody else's rocket. Visual only — it never decides anything. The
+   * shooter is authoritative and sends a `boom` when theirs goes off, which is
+   * what actually ends this one, so everyone sees the same fireball in the
+   * same place rather than each client guessing at the impact.
+   */
+  spawnGhost(owner, p, d, speed) {
+    if (!this.geo) {
+      this.geo = missileGeometry();
+      this.mat = vcMat({ roughness: 0.5, metalness: 0.4 }); this.mat.__keep = true;
+      this.flameMat = new THREE.MeshBasicMaterial({ color: 0xfab387, transparent: true, opacity: 0.85 });
+      this.flameMat.__keep = true;
+    }
+    const mesh = new THREE.Mesh(this.geo, this.mat);
+    mesh.castShadow = true;
+    mesh.position.set(p[0], p[1], p[2]);
+    const flame = new THREE.Mesh(
+      paint(toNonIndexed(new THREE.ConeGeometry(0.11, 0.9, 7)), 0xfab387), this.flameMat);
+    flame.rotation.x = -PI / 2; flame.position.z = -1.05;
+    mesh.add(flame);
+    scene.add(mesh);
+    this.live.push({ ghost: true, owner, mesh, flame, body: null, t: 0,
+                     dir: new THREE.Vector3(d[0], d[1], d[2]).normalize(),
+                     speed: speed || MISSILE.speed });
+    Audio_.launch();
+  },
+
+  /** Retire the oldest ghost belonging to `owner` — their warhead just went. */
+  killGhost(owner) {
+    for (let i = 0; i < this.live.length; i++) {
+      const m = this.live[i];
+      if (m.ghost && m.owner === owner) {
+        scene.remove(m.mesh);
+        if (m.flame) m.flame.geometry.dispose();
+        this.live.splice(i, 1);
+        return;
+      }
+    }
+  },
+  clearGhosts() {
+    for (let i = this.live.length - 1; i >= 0; i--) {
+      const m = this.live[i];
+      if (!m.ghost) continue;
+      scene.remove(m.mesh);
+      if (m.flame) m.flame.geometry.dispose();
+      this.live.splice(i, 1);
+    }
   },
 
   update(dt) {
@@ -4952,9 +5142,23 @@ const Weapons = {
       // gentle droop, then re-normalise so the nose follows the flight path
       m.dir.y -= MISSILE.droop * dt / Math.max(m.speed, 1);
       m.dir.normalize();
+      tmpQ.setFromUnitVectors(UNIT_Z, m.dir);
+      if (m.ghost) {
+        // dead reckoning only; it decides nothing and hits nothing
+        m.mesh.position.addScaledVector(m.dir, m.speed * dt);
+        m.mesh.quaternion.copy(tmpQ);
+        m.flame.scale.setScalar(0.75 + Math.random() * 0.5);
+        if (Math.random() < 0.8) {
+          FX.dust(m.mesh.position, (Math.random() - 0.5) * 1.4, 0.6,
+            (Math.random() - 0.5) * 1.4, 0.5, 0xb8bcc8, 0.7);
+        }
+        if (m.t > MISSILE.life + 1.5) {
+          scene.remove(m.mesh); m.flame.geometry.dispose(); this.live.splice(i, 1);
+        }
+        continue;
+      }
       b.velocity.set(m.dir.x * m.speed, m.dir.y * m.speed, m.dir.z * m.speed);
       b.angularVelocity.set(0, 0, 0);
-      tmpQ.setFromUnitVectors(UNIT_Z, m.dir);
       b.quaternion.set(tmpQ.x, tmpQ.y, tmpQ.z, tmpQ.w);
       m.mesh.position.set(b.position.x, b.position.y, b.position.z);
       m.mesh.quaternion.copy(tmpQ);
@@ -4973,7 +5177,7 @@ const Weapons = {
       // ground is checked analytically as well — otherwise a long shot sails
       // straight through the hillside it was aimed at.
       if (armed && !hit && terrainQuery && terrainQuery(b.position.x, b.position.z, groundHit)) {
-        if (b.position.y - groundHit.y < 0.7) hit = true;
+        if (b.position.y - groundHit.y < 0.45) hit = true;
       }
       if (armed && !hit && World.built && b.position.y < WATER_Y + 0.2) hit = true;
       if (!hit && m.t > MISSILE.life) hit = true;
@@ -4992,6 +5196,7 @@ const Weapons = {
     const wet = World.built && p.y < WATER_Y + 0.5;
     if (wet) { FX.splash(p, 1.4); Audio_.splash(0.9); }
     this.blast(p, 1);
+    Net.sendBoom(p, 1);
   },
 
   /**
@@ -5024,6 +5229,7 @@ const Weapons = {
         FX.debrisPuff(V3(b.position.x, b.position.y, b.position.z), 0.7);
       }
     }
+    damageCity(p, R * 1.15, power);
     // scorch the ground under the blast
     if (terrainQuery && terrainQuery(p.x, p.z, groundHit) && Math.abs(p.y - groundHit.y) < 6) {
       const r = 2.2 + power * 2.4;
@@ -5044,7 +5250,7 @@ const Weapons = {
         // only the inner two thirds actually hurts — outside that it is a shove
         // and a shake, so a near miss is exciting rather than a write-off
         const f = clamp01((1 - d / R) - 0.34) / 0.66;
-        rig.damage = clamp01(rig.damage + f * f * 0.22);
+        if (!store.settings.noDamage) rig.damage = clamp01(rig.damage + f * f * 0.22);
         rig.totalImpact += f * 30000;
         Cam.addShake((1 - d / R) * 1.2);
         if (f > 0.6) Game.crashCam(f);
@@ -5056,13 +5262,594 @@ const Weapons = {
     for (const m of this.live) {
       scene.remove(m.mesh);
       if (m.flame) m.flame.geometry.dispose();
-      try { world.removeBody(m.body); } catch (e) {}
+      if (m.body) { try { world.removeBody(m.body); } catch (e) {} }
     }
     this.live.length = 0;
     this.ammo = MISSILE.ammo;
     this.cool = 0; this.reload = 0;
   },
 };
+
+/* ===========================================================================
+ * 8c. MULTIPLAYER
+ *
+ * The host runs `server.js`; everyone else points a browser at it. The server
+ * is a dumb hub — it owns the world seed, the clock and the weather, and it
+ * fans out everybody's state twenty times a second. Every client stays fully
+ * authoritative over its own truck, so nobody's physics can be overruled and a
+ * dropped packet costs you nothing but a frame of someone else's smoothing.
+ *
+ * Remote players are rendered from the same builders as your own truck — the
+ * bodywork, the wheels, the aeroplane fold, the boat floats — and get a
+ * kinematic collider so you can crash into them.
+ * ========================================================================= */
+
+const NET_PORT_DEFAULT = 8787;
+const NET_SEND_HZ = 20;
+const NET_INTERP = 0.12;      // seconds of deliberate lag, to interpolate across
+
+/** Name plate: a canvas sprite that stays legible through scenery. */
+function makeNameTag(text, colour) {
+  const c = document.createElement('canvas');
+  c.width = 320; c.height = 72;
+  const g = c.getContext('2d');
+  g.font = '700 40px JetBrains Mono, ui-monospace, monospace';
+  g.textAlign = 'center'; g.textBaseline = 'middle';
+  const w = Math.min(300, g.measureText(text).width + 34);
+  g.fillStyle = 'rgba(17,17,27,0.66)';
+  g.beginPath();
+  const x0 = 160 - w / 2, y0 = 12, h = 48, r = 12;
+  g.moveTo(x0 + r, y0);
+  g.arcTo(x0 + w, y0, x0 + w, y0 + h, r);
+  g.arcTo(x0 + w, y0 + h, x0, y0 + h, r);
+  g.arcTo(x0, y0 + h, x0, y0, r);
+  g.arcTo(x0, y0, x0 + w, y0, r);
+  g.fill();
+  g.fillStyle = '#' + (colour >>> 0).toString(16).padStart(6, '0');
+  g.fillText(text, 160, 37);
+  const tex = new THREE.CanvasTexture(c);
+  tex.minFilter = THREE.LinearFilter;
+  const spr = new THREE.Sprite(new THREE.SpriteMaterial({
+    map: tex, transparent: true, depthTest: false, depthWrite: false }));
+  spr.scale.set(5.2, 1.17, 1);
+  spr.renderOrder = 6;
+  return spr;
+}
+
+/**
+ * Somebody else's truck. All the visuals of a real rig with none of the
+ * simulation: transforms arrive over the wire and are played back ~120 ms in
+ * the past, interpolated between the two samples that bracket the render time.
+ */
+class RemoteRig {
+  constructor(info) {
+    this.id = info.id;
+    this.name = info.name || ('DRIVER ' + info.id);
+    this.colour = info.colour != null ? info.colour : 0x89b4fa;
+    this.setTruck(info.truck, info.trailer);
+    this.buf = [];            // [{ t, s }] newest last
+    this.last = null;
+    this.ping = 0;
+    this.speed = 0;
+  }
+
+  setTruck(truckId, trailerId) {
+    if (this.group) this.disposeVisual();
+    this.truck = TRUCKS[truckId] ? truckId : 'pickup';
+    this.trailer = trailerId || 'none';
+    // stock tuning and their own colour — never inherit the local sliders
+    const spec = makeSpec(this.truck, defaultTune());
+    spec.paint = this.colour;
+    this.spec = spec;
+
+    const vis = buildTruckVisual(spec);
+    this.group = vis.group;
+    this.heads = vis.heads; this.tails = vis.tails;
+    this.headMat = vis.headMat; this.tailMat = vis.tailMat;
+    this.wing = vis.wing;
+    scene.add(this.group);
+
+    const wd = spec.wheelDef;
+    const alloy = spec.rig && spec.rig.wheel === 'alloy';
+    this.wheelGeo = alloy ? alloyWheel(wd.radius, wd.width, 0x9aa0b4, 0x22222c)
+                          : wheelGeometry(wd.radius, wd.width, spec.trim, 0x252534);
+    this.wheelMat = alloy ? vcMat({ roughness: 0.52, metalness: 0.60, flatShading: false })
+                          : vcMat({ roughness: 0.94, metalness: 0.02 });
+    this.wheels = spec.wheels.map(w => {
+      const mesh = new THREE.Mesh(this.wheelGeo, this.wheelMat);
+      mesh.castShadow = true;
+      scene.add(mesh);
+      return { mesh, local: V3(w.x, w.y, w.z), rest: w.rest || spec.susp.rest, sus: 0, steer: 0, spin: 0 };
+    });
+
+    const kit = buildPlaneKit(spec);
+    this.planeGroup = kit.group; this.planeParts = kit.parts; this.jets = kit.jets;
+    this.group.add(this.planeGroup);
+    const bkit = buildBoatKit(spec);
+    this.boatGroup = bkit.group; this.boatParts = bkit.parts; this.wake = bkit.jets[0];
+    this.group.add(this.boatGroup);
+
+    this.tag = makeNameTag(this.name, this.colour);
+    scene.add(this.tag);
+
+    // Kinematic collider: solid enough to crash into, and its velocity is fed
+    // in as well so a moving car shoves you instead of acting like a bollard.
+    const body = new CANNON.Body({ mass: 0, material: PMAT.metal });
+    if (CANNON.Body.KINEMATIC != null) body.type = CANNON.Body.KINEMATIC;
+    for (const c of spec.colliders) addBox(body, c.s[0], c.s[1], c.s[2], c.p);
+    body.collisionFilterGroup = GROUP.VEHICLE;
+    // deliberately NOT terrain or world: the network owns where it is, and
+    // letting the solver argue with the interpolation only makes it jitter
+    body.collisionFilterMask = GROUP.VEHICLE | GROUP.CARGO | GROUP.DEBRIS;
+    body.surface = 'metal';
+    body.allowSleep = false;
+    body.position.set(0, -9999, 0);
+    world.addBody(body);
+    this.body = body;
+  }
+
+  rename(name) {
+    if (name === this.name) return;
+    this.name = name;
+    scene.remove(this.tag);
+    this.tag.material.map.dispose(); this.tag.material.dispose();
+    this.tag = makeNameTag(name, this.colour);
+    scene.add(this.tag);
+  }
+
+  push(s, t) {
+    this.buf.push({ t, s });
+    if (this.buf.length > 24) this.buf.shift();
+  }
+
+  /** Play the buffer back at `renderT`, which trails real time by NET_INTERP. */
+  update(dt, renderT) {
+    const buf = this.buf;
+    if (!buf.length) return;
+    while (buf.length > 2 && buf[1].t <= renderT) buf.shift();
+    const a = buf[0];
+    const b = (buf.length > 1) ? buf[1] : a;
+    let f = 0;
+    if (b !== a && b.t > a.t) f = clamp01((renderT - a.t) / (b.t - a.t));
+    const A = a.s, B = b.s;
+    const L = (i, arr) => lerp(A[arr][i], B[arr][i], f);
+
+    this.group.position.set(L(0, 'p'), L(1, 'p'), L(2, 'p'));
+    tmpQ.set(A.q[0], A.q[1], A.q[2], A.q[3]);
+    const qb = new THREE.Quaternion(B.q[0], B.q[1], B.q[2], B.q[3]);
+    tmpQ.slerp(qb, f);
+    this.group.quaternion.copy(tmpQ);
+    this.group.updateMatrixWorld(true);
+
+    this.body.position.set(this.group.position.x, this.group.position.y, this.group.position.z);
+    this.body.quaternion.set(tmpQ.x, tmpQ.y, tmpQ.z, tmpQ.w);
+    this.body.velocity.set(L(0, 'v'), L(1, 'v'), L(2, 'v'));
+    this.speed = Math.hypot(B.v[0], B.v[1], B.v[2]);
+
+    // wheels: suspension travel, steer and spin all arrive per wheel
+    const morph = lerp(A.f, B.f, f), boat = lerp(A.b, B.b, f);
+    const stow = Math.max(morph, boat) > 0.5;
+    for (let i = 0; i < this.wheels.length; i++) {
+      const w = this.wheels[i];
+      const wa = A.w[i] || [w.rest, 0, 0], wb = B.w[i] || wa;
+      const sus = lerp(wa[0], wb[0], f), steer = lerp(wa[1], wb[1], f);
+      const spin = lerp(wa[2], wb[2], f);
+      tmpV.copy(w.local);
+      this.group.localToWorld(tmpV);
+      tmpV2.set(0, -1, 0).applyQuaternion(tmpQ);
+      w.mesh.position.set(tmpV.x + tmpV2.x * sus, tmpV.y + tmpV2.y * sus, tmpV.z + tmpV2.z * sus);
+      w.mesh.quaternion.copy(tmpQ);
+      w.mesh.quaternion.multiply(new THREE.Quaternion().setFromAxisAngle(T3_Y, -steer));
+      w.mesh.quaternion.multiply(new THREE.Quaternion().setFromAxisAngle(T3_X, spin));
+      w.mesh.scale.setScalar(stow ? 0.3 : 1);
+      w.mesh.visible = !stow;
+    }
+
+    // conversion kits
+    if (morph > 0.001) { this.planeGroup.visible = true; poseKit(this.planeParts, morph); }
+    else this.planeGroup.visible = false;
+    if (boat > 0.001) { this.boatGroup.visible = true; poseKit(this.boatParts, boat); }
+    else this.boatGroup.visible = false;
+    const thrust = morph > 0.6 ? clamp01(this.speed / 60) : 0;
+    for (const j of this.jets) {
+      j.visible = thrust > 0.05;
+      j.scale.set(0.8, 0.4 + thrust * 1.6, 0.8);
+    }
+    this.wake.visible = boat > 0.6 && this.speed > 3;
+
+    if (this.wing) {
+      const t = lerp(A.g, B.g, f);
+      this.wing.position.set(0, 0.38 + t * 0.26, -1.94 - t * 0.08);
+      this.wing.rotation.x = -t * 0.62;
+    }
+    this.headMat.color.setHex(B.l ? 0xfffbe8 : 0xbdb49a);
+    this.tailMat.color.setHex(B.k ? 0xf38ba8 : (B.l ? 0x9a3346 : 0x5a2030));
+
+    // smoke when they are wrecked, same as your own truck
+    if (B.d > 0.5 && Math.random() < B.d * 0.5) {
+      tmpV.set(0, 0.9, (this.spec.rig && this.spec.rig.smokeZ) || 1.9);
+      this.group.localToWorld(tmpV);
+      FX.smoke(tmpV, 0.3 + B.d * 0.4, B.d > 0.8 ? 0x1e1e2e : 0x585b70);
+    }
+
+    // name plate floats above, fades out with distance
+    const hy = hullExtents(this.spec).hy;
+    this.tag.position.set(this.group.position.x, this.group.position.y + hy + 1.5,
+                          this.group.position.z);
+    const d = camera.position.distanceTo(this.tag.position);
+    this.tag.material.opacity = clamp01((520 - d) / 120);
+    this.tag.visible = d > 3 && this.tag.material.opacity > 0.02;
+    const s = clamp(d * 0.055, 1, 7);
+    this.tag.scale.set(s * 4.4, s * 0.99, 1);
+  }
+
+  disposeVisual() {
+    if (this.group) { scene.remove(this.group); disposeObj(this.group); }
+    if (this.wheels) for (const w of this.wheels) scene.remove(w.mesh);
+    if (this.wheelGeo) this.wheelGeo.dispose();
+    if (this.wheelMat) this.wheelMat.dispose();
+    if (this.tag) { scene.remove(this.tag);
+                    this.tag.material.map.dispose(); this.tag.material.dispose(); }
+    if (this.body) { try { world.removeBody(this.body); } catch (e) {} }
+    this.group = null;
+  }
+  dispose() { this.disposeVisual(); }
+}
+
+const Net = {
+  ws: null, id: null, colour: 0, status: 'offline', statusText: '',
+  serverName: '', maxPlayers: 0, addr: '', ping: 0,
+  players: new Map(),            // id -> RemoteRig
+  info: new Map(),               // id -> {name, truck, trailer, colour}
+  world: null,
+  sendAcc: 0, pingAcc: 0, pingAt: 0, chatOpen: false, _wantWorld: false,
+
+  get online() { return this.status === 'online'; },
+
+  /* ------------------------------------------------------------ address */
+  /** Accept 1.2.3.4, host:port, http://host:port, ws://host:port — all of it. */
+  parseAddr(raw) {
+    let a = String(raw || '').trim();
+    if (!a) return null;
+    let scheme = 'ws://';
+    if (/^(wss|https):\/\//i.test(a)) scheme = 'wss://';
+    a = a.replace(/^[a-z]+:\/\//i, '').replace(/\/+$/, '');
+    if (!a) return null;
+    const host = a.replace(/:\d+$/, '');
+    if (!/:\d+$/.test(a)) a += ':' + NET_PORT_DEFAULT;
+    return { url: scheme + a, host, hostPort: a, scheme };
+  },
+
+  isLocal(host) {
+    return host === 'localhost' || host === '127.0.0.1' || host === '::1' || host === '[::1]';
+  },
+
+  setStatus(kind, text) {
+    this.status = kind === 'online' ? 'online' : (kind === 'busy' ? 'connecting' : 'offline');
+    this.statusText = text;
+    const el = $('mpStatus');
+    if (el) { el.textContent = text; el.className = 'mpStatus ' + (kind === 'online' ? 'ok' :
+                                                    kind === 'bad' ? 'bad' : kind === 'busy' ? 'busy' : ''); }
+  },
+
+  /* ------------------------------------------------------------- connect */
+  connect(raw) {
+    const a = this.parseAddr(raw);
+    if (!a) { this.setStatus('bad', 'ENTER AN ADDRESS FIRST'); return; }
+    // A page served over https may not open a plain socket to a private
+    // address — the browser blocks it as mixed content, and there is no way
+    // round that from inside the page. Say so instead of failing silently.
+    if (location.protocol === 'https:' && a.scheme === 'ws://' && !this.isLocal(a.host)) {
+      this.setStatus('bad', 'THIS PAGE IS HTTPS — OPEN http://' + a.hostPort + ' INSTEAD');
+      return;
+    }
+    this.disconnect(true);
+    this.addr = a.hostPort;
+    this.setStatus('busy', 'CONNECTING TO ' + a.hostPort + '…');
+    let ws;
+    try { ws = new WebSocket(a.url); } catch (e) {
+      this.setStatus('bad', 'BAD ADDRESS: ' + a.hostPort); return;
+    }
+    this.ws = ws;
+    const timeout = setTimeout(() => {
+      if (this.status === 'connecting') { try { ws.close(); } catch (e) {}
+        this.setStatus('bad', 'NO ANSWER FROM ' + a.hostPort + ' — IS THE SERVER RUNNING?'); }
+    }, 8000);
+
+    ws.onopen = () => {
+      clearTimeout(timeout);
+      this.setStatus('busy', 'HANDSHAKING…');
+      this.send({ t: 'join', name: this.myName(), truck: store.truck, trailer: store.trailer });
+      // Heartbeat on a timer, not on the render loop. Browsers throttle rAF to
+      // nothing in a background tab, so a player who alt-tabs for a moment
+      // would otherwise stop sending and get dropped for going quiet.
+      clearInterval(this._beat);
+      this._beat = setInterval(() => {
+        if (!this.ws || this.ws.readyState !== 1) return;
+        this.send({ t: 'ping', c: performance.now() });
+      }, 1500);
+    };
+    ws.onmessage = (e) => { let m; try { m = JSON.parse(e.data); } catch (err) { return; } this.onMsg(m); };
+    ws.onerror = () => {
+      clearTimeout(timeout);
+      if (this.status !== 'online') {
+        this.setStatus('bad', 'COULD NOT REACH ' + a.hostPort +
+          (location.protocol === 'https:' ? ' — TRY THE http:// PAGE' : ''));
+      }
+    };
+    ws.onclose = () => {
+      clearTimeout(timeout);
+      const was = this.status === 'online';
+      this.teardown();
+      if (was) { UI.toast('DISCONNECTED FROM SERVER', 'bad'); this.setStatus('', 'DISCONNECTED'); }
+    };
+  },
+
+  disconnect(quiet) {
+    if (this.ws) { const w = this.ws; this.ws = null; try { w.close(); } catch (e) {} }
+    this.teardown();
+    if (!quiet) { this.setStatus('', 'OFFLINE'); UI.toast('LEFT THE SERVER'); }
+  },
+
+  teardown() {
+    clearInterval(this._beat); this._beat = null;
+    for (const r of this.players.values()) r.dispose();
+    this.players.clear();
+    this.info.clear();
+    this.id = null;
+    this.status = 'offline';
+    Weapons.clearGhosts();
+    const el = $('netPanel'); if (el) el.classList.add('hide');
+  },
+
+  myName() {
+    const el = $('mpName');
+    let n = (el && el.value) || store.playerName || '';
+    n = String(n).replace(/[^\x20-\x7e]/g, '').trim().slice(0, 16);
+    if (!n) n = 'DRIVER';
+    store.playerName = n; saveStore();
+    return n;
+  },
+
+  send(o) {
+    if (!this.ws || this.ws.readyState !== 1) return;
+    try { this.ws.send(JSON.stringify(o)); } catch (e) {}
+  },
+
+  /* ------------------------------------------------------------ messages */
+  onMsg(m) {
+    switch (m.t) {
+      case 'hello':
+        this.serverName = m.server || 'SERVER';
+        this.maxPlayers = m.max || 0;
+        break;
+      case 'full':
+        this.setStatus('bad', 'SERVER IS FULL (' + m.max + ' PLAYERS)');
+        break;
+      case 'welcome': {
+        this.id = m.id;
+        this.colour = m.colour;
+        this.world = m.world;
+        for (const p of (m.players || [])) this.addPlayer(p);
+        this.setStatus('online', 'CONNECTED TO ' + this.serverName + ' — ' + this.addr);
+        rememberServer(this.addr);
+        // everybody drives the same map, under the same sky
+        Game.startWorld(m.world.seed, true);
+        Sky.set(m.world.hour, 0.12);
+        Game.weatherTarget = m.world.weather || 0;
+        // catch up on whatever the server has already had knocked over
+        for (const i of (m.world.downed || [])) {
+          const b = World.city[i];
+          if (b && !b.dead) shatterBuilding(b, null, 1, { fromNet: true, quiet: true });
+        }
+        UI.center('CONNECTED', this.serverName, 2600);
+        Audio_.chime(2);
+        this.chatSay(null, 'joined ' + this.serverName);
+        break;
+      }
+      case 'join':
+        this.addPlayer(m.player);
+        this.chatSay(null, m.player.name + ' joined');
+        break;
+      case 'leave': {
+        const r = this.players.get(m.id);
+        if (r) { this.chatSay(null, r.name + ' left'); r.dispose(); }
+        this.players.delete(m.id); this.info.delete(m.id);
+        break;
+      }
+      case 'rig': {
+        const r = this.players.get(m.id);
+        if (r && (r.truck !== m.truck || r.trailer !== m.trailer)) r.setTruck(m.truck, m.trailer);
+        break;
+      }
+      case 'snap': {
+        const now = performance.now() / 1000;
+        for (const [id, s] of m.s) {
+          if (id === this.id) continue;
+          const r = this.players.get(id);
+          if (r) r.push(s, now);
+        }
+        break;
+      }
+      case 'world':
+        if (m.hour != null) Sky.hour = m.hour;
+        if (m.weather != null) Game.weatherTarget = m.weather;
+        break;
+      case 'chat':
+        this.chatSay(m.name, m.text, this.info.get(m.id) && this.info.get(m.id).colour);
+        break;
+      case 'shoot':
+        Weapons.spawnGhost(m.id, m.p, m.d, m.v);
+        break;
+      case 'boom':
+        Weapons.killGhost(m.id);
+        Weapons.blast(V3(m.p[0], m.p[1], m.p[2]), m.pw || 1);
+        break;
+      case 'kill': {
+        const b = World.city && World.city[m.i];
+        if (b && !b.dead) {
+          shatterBuilding(b, m.p ? V3(m.p[0], m.p[1], m.p[2]) : null, 1, { fromNet: true });
+        }
+        break;
+      }
+      case 'pong':
+        this.ping = Math.round(performance.now() - m.c);
+        break;
+    }
+  },
+
+  addPlayer(info) {
+    if (!info || info.id === this.id) return;
+    this.info.set(info.id, info);
+    const old = this.players.get(info.id);
+    if (old) old.dispose();
+    this.players.set(info.id, new RemoteRig(info));
+  },
+
+  /* --------------------------------------------------------------- tick */
+  update(dt) {
+    if (!this.online) return;
+    // outbound: our own transform, twenty times a second
+    this.sendAcc += dt;
+    if (this.sendAcc >= 1 / NET_SEND_HZ) {
+      this.sendAcc = 0;
+      this.sendState();
+    }
+    this.pingAcc += dt;
+    if (this.pingAcc > 2) { this.pingAcc = 0; this.send({ t: 'ping', c: performance.now() }); }
+    // inbound: play everyone else back, deliberately a little in the past
+    const renderT = performance.now() / 1000 - NET_INTERP;
+    for (const r of this.players.values()) r.update(dt, renderT);
+    this.drawPanel();
+  },
+
+  sendState() {
+    const rig = Game.rig;
+    if (!rig) return;
+    const v = rig.vehicle, b = v.body;
+    const r3 = (x) => Math.round(x * 1000) / 1000;
+    const s = {
+      p: [r3(b.position.x), r3(b.position.y), r3(b.position.z)],
+      q: [r3(b.quaternion.x), r3(b.quaternion.y), r3(b.quaternion.z), r3(b.quaternion.w)],
+      v: [r3(b.velocity.x), r3(b.velocity.y), r3(b.velocity.z)],
+      w: v.wheels.map(w => [r3(w.susLen), r3(w.steer), r3(w.spin % TAU)]),
+      f: r3(rig.morph), b: r3(rig.boatMorph), g: r3(rig.wingT || 0),
+      d: r3(rig.damage), l: rig.lightsOn ? 1 : 0,
+      k: (Game.ctrl.brake > 0.15 || Game.ctrl.handbrake > 0.15) ? 1 : 0,
+    };
+    this.send({ t: 'state', s });
+  },
+
+  /** Tell the server we swapped rigs in the garage. */
+  sendRig() {
+    if (this.online) this.send({ t: 'rig', truck: store.truck, trailer: store.trailer });
+  },
+
+  sendShoot(pos, dir, speed) {
+    if (!this.online) return;
+    const r2 = (x) => Math.round(x * 100) / 100;
+    this.send({ t: 'shoot', p: [r2(pos.x), r2(pos.y), r2(pos.z)],
+                d: [r2(dir.x), r2(dir.y), r2(dir.z)], v: Math.round(speed) });
+  },
+  sendBoom(p, power) {
+    if (!this.online) return;
+    const r2 = (x) => Math.round(x * 100) / 100;
+    this.send({ t: 'boom', p: [r2(p.x), r2(p.y), r2(p.z)], pw: power });
+  },
+  sendKill(index) {
+    if (!this.online || index == null) return;
+    this.send({ t: 'kill', i: index });
+  },
+
+  /* --------------------------------------------------------------- chat */
+  chatSay(name, text, colour) {
+    const log = $('chatLog');
+    if (!log) return;
+    const d = document.createElement('div');
+    if (name) {
+      const c = '#' + ((colour != null ? colour : 0xbac2de) >>> 0).toString(16).padStart(6, '0');
+      d.innerHTML = '<b style="color:' + c + '">' + esc(name) + '</b> ' + esc(text);
+    } else {
+      d.innerHTML = '<span style="color:var(--ov0)">' + esc(text) + '</span>';
+    }
+    log.appendChild(d);
+    while (log.children.length > 7) log.removeChild(log.firstChild);
+    setTimeout(() => { if (d.parentNode) d.parentNode.removeChild(d); }, 14000);
+  },
+
+  openChat() {
+    if (!this.online) return;
+    const el = $('chatInput');
+    this.chatOpen = true;
+    el.classList.remove('hide');
+    el.value = '';
+    el.focus();
+  },
+  closeChat(send) {
+    const el = $('chatInput');
+    if (send && el.value.trim()) this.send({ t: 'chat', text: el.value.trim().slice(0, 140) });
+    el.value = '';
+    el.classList.add('hide');
+    el.blur();
+    this.chatOpen = false;
+  },
+
+  /* ------------------------------------------------------------ hud list */
+  drawPanel() {
+    const el = $('netPanel');
+    if (!el) return;
+    el.classList.remove('hide');
+    const rows = [];
+    rows.push('<div class="nHdr">' + esc(this.serverName) + '</div>');
+    rows.push('<div class="nRow nMe"><i>' + esc(store.playerName || 'YOU') +
+              '</i><b>' + this.ping + ' ms</b></div>');
+    for (const r of this.players.values()) {
+      const d = Game.rig ? Math.round(r.group.position.distanceTo(Game.rig.vehicle.pos)) : 0;
+      rows.push('<div class="nRow"><i style="color:#' +
+        (r.colour >>> 0).toString(16).padStart(6, '0') + '">' + esc(r.name) +
+        '</i><b>' + d + ' m</b></div>');
+    }
+    rows.push('<div class="nRow" style="margin-top:5px;border-top:1px solid var(--s0);padding-top:5px">' +
+              '<i style="color:var(--ov0)">ENTER to chat</i><b>' + (this.players.size + 1) + ' online</b></div>');
+    const html = rows.join('');
+    if (el._html !== html) { el.innerHTML = html; el._html = html; }
+  },
+};
+
+function esc(s) {
+  return String(s).replace(/[&<>"']/g, c =>
+    ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+/** Remember the last few servers so you do not retype an IP every session. */
+function rememberServer(addr) {
+  if (!addr) return;
+  let list = store.servers || [];
+  list = [addr].concat(list.filter(a => a !== addr)).slice(0, 5);
+  store.servers = list; saveStore();
+  buildRecentServers();
+}
+function buildRecentServers() {
+  const box = $('mpRecent');
+  if (!box) return;
+  const list = store.servers || [];
+  box.innerHTML = '';
+  // if this page came off the server itself, offer it as one click
+  if (location.protocol.startsWith('http') && location.host && !list.includes(location.host)) {
+    const b = document.createElement('button');
+    b.className = 'ghost';
+    b.textContent = '⚡ THIS SERVER (' + location.host + ')';
+    b.onclick = () => { $('mpAddr').value = location.host; Net.connect(location.host); };
+    box.appendChild(b);
+  }
+  for (const a of list) {
+    const b = document.createElement('button');
+    b.className = 'ghost';
+    b.textContent = a;
+    b.onclick = () => { $('mpAddr').value = a; Net.connect(a); };
+    box.appendChild(b);
+  }
+}
 
 /* ===========================================================================
  * 9. SKY / TIME OF DAY + CAMERA RIG
@@ -6210,6 +6997,9 @@ const World = {
   water: null,
   minimapCanvas: null,
   activities: [],
+  city: [],           // building records, see makeBuilding
+  cityBatches: [],    // merged draw calls, rebuilt when one comes down
+  rubble: [],         // slabs from collapsed buildings
 };
 
 const chunkKey = (cx, cz) => cx + ',' + cz;
@@ -6913,44 +7703,608 @@ function addStaticBox(sx, sy, sz, x, y, z, ry, color, surface, breakable, mass) 
   return { body, mesh };
 }
 
-function buildTown(rng) {
-  const T = World.landmarks.TOWN;
-  const cols = [0x585b70, 0x6c7086, 0x45475a, 0x7f849c, 0x8d7a6a, 0x9399b2];
-  const parts = [];
-  for (let bx = -3; bx <= 3; bx++) {
-    for (let bz = -3; bz <= 3; bz++) {
-      if (Math.abs(bx) < 1 && Math.abs(bz) < 1) continue;
-      if (rng() < 0.18) continue;
-      const x = T.x + bx * 44 + rng.range(-6, 6);
-      const z = T.z + bz * 44 + rng.range(-6, 6);
-      // the river is cut after the town plateau, so a block placed too near it
-      // ends up standing in the water — leave the banks clear
-      if (Math.abs(x - World.landmarks.RIVER_X(z)) < 58) continue;
-      const w = rng.range(14, 26), d = rng.range(14, 26), hgt = rng.range(8, 30);
-      const gy = terrainH(x, z);
-      addStaticBox(w, hgt, d, x, gy + hgt / 2 - 0.6, z, 0, rng.pick(cols), 'road');
-      // roof cap + windows as pure decoration in one merged mesh
-      parts.push(boxG(w * 1.06, 0.8, d * 1.06, 0x313244, [x, gy + hgt - 0.4, z]));
-      const rows = Math.floor(hgt / 4);
-      for (let r = 1; r < rows; r++) {
-        for (let c2 = -1; c2 <= 1; c2++) {
-          if (rng() < 0.3) continue;
-          parts.push(boxG(2.2, 1.6, 0.3, 0xf9e2af, [x + c2 * w * 0.28, gy + r * 4, z + d / 2 + 0.1]));
-          parts.push(boxG(0.3, 1.6, 2.2, 0xf9e2af, [x + w / 2 + 0.1, gy + r * 4, z + c2 * d * 0.28]));
-        }
+/* ===========================================================================
+ * THE CITY — nine building types, and all of them come down
+ *
+ * A building spends its life as a recipe: a list of boxes plus a couple of
+ * static colliders. Recipes are merged eight buildings at a time into one mesh,
+ * so the whole skyline costs about a dozen draw calls instead of ninety.
+ *
+ * Nothing is simulated until something hits it hard enough. At that point the
+ * static colliders are dropped, the batch mesh is rebuilt without it, and the
+ * recipe is diced into floor slabs that are spawned as dynamic bodies exactly
+ * where the building already was. The blast knocks the base out and gravity
+ * does the toppling — which is why a tower falls over rather than pancaking.
+ * Slabs that come to rest are frozen back into static bodies so the wreckage
+ * stays put without costing the solver anything.
+ * ========================================================================= */
+
+const CITY_BATCH = 14;         // buildings merged into one draw call
+const CITY_MAX_LIVE = 200;     // dynamic rubble bodies before the oldest freeze
+const CITY_MAX_RUBBLE = 320;   // total wreckage kept around
+
+/** Push one box onto a recipe. Positions are world space, same as the merge. */
+function bp(list, sx, sy, sz, hex, px, py, pz, rot) {
+  list.push({ s: [sx, sy, sz], c: hex, p: [px, py, pz], r: rot || null });
+}
+function recipeGeo(list) {
+  const g = [];
+  for (const r of list) g.push(boxG(r.s[0], r.s[1], r.s[2], r.c, r.p, r.r));
+  return g;
+}
+
+const CITY_WALL = [0x585b70, 0x6c7086, 0x45475a, 0x7f849c, 0x8d7a6a, 0x9399b2,
+                   0x6b5f52, 0x74697c];
+const CITY_GLASS = [0x1e3243, 0x24384a, 0x1b2a3a, 0x2a3d52];
+
+/**
+ * One building. `kind` picks the silhouette; everything else is derived so the
+ * same record can be drawn, collided with, and later diced into rubble.
+ */
+function makeBuilding(rng, x, z, kind) {
+  const gy = terrainH(x, z);
+  const parts = [], lit = [], tiers = [];
+  const wall = rng.pick(CITY_WALL);
+  const glass = rng.pick(CITY_GLASS);
+  const trim = 0x313244;
+  let w, d, h;
+
+  /** A band of lit windows round all four sides at height y. */
+  const windowBand = (cx, cz, hw, hd, y, gap, chance) => {
+    const nx = Math.max(1, Math.floor(hw * 2 / gap));
+    const nz = Math.max(1, Math.floor(hd * 2 / gap));
+    for (let i = 0; i < nx; i++) {
+      const px = cx - hw + gap * (i + 0.5);
+      if (rng() > chance) lit.push({ s: [gap * 0.52, 1.5, 0.24], c: 0xf9e2af,
+                                     p: [px, y, cz + hd + 0.12], r: null });
+      if (rng() > chance) lit.push({ s: [gap * 0.52, 1.5, 0.24], c: 0xf9e2af,
+                                     p: [px, y, cz - hd - 0.12], r: null });
+    }
+    for (let i = 0; i < nz; i++) {
+      const pz = cz - hd + gap * (i + 0.5);
+      if (rng() > chance) lit.push({ s: [0.24, 1.5, gap * 0.52], c: 0xf9e2af,
+                                     p: [cx + hw + 0.12, y, pz], r: null });
+      if (rng() > chance) lit.push({ s: [0.24, 1.5, gap * 0.52], c: 0xf9e2af,
+                                     p: [cx - hw - 0.12, y, pz], r: null });
+    }
+  };
+
+  if (kind === 'tower') {
+    /* ---- skyscraper: three setback tiers, a crown and a mast ---------- */
+    h = rng.range(74, 168);
+    w = rng.range(22, 32); d = rng.range(22, 32);
+    const cuts = [0, 0.46 + rng() * 0.12, 0.78 + rng() * 0.08, 1];
+    const shrink = [1, 0.80, 0.62];
+    for (let t = 0; t < 3; t++) {
+      const y0 = gy + h * cuts[t], y1 = gy + h * cuts[t + 1];
+      const hw = w / 2 * shrink[t], hd = d / 2 * shrink[t];
+      tiers.push({ y0, y1, hw, hd });
+      bp(parts, hw * 2, y1 - y0, hd * 2, wall, x, (y0 + y1) / 2, z);
+      // vertical glass ribbon down each face, then floor bands
+      bp(parts, hw * 1.5, y1 - y0 - 1, 0.4, glass, x, (y0 + y1) / 2, z + hd + 0.15);
+      bp(parts, hw * 1.5, y1 - y0 - 1, 0.4, glass, x, (y0 + y1) / 2, z - hd - 0.15);
+      bp(parts, 0.4, y1 - y0 - 1, hd * 1.5, glass, x + hw + 0.15, (y0 + y1) / 2, z);
+      bp(parts, 0.4, y1 - y0 - 1, hd * 1.5, glass, x - hw - 0.15, (y0 + y1) / 2, z);
+      for (let y = y0 + 4; y < y1 - 2; y += 3.6) {
+        bp(parts, hw * 2 + 0.5, 0.35, hd * 2 + 0.5, trim, x, y, z);
+        if (rng() < 0.55) windowBand(x, z, hw + 0.1, hd + 0.1, y + 1.6, 4.4, 0.55);
+      }
+      bp(parts, hw * 2 + 1.0, 0.9, hd * 2 + 1.0, trim, x, y1, z);   // setback ledge
+    }
+    // crown and aircraft-warning mast
+    const top = gy + h;
+    bp(parts, w * 0.30, 4, d * 0.30, 0x7f849c, x, top + 2, z);
+    bp(parts, 0.7, 16, 0.7, 0x9399b2, x, top + 12, z);
+    lit.push({ s: [1.5, 1.5, 1.5], c: 0xf38ba8, p: [x, top + 20.4, z], r: null });
+    for (const sx of [-1, 1]) bp(parts, 1.2, 3.4, 1.2, 0x585b70, x + sx * w * 0.28, top + 5.6, z);
+
+  } else if (kind === 'office') {
+    /* ---- mid-rise slab: banded glazing, plant room on the roof -------- */
+    h = rng.range(26, 52);
+    w = rng.range(20, 32); d = rng.range(16, 24);
+    tiers.push({ y0: gy, y1: gy + h, hw: w / 2, hd: d / 2 });
+    bp(parts, w, h, d, wall, x, gy + h / 2, z);
+    for (let y = gy + 3.4; y < gy + h - 2; y += 3.4) {
+      bp(parts, w + 0.3, 2.1, d + 0.3, glass, x, y, z);
+      bp(parts, w + 0.5, 0.4, d + 0.5, trim, x, y + 1.4, z);
+      if (rng() < 0.5) windowBand(x, z, w / 2 + 0.2, d / 2 + 0.2, y, 4.6, 0.6);
+    }
+    bp(parts, w + 1.2, 0.9, d + 1.2, trim, x, gy + h, z);
+    bp(parts, w * 0.35, 3.4, d * 0.4, 0x6c7086, x + w * 0.18, gy + h + 1.7, z);
+    bp(parts, 2.4, 1.8, 2.4, 0x9399b2, x - w * 0.25, gy + h + 0.9, z + d * 0.2);
+
+  } else if (kind === 'block') {
+    /* ---- apartments: balconies all the way up ------------------------- */
+    h = rng.range(18, 34);
+    w = rng.range(16, 26); d = rng.range(14, 20);
+    tiers.push({ y0: gy, y1: gy + h, hw: w / 2, hd: d / 2 });
+    bp(parts, w, h, d, wall, x, gy + h / 2, z);
+    for (let y = gy + 3.2, f = 0; y < gy + h - 2; y += 3.2, f++) {
+      for (const sz of [-1, 1]) {
+        bp(parts, w * 0.8, 0.25, 1.6, trim, x, y, z + sz * (d / 2 + 0.8));
+        bp(parts, w * 0.8, 0.9, 0.16, 0x9399b2, x, y + 0.55, z + sz * (d / 2 + 1.55));
+      }
+      if (f % 2 === 0) windowBand(x, z, w / 2 + 0.1, d / 2 + 0.1, y + 1.4, 3.8, 0.45);
+    }
+    bp(parts, w + 0.8, 0.7, d + 0.8, trim, x, gy + h, z);
+    bp(parts, 3, 2.6, 3, 0x585b70, x, gy + h + 1.3, z);       // stair head
+
+  } else if (kind === 'garage') {
+    /* ---- multi-storey car park: open decks, no walls ------------------ */
+    h = rng.range(14, 22);
+    w = rng.range(26, 34); d = rng.range(20, 28);
+    tiers.push({ y0: gy, y1: gy + h, hw: w / 2, hd: d / 2 });
+    const decks = Math.max(3, Math.round(h / 3.4));
+    for (let i = 0; i <= decks; i++) {
+      const y = gy + (h / decks) * i;
+      bp(parts, w, 0.6, d, 0x6c7086, x, y, z);
+      if (i < decks) bp(parts, w + 0.4, 0.5, d + 0.4, 0x585b70, x, y + 1.1, z);
+    }
+    for (const sx of [-1, 1]) for (const sz of [-1, 1]) {
+      bp(parts, 1.4, h, 1.4, 0x7f849c, x + sx * (w / 2 - 1), gy + h / 2, z + sz * (d / 2 - 1));
+    }
+    bp(parts, 1.4, h, 1.4, 0x7f849c, x, gy + h / 2, z);
+    lit.push({ s: [w * 0.5, 0.3, 0.3], c: 0xf9e2af, p: [x, gy + h - 1.2, z + d / 2], r: null });
+
+  } else if (kind === 'warehouse') {
+    /* ---- shed with a saw-tooth roof and roller doors ------------------ */
+    h = rng.range(9, 14);
+    w = rng.range(30, 42); d = rng.range(22, 30);
+    tiers.push({ y0: gy, y1: gy + h, hw: w / 2, hd: d / 2 });
+    bp(parts, w, h, d, wall, x, gy + h / 2, z);
+    const teeth = 5;
+    for (let i = 0; i < teeth; i++) {
+      const px = x - w / 2 + (w / teeth) * (i + 0.5);
+      bp(parts, w / teeth * 0.94, 2.6, d, 0x45475a, px, gy + h + 1.1, z, [0.22, 0, 0]);
+      lit.push({ s: [w / teeth * 0.7, 1.2, d * 0.9], c: 0x89dceb, p: [px, gy + h + 1.9, z], r: null });
+    }
+    for (let i = -1; i <= 1; i++) {
+      bp(parts, 6, 5.4, 0.4, 0x45475a, x + i * 10, gy + 2.7, z + d / 2 + 0.2);
+      bp(parts, 6.6, 0.5, 1.4, 0xf9e2af, x + i * 10, gy + 5.8, z + d / 2 + 0.6);
+    }
+
+  } else if (kind === 'church') {
+    /* ---- a spire, so the skyline has something pointed in it ---------- */
+    h = rng.range(12, 16);
+    w = rng.range(14, 18); d = rng.range(22, 28);
+    const th = h + rng.range(20, 30);
+    tiers.push({ y0: gy, y1: gy + h, hw: w / 2, hd: d / 2 });
+    tiers.push({ y0: gy, y1: gy + th, hw: 3.2, hd: 3.2, off: [-w * 0.1, d * 0.42] });
+    bp(parts, w, h, d, 0x8d7a6a, x, gy + h / 2, z);
+    bp(parts, w + 1.4, 2.2, d + 1.4, 0x45475a, x, gy + h + 0.6, z);
+    const tx = x - w * 0.1, tz = z + d * 0.42;
+    bp(parts, 6.4, th, 6.4, 0x8d7a6a, tx, gy + th / 2, tz);
+    bp(parts, 7.4, 1.2, 7.4, 0x45475a, tx, gy + th, tz);
+    bp(parts, 4.4, 6, 4.4, 0x585b70, tx, gy + th + 3.2, tz, [0, PI / 4, 0]);
+    bp(parts, 0.5, 5, 0.5, 0xf9e2af, tx, gy + th + 8.4, tz);
+    lit.push({ s: [3.4, 3.4, 0.3], c: 0xf9e2af, p: [tx, gy + th - 3, tz + 3.3], r: null });
+    for (let i = -2; i <= 2; i++) {
+      lit.push({ s: [0.3, 4.4, 1.8], c: 0xf9e2af, p: [x + w / 2 + 0.1, gy + h * 0.55, z + i * 4.4], r: null });
+      lit.push({ s: [0.3, 4.4, 1.8], c: 0xf9e2af, p: [x - w / 2 - 0.1, gy + h * 0.55, z + i * 4.4], r: null });
+    }
+
+  } else if (kind === 'watertower') {
+    /* ---- legs and a tank; falls over beautifully ---------------------- */
+    h = rng.range(24, 32);
+    w = 12; d = 12;
+    tiers.push({ y0: gy, y1: gy + h, hw: 5, hd: 5 });
+    for (const sx of [-1, 1]) for (const sz of [-1, 1]) {
+      bp(parts, 0.9, h * 0.72, 0.9, 0x6c7086, x + sx * 4, gy + h * 0.36, z + sz * 4, [0, 0, sx * 0.06]);
+    }
+    for (let i = 1; i <= 2; i++) {
+      bp(parts, 9, 0.5, 0.5, 0x585b70, x, gy + h * 0.24 * i, z + 4);
+      bp(parts, 9, 0.5, 0.5, 0x585b70, x, gy + h * 0.24 * i, z - 4);
+      bp(parts, 0.5, 0.5, 9, 0x585b70, x + 4, gy + h * 0.24 * i, z);
+      bp(parts, 0.5, 0.5, 9, 0x585b70, x - 4, gy + h * 0.24 * i, z);
+    }
+    bp(parts, 11, 8, 11, 0x94e2d5, x, gy + h * 0.72 + 4, z);
+    bp(parts, 12, 1.2, 12, 0x45475a, x, gy + h * 0.72 + 8.4, z);
+    bp(parts, 3, 2, 3, 0x585b70, x, gy + h * 0.72 + 9.6, z);
+    h = h * 0.72 + 9;
+
+  } else if (kind === 'house') {
+    /* ---- two storeys and a pitched roof ------------------------------- */
+    h = rng.range(6.5, 9);
+    w = rng.range(10, 15); d = rng.range(9, 13);
+    tiers.push({ y0: gy, y1: gy + h + 3, hw: w / 2, hd: d / 2 });
+    bp(parts, w, h, d, rng.pick([0xd8c8a8, 0xc0a68a, 0xa9b7c4, 0xbfa878]), x, gy + h / 2, z);
+    // roof as three narrowing slabs — a cheap pitch that still reads
+    for (let i = 0; i < 3; i++) {
+      const k = 1 - i * 0.30;
+      bp(parts, w * k + 1.2, 1.1, d + 1.4, 0x8a4a3a, x, gy + h + 0.55 + i * 1.0, z);
+    }
+    bp(parts, 1.4, 4, 1.4, 0x6b5f52, x + w * 0.3, gy + h + 2.6, z - d * 0.2);
+    lit.push({ s: [2.2, 1.4, 0.24], c: 0xf9e2af, p: [x, gy + h * 0.55, z + d / 2 + 0.12], r: null });
+    lit.push({ s: [0.24, 1.4, 2.2], c: 0xf9e2af, p: [x + w / 2 + 0.12, gy + h * 0.55, z], r: null });
+    bp(parts, 1.6, 2.6, 0.3, 0x5a4530, x - w * 0.25, gy + 1.3, z + d / 2 + 0.1);
+
+  } else {
+    /* ---- corner shop: awning, sign, flat roof ------------------------- */
+    kind = 'shop';
+    h = rng.range(7, 12);
+    w = rng.range(14, 22); d = rng.range(12, 18);
+    tiers.push({ y0: gy, y1: gy + h, hw: w / 2, hd: d / 2 });
+    bp(parts, w, h, d, wall, x, gy + h / 2, z);
+    bp(parts, w + 0.8, 0.8, d + 0.8, trim, x, gy + h, z);
+    bp(parts, w * 0.8, 2.6, 0.35, glass, x, gy + 2, z + d / 2 + 0.1);
+    bp(parts, w * 0.9, 0.3, 2.2, rng.pick([0xf38ba8, 0xa6e3a1, 0x89b4fa, 0xfab387]),
+       x, gy + 3.9, z + d / 2 + 1.0, [0.18, 0, 0]);
+    lit.push({ s: [w * 0.6, 1.4, 0.28], c: 0xf9e2af, p: [x, gy + h - 1.6, z + d / 2 + 0.1], r: null });
+    lit.push({ s: [w * 0.7, 2.2, 0.25], c: 0x89dceb, p: [x, gy + 1.9, z + d / 2 + 0.28], r: null });
+  }
+
+  const vol = Math.max(60, w * d * h);
+  return {
+    x, z, gy, kind, w, d, h, colour: wall, tiers, parts, lit,
+    hp: 24 + Math.sqrt(vol) * 0.9, hpMax: 24 + Math.sqrt(vol) * 0.9,
+    bodies: [], dead: false, batch: 0,
+  };
+}
+
+/** Static colliders for a live building, one per tier. */
+function cityColliders(b) {
+  const out = [];
+  for (const t of b.tiers) {
+    const ox = t.off ? t.off[0] : 0, oz = t.off ? t.off[1] : 0;
+    const hgt = t.y1 - t.y0;
+    const body = makeBody({ pos: [b.x + ox, (t.y0 + t.y1) / 2, b.z + oz], surface: 'road' });
+    addBox(body, t.hw * 2, hgt, t.hd * 2);
+    body.building = b;
+    // ramming counts too: hit a shed hard enough in the monster truck and it
+    // should not simply shrug it off
+    body.addEventListener('collide', (e) => {
+      if (b.dead) return;
+      let vr = 0;
+      try { vr = Math.abs(e.contact.getImpactVelocityAlongNormal()); } catch (err) { return; }
+      if (vr < 14) return;
+      const other = (e.contact.bi === body) ? e.contact.bj : e.contact.bi;
+      const m = other.mass > 0 ? other.mass : 0;
+      if (m < 200) return;
+      const energy = 0.5 * m * vr * vr;
+      damageBuilding(b, Math.min(b.hpMax * 0.55, energy / 5200),
+                     V3(other.position.x, other.position.y, other.position.z), 0.7);
+    });
+    out.push(body);
+    stage.add(body, null);
+  }
+  return out;
+}
+
+function rebuildCityBatch(batch) {
+  const parts = [], lit = [];
+  for (const b of batch.buildings) {
+    if (b.dead) continue;
+    for (const g of recipeGeo(b.parts)) parts.push(g);
+    for (const g of recipeGeo(b.lit)) lit.push(g);
+  }
+  const swap = (mesh, list) => {
+    if (!mesh) return;
+    mesh.geometry.dispose();
+    mesh.visible = list.length > 0;
+    mesh.geometry = list.length ? mergeGeoms(list) : new THREE.BufferGeometry();
+    if (list.length) mesh.geometry.computeBoundingSphere();
+  };
+  swap(batch.mesh, parts);
+  swap(batch.litMesh, lit);
+}
+
+/** Chip away at a building; take it down when there is nothing left. */
+function damageBuilding(b, amount, origin, power) {
+  if (b.dead) return;
+  b.hp -= amount;
+  if (b.hp <= 0) { shatterBuilding(b, origin, power || 1); return; }
+  // visible spalling short of collapse
+  tmpV.set(b.x + (Math.random() - 0.5) * b.w, b.gy + Math.random() * b.h * 0.7,
+           b.z + (Math.random() - 0.5) * b.d);
+  FX.debrisPuff(tmpV, 0.35 + 0.5 * clamp01(amount / 80));
+}
+
+/**
+ * Take the building apart. The slabs start exactly where the intact geometry
+ * was, so the collapse begins from a standing structure rather than from a
+ * pile that appears out of nowhere.
+ */
+function shatterBuilding(b, origin, power, opts) {
+  if (b.dead) return;
+  const o = opts || {};
+  b.dead = true;
+  for (const body of b.bodies) { try { world.removeBody(body); } catch (e) {} }
+  b.bodies.length = 0;
+  rebuildCityBatch(World.cityBatches[b.batch]);
+
+  // Hit points are tracked per client, so two players chipping at the same
+  // tower would eventually disagree about when it fell. The collapse itself is
+  // therefore an explicit event: whoever knocks it down says so, and everybody
+  // else takes that building down too.
+  if (!o.fromNet) Net.sendKill(b.index);
+  // A late joiner is told which lots are already flattened. Those get cleared
+  // without the fireball and without spawning rubble — replaying an hour of
+  // other people's demolition on connect would be neither correct nor cheap.
+  if (o.quiet) return;
+
+  const ox = origin ? origin.x : b.x, oy = origin ? origin.y : b.gy, oz = origin ? origin.z : b.z;
+  const budget = 26;
+
+  // Size the slabs so the WHOLE building fits inside the budget. Spending it
+  // top-down as it came left a 167 m tower with only its bottom 45 m turning
+  // into rubble and the rest simply vanishing. Wide, low buildings break into
+  // quarters; anything tall stays full-width so it still stacks and topples.
+  const wide = b.tiers.some(t => t.hw > 11 && t.hd > 11);
+  let split = (b.h < 30 && wide) ? 2 : 1;
+  let step = 5;
+  const countChunks = () => {
+    let n = 0;
+    for (const t of b.tiers) {
+      const s = (t.hw > 9 && t.hd > 9) ? split : 1;
+      n += Math.max(1, Math.round((t.y1 - t.y0) / step)) * s * s;
+    }
+    return n;
+  };
+  for (let guard = 0; countChunks() > budget && guard < 40; guard++) step *= 1.18;
+
+  const chunks = [];
+  for (const t of b.tiers) {
+    const tx = b.x + (t.off ? t.off[0] : 0), tz = b.z + (t.off ? t.off[1] : 0);
+    const rows = Math.max(1, Math.round((t.y1 - t.y0) / step));
+    const sh = (t.y1 - t.y0) / rows;
+    const sp = (t.hw > 9 && t.hd > 9) ? split : 1;
+    for (let r = 0; r < rows; r++) {
+      const cy = t.y0 + sh * (r + 0.5);
+      for (let i = 0; i < sp; i++) for (let j = 0; j < sp; j++) {
+        const cw = (t.hw * 2) / sp, cd = (t.hd * 2) / sp;
+        const cx = tx - t.hw + cw * (i + 0.5);
+        const cz = tz - t.hd + cd * (j + 0.5);
+        chunks.push([cx, cy, cz, cw * 0.96, sh * 0.94, cd * 0.96]);
       }
     }
   }
-  // street lamps
-  for (let i = 0; i < 26; i++) {
-    const x = T.x + rng.range(-T.r, T.r), z = T.z + rng.range(-T.r, T.r);
-    const gy = terrainH(x, z);
-    parts.push(cylG(0.14, 0.18, 7, 6, 0x585b70, [x, gy + 3.5, z]));
-    parts.push(boxG(0.7, 0.35, 1.4, 0xf9e2af, [x, gy + 7, z]));
+
+  const shade = new THREE.Color(b.colour);
+  for (const [cx, cy, cz, cw, ch, cd] of chunks) {
+    const mass = clamp(cw * ch * cd * 45, 200, 26000);
+    const body = makeBody({
+      mass, pos: [cx, cy, cz], material: PMAT.cargo, surface: 'gravel',
+      group: GROUP.DEBRIS,
+      mask: GROUP.WORLD | GROUP.TERRAIN | GROUP.VEHICLE | GROUP.DEBRIS | GROUP.CARGO,
+      linearDamping: 0.02, angularDamping: 0.14,
+    });
+    addBox(body, cw, ch, cd);
+    body.updateMassProperties();
+    body.sleepSpeedLimit = 0.45;
+    body.sleepTimeLimit = 0.8;
+
+    // outward shove from the blast, plus a lean that grows with height — that
+    // lean is what turns a collapse into a topple
+    let dx = cx - ox, dz = cz - oz;
+    const dl = Math.hypot(dx, dz) || 1;
+    dx /= dl; dz /= dl;
+    const near = clamp01(1 - Math.hypot(cx - ox, cy - oy, cz - oz) / 34);
+    const hf = clamp01((cy - b.gy) / Math.max(b.h, 1));
+    const kick = (2 + near * 13) * power;
+    const lean = hf * 7 * power;
+    body.velocity.set(dx * (kick + lean), near * 5 * power + hf * 1.5,
+                      dz * (kick + lean));
+    body.angularVelocity.set((Math.random() - 0.5) * 1.6, (Math.random() - 0.5) * 1.6,
+                             (Math.random() - 0.5) * 1.6);
+
+    const c = shade.clone().multiplyScalar(0.72 + Math.random() * 0.4);
+    const mesh = new THREE.Mesh(
+      paint(toNonIndexed(new THREE.BoxGeometry(cw, ch, cd)), c.getHex()),
+      cityRubbleMaterial());
+    mesh.castShadow = true; mesh.receiveShadow = true;
+    mesh.position.set(cx, cy, cz);
+    stage.add(body, mesh);
+    World.rubble.push({ body, mesh, settled: false, age: 0 });
   }
-  const m = new THREE.Mesh(mergeGeoms(parts), vcMat({ roughness: 0.8, emissiveIntensity: 0 }));
-  m.castShadow = true; m.receiveShadow = true;
+
+  // the collapse itself: a fireball at the point of failure and a dust column
+  const fy = clamp(oy, b.gy, b.gy + b.h);
+  FX.explosion(V3(b.x, fy, b.z), 1);
+  for (let i = 0; i < 26; i++) {
+    const a = Math.random() * TAU, r = Math.random() * Math.max(b.w, b.d) * 0.6;
+    FX.dust(V3(b.x + Math.cos(a) * r, b.gy + Math.random() * 3, b.z + Math.sin(a) * r),
+      Math.cos(a) * (6 + Math.random() * 14), 2 + Math.random() * 5,
+      Math.sin(a) * (6 + Math.random() * 14), 2.6, 0x9a9287, 2.4);
+  }
+  Cam.addShake(clamp01(46 / (camera.position.distanceTo(V3(b.x, b.gy, b.z)) + 24)) * 1.5);
+  trimRubble();
+}
+
+let _rubbleMat = null;
+function cityRubbleMaterial() {
+  if (!_rubbleMat) { _rubbleMat = vcMat({ roughness: 0.95 }); _rubbleMat.__keep = true; }
+  return _rubbleMat;
+}
+
+/**
+ * Freeze wreckage that has come to rest. A settled slab keeps its mesh and its
+ * collider but stops being a dynamic body, so a flattened block costs the
+ * solver nothing and the ruin is still there when you drive back past it.
+ */
+function trimRubble() {
+  const R = World.rubble;
+  let live = 0;
+  for (const r of R) if (!r.settled) live++;
+  if (live > CITY_MAX_LIVE) {
+    for (const r of R) {
+      if (live <= CITY_MAX_LIVE) break;
+      if (r.settled) continue;
+      settleRubble(r); live--;
+    }
+  }
+  while (R.length > CITY_MAX_RUBBLE) {
+    const r = R.shift();
+    try { world.removeBody(r.body); } catch (e) {}
+    scene.remove(r.mesh);
+    const bi = stage.bodies.indexOf(r.body); if (bi >= 0) stage.bodies.splice(bi, 1);
+    const mi = stage.objects.indexOf(r.mesh); if (mi >= 0) stage.objects.splice(mi, 1);
+    r.mesh.geometry.dispose();
+  }
+}
+function settleRubble(r) {
+  if (r.settled) return;
+  r.settled = true;
+  syncMesh(r.mesh, r.body);
+  r.body.mass = 0;
+  r.body.updateMassProperties();
+  if (CANNON.Body.STATIC != null) r.body.type = CANNON.Body.STATIC;
+  r.body.velocity.set(0, 0, 0);
+  r.body.angularVelocity.set(0, 0, 0);
+}
+
+/** Everything a blast does to the skyline. Called from Weapons.blast. */
+function damageCity(p, radius, power) {
+  if (!World.city || !World.city.length) return;
+  for (const b of World.city) {
+    if (b.dead) continue;
+    // distance to the box, not the centre: a rocket into the tenth floor of a
+    // tower should count as a direct hit, not as a near miss on its middle
+    const dx = Math.max(Math.abs(p.x - b.x) - b.w / 2, 0);
+    const dz = Math.max(Math.abs(p.z - b.z) - b.d / 2, 0);
+    const dy = Math.max(b.gy - p.y, p.y - (b.gy + b.h), 0);
+    const d = Math.hypot(dx, dy, dz);
+    if (d > radius) continue;
+    const f = 1 - d / radius;
+    damageBuilding(b, f * f * power * 105, p, power);
+  }
+}
+
+function buildTown(rng) {
+  const T = World.landmarks.TOWN;
+  World.city = [];
+  World.cityBatches = [];
+  World.rubble = [];
+  const street = [], streetLit = [];
+
+  // ---- the blocks -------------------------------------------------------
+  // ring 0-1 is downtown and gets the towers; it thins out to houses and
+  // sheds at the edge, which is what makes the skyline read as a city
+  const pitch = 42;
+  for (let bx = -4; bx <= 4; bx++) {
+    for (let bz = -4; bz <= 4; bz++) {
+      const ring = Math.max(Math.abs(bx), Math.abs(bz));
+      if (ring === 0) continue;                       // central plaza
+      if (ring === 4 && rng() < 0.28) continue;
+      const x = T.x + bx * pitch + rng.range(-3, 3);
+      const z = T.z + bz * pitch + rng.range(-3, 3);
+      // the river is cut after the town plateau, so a block placed too near it
+      // ends up standing in the water — leave the banks clear
+      if (Math.abs(x - World.landmarks.RIVER_X(z)) < 48) continue;
+      let kind;
+      if (ring === 1) kind = rng() < 0.78 ? 'tower' : 'office';
+      else if (ring === 2) kind = rng.pick(['tower', 'office', 'office', 'block', 'garage']);
+      else if (ring === 3) kind = rng.pick(['office', 'block', 'block', 'garage', 'church', 'shop']);
+      else kind = rng.pick(['house', 'house', 'house', 'shop', 'shop', 'warehouse', 'watertower']);
+      const b = makeBuilding(rng, x, z, kind);
+      b.index = World.city.length;      // stable id: every client builds the
+      b.bodies = cityColliders(b);      // same list from the same seed
+      World.city.push(b);
+    }
+  }
+
+  // ---- batch the recipes into a handful of draw calls -------------------
+  for (let i = 0; i < World.city.length; i += CITY_BATCH) {
+    const group = World.city.slice(i, i + CITY_BATCH);
+    const batch = { buildings: group, mesh: null, litMesh: null };
+    const idx = World.cityBatches.length;
+    for (const b of group) b.batch = idx;
+    batch.mesh = new THREE.Mesh(new THREE.BufferGeometry(), vcMat({ roughness: 0.86 }));
+    batch.mesh.castShadow = true; batch.mesh.receiveShadow = true;
+    batch.litMesh = new THREE.Mesh(new THREE.BufferGeometry(), lightMaterial());
+    World.cityBatches.push(batch);
+    rebuildCityBatch(batch);
+    stage.add(null, batch.mesh);
+    stage.add(null, batch.litMesh);
+  }
+
+  // ---- streets, pavements, furniture (all indestructible decoration) ----
+  for (let i = -3; i <= 3; i++) {
+    const off = i * pitch + pitch / 2;
+    street.push(boxG(T.r * 2, 0.12, 13, 0x2c2c3c, [T.x, terrainH(T.x, T.z + off) + 0.1, T.z + off]));
+    street.push(boxG(13, 0.12, T.r * 2, 0x2c2c3c, [T.x + off, terrainH(T.x + off, T.z) + 0.1, T.z]));
+    for (let k = -8; k <= 8; k++) {
+      street.push(boxG(4.4, 0.14, 0.5, 0xbac2de, [T.x + k * 18, terrainH(T.x, T.z + off) + 0.16, T.z + off]));
+      street.push(boxG(0.5, 0.14, 4.4, 0xbac2de, [T.x + off, terrainH(T.x + off, T.z) + 0.16, T.z + k * 18]));
+    }
+  }
+  // lamps, traffic lights and a few parked cars along the grid
+  for (let i = 0; i < 46; i++) {
+    const x = T.x + rng.range(-T.r * 0.92, T.r * 0.92);
+    const z = T.z + rng.range(-T.r * 0.92, T.r * 0.92);
+    const gy = terrainH(x, z);
+    street.push(cylG(0.14, 0.2, 8, 6, 0x585b70, [x, gy + 4, z]));
+    street.push(boxG(0.8, 0.35, 1.6, 0x45475a, [x, gy + 8, z]));
+    streetLit.push(boxG(0.7, 0.22, 1.4, 0xf9e2af, [x, gy + 7.85, z]));
+  }
+  for (let i = 0; i < 14; i++) {
+    const x = T.x + rng.range(-T.r * 0.8, T.r * 0.8);
+    const z = T.z + rng.range(-T.r * 0.8, T.r * 0.8);
+    const gy = terrainH(x, z);
+    street.push(cylG(0.16, 0.16, 6, 5, 0x45475a, [x, gy + 3, z]));
+    street.push(boxG(0.7, 2.1, 0.7, 0x11111b, [x, gy + 6.6, z]));
+    streetLit.push(boxG(0.42, 0.42, 0.24, rng.pick([0xf38ba8, 0xf9e2af, 0xa6e3a1]),
+      [x, gy + 6.6, z + 0.4]));
+  }
+  // Parked cars. Static on purpose — a dynamic body out here has nothing under
+  // it once the terrain chunks unload, and thirty cars quietly falling through
+  // the world every time you leave town is not worth the novelty of nudging one.
+  // Their bodies are separate (the broadphase likes small, still AABBs) but the
+  // meshes go into the street batch: thirty extra draw calls in the busiest
+  // part of the map is a lot to pay for scenery.
+  for (let i = 0; i < 30; i++) {
+    const x = T.x + rng.range(-T.r * 0.9, T.r * 0.9);
+    const z = T.z + rng.range(-T.r * 0.9, T.r * 0.9);
+    const gy = terrainH(x, z);
+    const yaw = rng() < 0.5 ? 0 : PI / 2;
+    const col = rng.pick([0xf38ba8, 0x89b4fa, 0xa6e3a1, 0xf9e2af, 0xcba6f7, 0xbac2de]);
+    const body = makeBody({ pos: [x, gy + 0.6, z], rot: [0, yaw, 0], surface: 'metal' });
+    addBox(body, 1.9, 1.0, 4.3);
+    stage.add(body, null);
+    street.push(boxG(1.9, 1.0, 4.3, col, [x, gy + 0.6, z], [0, yaw, 0]));
+    street.push(boxG(1.7, 0.7, 2.2, 0x11202c, [x, gy + 1.4, z], [0, yaw, 0]));
+    street.push(boxG(1.5, 0.22, 0.24, 0xf9e2af, [x, gy + 0.7, z + (yaw ? 0 : 2.2)], [0, yaw, 0]));
+  }
+
+  const m = new THREE.Mesh(mergeGeoms(street), vcMat({ roughness: 0.88 }));
+  m.receiveShadow = true; m.castShadow = true;
   stage.add(null, m);
+  stage.add(null, new THREE.Mesh(mergeGeoms(streetLit), lightMaterial()));
+
+  // Wreckage that has stopped moving gets frozen back into static geometry.
+  // Terminal velocity is capped on the way down: a 26-tonne slab dropped from
+  // a hundred and seventy metres arrives fast enough to tunnel through the
+  // heightfield, and a slab that ends up under the map never settles.
+  let floorT = 0;
+  stage.addUpdater((dt) => {
+    const R = World.rubble;
+    if (!R || !R.length) return;
+    // The terrain only has a collider within a couple of chunks of you, so a
+    // building demolished as you drive away drops its wreckage straight through
+    // the map. Every half second, anything that has fallen through is caught
+    // and parked on the surface instead of falling for ever.
+    floorT -= dt;
+    const catchFloor = floorT <= 0;
+    if (catchFloor) floorT = 0.5;
+    for (let i = 0; i < R.length; i++) {
+      const r = R[i];
+      if (r.settled) continue;
+      const v = r.body.velocity;
+      const sp = Math.hypot(v.x, v.y, v.z);
+      if (sp > 42) { const k = 42 / sp; v.x *= k; v.y *= k; v.z *= k; }
+      r.age += dt;
+      if (catchFloor && terrainQuery &&
+          terrainQuery(r.body.position.x, r.body.position.z, groundHit) &&
+          r.body.position.y < groundHit.y - 3) {
+        r.body.position.y = groundHit.y + 0.6;
+        v.set(0, 0, 0);
+        r.body.angularVelocity.set(0, 0, 0);
+        settleRubble(r);
+        continue;
+      }
+      // anything still twitching after fifteen seconds has had its chance
+      if (r.body.sleepState === 2 || r.age > 15) settleRubble(r);
+    }
+  });
 }
 
 function buildQuarry(rng) {
@@ -7359,21 +8713,27 @@ function buildTruckStop(rng) {
   const Z = World.landmarks.HIGHWAY_Z;
   const x0 = -300, z0 = Z + 62;
   const y = terrainH(x0, z0);
+  // Everything here is placed relative to the top of the apron slab, not to
+  // the terrain under each individual item. The plateau rolls by three or four
+  // metres across the site, and a dynamic body seated on the local ground ends
+  // up buried inside the apron — which the solver resolves by firing it two
+  // hundred metres into the air.
+  const deck = y + 0.35;
   const deco = [], lights = [];
   addStaticBox(140, 0.4, 74, x0, y + 0.15, z0, 0, 0x30303f, 'road');   // apron
   // canopy on six pillars
   for (let i = -1; i <= 1; i++) for (const sz of [-1, 1]) {
-    addStaticBox(1.2, 6.4, 1.2, x0 + i * 16, y + 3.4, z0 + sz * 8, 0, 0x9399b2, 'metal');
+    addStaticBox(1.2, 6.4, 1.2, x0 + i * 16, deck + 3.2, z0 + sz * 8, 0, 0x9399b2, 'metal');
   }
-  addStaticBox(46, 1.4, 22, x0, y + 7.2, z0, 0, 0xf38ba8, 'metal');
-  deco.push(boxG(47, 0.5, 23, 0xeff1f5, [x0, y + 6.3, z0]));
+  addStaticBox(46, 1.4, 22, x0, deck + 7.0, z0, 0, 0xf38ba8, 'metal');
+  deco.push(boxG(47, 0.5, 23, 0xeff1f5, [x0, deck + 6.1, z0]));
   for (let i = -2; i <= 2; i++) {
-    lights.push(boxG(3.4, 0.3, 3.4, 0xfff4d0, [x0 + i * 9, y + 6.4, z0]));
+    lights.push(boxG(3.4, 0.3, 3.4, 0xfff4d0, [x0 + i * 9, deck + 6.2, z0]));
   }
   // pumps
   for (let i = -1; i <= 1; i++) for (const sz of [-1, 1]) {
-    addStaticBox(1.6, 2.2, 1.0, x0 + i * 16, y + 1.3, z0 + sz * 3.6, 0, 0xbac2de, 'metal', true, 260);
-    deco.push(boxG(1.0, 0.7, 0.1, 0x89dceb, [x0 + i * 16, y + 2.0, z0 + sz * 4.2]));
+    addStaticBox(1.6, 2.2, 1.0, x0 + i * 16, deck + 1.15, z0 + sz * 3.6, 0, 0xbac2de, 'metal', true, 260);
+    deco.push(boxG(1.0, 0.7, 0.1, 0x89dceb, [x0 + i * 16, deck + 1.85, z0 + sz * 4.2]));
   }
   // diner
   const dx = x0 + 52, dz = z0 + 14;
@@ -7383,12 +8743,11 @@ function buildTruckStop(rng) {
   deco.push(boxG(22, 3.2, 0.3, 0x11111b, [dx, dy + 3.4, dz - 9.2]));
   lights.push(boxG(11, 1.6, 0.3, 0xf38ba8, [dx, dy + 8.6, dz - 9.2]));
   lights.push(boxG(0.6, 4.2, 0.6, 0xf9e2af, [dx - 13, dy + 9.5, dz - 9]));
-  // parked trailers along the back fence
+  // parked trailers along the back fence, seated on the apron
   for (let i = 0; i < 4; i++) {
     const px = x0 - 46 + i * 17, pz = z0 - 24;
-    const py = terrainH(px, pz);
-    addStaticBox(2.6, 3.4, 12, px, py + 2.6, pz, 0.06, rng.pick([0x89b4fa, 0xa6e3a1, 0xf9e2af, 0xcba6f7]),
-      'metal', true, 2600);
+    addStaticBox(2.6, 3.4, 12, px, deck + 1.75, pz, 0.06,
+      rng.pick([0x89b4fa, 0xa6e3a1, 0xf9e2af, 0xcba6f7]), 'metal', true, 2600);
   }
   // lamp posts
   for (let i = -2; i <= 2; i++) {
@@ -7756,6 +9115,21 @@ const Input = {
 
   init() {
     addEventListener('keydown', (e) => {
+      // Anything typed into a real input belongs to that input — chat, the
+      // server address, the name box. Driving must not happen underneath it.
+      const ae = document.activeElement;
+      if (ae && (ae.tagName === 'INPUT' || ae.tagName === 'TEXTAREA')) {
+        if (ae.id === 'chatInput') {
+          if (e.key === 'Enter') { Net.closeChat(true); e.preventDefault(); }
+          else if (e.key === 'Escape') { Net.closeChat(false); e.preventDefault(); }
+        } else if (e.key === 'Enter' && ae.id === 'mpAddr') {
+          Net.connect($('mpAddr').value); e.preventDefault();
+        }
+        return;
+      }
+      if (e.key === 'Enter' && Net.online && UI.current === null && !Game.paused) {
+        Net.openChat(); e.preventDefault(); return;
+      }
       const k = e.key.length === 1 ? e.key.toLowerCase() : e.key;
       if (!this.keys[k]) this.pressed[k] = true;
       this.keys[k] = true;
@@ -7934,7 +9308,7 @@ const Input = {
 const $ = (id) => document.getElementById(id);
 
 const UI = {
-  screens: ['menu', 'levelSelect', 'garage', 'settings', 'pause', 'results'],
+  screens: ['menu', 'levelSelect', 'garage', 'multi', 'settings', 'pause', 'results'],
   current: 'menu',
   camTag: null,
 
@@ -8124,6 +9498,38 @@ const UI = {
     });
   },
 
+  /* -------------------------------------------------------- multiplayer */
+  buildMultiplayer() {
+    const addr = $('mpAddr'), name = $('mpName');
+    if (!addr._wired) {
+      addr._wired = true;
+      $('mpConnect').addEventListener('click', () => { Audio_.ui(); Net.connect(addr.value); });
+      $('mpDisconnect').addEventListener('click', () => { Audio_.ui(); Net.disconnect(); });
+      name.addEventListener('change', () => {
+        store.playerName = name.value.slice(0, 16); saveStore();
+        if (Net.online) Net.send({ t: 'join', name: Net.myName(),
+                                   truck: store.truck, trailer: store.trailer });
+      });
+    }
+    name.value = store.playerName || '';
+    if (!addr.value) {
+      // if this page came off a server, that server is the obvious default
+      addr.value = (store.servers && store.servers[0]) ||
+        (location.protocol.startsWith('http') && location.host ? location.host : '');
+    }
+    buildRecentServers();
+    $('mpSub').textContent = Net.online
+      ? 'connected to ' + Net.serverName
+      : 'same map, same weather, everyone\'s trucks';
+    if (!Net.statusText) {
+      Net.setStatus('', location.protocol === 'https:'
+        ? 'THIS PAGE IS HTTPS — LAN ADDRESSES WILL BE BLOCKED, SEE BELOW'
+        : 'OFFLINE');
+    } else {
+      Net.setStatus(Net.online ? 'online' : '', Net.statusText);
+    }
+  },
+
   /* ------------------------------------------------------------- settings */
   buildSettings() {
     const s = store.settings;
@@ -8138,6 +9544,7 @@ const UI = {
       { k: 'tc', label: 'Traction control', sub: 'cuts torque when a driven wheel spins', bool: true },
       { k: 'esc', label: 'Stability control', sub: 'damps the yaw rate — kills most spins, and most drifts', bool: true },
       { k: 'noFlip', label: 'No-flip gyro', sub: 'cannot roll or pitch over — yaw stays free, so it drifts beautifully', bool: true },
+      { k: 'noDamage', label: 'Indestructible', sub: 'crashes still bang and spark — the bodywork just never wears it', bool: true },
       { k: 'autoBoat', label: 'Auto boat mode', sub: 'fold into a boat the moment you hit water, and back on dry land', bool: true },
       // only appears once you have found the launchers
       ...(store.ordnance ? [{ k: 'missiles', label: 'Missile launchers',
@@ -8168,6 +9575,12 @@ const UI = {
           s[r.k] = val; saveStore(); Audio_.ui();
           div.querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b));
           if (r.k === 'telemetry') this.telemetry.classList.toggle('hide', !val);
+          // switching invulnerability on hands you a clean truck immediately
+          if (r.k === 'noDamage' && val && Game.rig) {
+            Game.rig.repair();
+            if (Game.trailer) Game.trailer.vehicle.damage = 0;
+            UI.toast('BODYWORK RESTORED', 'ok');
+          }
           Game.applySettings();
         });
       });
@@ -8534,7 +9947,12 @@ const Game = {
       this.mode = this.mode === 'boot' ? 'menu' : this.mode;
       UI.buildSettings(); UI.show('settings'); UI.setHUD(false);
       if (!this.rig) this.buildShowroom();
+    } else if (where === 'multi') {
+      this.mode = this.mode === 'boot' ? 'menu' : this.mode;
+      if (!this.rig) this.buildShowroom();
+      UI.buildMultiplayer(); UI.show('multi'); UI.setHUD(false);
     } else if (where === 'world') {
+      Net.disconnect(true);
       this.startWorld();
     }
   },
@@ -8549,7 +9967,11 @@ const Game = {
     stage.clear();
     terrainQuery = null;
     terrainBody = null;
-    if (World.built) { World.built = false; Chunks.clear(); World.activities = []; }
+    if (World.built) {
+      World.built = false; Chunks.clear(); World.activities = [];
+      // the bodies and meshes went with stage.clear(); drop the bookkeeping too
+      World.city = []; World.cityBatches = []; World.rubble = [];
+    }
     scene.fog.near = 90; scene.fog.far = 700;
   },
 
@@ -8604,6 +10026,7 @@ const Game = {
     this._showroom = false;
     this.buildShowroom();
     if (this.mode === 'garage') UI.buildGarage();
+    Net.sendRig();          // so everyone else sees the swap too
   },
 
   /* ---------------------------------------------------------- levels ---- */
@@ -8689,19 +10112,26 @@ const Game = {
   },
 
   /* ----------------------------------------------------------- world ---- */
-  startWorld() {
+  /** `seed` is supplied by the server in multiplayer so everyone shares a map. */
+  startWorld(seed, online) {
     this.mode = 'world';
     this._showroom = false;
     boot(0.6, 'generating terrain…');
     this.clearStage();
-    buildOpenWorld(20260807);
+    buildOpenWorld(seed != null ? seed : 20260807);
     scene.fog.near = 180; scene.fog.far = Quality.drawDist * 1.35;
     Sky.set(9, 0.12);
     const L = World.landmarks;
     // a hitched trailer adds ten metres behind the cab — clear room for it too,
     // or it spawns inside a building and levers the whole rig onto its side
     const need = store.trailer !== 'none' ? 22 : 11;
-    this.spawnTruck(findClearSpawn(L.TOWN.x, L.TOWN.z, need), 0, true);
+    // online, fan the spawns out around the town so nobody lands on anybody
+    let sx = L.TOWN.x, sz = L.TOWN.z;
+    if (online && Net.id) {
+      const a = (Net.id * 2.399963) % TAU;          // golden angle, so ids spread
+      sx += Math.cos(a) * 46; sz += Math.sin(a) * 46;
+    }
+    this.spawnTruck(findClearSpawn(sx, sz, need), 0, true);
     Cam.setMode(0);
     this.paused = false; this.finished = false;
     this.runTime = 0; this.runTop = 0;
@@ -8713,7 +10143,7 @@ const Game = {
     $('timerSub').textContent = '';
     $('timer').textContent = '';
     $('loadMeter').classList.remove('hide');
-    UI.center('OPEN WORLD', '2 km of nothing to stop you', 2200);
+    if (!online) UI.center('OPEN WORLD', '2 km of nothing to stop you', 2200);
     Audio_.setEngineOn(true);
     this.activeJob = null;
     this.weatherTimer = 55; this.weatherTarget = 0;
@@ -8793,7 +10223,8 @@ const Game = {
         if (k === '1') this.go('levels');
         if (k === '2') this.go('world');
         if (k === '3') this.go('garage');
-        if (k === '4') this.go('settings');
+        if (k === '4') this.go('multi');
+        if (k === '5') this.go('settings');
       }
       return;
     }
@@ -8932,6 +10363,25 @@ const Game = {
           }
         }
       } else if (a.kind === 'smash') {
+        // Dynamic props outside the physics radius have no ground under them,
+        // so a zone you have driven away from quietly empties itself into the
+        // void. Park anything that has fallen through back where it started.
+        if (a.state === 'idle' && d > a.radius * 2) {
+          this._reparkT = (this._reparkT || 0) + dt;
+          if (this._reparkT > 1.5) {
+            this._reparkT = 0;
+            for (const pr of a.props) {
+              const b = pr.body;
+              if (!b.home) { b.home = { x: b.position.x, y: b.position.y, z: b.position.z }; continue; }
+              if (b.position.y > b.home.y - 25) continue;
+              b.position.set(b.home.x, b.home.y, b.home.z);
+              b.quaternion.set(0, 0, 0, 1);
+              b.velocity.set(0, 0, 0); b.angularVelocity.set(0, 0, 0);
+              b.sleep();
+              pr.dead = false;
+            }
+          }
+        }
         if (a.state === 'idle' && d < a.radius) this.startSmash(a);
         else if (a.state === 'running') {
           a.timer -= dt;
@@ -9125,6 +10575,9 @@ const Game = {
       if (this.trailer) FX.wheelFX(this.trailer.vehicle, dt);
       FX.update(dt * this.timeScale);
       Weapons.update(dt * this.timeScale);
+      // networking runs on wall-clock time, never the slow-motion clock —
+      // everyone else's trucks must not crawl because you got big air
+      Net.update(dt);
 
       // ---- audio
       const d = v.drive;
@@ -9258,7 +10711,7 @@ addEventListener('orientationchange', () => setTimeout(onResize, 250));
 
 /* A small handle for poking at the sim from the console. */
 window.HAULHARD = { Game, World, Chunks, Minimap, Sky, FX, Cam, Quality, TRUCKS, LEVELS, TRAILERS,
-                    Weapons, MISSILE, UI, Input, world, scene, camera, renderer, store, Audio_,
+                    Weapons, MISSILE, Net, UI, Input, world, scene, camera, renderer, store, Audio_,
                     THREE, CANNON, worldHeight, worldSurface, spiralRoad,
                     ground: (x, z) => { const o = {}; chunkTerrainQuery(x, z, o); return o; } };
 
