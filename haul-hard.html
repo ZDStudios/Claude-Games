@@ -752,6 +752,7 @@ const store = {
     esc: false,
     noFlip: false,         // gyro keeps it on its wheels — drift mode
     noDamage: false,       // invulnerable bodywork — crashes still bang, nothing dents
+    warhead: 1,            // missile size / blast / impulse, 0.25x .. 4x
     autoBoat: false,       // fold into a boat automatically on hitting water
     missiles: true,        // only does anything once `store.ordnance` is true
     roughness: 0.35,       // open-world terrain detail; 0 = glass, 1 = rally stage
@@ -774,7 +775,7 @@ try {
     Object.assign(store, d);
     store.settings = Object.assign({
       quality: 'auto', shadows: true, volume: 0.75, power: 1, mouseLook: true,
-      abs: true, tc: true, esc: false, noFlip: false, noDamage: false,
+      abs: true, tc: true, esc: false, noFlip: false, noDamage: false, warhead: 1,
       autoBoat: false, roughness: 0.35,
       missiles: true, tyreModel: true, telemetry: false,
       gearbox: 'auto', units: 'kmh',
@@ -1330,8 +1331,21 @@ function paint(g, hex) {
   return g;
 }
 /** coloured box primitive ready for merging */
+let _unitBoxG = null;
 function boxG(sx, sy, sz, hex, pos, rot, seg) {
-  const g = toNonIndexed(new THREE.BoxGeometry(sx, sy, sz, seg || 1, seg || 1, seg || 1));
+  let g;
+  if (seg && seg > 1) {
+    g = toNonIndexed(new THREE.BoxGeometry(sx, sy, sz, seg, seg, seg));
+  } else {
+    // Cloning a cached unit cube and scaling its vertices is several times
+    // cheaper than building a BoxGeometry, and the city makes tens of
+    // thousands of these. Face normals stay axis-aligned under an axis scale,
+    // so they need no fixing up.
+    if (!_unitBoxG) _unitBoxG = toNonIndexed(new THREE.BoxGeometry(1, 1, 1));
+    g = _unitBoxG.clone();
+    const p = g.attributes.position.array;
+    for (let i = 0; i < p.length; i += 3) { p[i] *= sx; p[i + 1] *= sy; p[i + 2] *= sz; }
+  }
   paint(g, hex); xform(g, pos, rot);
   return g;
 }
@@ -4929,11 +4943,13 @@ const MISSILE = {
   life: 7,          // seconds before it self-destructs
   mass: 26,
   droop: 2.6,       // m/s^2 of gravity it does NOT cancel — a gentle arc
-  radius: 22,       // blast radius in metres
+  radius: 22,       // blast radius in metres, at 1x warhead
   ammo: 6,
   reload: 1.6,      // seconds per rocket back in the rack
   cooldown: 0.28,   // minimum spacing between launches
 };
+/** The Warhead slider. One number drives size, blast radius and impulse. */
+function warhead() { return clamp(store.settings.warhead || 1, 0.25, 4); }
 
 /** The rocket itself: body tube, nose cone, motor bell, four tail fins. */
 function missileGeometry() {
@@ -5068,25 +5084,27 @@ const Weapons = {
     // push the spawn clear of our own bodywork along the firing line
     tmpV2.addScaledVector(tmpV, 1.6);
 
+    const k = warhead();
     const body = makeBody({
-      mass: MISSILE.mass, pos: [tmpV2.x, tmpV2.y, tmpV2.z], material: PMAT.metal,
+      mass: MISSILE.mass * k, pos: [tmpV2.x, tmpV2.y, tmpV2.z], material: PMAT.metal,
       group: GROUP.DEBRIS,
       // deliberately not GROUP.VEHICLE — a rocket leaving the tube must not
       // clip the rig that fired it. The blast still reaches you.
       mask: GROUP.WORLD | GROUP.TERRAIN | GROUP.DEBRIS | GROUP.CARGO,
       linearDamping: 0, angularDamping: 0.9, surface: 'metal',
     });
-    addBox(body, 0.16, 0.16, 1.30);
+    addBox(body, 0.16 * k, 0.16 * k, 1.30 * k);
     body.updateMassProperties();
     body.allowSleep = false;
 
     const vv = rig.vehicle.body.velocity;
     const m = {
-      body, dir: tmpV.clone(), t: 0, dead: false,
+      body, dir: tmpV.clone(), t: 0, dead: false, k,
       speed: MISSILE.speed + Math.max(0, vv.x * tmpV.x + vv.y * tmpV.y + vv.z * tmpV.z),
       mesh: new THREE.Mesh(this.geo, this.mat),
     };
     m.mesh.castShadow = true;
+    m.mesh.scale.setScalar(k);
     const flame = new THREE.Mesh(
       paint(toNonIndexed(new THREE.ConeGeometry(0.11, 0.9, 7)), 0xfab387), this.flameMat);
     flame.rotation.x = -PI / 2;
@@ -5105,7 +5123,39 @@ const Weapons = {
     Audio_.launch();
     Cam.addShake(0.22);
     FX.smoke(tmpV2, 0.7, 0x9399b2);
-    Net.sendShoot(tmpV2, tmpV, m.speed);
+    Net.sendShoot(tmpV2, tmpV, m.speed, k);
+  },
+
+  /**
+   * Shrapnel. A dozen or so lumps of casing and torn-up ground thrown out of
+   * the blast, so a detonation leaves something behind that bounces and rolls
+   * instead of just a puff of particles.
+   */
+  blastBits(p, power) {
+    const n = Math.round(clamp(6 + power * 7, 4, 22));
+    const cols = [0x585b70, 0x6c7086, 0x45475a, 0x8a7350, 0x9399b2];
+    for (let i = 0; i < n; i++) {
+      const s = (0.22 + Math.random() * 0.5) * (0.6 + power * 0.6);
+      const body = makeBody({
+        mass: 6 + s * 40, pos: [p.x, p.y + 0.4, p.z], material: PMAT.cargo, surface: 'metal',
+        group: GROUP.DEBRIS, mask: GROUP.WORLD | GROUP.TERRAIN | GROUP.DEBRIS | GROUP.VEHICLE,
+        linearDamping: 0.02, angularDamping: 0.05,
+      });
+      addBox(body, s, s * (0.5 + Math.random()), s * (0.6 + Math.random()));
+      body.updateMassProperties();
+      const a = Math.random() * TAU, e = Math.random() * 1.1;
+      const sp = (9 + Math.random() * 22) * (0.5 + power * 0.7);
+      body.velocity.set(Math.cos(a) * Math.cos(e) * sp, Math.sin(e) * sp + 4,
+                        Math.sin(a) * Math.cos(e) * sp);
+      body.angularVelocity.set((Math.random() - 0.5) * 22, (Math.random() - 0.5) * 22,
+                               (Math.random() - 0.5) * 22);
+      const mesh = new THREE.Mesh(
+        paint(toNonIndexed(new THREE.BoxGeometry(s, s * 0.8, s * 0.9)),
+              cols[(Math.random() * cols.length) | 0]),
+        cityRubbleMaterial());
+      mesh.castShadow = true;
+      FX.addDebris(body, mesh, 9 + Math.random() * 6);
+    }
   },
 
   /**
@@ -5114,7 +5164,7 @@ const Weapons = {
    * what actually ends this one, so everyone sees the same fireball in the
    * same place rather than each client guessing at the impact.
    */
-  spawnGhost(owner, p, d, speed) {
+  spawnGhost(owner, p, d, speed, scale) {
     if (!this.geo) {
       this.geo = missileGeometry();
       this.mat = vcMat({ roughness: 0.5, metalness: 0.4 }); this.mat.__keep = true;
@@ -5123,6 +5173,7 @@ const Weapons = {
     }
     const mesh = new THREE.Mesh(this.geo, this.mat);
     mesh.castShadow = true;
+    mesh.scale.setScalar(scale || 1);
     mesh.position.set(p[0], p[1], p[2]);
     const flame = new THREE.Mesh(
       paint(toNonIndexed(new THREE.ConeGeometry(0.11, 0.9, 7)), 0xfab387), this.flameMat);
@@ -5226,8 +5277,9 @@ const Weapons = {
     try { world.removeBody(m.body); } catch (e) {}
     const wet = World.built && p.y < WATER_Y + 0.5;
     if (wet) { FX.splash(p, 1.4); Audio_.splash(0.9); }
-    this.blast(p, 1);
-    Net.sendBoom(p, 1);
+    const pw = m.k || warhead();
+    this.blast(p, pw);
+    Net.sendBoom(p, pw);
   },
 
   /**
@@ -5235,9 +5287,10 @@ const Weapons = {
    * bodies, marks breakable props as smashed, scorches the ground, and hurts
    * whoever set it off if they were standing too close.
    */
-  blast(p, power) {
+  blast(p, power, fromNet) {
     const R = MISSILE.radius * power;
     FX.explosion(p, power);
+    this.blastBits(p, power);
     for (const b of world.bodies) {
       if (b.mass <= 0 || !b.position) continue;
       const dx = b.position.x - p.x, dy = b.position.y - p.y, dz = b.position.z - p.z;
@@ -5260,7 +5313,10 @@ const Weapons = {
         FX.debrisPuff(V3(b.position.x, b.position.y, b.position.z), 0.7);
       }
     }
-    damageCity(p, R * 1.15, power);
+    // The structural bite is deliberately tighter than the blast that throws
+    // vehicles about: a warhead should take a bite out of a building, not
+    // vaporise a whole floor plate of it.
+    damageCity(p, R * 0.5, power, fromNet);
     // scorch the ground under the blast
     if (terrainQuery && terrainQuery(p.x, p.z, groundHit) && Math.abs(p.y - groundHit.y) < 6) {
       const r = 2.2 + power * 2.4;
@@ -5668,11 +5724,17 @@ const Net = {
         Game.startWorld(m.world.seed, true);
         Sky.set(m.world.hour, 0.12);
         Game.weatherTarget = m.world.weather || 0;
-        // catch up on whatever the server has already had knocked over
-        for (const i of (m.world.downed || [])) {
-          const b = World.city[i];
-          if (b && !b.dead) shatterBuilding(b, null, 1, { fromNet: true, quiet: true });
+        // Replay every carve the server has on record so a late joiner sees
+        // the same holes and the same ruins as everyone already driving round.
+        Net.replaying = true;
+        for (const c of (m.world.carves || [])) {
+          const b = World.city[c.i];
+          if (b && !b.dead) carveBuilding(b, V3(c.p[0], c.p[1], c.p[2]), c.r, c.pw);
         }
+        Net.replaying = false;
+        // the replay spawned a whole demolition's worth of loose rubble; drop it
+        // straight to settled rather than simulating an hour of collapses
+        for (const r of World.rubble) settleRubble(r);
         UI.center('CONNECTED', this.serverName, 2600);
         Audio_.chime(2);
         this.chatSay(null, 'joined ' + this.serverName);
@@ -5710,17 +5772,16 @@ const Net = {
         this.chatSay(m.name, m.text, this.info.get(m.id) && this.info.get(m.id).colour);
         break;
       case 'shoot':
-        Weapons.spawnGhost(m.id, m.p, m.d, m.v);
+        Weapons.spawnGhost(m.id, m.p, m.d, m.v, m.k);
         break;
       case 'boom':
         Weapons.killGhost(m.id);
-        Weapons.blast(V3(m.p[0], m.p[1], m.p[2]), m.pw || 1);
+        // fromNet: the shooter already told everyone, so do not echo the carve
+        Weapons.blast(V3(m.p[0], m.p[1], m.p[2]), m.pw || 1, true);
         break;
-      case 'kill': {
+      case 'carve': {
         const b = World.city && World.city[m.i];
-        if (b && !b.dead) {
-          shatterBuilding(b, m.p ? V3(m.p[0], m.p[1], m.p[2]) : null, 1, { fromNet: true });
-        }
+        if (b && !b.dead) carveBuilding(b, V3(m.p[0], m.p[1], m.p[2]), m.r, m.pw);
         break;
       }
       case 'pong':
@@ -5776,20 +5837,28 @@ const Net = {
     if (this.online) this.send({ t: 'rig', truck: store.truck, trailer: store.trailer });
   },
 
-  sendShoot(pos, dir, speed) {
+  sendShoot(pos, dir, speed, scale) {
     if (!this.online) return;
     const r2 = (x) => Math.round(x * 100) / 100;
     this.send({ t: 'shoot', p: [r2(pos.x), r2(pos.y), r2(pos.z)],
-                d: [r2(dir.x), r2(dir.y), r2(dir.z)], v: Math.round(speed) });
+                d: [r2(dir.x), r2(dir.y), r2(dir.z)], v: Math.round(speed), k: r2(scale || 1) });
   },
   sendBoom(p, power) {
     if (!this.online) return;
     const r2 = (x) => Math.round(x * 100) / 100;
     this.send({ t: 'boom', p: [r2(p.x), r2(p.y), r2(p.z)], pw: power });
   },
-  sendKill(index) {
-    if (!this.online || index == null) return;
-    this.send({ t: 'kill', i: index });
+  /**
+   * Damage to the skyline is replicated as the carve that caused it, not as
+   * "this building is gone". Hit points are local, so two people chipping at
+   * the same tower would otherwise disagree about when it fell — replaying the
+   * blast itself keeps every client's rubble identical.
+   */
+  sendCarve(index, p, radius, power) {
+    if (!this.online || this.replaying || index == null) return;
+    const r2 = (x) => Math.round(x * 100) / 100;
+    this.send({ t: 'carve', i: index, p: [r2(p.x), r2(p.y), r2(p.z)],
+                r: r2(radius), pw: r2(power) });
   },
 
   /* --------------------------------------------------------------- chat */
@@ -7964,49 +8033,186 @@ function makeBuilding(rng, x, z, kind) {
     lit.push({ s: [w * 0.7, 2.2, 0.25], c: 0x89dceb, p: [x, gy + 1.9, z + d / 2 + 0.28], r: null });
   }
 
-  const vol = Math.max(60, w * d * h);
   return {
     x, z, gy, kind, w, d, h, colour: wall, tiers, parts, lit,
-    hp: 24 + Math.sqrt(vol) * 0.9, hpMax: 24 + Math.sqrt(vol) * 0.9,
-    bodies: [], dead: false, batch: 0,
+    grid: null, cells: null, live: 0, body: null,
+    mergedGeo: null, mergedLit: null, dead: false, batch: 0,
   };
 }
 
-/** Static colliders for a live building, one per tier. */
-function cityColliders(b) {
-  const out = [];
+/* ==========================================================================
+ * Voxel bake
+ *
+ * A building is diced into a coarse grid of cells and every box in its recipe
+ * is CLIPPED into the cells it overlaps. That single decision is what makes
+ * the destruction work: a cell owns real fragments of the original bodywork —
+ * its glazing, its ledges, its window lights — so when it is blown out or
+ * falls, what tumbles away is a piece of the actual building rather than a
+ * grey slab standing in for one.
+ * ======================================================================== */
+
+/** Intersect an axis-aligned recipe box with a cell. Null if they miss. */
+function clipRecipeBox(r, x0, x1, y0, y1, z0, z1) {
+  // rotated pieces (spires, saw-tooth roofs, awnings) are not axis aligned, so
+  // they go whole to whichever cell holds their centre
+  if (r.r) {
+    const p = r.p;
+    return (p[0] >= x0 && p[0] < x1 && p[1] >= y0 && p[1] < y1 && p[2] >= z0 && p[2] < z1) ? r : null;
+  }
+  const ax0 = Math.max(r.p[0] - r.s[0] / 2, x0), ax1 = Math.min(r.p[0] + r.s[0] / 2, x1);
+  const ay0 = Math.max(r.p[1] - r.s[1] / 2, y0), ay1 = Math.min(r.p[1] + r.s[1] / 2, y1);
+  const az0 = Math.max(r.p[2] - r.s[2] / 2, z0), az1 = Math.min(r.p[2] + r.s[2] / 2, z1);
+  if (ax1 - ax0 < 0.02 || ay1 - ay0 < 0.02 || az1 - az0 < 0.02) return null;
+  return { s: [ax1 - ax0, ay1 - ay0, az1 - az0], c: r.c,
+           p: [(ax0 + ax1) / 2, (ay0 + ay1) / 2, (az0 + az1) / 2], r: null };
+}
+
+function bakeCells(b) {
+  // grid bounds from the union of the tiers
+  let x0 = 1e9, x1 = -1e9, z0 = 1e9, z1 = -1e9, y1 = -1e9;
   for (const t of b.tiers) {
     const ox = t.off ? t.off[0] : 0, oz = t.off ? t.off[1] : 0;
-    const hgt = t.y1 - t.y0;
-    const body = makeBody({ pos: [b.x + ox, (t.y0 + t.y1) / 2, b.z + oz], surface: 'road' });
-    addBox(body, t.hw * 2, hgt, t.hd * 2);
-    body.building = b;
-    // ramming counts too: hit a shed hard enough in the monster truck and it
-    // should not simply shrug it off
-    body.addEventListener('collide', (e) => {
-      if (b.dead) return;
-      let vr = 0;
-      try { vr = Math.abs(e.contact.getImpactVelocityAlongNormal()); } catch (err) { return; }
-      if (vr < 14) return;
-      const other = (e.contact.bi === body) ? e.contact.bj : e.contact.bi;
-      const m = other.mass > 0 ? other.mass : 0;
-      if (m < 200) return;
-      const energy = 0.5 * m * vr * vr;
-      damageBuilding(b, Math.min(b.hpMax * 0.55, energy / 5200),
-                     V3(other.position.x, other.position.y, other.position.z), 0.7);
-    });
-    out.push(body);
-    stage.add(body, null);
+    x0 = Math.min(x0, b.x + ox - t.hw); x1 = Math.max(x1, b.x + ox + t.hw);
+    z0 = Math.min(z0, b.z + oz - t.hd); z1 = Math.max(z1, b.z + oz + t.hd);
+    y1 = Math.max(y1, t.y1);
   }
-  return out;
+  const y0 = b.gy;
+  const W = x1 - x0, D = z1 - z0, Hh = Math.max(y1 - y0, 1);
+  // Tall buildings get a coarser plan so the cell count stays sane; a tower is
+  // 2x2x20 rather than 3x3x24, which is still a fifteen-metre bite per rocket.
+  const planMax = Hh > 45 ? 2 : 3;
+  const nx = clamp(Math.ceil(W / 11), 1, planMax);
+  const nz = clamp(Math.ceil(D / 11), 1, planMax);
+  const ny = clamp(Math.ceil(Hh / 7), 1, 20);
+  const cw = W / nx, cd = D / nz, ch = Hh / ny;
+  b.grid = { nx, ny, nz, x0, y0, z0, cw, cd, ch };
+
+  const n = nx * ny * nz;
+  const cells = new Array(n);
+  const bucketParts = new Array(n), bucketLit = new Array(n);
+  for (let i = 0; i < n; i++) { bucketParts[i] = []; bucketLit[i] = []; }
+
+  // Only test each recipe box against the cells it can actually reach —
+  // clipping every box against every cell is O(boxes x cells) and this is run
+  // for fifty-odd buildings while the world is loading.
+  const scatter = (list, buckets) => {
+    for (const r of list) {
+      const hx = r.r ? 0 : r.s[0] / 2, hy = r.r ? 0 : r.s[1] / 2, hz = r.r ? 0 : r.s[2] / 2;
+      const i0 = clamp(Math.floor((r.p[0] - hx - x0) / cw), 0, nx - 1);
+      const i1 = clamp(Math.floor((r.p[0] + hx - x0) / cw), 0, nx - 1);
+      const j0 = clamp(Math.floor((r.p[1] - hy - y0) / ch), 0, ny - 1);
+      const j1 = clamp(Math.floor((r.p[1] + hy - y0) / ch), 0, ny - 1);
+      const k0 = clamp(Math.floor((r.p[2] - hz - z0) / cd), 0, nz - 1);
+      const k1 = clamp(Math.floor((r.p[2] + hz - z0) / cd), 0, nz - 1);
+      for (let i = i0; i <= i1; i++) for (let j = j0; j <= j1; j++) for (let k = k0; k <= k1; k++) {
+        const piece = clipRecipeBox(r,
+          x0 + i * cw, x0 + (i + 1) * cw, y0 + j * ch, y0 + (j + 1) * ch,
+          z0 + k * cd, z0 + (k + 1) * cd);
+        if (piece) buckets[i + nx * (j + ny * k)].push(piece);
+      }
+    }
+  };
+  scatter(b.parts, bucketParts);
+  scatter(b.lit, bucketLit);
+
+  b.live = 0;
+  for (let k = 0; k < nz; k++) for (let j = 0; j < ny; j++) for (let i = 0; i < nx; i++) {
+    const idx = i + nx * (j + ny * k);
+    const pieces = bucketParts[idx], lits = bucketLit[idx];
+    if (!pieces.length && !lits.length) { cells[idx] = null; continue; }
+    // Cells hold clipped RECIPES, not geometry. Baking 1600 little meshes up
+    // front cost seven seconds of world build; the boxes are cheap to make on
+    // demand and only the building actually hit ever needs remaking.
+    cells[idx] = {
+      i, j, k, alive: true,
+      cx: x0 + (i + 0.5) * cw, cy: y0 + (j + 0.5) * ch, cz: z0 + (k + 0.5) * cd,
+      pieces, lits,
+    };
+    b.live++;
+  }
+  b.cells = cells;
+  // the recipes have done their job; the cells own the geometry now
+  b.parts = null; b.lit = null;
+}
+
+const cellAt = (b, i, j, k) => {
+  const g = b.grid;
+  if (i < 0 || j < 0 || k < 0 || i >= g.nx || j >= g.ny || k >= g.nz) return null;
+  return b.cells[i + g.nx * (j + g.ny * k)];
+};
+
+/* ---------------------------------------------------- geometry + collider */
+/** Merge whatever is still standing. Cached; invalidated on every carve. */
+function buildingGeometry(b) {
+  if (b.mergedGeo !== null || b.dead) return;
+  const parts = [], lits = [];
+  for (const c of b.cells) {
+    if (!c || !c.alive) continue;
+    for (const r of c.pieces) parts.push(boxG(r.s[0], r.s[1], r.s[2], r.c, r.p, r.r));
+    for (const r of c.lits) lits.push(boxG(r.s[0], r.s[1], r.s[2], r.c, r.p, r.r));
+  }
+  b.mergedGeo = parts.length ? mergeGeoms(parts) : false;
+  b.mergedLit = lits.length ? mergeGeoms(lits) : false;
+}
+
+/**
+ * One static body per building, with a box shape per unbroken vertical run of
+ * cells in each column. Intact that is one shape per column; after a rocket it
+ * is two or three. Far cheaper than a shape per cell.
+ */
+function rebuildBuildingBody(b) {
+  if (b.body) { try { world.removeBody(b.body); } catch (e) {}
+                const i = stage.bodies.indexOf(b.body); if (i >= 0) stage.bodies.splice(i, 1); }
+  b.body = null;
+  if (b.dead || !b.live) return;
+  const g = b.grid;
+  const body = makeBody({ pos: [0, 0, 0], surface: 'road' });
+  let shapes = 0;
+  for (let k = 0; k < g.nz; k++) for (let i = 0; i < g.nx; i++) {
+    let run = -1;
+    for (let j = 0; j <= g.ny; j++) {
+      const c = j < g.ny ? cellAt(b, i, j, k) : null;
+      const solid = !!(c && c.alive);
+      if (solid && run < 0) run = j;
+      if (!solid && run >= 0) {
+        const yA = g.y0 + run * g.ch, yB = g.y0 + j * g.ch;
+        addBox(body, g.cw, yB - yA, g.cd,
+          [g.x0 + (i + 0.5) * g.cw, (yA + yB) / 2, g.z0 + (k + 0.5) * g.cd]);
+        shapes++;
+        run = -1;
+      }
+    }
+  }
+  if (!shapes) return;
+  body.building = b;
+  // ramming counts too: hit a shed hard enough in the monster truck and it
+  // should not simply shrug it off
+  body.addEventListener('collide', (e) => {
+    if (b.dead) return;
+    let vr = 0;
+    try { vr = Math.abs(e.contact.getImpactVelocityAlongNormal()); } catch (err) { return; }
+    if (vr < 15) return;
+    const other = (e.contact.bi === body) ? e.contact.bj : e.contact.bi;
+    const m = other.mass > 0 ? other.mass : 0;
+    if (m < 200) return;
+    const energy = 0.5 * m * vr * vr;
+    if (energy < 220000) return;
+    const p = V3(other.position.x, other.position.y, other.position.z);
+    const r = clamp(Math.cbrt(energy) * 0.07, 3, 11);
+    carveBuilding(b, p, r, 0.7);
+    Net.sendCarve(b.index, p, r, 0.7);
+  });
+  stage.add(body, null);
+  b.body = body;
 }
 
 function rebuildCityBatch(batch) {
-  const parts = [], lit = [];
+  const parts = [], lits = [];
   for (const b of batch.buildings) {
     if (b.dead) continue;
-    for (const g of recipeGeo(b.parts)) parts.push(g);
-    for (const g of recipeGeo(b.lit)) lit.push(g);
+    buildingGeometry(b);
+    if (b.mergedGeo) parts.push(b.mergedGeo);
+    if (b.mergedLit) lits.push(b.mergedLit);
   }
   const swap = (mesh, list) => {
     if (!mesh) return;
@@ -8016,139 +8222,209 @@ function rebuildCityBatch(batch) {
     if (list.length) mesh.geometry.computeBoundingSphere();
   };
   swap(batch.mesh, parts);
-  swap(batch.litMesh, lit);
+  swap(batch.litMesh, lits);
 }
 
-/** Chip away at a building; take it down when there is nothing left. */
-function damageBuilding(b, amount, origin, power) {
-  if (b.dead) return;
-  b.hp -= amount;
-  if (b.hp <= 0) { shatterBuilding(b, origin, power || 1); return; }
-  // visible spalling short of collapse
-  tmpV.set(b.x + (Math.random() - 0.5) * b.w, b.gy + Math.random() * b.h * 0.7,
-           b.z + (Math.random() - 0.5) * b.d);
-  FX.debrisPuff(tmpV, 0.35 + 0.5 * clamp01(amount / 80));
-}
-
-/**
- * Take the building apart. The slabs start exactly where the intact geometry
- * was, so the collapse begins from a standing structure rather than from a
- * pile that appears out of nowhere.
- */
-function shatterBuilding(b, origin, power, opts) {
-  if (b.dead) return;
-  const o = opts || {};
-  b.dead = true;
-  for (const body of b.bodies) { try { world.removeBody(body); } catch (e) {} }
-  b.bodies.length = 0;
-  rebuildCityBatch(World.cityBatches[b.batch]);
-
-  // Hit points are tracked per client, so two players chipping at the same
-  // tower would eventually disagree about when it fell. The collapse itself is
-  // therefore an explicit event: whoever knocks it down says so, and everybody
-  // else takes that building down too.
-  if (!o.fromNet) Net.sendKill(b.index);
-  // A late joiner is told which lots are already flattened. Those get cleared
-  // without the fireball and without spawning rubble — replaying an hour of
-  // other people's demolition on connect would be neither correct nor cheap.
-  if (o.quiet) return;
-
-  const ox = origin ? origin.x : b.x, oy = origin ? origin.y : b.gy, oz = origin ? origin.z : b.z;
-  const budget = 26;
-
-  // Size the slabs so the WHOLE building fits inside the budget. Spending it
-  // top-down as it came left a 167 m tower with only its bottom 45 m turning
-  // into rubble and the rest simply vanishing. Wide, low buildings break into
-  // quarters; anything tall stays full-width so it still stacks and topples.
-  const wide = b.tiers.some(t => t.hw > 11 && t.hd > 11);
-  let split = (b.h < 30 && wide) ? 2 : 1;
-  let step = 5;
-  const countChunks = () => {
-    let n = 0;
-    for (const t of b.tiers) {
-      const s = (t.hw > 9 && t.hd > 9) ? split : 1;
-      n += Math.max(1, Math.round((t.y1 - t.y0) / step)) * s * s;
-    }
-    return n;
-  };
-  for (let guard = 0; countChunks() > budget && guard < 40; guard++) step *= 1.18;
-
-  const chunks = [];
-  for (const t of b.tiers) {
-    const tx = b.x + (t.off ? t.off[0] : 0), tz = b.z + (t.off ? t.off[1] : 0);
-    const rows = Math.max(1, Math.round((t.y1 - t.y0) / step));
-    const sh = (t.y1 - t.y0) / rows;
-    const sp = (t.hw > 9 && t.hd > 9) ? split : 1;
-    for (let r = 0; r < rows; r++) {
-      const cy = t.y0 + sh * (r + 0.5);
-      for (let i = 0; i < sp; i++) for (let j = 0; j < sp; j++) {
-        const cw = (t.hw * 2) / sp, cd = (t.hd * 2) / sp;
-        const cx = tx - t.hw + cw * (i + 0.5);
-        const cz = tz - t.hd + cd * (j + 0.5);
-        chunks.push([cx, cy, cz, cw * 0.96, sh * 0.94, cd * 0.96]);
-      }
-    }
-  }
-
-  const shade = new THREE.Color(b.colour);
-  for (const [cx, cy, cz, cw, ch, cd] of chunks) {
-    const mass = clamp(cw * ch * cd * 45, 200, 26000);
-    const body = makeBody({
-      mass, pos: [cx, cy, cz], material: PMAT.cargo, surface: 'gravel',
-      group: GROUP.DEBRIS,
-      mask: GROUP.WORLD | GROUP.TERRAIN | GROUP.VEHICLE | GROUP.DEBRIS | GROUP.CARGO,
-      linearDamping: 0.02, angularDamping: 0.14,
-    });
-    addBox(body, cw, ch, cd);
-    body.updateMassProperties();
-    body.sleepSpeedLimit = 0.45;
-    body.sleepTimeLimit = 0.8;
-
-    // outward shove from the blast, plus a lean that grows with height — that
-    // lean is what turns a collapse into a topple
-    let dx = cx - ox, dz = cz - oz;
-    const dl = Math.hypot(dx, dz) || 1;
-    dx /= dl; dz /= dl;
-    const near = clamp01(1 - Math.hypot(cx - ox, cy - oy, cz - oz) / 34);
-    const hf = clamp01((cy - b.gy) / Math.max(b.h, 1));
-    const kick = (2 + near * 13) * power;
-    const lean = hf * 7 * power;
-    body.velocity.set(dx * (kick + lean), near * 5 * power + hf * 1.5,
-                      dz * (kick + lean));
-    body.angularVelocity.set((Math.random() - 0.5) * 1.6, (Math.random() - 0.5) * 1.6,
-                             (Math.random() - 0.5) * 1.6);
-
-    const c = shade.clone().multiplyScalar(0.72 + Math.random() * 0.4);
-    const mesh = new THREE.Mesh(
-      paint(toNonIndexed(new THREE.BoxGeometry(cw, ch, cd)), c.getHex()),
-      cityRubbleMaterial());
-    mesh.castShadow = true; mesh.receiveShadow = true;
-    mesh.position.set(cx, cy, cz);
-    stage.add(body, mesh);
-    World.rubble.push({ body, mesh, settled: false, age: 0 });
-  }
-
-  // the collapse itself: a fireball at the point of failure and a dust column
-  const fy = clamp(oy, b.gy, b.gy + b.h);
-  FX.explosion(V3(b.x, fy, b.z), 1);
-  for (let i = 0; i < 26; i++) {
-    const a = Math.random() * TAU, r = Math.random() * Math.max(b.w, b.d) * 0.6;
-    FX.dust(V3(b.x + Math.cos(a) * r, b.gy + Math.random() * 3, b.z + Math.sin(a) * r),
-      Math.cos(a) * (6 + Math.random() * 14), 2 + Math.random() * 5,
-      Math.sin(a) * (6 + Math.random() * 14), 2.6, 0x9a9287, 2.4);
-  }
-  Cam.addShake(clamp01(46 / (camera.position.distanceTo(V3(b.x, b.gy, b.z)) + 24)) * 1.5);
-  trimRubble();
-}
-
+/* ------------------------------------------------------------- demolition */
 let _rubbleMat = null;
 function cityRubbleMaterial() {
-  if (!_rubbleMat) { _rubbleMat = vcMat({ roughness: 0.95 }); _rubbleMat.__keep = true; }
+  if (!_rubbleMat) { _rubbleMat = vcMat({ roughness: 0.9 }); _rubbleMat.__keep = true; }
   return _rubbleMat;
 }
 
 /**
- * Freeze wreckage that has come to rest. A settled slab keeps its mesh and its
+ * Turn a set of cells loose as one dynamic lump — either a chunk blown out by
+ * a warhead or a section that has lost whatever was holding it up. The lump
+ * carries the cells' own geometry, so the piece bouncing down the street still
+ * has its windows on it.
+ */
+function spawnCellChunk(b, cells, vel, spin, ttl) {
+  const g = b.grid;
+  let sx = 0, sy = 0, sz = 0;
+  for (const c of cells) { sx += c.cx; sy += c.cy; sz += c.cz; }
+  const n = cells.length;
+  const ox = sx / n, oy = sy / n, oz = sz / n;
+
+  // rebuild the cells' own boxes about the chunk's centre, so the lump that
+  // tumbles away is made of the same glazing and ledges it had while standing
+  const geos = [];
+  for (const c of cells) {
+    for (const list of [c.pieces, c.lits]) {
+      for (const r of list) {
+        geos.push(boxG(r.s[0], r.s[1], r.s[2], r.c,
+                       [r.p[0] - ox, r.p[1] - oy, r.p[2] - oz], r.r));
+      }
+    }
+  }
+  if (!geos.length) return null;
+
+  const mass = clamp(n * g.cw * g.cd * g.ch * 26, 220, 30000);
+  const body = makeBody({
+    mass, pos: [ox, oy, oz], material: PMAT.cargo, surface: 'gravel',
+    group: GROUP.DEBRIS,
+    mask: GROUP.WORLD | GROUP.TERRAIN | GROUP.VEHICLE | GROUP.DEBRIS | GROUP.CARGO,
+    linearDamping: 0.02, angularDamping: 0.16,
+  });
+  for (const c of cells) {
+    addBox(body, g.cw * 0.94, g.ch * 0.94, g.cd * 0.94, [c.cx - ox, c.cy - oy, c.cz - oz]);
+  }
+  body.updateMassProperties();
+  body.sleepSpeedLimit = 0.5;
+  body.sleepTimeLimit = 0.8;
+  if (vel) body.velocity.set(vel[0], vel[1], vel[2]);
+  if (spin) body.angularVelocity.set(spin[0], spin[1], spin[2]);
+
+  const mesh = new THREE.Mesh(mergeGeoms(geos), cityRubbleMaterial());
+  mesh.castShadow = true; mesh.receiveShadow = true;
+  mesh.position.set(ox, oy, oz);
+  stage.add(body, mesh);
+  World.rubble.push({ body, mesh, settled: false, age: 0, ttl: ttl || 0 });
+  return body;
+}
+
+/**
+ * Which cells can still trace a path down to the ground? Flood fill upward and
+ * sideways from the bottom layer: walls hold each other up, so side neighbours
+ * count. Anything the fill never reaches is being held up by nothing.
+ */
+function findUnsupported(b) {
+  const g = b.grid, n = g.nx * g.ny * g.nz;
+  const seen = new Uint8Array(n);
+  const stack = [];
+  for (let k = 0; k < g.nz; k++) for (let i = 0; i < g.nx; i++) {
+    const idx = i + g.nx * (0 + g.ny * k);
+    const c = b.cells[idx];
+    if (c && c.alive) { seen[idx] = 1; stack.push(idx); }
+  }
+  while (stack.length) {
+    const idx = stack.pop();
+    const i = idx % g.nx;
+    const j = Math.floor(idx / g.nx) % g.ny;
+    const k = Math.floor(idx / (g.nx * g.ny));
+    const push = (a, c2, d) => {
+      if (a < 0 || c2 < 0 || d < 0 || a >= g.nx || c2 >= g.ny || d >= g.nz) return;
+      const t = a + g.nx * (c2 + g.ny * d);
+      if (seen[t]) return;
+      const cc = b.cells[t];
+      if (!cc || !cc.alive) return;
+      seen[t] = 1; stack.push(t);
+    };
+    push(i + 1, j, k); push(i - 1, j, k);
+    push(i, j + 1, k); push(i, j - 1, k);
+    push(i, j, k + 1); push(i, j, k - 1);
+  }
+  const out = [];
+  for (let idx = 0; idx < n; idx++) {
+    const c = b.cells[idx];
+    if (c && c.alive && !seen[idx]) out.push(idx);
+  }
+  return out;
+}
+
+/** Split a list of cell indices into connected lumps so each falls as one piece. */
+function connectedGroups(b, idxs) {
+  const g = b.grid;
+  const set = new Set(idxs);
+  const groups = [];
+  while (set.size) {
+    const start = set.values().next().value;
+    set.delete(start);
+    const group = [start], stack = [start];
+    while (stack.length) {
+      const idx = stack.pop();
+      const i = idx % g.nx;
+      const j = Math.floor(idx / g.nx) % g.ny;
+      const k = Math.floor(idx / (g.nx * g.ny));
+      const nb = [[i+1,j,k],[i-1,j,k],[i,j+1,k],[i,j-1,k],[i,j,k+1],[i,j,k-1]];
+      for (const [a, c2, d] of nb) {
+        if (a < 0 || c2 < 0 || d < 0 || a >= g.nx || c2 >= g.ny || d >= g.nz) continue;
+        const t = a + g.nx * (c2 + g.ny * d);
+        if (!set.has(t)) continue;
+        set.delete(t); group.push(t); stack.push(t);
+      }
+    }
+    groups.push(group);
+  }
+  return groups;
+}
+
+/**
+ * A warhead going off at `p`. Cells inside the blast are blown out as flying
+ * bits; whatever is left is re-checked for support and anything now floating
+ * topples away as one piece.
+ */
+function carveBuilding(b, p, radius, power) {
+  if (b.dead || !b.cells) return 0;
+  const g = b.grid;
+  const R = radius;
+  const hit = [];
+  // Centre distance, plus always whatever cell the warhead actually went off
+  // inside. Measuring to the nearest FACE instead made a standard rocket reach
+  // clean through a tower's cross-section and cut it in half every time — the
+  // hole is supposed to be local, and severing it should take several.
+  for (const c of b.cells) {
+    if (!c || !c.alive) continue;
+    const inside = Math.abs(p.x - c.cx) <= g.cw * 0.5 && Math.abs(p.y - c.cy) <= g.ch * 0.5 &&
+                   Math.abs(p.z - c.cz) <= g.cd * 0.5;
+    if (inside || Math.hypot(p.x - c.cx, p.y - c.cy, p.z - c.cz) <= R) hit.push(c);
+  }
+  if (!hit.length) return 0;
+
+  for (const c of hit) { c.alive = false; b.live--; }
+  b.mergedGeo = null; b.mergedLit = null;
+
+  // the bite itself, thrown outward as individual lumps of real bodywork
+  for (const c of hit) {
+    let dx = c.cx - p.x, dy = c.cy - p.y, dz = c.cz - p.z;
+    const l = Math.hypot(dx, dy, dz) || 1;
+    dx /= l; dy /= l; dz /= l;
+    const sp = (7 + Math.random() * 13) * power;
+    spawnCellChunk(b, [c],
+      [dx * sp, Math.abs(dy) * sp * 0.5 + 3 + Math.random() * 5 * power, dz * sp],
+      [(Math.random() - 0.5) * 5, (Math.random() - 0.5) * 5, (Math.random() - 0.5) * 5],
+      26);
+  }
+
+  // anything now unsupported comes down in one or more pieces
+  const loose = findUnsupported(b);
+  if (loose.length) {
+    for (const group of connectedGroups(b, loose)) {
+      const cells = group.map(i => b.cells[i]);
+      for (const c of cells) { c.alive = false; b.live--; }
+      // lean away from the hole it lost, and harder the taller it was
+      let lx = 0, lz = 0, top = 0;
+      for (const c of cells) { lx += c.cx - p.x; lz += c.cz - p.z; top = Math.max(top, c.cy); }
+      const l = Math.hypot(lx, lz) || 1;
+      const lean = clamp01((top - g.y0) / Math.max(b.h, 1)) * 5 * power;
+      spawnCellChunk(b, cells, [lx / l * lean, 0, lz / l * lean],
+        [(Math.random() - 0.5) * 0.5, 0, (Math.random() - 0.5) * 0.5], 0);
+    }
+    b.mergedGeo = null; b.mergedLit = null;
+  }
+
+  if (b.live <= 0) b.dead = true;
+  rebuildBuildingBody(b);
+  rebuildCityBatch(World.cityBatches[b.batch]);
+
+  // dust rolling out of the wound, and off the ground if the thing came down
+  const dustN = Math.round(clamp(hit.length * 5 * power, 6, 40));
+  for (let i = 0; i < dustN; i++) {
+    const a = Math.random() * TAU;
+    FX.dust(V3(p.x + Math.cos(a) * R * 0.4, p.y + (Math.random() - 0.3) * R * 0.5,
+               p.z + Math.sin(a) * R * 0.4),
+      Math.cos(a) * (4 + Math.random() * 11), 1 + Math.random() * 4,
+      Math.sin(a) * (4 + Math.random() * 11), 1.9, 0x9a9287, 2.0);
+  }
+  if (loose.length) {
+    Audio_.explode(0.8);
+    Cam.addShake(clamp01(40 / (camera.position.distanceTo(V3(b.x, b.gy, b.z)) + 26)) * 1.3);
+  }
+  trimRubble();
+  return hit.length;
+}
+
+/**
+ * Freeze wreckage that has come to rest. A settled lump keeps its mesh and its
  * collider but stops being a dynamic body, so a flattened block costs the
  * solver nothing and the ruin is still there when you drive back past it.
  */
@@ -8184,21 +8460,19 @@ function settleRubble(r) {
 }
 
 /** Everything a blast does to the skyline. Called from Weapons.blast. */
-function damageCity(p, radius, power) {
+function damageCity(p, radius, power, fromNet) {
   if (!World.city || !World.city.length) return;
   for (const b of World.city) {
-    if (b.dead) continue;
-    // distance to the box, not the centre: a rocket into the tenth floor of a
-    // tower should count as a direct hit, not as a near miss on its middle
+    if (b.dead || !b.cells) continue;
     const dx = Math.max(Math.abs(p.x - b.x) - b.w / 2, 0);
     const dz = Math.max(Math.abs(p.z - b.z) - b.d / 2, 0);
     const dy = Math.max(b.gy - p.y, p.y - (b.gy + b.h), 0);
-    const d = Math.hypot(dx, dy, dz);
-    if (d > radius) continue;
-    const f = 1 - d / radius;
-    damageBuilding(b, f * f * power * 105, p, power);
+    if (Math.hypot(dx, dy, dz) > radius) continue;
+    carveBuilding(b, p, radius, power);
+    if (!fromNet) Net.sendCarve(b.index, p, radius, power);
   }
 }
+
 
 function buildTown(rng) {
   const T = World.landmarks.TOWN;
@@ -8228,7 +8502,8 @@ function buildTown(rng) {
       else kind = rng.pick(['house', 'house', 'house', 'shop', 'shop', 'warehouse', 'watertower']);
       const b = makeBuilding(rng, x, z, kind);
       b.index = World.city.length;      // stable id: every client builds the
-      b.bodies = cityColliders(b);      // same list from the same seed
+      bakeCells(b);                     // same list from the same seed
+      rebuildBuildingBody(b);
       World.city.push(b);
     }
   }
@@ -9760,6 +10035,11 @@ const UI = {
           if (Game.trailer) Game.trailer.realign(Game.rig);
         }, 260);
       }, 'roughness');
+    if (store.ordnance) {
+      slider('warhead', 'Warhead size', 'rocket size, blast radius and how hard it throws things',
+        0.25, 4, 0.05,
+        (v) => v > 0.95 && v < 1.05 ? 'STANDARD' : v.toFixed(2).replace(/0$/, '') + '×');
+    }
     slider('volume', 'Volume', '', 0, 1, 0.02, (v) => Math.round(v * 100) + '%',
       (v) => Audio_.setVolume(v));
   },
@@ -10817,6 +11097,7 @@ const Game = {
     }
     // fell out of the world (shouldn't happen — there is no edge — but be safe)
     if (v.pos.y < -200) this.resetTruck();
+    this.cullProps(dt);
     this.updateActivities(dt);
     // payload readout
     const load = (this.cargo ? this.cargo.totalMass : 0);
@@ -10834,6 +11115,33 @@ const Game = {
     } else if (a && a.state === 'carrying') {
       $('timer').textContent = '';
       $('timerSub').textContent = Math.round((this.cargo ? this.cargo.integrity : 1) * 100) + '% INTACT';
+    }
+  },
+
+  /**
+   * Hide small loose props once they are far enough away to be a couple of
+   * pixels. Crates, boulders, barrels and rubble each carry their own mesh
+   * because they move independently, and five hundred of them in view was
+   * costing more to draw than the entire city — which is eight draw calls.
+   * The cut-off scales with the object, so a boulder stays visible far longer
+   * than a bin. Rechecked three times a second, not every frame.
+   */
+  cullProps(dt) {
+    this._cullT = (this._cullT || 0) - dt;
+    if (this._cullT > 0) return;
+    this._cullT = 0.35;
+    const cp = camera.position;
+    for (const b of stage.bodies) {
+      const m = b.mesh;
+      if (!m) continue;
+      if (m.__cull === undefined) {
+        if (!m.geometry.boundingSphere) m.geometry.computeBoundingSphere();
+        const r = m.geometry.boundingSphere ? m.geometry.boundingSphere.radius : 4;
+        m.__cull = r > 14 ? Infinity : 70 + r * 55;
+      }
+      if (m.__cull === Infinity) continue;
+      const dx = m.position.x - cp.x, dy = m.position.y - cp.y, dz = m.position.z - cp.z;
+      m.visible = (dx * dx + dy * dy + dz * dz) < m.__cull * m.__cull;
     }
   },
 
@@ -10871,6 +11179,7 @@ addEventListener('orientationchange', () => setTimeout(onResize, 250));
 window.HAULHARD = { Game, World, Chunks, Minimap, Sky, FX, Cam, Quality, TRUCKS, LEVELS, TRAILERS,
                     Weapons, MISSILE, Net, UI, Input, world, scene, camera, renderer, store, Audio_,
                     THREE, CANNON, worldHeight, worldSurface, spiralRoad,
+                    carveBuilding, damageCity, spawnPoints, randomSpawnPoint,
                     ground: (x, z) => { const o = {}; chunkTerrainQuery(x, z, o); return o; } };
 
 /* ------------------------------------------------------------------ boot */
