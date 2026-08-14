@@ -6150,6 +6150,7 @@ const Cam = {
     let lambda = 8;
     let fovTarget = 62;
 
+    if (this.crashT > 0 && store.settings.noDamage) this.crashT = 0;
     if (this.crashT > 0 && store.settings.slowmo) {
       this.crashT -= dt;
       wantPos.copy(this.crashPos);
@@ -9959,7 +9960,7 @@ const UI = {
       { k: 'tc', label: 'Traction control', sub: 'cuts torque when a driven wheel spins', bool: true },
       { k: 'esc', label: 'Stability control', sub: 'damps the yaw rate — kills most spins, and most drifts', bool: true },
       { k: 'noFlip', label: 'No-flip gyro', sub: 'cannot roll or pitch over — yaw stays free, so it drifts beautifully', bool: true },
-      { k: 'noDamage', label: 'Indestructible', sub: 'crashes still bang and spark — the bodywork just never wears it', bool: true },
+      { k: 'noDamage', label: 'Indestructible', sub: 'no dents, no lost panels, and no crash cam or slow motion — you just carry on driving', bool: true },
       { k: 'autoBoat', label: 'Auto boat mode', sub: 'fold into a boat the moment you hit water, and back on dry land', bool: true },
       // only appears once you have found the launchers
       ...(store.ordnance ? [{ k: 'missiles', label: 'Missile launchers',
@@ -9994,6 +9995,10 @@ const UI = {
           if (r.k === 'noDamage' && val && Game.rig) {
             Game.rig.repair();
             if (Game.trailer) Game.trailer.vehicle.damage = 0;
+            // drop out of a crash cinematic that is already running, rather
+            // than making you sit through the last of it after switching off
+            Cam.crashT = 0; Game.timeScale = 1;
+            $('slowmoTint').style.opacity = '0';
             UI.toast('BODYWORK RESTORED', 'ok');
           }
           Game.applySettings();
@@ -10636,6 +10641,10 @@ const Game = {
   shake(a) { Cam.addShake(a); },
   crashCam(s) {
     if (!store.settings.slowmo) return;
+    // Indestructible means the crash never happened as far as you are
+    // concerned: no cinematic camera grab, no slow motion, no two seconds of
+    // watching yourself from a ditch. You just carry on driving.
+    if (store.settings.noDamage) return;
     // in the air the crash cam would rip you out of the chase view mid-flight
     if (this.rig && this.rig.morph > 0.15) return;
     if (this.rig) Cam.crash(s, this.rig.vehicle.pos);
@@ -10989,7 +10998,10 @@ const Game = {
       // is indistinguishable from gravity that keeps changing its mind.
       if (store.settings.slowmo && !converted && this.mode === 'levels') {
         if (v.airTime > 0.9) ts = 0.5;
-        if (Cam.crashT > 0) ts = 0.4;
+        // crash slow-motion is part of the damage package — Indestructible
+        // turns it off with everything else. Big-air slow-mo is a stunt, not a
+        // crash, so it stays on the "Slow motion" toggle where it belongs.
+        if (Cam.crashT > 0 && !store.settings.noDamage) ts = 0.4;
       }
       this.timeScale = damp(this.timeScale, ts, 7, dt);
       $('slowmoTint').style.opacity = String((1 - this.timeScale) * 1.4);
@@ -11177,34 +11189,4 @@ addEventListener('orientationchange', () => setTimeout(onResize, 250));
 
 /* A small handle for poking at the sim from the console. */
 window.HAULHARD = { Game, World, Chunks, Minimap, Sky, FX, Cam, Quality, TRUCKS, LEVELS, TRAILERS,
-                    Weapons, MISSILE, Net, UI, Input, world, scene, camera, renderer, store, Audio_,
-                    THREE, CANNON, worldHeight, worldSurface, spiralRoad,
-                    carveBuilding, damageCity, spawnPoints, randomSpawnPoint,
-                    ground: (x, z) => { const o = {}; chunkTerrainQuery(x, z, o); return o; } };
-
-/* ------------------------------------------------------------------ boot */
-boot(0.75, 'wiring it up…');
-Sky.init();
-FX.init();
-Input.init();
-Cam.initLook();
-Weapons.init();
-UI.init();
-Game.applySettings();
-Sky.set(10, 0.15);
-onResize();
-UI.buildLevels();
-Game.go('menu');
-Game.running = true;
-requestAnimationFrame((t) => Game.frame(t));
-boot(1, 'ready');
-setTimeout(() => {
-  const b = document.getElementById('boot');
-  b.style.transition = 'opacity .5s';
-  b.style.opacity = '0';
-  setTimeout(() => b.remove(), 520);
-}, 260);
-
-</script>
-</body>
-</html>
+                    Weapons, MISSILE, Net, UI, Inpu
