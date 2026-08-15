@@ -4,6 +4,9 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>ZD STUDIOS — Game Library</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lilita+One&family=Nunito:wght@500;700;800;900&display=swap">
 <style>
   :root{
     --bg-1:#FF6B35;
@@ -20,8 +23,6 @@
     --font-display: 'Lilita One', 'Arial Black', sans-serif;
     --font-body: 'Nunito', system-ui, sans-serif;
   }
-
-  @import url('https://fonts.googleapis.com/css2?family=Lilita+One&family=Nunito:wght@500;700;800;900&display=swap');
 
   *{box-sizing:border-box; margin:0; padding:0;}
 
@@ -127,6 +128,26 @@
     gap:7px;
   }
   .stat-pill strong{ font-family:var(--font-display); font-size:1rem; color:var(--accent-teal); }
+
+  /* FILTER BAR */
+  #filterBar{
+    display:flex; gap:12px; align-items:center; flex-wrap:wrap;
+    justify-content:center; margin:0 0 26px;
+  }
+  #search{
+    font-family:inherit; font-weight:800; font-size:0.92rem; color:var(--ink);
+    background:var(--panel); border:3px solid var(--ink); border-radius:999px;
+    box-shadow:var(--shadow-hard-sm); padding:9px 18px; min-width:220px; outline:none;
+  }
+  #search::placeholder{ color:#9d95b5; }
+  #search:focus{ box-shadow:5px 5px 0 var(--ink); }
+  #chips{ display:flex; gap:7px; flex-wrap:wrap; justify-content:center; }
+  .chip{
+    font-weight:900; font-size:0.72rem; letter-spacing:0.05em; text-transform:uppercase;
+    padding:7px 13px; border-radius:999px; border:2.5px solid var(--ink);
+    background:var(--panel); cursor:pointer; user-select:none;
+  }
+  .chip[aria-pressed="true"]{ background:var(--ink); color:var(--panel); }
 
   /* GRID */
   .grid{
@@ -336,6 +357,11 @@
     </div>
   </header>
 
+  <div id="filterBar" hidden>
+    <input id="search" type="search" placeholder="Search games…" aria-label="Search games">
+    <div id="chips"></div>
+  </div>
+
   <main>
     <div id="status">
       <div class="spinner" aria-hidden="true"></div>
@@ -362,168 +388,112 @@
   // Anything found in the repo that ISN'T listed here gets sane auto-generated info instead.
   const GAME_INFO = {
     "reefkeeper.html": {
-      title: "Reefkeeper",
-      tagline: "A Cozy Aquarium",
+      title: "Reefkeeper", tagline: "A Cozy Aquarium",
       desc: "Raise fish, unlock rare colour variants, and grow a thriving reef tank. Click, feed, breed, repeat.",
-      emoji: "🐠",
-      genre: "Idle / Clicker",
-      tagBg: "#00C2A8",
-      artBg: "linear-gradient(135deg,#5EE7DF,#00C2A8)"
-    },
-    "monster-tracks-2d.html": {
-      title: "Monster Tracks 2D",
-      tagline: "Draw Your Ride, Send It",
-      desc: "Physics-based monster truck stunts — but you draw your own truck and your own roads before you send it down them.",
-      emoji: "🚛",
-      genre: "Physics / Sandbox",
-      tagBg: "#FF3D81",
-      artBg: "linear-gradient(135deg,#FFB627,#FF6B35)"
-    },
-    "cs2.html": {
-      title: "CS2",
-      tagline: "Counter-Strike Style FPS",
-      desc: "A fast-paced first-person shooter inspired by Counter-Strike 2 — gunfights, callouts, and round-based action.",
-      emoji: "🔫",
-      genre: "FPS / Shooter",
-      tagBg: "#3B82F6",
-      artBg: "linear-gradient(135deg,#93C5FD,#3B82F6)"
-    },
-    "geometry-dash.html": {
-      title: "Geometry Dash",
-      tagline: "Rhythm Platformer Clone",
-      desc: "Jump, fly, and flip through spike-filled obstacle courses synced to the beat. One hit and you're back to the start.",
-      emoji: "🔺",
-      genre: "Rhythm / Platformer",
-      tagBg: "#8B5CF6",
-      artBg: "linear-gradient(135deg,#C4B5FD,#8B5CF6)"
-    },
-    "minecraft.html": {
-      title: "Minecraft",
-      tagline: "Blocky Sandbox Clone",
-      desc: "A browser take on the blocky sandbox classic — mine, place, and build with a handful of block types.",
-      emoji: "⛏️",
-      genre: "Sandbox / Building",
-      tagBg: "#22C55E",
-      artBg: "linear-gradient(135deg,#86EFAC,#22C55E)"
-    },
-    "getting-over-it.html": {
-      title: "Getting Over It",
-      tagline: "One Hammer, No Mercy",
-      desc: "Climb a mountain of junk with nothing but a man, a pot, and a sledgehammer. One slip and you lose it all.",
-      emoji: "🔨",
-      genre: "Precision Platformer",
-      tagBg: "#B45309",
-      artBg: "linear-gradient(135deg,#FCD34D,#B45309)"
-    },
-    "hill-climb.html": {
-      title: "Hill Climb Racing",
-      tagline: "Gas, Brake, Don't Flip",
-      desc: "Drive a janky vehicle over rolling procedural hills, balancing momentum and fuel without face-planting.",
-      emoji: "🚙",
-      genre: "Physics / Driving",
-      tagBg: "#F59E0B",
-      artBg: "linear-gradient(135deg,#FDE68A,#F59E0B)"
-    },
-    "subway-surfers.html": {
-      title: "Subway Surfers",
-      tagline: "Endless Lane Runner",
-      desc: "Dash down the tracks dodging trains, swiping between lanes while the cops close in behind you.",
-      emoji: "🏃",
-      genre: "Endless Runner",
-      tagBg: "#EF4444",
-      artBg: "linear-gradient(135deg,#FCA5A5,#EF4444)"
-    },
-    "bloxworld.html": {
-      title: "Bloxworld",
-      tagline: "Roblox-Style Sandbox",
-      desc: "Build, explore, and mess around in a blocky open world. Roblox vibes, straight in your browser.",
-      emoji: "🟥",
-      genre: "Sandbox / Building",
-      tagBg: "#FF4444",
-      artBg: "linear-gradient(135deg,#FFA0A0,#FF4444)"
-    },
-    "fez.html": {
-      title: "Fez",
-      tagline: "Rotate the World",
-      desc: "A 2D platformer hiding a 3D secret — rotate the world 90° to reveal new paths and solve perspective puzzles.",
-      emoji: "🎩",
-      genre: "Puzzle Platformer",
-      tagBg: "#F97316",
-      artBg: "linear-gradient(135deg,#FED7AA,#F97316)"
-    },
-    "monument.html": {
-      title: "Monument Valley",
-      tagline: "Impossible Architecture",
-      desc: "Guide a silent princess through stunning impossible structures, bending geometry and perspective to find the way.",
-      emoji: "🏛️",
-      genre: "Puzzle / Atmospheric",
-      tagBg: "#A78BFA",
-      artBg: "linear-gradient(135deg,#EDE9FE,#A78BFA)"
-    },
-    "neon-rush.html": {
-      title: "Neon Rush",
-      tagline: "High-Speed Neon Racer",
-      desc: "Tear through glowing neon tracks at breakneck speed — dodge, weave, and don't blink or you're dead.",
-      emoji: "⚡",
-      genre: "Arcade Racer",
-      tagBg: "#06B6D4",
-      artBg: "linear-gradient(135deg,#67E8F9,#06B6D4)"
-    },
-    "slime-orchard.html": {
-      title: "Slime Orchard",
-      tagline: "Idle Slime Farming",
-      desc: "Tend your orchard of wriggly slimes, harvest their resources, and unlock weird new breeds.",
-      emoji: "🟢",
-      genre: "Idle / Farming",
-      tagBg: "#22C55E",
-      artBg: "linear-gradient(135deg,#BBF7D0,#22C55E)"
-    },
-    "stickman-hook.html": {
-      title: "Stickman Hook",
-      tagline: "Swing Don't Stop",
-      desc: "Fling a stickman from anchor to anchor in a fluid web-swinging platformer — momentum is everything.",
-      emoji: "🕷️",
-      genre: "Swing / Platformer",
-      tagBg: "#1A1430",
-      artBg: "linear-gradient(135deg,#94A3B8,#1A1430)"
-    },
-    "super-kart-3d.html": {
-      title: "Super Kart 3D",
-      tagline: "3D Kart Racing",
-      desc: "Burn rubber in a 3D kart racer — hit the track, nail the corners, and leave everyone in the dust.",
-      emoji: "🏎️",
-      genre: "3D Kart Racer",
-      tagBg: "#FF6B35",
-      artBg: "linear-gradient(135deg,#FFB627,#FF6B35)"
-    },
-    "terraria.html": {
-      title: "Terraria",
-      tagline: "Dig, Fight, Explore",
-      desc: "A 2D side-scrolling survival sandbox — mine deep, craft gear, build a base, and fight off the darkness.",
-      emoji: "🌿",
-      genre: "Survival Sandbox",
-      tagBg: "#65A30D",
-      artBg: "linear-gradient(135deg,#BEF264,#65A30D)"
-    },
-    "tiny-fishing.html": {
-      title: "Tiny Fishing",
-      tagline: "One More Cast",
-      desc: "Cast your line, reel in fish, upgrade your rod, and see how deep you can go. Chill but surprisingly addictive.",
-      emoji: "🎣",
-      genre: "Idle / Casual",
-      tagBg: "#0EA5E9",
-      artBg: "linear-gradient(135deg,#BAE6FD,#0EA5E9)"
+      emoji: "\ud83d\udc20", genre: "Idle / Clicker",
+      tagBg: "#00C2A8", artBg: "linear-gradient(135deg,#5EE7DF,#00C2A8)"
     },
     "haul-hard.html": {
-      title: "Haul Hard",
-      tagline: "Load It, Strap It, Send It",
+      title: "Haul Hard", tagline: "Load It, Strap It, Send It",
       desc: "Pack your rig, balance the load, and haul cargo down rough roads without losing it all off the back.",
-      emoji: "🚚",
-      genre: "Physics / Driving",
-      tagBg: "#EA580C",
-      artBg: "linear-gradient(135deg,#FDBA74,#EA580C)"
+      emoji: "\ud83d\ude9a", genre: "Physics / Driving",
+      tagBg: "#EA580C", artBg: "linear-gradient(135deg,#FDBA74,#EA580C)"
+    },
+    "cs2.html": {
+      title: "CS2", tagline: "Web Offensive 2",
+      desc: "A full 3D bomb-defusal shooter: buy menu, round economy, spray patterns, grenades and bots that path, peek and plant.",
+      emoji: "\ud83d\udd2b", genre: "FPS / Tactical",
+      tagBg: "#3B82F6", artBg: "linear-gradient(135deg,#93C5FD,#3B82F6)"
+    },
+    "neon-rush.html": {
+      title: "Neon Rush", tagline: "One Tap, Zero Mercy",
+      desc: "Six levels of rhythm platforming across five gamemodes \u2014 cube, ship, ball, UFO and wave \u2014 all synced to a generated soundtrack.",
+      emoji: "\u26a1", genre: "Rhythm / Platformer",
+      tagBg: "#8B5CF6", artBg: "linear-gradient(135deg,#C4B5FD,#8B5CF6)"
+    },
+    "azure-rush.html": {
+      title: "Azure Rush", tagline: "Cel-Shaded Wave Racer",
+      desc: "Anime-styled water racing \u2014 carve the corners, chain your boost, and hold your line against the pack.",
+      emoji: "\ud83c\udf0a", genre: "Racing",
+      tagBg: "#0EA5E9", artBg: "linear-gradient(135deg,#7DD3FC,#0284C7)"
+    },
+    "spaceship-fly.html": {
+      title: "Spaceship Fly", tagline: "Deep Field Expedition",
+      desc: "Thread your ship through the deep field, weaving debris and hazards the further out you push.",
+      emoji: "\ud83d\ude80", genre: "Arcade / Flight",
+      tagBg: "#6366F1", artBg: "linear-gradient(135deg,#A5B4FC,#4F46E5)"
+    },
+    "minecraft.html": {
+      title: "MiniCraft", tagline: "Blocky Sandbox",
+      desc: "A voxel world with chunk meshing, water and a full block palette \u2014 mine it, place it, build whatever you want.",
+      emoji: "\u26cf\ufe0f", genre: "Sandbox / Building",
+      tagBg: "#22C55E", artBg: "linear-gradient(135deg,#86EFAC,#22C55E)"
+    },
+    "terraria.html": {
+      title: "Terraria", tagline: "Dig, Fight, Explore",
+      desc: "A 2D side-scrolling survival sandbox \u2014 mine deep, craft gear, build a base, and fight off the darkness.",
+      emoji: "\ud83c\udf3f", genre: "Survival Sandbox",
+      tagBg: "#65A30D", artBg: "linear-gradient(135deg,#BEF264,#65A30D)"
+    },
+    "getting-over-it.html": {
+      title: "Over The Mountain", tagline: "One Hammer, No Mercy",
+      desc: "Climb a mountain of junk with nothing but a man, a pot, and a sledgehammer. One slip and you lose it all.",
+      emoji: "\ud83d\udd28", genre: "Precision Platformer",
+      tagBg: "#B45309", artBg: "linear-gradient(135deg,#FCD34D,#B45309)"
+    },
+    "hill-climb.html": {
+      title: "Hill Dash", tagline: "Gas, Brake, Don\u2019t Flip",
+      desc: "Drive a janky vehicle over rolling procedural hills, balancing momentum and fuel without face-planting.",
+      emoji: "\ud83d\ude99", genre: "Physics / Driving",
+      tagBg: "#F59E0B", artBg: "linear-gradient(135deg,#FDE68A,#F59E0B)"
+    },
+    "monster-tracks-2d.html": {
+      title: "Monster Tracks 2D", tagline: "Draw Your Ride, Send It",
+      desc: "Physics-based monster truck stunts \u2014 but you draw your own truck and your own roads before you send it down them.",
+      emoji: "\ud83d\ude9b", genre: "Physics / Sandbox",
+      tagBg: "#FF3D81", artBg: "linear-gradient(135deg,#FFB627,#FF6B35)"
+    },
+    "super-kart-3d.html": {
+      title: "Super Kart 3D", tagline: "3D Kart Racing",
+      desc: "Burn rubber in a 3D kart racer \u2014 hit the track, nail the corners, and leave everyone in the dust.",
+      emoji: "\ud83c\udfce\ufe0f", genre: "Racing",
+      tagBg: "#FF6B35", artBg: "linear-gradient(135deg,#FFB627,#FF6B35)"
+    },
+    "subway-surfers.html": {
+      title: "Subway Dash", tagline: "Endless Lane Runner",
+      desc: "Dash down the tracks dodging trains, swiping between lanes while the cops close in behind you.",
+      emoji: "\ud83c\udfc3", genre: "Endless Runner",
+      tagBg: "#EF4444", artBg: "linear-gradient(135deg,#FCA5A5,#EF4444)"
+    },
+    "stickman-hook.html": {
+      title: "Stickman Hook", tagline: "Swing, Don\u2019t Stop",
+      desc: "Fling a stickman from anchor to anchor in a fluid web-swinging platformer \u2014 momentum is everything.",
+      emoji: "\ud83d\udd77\ufe0f", genre: "Swing / Platformer",
+      tagBg: "#1A1430", artBg: "linear-gradient(135deg,#94A3B8,#1A1430)"
+    },
+    "monument.html": {
+      title: "Monolith", tagline: "Impossible Architecture",
+      desc: "Guide a silent traveller through impossible structures, bending geometry and perspective to find the way.",
+      emoji: "\ud83c\udfdb\ufe0f", genre: "Puzzle / Atmospheric",
+      tagBg: "#A78BFA", artBg: "linear-gradient(135deg,#EDE9FE,#A78BFA)"
+    },
+    "slime-orchard.html": {
+      title: "Sprout Hollow", tagline: "Idle Slime Farming",
+      desc: "Tend your orchard of wriggly slimes, harvest their resources, and unlock weird new breeds.",
+      emoji: "\ud83d\udfe2", genre: "Idle / Farming",
+      tagBg: "#22C55E", artBg: "linear-gradient(135deg,#BBF7D0,#22C55E)"
+    },
+    "tiny-fishing.html": {
+      title: "Tiny Fishing", tagline: "One More Cast",
+      desc: "Cast your line, reel in fish, upgrade your rod, and see how deep you can go. Chill but surprisingly addictive.",
+      emoji: "\ud83c\udfa3", genre: "Idle / Casual",
+      tagBg: "#0EA5E9", artBg: "linear-gradient(135deg,#BAE6FD,#0EA5E9)"
     }
   };
+
+  // Order the grid deliberately instead of alphabetically: the headliners first.
+  const FEATURED = ["cs2.html","neon-rush.html","haul-hard.html","reefkeeper.html",
+                    "azure-rush.html","spaceship-fly.html","terraria.html","minecraft.html"];
 
   const FALLBACK_PALETTE = [
     { tagBg:"#3B82F6", artBg:"linear-gradient(135deg,#93C5FD,#3B82F6)" },
@@ -558,24 +528,12 @@
     return div.innerHTML;
   }
 
-  function renderGrid(games){
-    const grid = document.getElementById("grid");
-    const status = document.getElementById("status");
-    const statRow = document.getElementById("statRow");
-    const gameCount = document.getElementById("gameCount");
+  let ALL_GAMES = [];
+  let activeGenre = "All";
+  let query = "";
 
-    status.hidden = true;
-    grid.hidden = false;
-
-    if(games.length === 0){
-      grid.innerHTML = `<div class="empty-card">No games found yet — check back soon! 🛠️</div>`;
-      return;
-    }
-
-    gameCount.textContent = games.length;
-    statRow.hidden = false;
-
-    grid.innerHTML = games.map(game => `
+  function cardHtml(game){
+    return `
       <article class="card">
         <div class="card-art" style="background:${game.artBg}">
           <span class="emoji" aria-hidden="true">${game.emoji}</span>
@@ -588,58 +546,96 @@
           <p class="desc">${escapeHtml(game.desc)}</p>
           <div class="card-foot">
             <span class="meta-bits">${escapeHtml(game.tagline)}</span>
-            <a class="play-btn" href="${game.url}" target="_blank" rel="noopener">▶ PLAY</a>
+            <a class="play-btn" href="${game.url}">\u25b6 PLAY</a>
           </div>
         </div>
-      </article>
-    `).join("");
+      </article>`;
   }
 
-  function renderError(message){
+  function applyFilters(){
+    const grid = document.getElementById("grid");
+    const q = query.trim().toLowerCase();
+    const shown = ALL_GAMES.filter(g => {
+      if (activeGenre !== "All" && g.genre !== activeGenre) return false;
+      if (!q) return true;
+      return (g.title + " " + g.genre + " " + g.tagline + " " + g.desc).toLowerCase().includes(q);
+    });
+    grid.innerHTML = shown.length
+      ? shown.map(cardHtml).join("")
+      : `<div class="empty-card">Nothing matches that \u2014 try a different search. \ud83d\udd0d</div>`;
+  }
+
+  function buildChips(){
+    const genres = ["All", ...new Set(ALL_GAMES.map(g => g.genre))].slice(0, 9);
+    const box = document.getElementById("chips");
+    box.innerHTML = genres.map(g =>
+      `<button class="chip" type="button" aria-pressed="${g === activeGenre}">${escapeHtml(g)}</button>`).join("");
+    [...box.children].forEach((el, i) => el.onclick = () => {
+      activeGenre = genres[i];
+      [...box.children].forEach((e2, j) => e2.setAttribute("aria-pressed", String(j === i)));
+      applyFilters();
+    });
+  }
+
+  function renderGrid(games){
+    const grid = document.getElementById("grid");
     const status = document.getElementById("status");
-    status.innerHTML = `
-      <div class="error-box">
-        <p style="font-size:1.4rem;margin-bottom:10px;">⚠️ Couldn't load the library</p>
-        <p style="font-weight:600; margin-bottom:14px;">${escapeHtml(message)}</p>
-        <p>Browse games directly on <a href="https://github.com/${OWNER}/${REPO}" target="_blank" rel="noopener">GitHub</a> instead.</p>
-      </div>
-    `;
+    const statRow = document.getElementById("statRow");
+
+    status.hidden = true;
+    grid.hidden = false;
+
+    if(games.length === 0){
+      grid.innerHTML = `<div class="empty-card">No games found yet \u2014 check back soon! \ud83d\udee0\ufe0f</div>`;
+      return;
+    }
+
+    ALL_GAMES = games;
+    document.getElementById("gameCount").textContent = games.length;
+    statRow.hidden = false;
+    document.getElementById("filterBar").hidden = false;
+    document.getElementById("search").addEventListener("input", e => {
+      query = e.target.value; applyFilters();
+    });
+    buildChips();
+    applyFilters();
+  }
+
+  function toGame(filename, index){
+    const info = GAME_INFO[filename.toLowerCase()] || buildFallbackInfo(filename, index);
+    return { ...info, file: filename.toLowerCase(), url: filename };
+  }
+
+  // Featured titles lead, everything else follows alphabetically.
+  function orderGames(files){
+    const rank = f => { const i = FEATURED.indexOf(f.toLowerCase()); return i === -1 ? FEATURED.length : i; };
+    return files.slice().sort((a, b) => rank(a) - rank(b) || a.localeCompare(b));
   }
 
   async function loadGames(){
+    // The repo listing keeps the page honest when new games land, but the page
+    // must still work when the API is rate-limited or offline \u2014 so the known
+    // library is the fallback rather than an error screen.
+    let names = null;
     try{
       const res = await fetch(`https://api.github.com/repos/${OWNER}/${REPO}/contents/?ref=${BRANCH}`, {
         headers: { "Accept": "application/vnd.github+json" }
       });
-
-      if(!res.ok){
-        if(res.status === 403){
-          throw new Error("GitHub API rate limit reached. Try refreshing in a bit.");
+      if(res.ok){
+        const files = await res.json();
+        if (Array.isArray(files)){
+          names = files
+            .filter(f => f.type === "file")
+            .filter(f => /\.html?$/i.test(f.name))
+            .filter(f => !SELF_FILES.has(f.name.toLowerCase()))
+            .map(f => f.name);
         }
-        throw new Error(`GitHub API returned ${res.status}`);
       }
-
-      const files = await res.json();
-
-      const htmlFiles = files
-        .filter(f => f.type === "file")
-        .filter(f => /\.html?$/i.test(f.name))
-        .filter(f => !SELF_FILES.has(f.name.toLowerCase()))
-        .sort((a,b) => a.name.localeCompare(b.name));
-
-      const games = htmlFiles.map((f, i) => {
-        const info = GAME_INFO[f.name.toLowerCase()] || buildFallbackInfo(f.name, i);
-        return {
-          ...info,
-          url: `https://${OWNER.toLowerCase()}.github.io/${REPO}/${f.name}`
-        };
-      });
-
-      renderGrid(games);
     }catch(err){
-      console.error(err);
-      renderError(err.message || "Something went wrong while talking to GitHub.");
+      console.warn("Repo listing unavailable, using the built-in library.", err);
     }
+    if (!names || !names.length) names = Object.keys(GAME_INFO);
+    renderGrid(orderGames(names).map(toGame));
   }
 
   loadGames();
