@@ -61,43 +61,204 @@ const GROUND_Y = 560, DEATH_Y = 760, PLAYER_R = 11;
 const LAUNCH_VX = 7.5, LAUNCH_VY = -15;
 
 // ===================== Level generation =====================
+/* =====================================================================
+   LEVELS
+   Levels are built from named sections rather than one repeating wave, so
+   a run moves through distinct ideas: long chasm crossings, oscillating
+   hooks, fragile one-swing hooks, launchers, saw runs. Each section knows
+   how to lay its own ground, so terrain and hooks can never disagree.
+   ===================================================================== */
+const HOOK_KIND = { normal:'normal', mover:'mover', once:'once', boost:'boost' };
+
+function sectionKit(rng, out){
+  return {
+    ground(x, w){ out.platforms.push({ x, w, y: GROUND_Y }); },
+    hook(x, y, opt){
+      out.hooks.push(Object.assign({ x, y, x0:x, y0:y, t: rng()*6.28,
+        kind:'normal', used:false, amp:0, spd:0, axis:'y' }, opt || {}));
+    },
+    spike(x, w){ out.spikes.push({ x, w }); },
+    saw(x, y, r){ out.saws.push({ x, y, r, ph: rng()*6.28 }); },
+    star(x, y){ out.stars.push({ x, y, got:false }); }
+  };
+}
+
+// Each section returns its length in pixels.
+const SECTIONS = [
+  { id:'wave', d:0, f(A, x, rng, d){                 // the classic rolling ceiling
+      const len = 1500 + rng()*400;
+      A.ground(x - 60, len + 120);
+      let hx = x + 150, ph = rng()*6.28;
+      while (hx < x + len - 120){
+        A.hook(hx, 300 + Math.sin(hx*0.0034 + ph)*70 + (rng()-0.5)*24);
+        hx += 205 + rng()*(35 + d*12);
+      }
+      if (d >= 1 && rng() < .6) A.spike(x + len*0.45, 90);
+      return len;
+    } },
+  { id:'chasm', d:1, f(A, x, rng, d){                // no floor: miss and you fall
+      const lead = 420, gap = 900 + d*180, tail = 420;
+      A.ground(x - 60, lead + 60);
+      A.ground(x + lead + gap, tail + 60);
+      let hx = x + lead - 40;
+      const n = Math.max(3, Math.round(gap / 250));
+      for (let i = 0; i <= n; i++){
+        const t = i / n;
+        A.hook(hx + t * (gap + 80), 250 - Math.sin(t*Math.PI)*70);
+      }
+      A.star(x + lead + gap*0.5, 330);
+      return lead + gap + tail;
+    } },
+  { id:'movers', d:1, f(A, x, rng, d){               // hooks that will not hold still
+      const len = 1400 + d*160;
+      A.ground(x - 60, len + 120);
+      let hx = x + 190;
+      while (hx < x + len - 140){
+        A.hook(hx, 300 + (rng()-0.5)*40, { kind:'mover', amp: 55 + rng()*(45 + d*18),
+          spd: 0.0014 + rng()*0.0012, axis: rng() < .25 ? 'x' : 'y' });
+        hx += 235 + rng()*60;
+      }
+      return len;
+    } },
+  { id:'fragile', d:2, f(A, x, rng, d){              // one swing per hook, then it's gone
+      const len = 1500;
+      A.ground(x - 60, 380);
+      A.ground(x + len - 320, 380);
+      let hx = x + 300;
+      while (hx < x + len - 300){
+        A.hook(hx, 275 + Math.sin(hx*0.004)*45, { kind:'once' });
+        hx += 225;
+      }
+      A.star(x + len*0.5, 360);
+      return len;
+    } },
+  { id:'launch', d:1, f(A, x, rng, d){               // launchers fling you down the line
+      const len = 1600;
+      A.ground(x - 60, len + 120);
+      A.hook(x + 220, 300);
+      A.hook(x + 520, 270, { kind:'boost' });
+      A.hook(x + 980, 250);
+      A.hook(x + 1260, 285, { kind:'boost' });
+      A.spike(x + 700, 130); A.spike(x + 1450, 110);
+      A.star(x + 760, 200);
+      return len;
+    } },
+  { id:'saws', d:2, f(A, x, rng, d){                 // keep your arc above the blades
+      const len = 1500 + d*120;
+      A.ground(x - 60, len + 120);
+      let hx = x + 170, ph = rng()*6.28;
+      while (hx < x + len - 120){
+        A.hook(hx, 265 + Math.sin(hx*0.003 + ph)*45);
+        hx += 215 + rng()*45;
+      }
+      for (let i = 0; i < 2 + d; i++)
+        A.saw(x + 380 + i*(len - 700)/Math.max(1, 1 + d), 430 + (i%2)*60, 46);
+      return len;
+    } },
+  { id:'sparse', d:2, f(A, x, rng, d){               // long reaches, no room to dawdle
+      const len = 1500;
+      A.ground(x - 60, len + 120);
+      let hx = x + 220;
+      while (hx < x + len - 160){
+        A.hook(hx, 240 + (rng()-0.5)*50);
+        hx += 290 + rng()*(20 + d*14);
+      }
+      A.spike(x + len*0.35, 120); A.spike(x + len*0.7, 120);
+      A.star(x + len*0.6, 180);
+      return len;
+    } },
+  { id:'towers', d:2, f(A, x, rng, d){               // swing between raised blocks
+      const len = 1600;
+      A.ground(x - 60, 320);
+      for (let i = 0; i < 3; i++) A.ground(x + 420 + i*400, 200);
+      A.ground(x + len - 260, 320);
+      let hx = x + 260;
+      while (hx < x + len - 140){ A.hook(hx, 235 + Math.sin(hx*0.005)*40); hx += 200; }
+      for (let i = 0; i < 3; i++) A.saw(x + 620 + i*400, 500, 40);
+      return len;
+    } },
+  { id:'gauntlet', d:3, f(A, x, rng, d){             // everything at once
+      const len = 1900;
+      A.ground(x - 60, 340);
+      A.ground(x + 1000, 300);
+      A.ground(x + len - 260, 340);
+      A.hook(x + 250, 290);
+      A.hook(x + 500, 250, { kind:'mover', amp:70, spd:0.0018 });
+      A.hook(x + 760, 240, { kind:'boost' });
+      A.hook(x + 1120, 265, { kind:'once' });
+      A.hook(x + 1360, 245, { kind:'mover', amp:60, spd:0.0022, axis:'x' });
+      A.hook(x + 1620, 275);
+      A.saw(x + 1150, 430, 46);
+      A.star(x + 900, 200); A.star(x + 1500, 330);
+      return len;
+    } }
+];
+
+const NUM_LEVELS = 12;
 function makeLevel(idx){
-  const rng = mulberry32(2024 + idx * 131);
-  const length = 5200 + idx * 1600;
-  const hooks = [], platforms = [], spikes = [];
-
-  // Continuous gently-waving ceiling of hooks
-  let hx = 420, phase = rng() * 6.28;
-  while (hx < length - 240){
-    const hy = 300 + Math.sin(hx * 0.0036 + phase) * 70 + (rng() - 0.5) * 22;
-    hooks.push({ x: hx, y: hy, t: rng() * 6.28 });
-    hx += 215 + rng() * 50;
+  const rng = mulberry32(90210 + idx * 7919);
+  const d = Math.min(3, Math.floor(idx / 3));
+  const out = { hooks:[], platforms:[], spikes:[], saws:[], stars:[] };
+  const A = sectionKit(rng, out);
+  // Always open on solid ground so the launch is survivable.
+  out.platforms.push({ x: -400, w: 900, y: GROUND_Y });
+  let x = 500;
+  const pool = SECTIONS.filter(sec => sec.d <= d);
+  const count = 3 + Math.min(3, Math.floor(idx / 2));
+  let last = null;
+  for (let i = 0; i < count; i++){
+    let sec = pool[(rng() * pool.length) | 0];
+    if (pool.length > 1){ let guard = 0; while (sec === last && guard++ < 6) sec = pool[(rng()*pool.length)|0]; }
+    last = sec;
+    x += sec.f(A, x, rng, d) + 220;
   }
+  out.platforms.push({ x: x - 100, w: 900, y: GROUND_Y });
+  const finishX = x + 420;
 
-  // Ground platforms with gaps; spikes only on wide pads (always a hook overhead)
-  platforms.push({ x: -300, w: 1100, y: GROUND_Y });
-  let px = 900;
-  while (px < length - 500){
-    px += 185 + rng() * (135 + idx * 28);
-    const pw = 230 + rng() * 230;
-    platforms.push({ x: px, w: pw, y: GROUND_Y });
-    if (idx > 0 && pw > 200 && rng() < 0.34) spikes.push({ x: px + 70 + rng() * (pw - 160), w: 30 });
-    px += pw;
+  // three stars per level, topped up wherever sections didn't place them
+  while (out.stars.length > 3) out.stars.pop();
+  let guard = 0;
+  while (out.stars.length < 3 && guard++ < 60){
+    const h = out.hooks[(rng() * out.hooks.length) | 0];
+    if (!h) break;
+    const sx = h.x + 60, sy = h.y + 120;
+    if (out.stars.some(st => Math.abs(st.x - sx) < 400)) continue;
+    out.stars.push({ x: sx, y: sy, got:false });
   }
-  platforms.push({ x: length - 120, w: 700, y: GROUND_Y });
+  out.stars.sort((a, b) => a.x - b.x);
 
-  return { idx, length, hooks, platforms, spikes, finishX: length,
+  return { idx, length: finishX, hooks: out.hooks, platforms: out.platforms,
+           spikes: out.spikes, saws: out.saws, stars: out.stars,
+           finishX, par: finishX / 470 + 2.5,
            start: { x: 200, y: GROUND_Y - 14 } };
 }
-const NUM_LEVELS = 5;
 const levels = [];
 for (let i = 0; i < NUM_LEVELS; i++) levels.push(makeLevel(i));
+
+const MEDALS = ['—', 'BRONZE', 'SILVER', 'GOLD'];
+function medalFor(i, t){
+  if (t == null) return 0;
+  const par = levels[i].par;
+  if (t <= par) return 3;
+  if (t <= par * 1.28) return 2;
+  if (t <= par * 1.7) return 1;
+  return 0;
+}
+function starsGot(i){ try { return JSON.parse(localStorage.getItem('sh_stars_' + i)) || [false,false,false]; } catch(e){ return [false,false,false]; } }
+function saveStars(i, arr){
+  const cur = starsGot(i);
+  arr.forEach((v, k) => { if (v) cur[k] = true; });
+  try { localStorage.setItem('sh_stars_' + i, JSON.stringify(cur)); } catch(e){}
+}
+function levelUnlocked(i){ return i === 0 || bestTime(i - 1) !== null; }
 
 // ===================== Game state =====================
 let level, levelIdx = 0;
 let P, anchor, ropeLen, state, deathTimer, levelTime, startTime;
-let camX = 0, camY = 0;
+let camX = 0, camY = 0, shake = 0;
 let trail = [], particles = [];
+let runStars = [false,false,false];
+let menuTiles = [];
 const input = { hold: false, left: false, right: false };
 
 function bestTime(i){ const v = +localStorage.getItem('sh_best_' + i); return v > 0 ? v : null; }
@@ -109,11 +270,15 @@ function loadLevel(i){
   resetPlayer();
   state = 'play';
 }
+function toMenu(){ state = 'menu'; }
 function resetPlayer(){
   const s = level.start;
   P = { x: s.x, y: s.y, vx: LAUNCH_VX, vy: LAUNCH_VY };  // immediate up-forward launch
   anchor = null; ropeLen = 0;
-  deathTimer = 0; trail.length = 0; particles.length = 0;
+  deathTimer = 0; trail.length = 0; particles.length = 0; shake = 0;
+  runStars = [false,false,false];
+  for (const st of level.stars) st.got = false;
+  for (const h of level.hooks){ h.used = false; h.x = h.x0; h.y = h.y0; }
   startTime = performance.now(); levelTime = 0;
 }
 
@@ -125,12 +290,13 @@ function spawnParticles(x, y, color, n, spd){
 }
 function die(){
   if (state !== 'play') return;
-  state = 'dead'; deathTimer = 0; anchor = null;
+  state = 'dead'; deathTimer = 0; anchor = null; shake = 14;
   spawnParticles(P.x, P.y, '#ff5566', 28, 5); sDeath();
 }
 function win(){
   if (state !== 'play') return;
   setBest(levelIdx, levelTime);
+  saveStars(levelIdx, runStars);
   spawnParticles(P.x, P.y, '#ffd166', 42, 6); sWin();
   state = (levelIdx >= NUM_LEVELS - 1) ? 'gamewin' : 'win';
 }
@@ -139,6 +305,7 @@ function win(){
 function findNearestHook(){
   let best = null, bd = GRAB * GRAB;
   for (const h of level.hooks){
+    if (h.used) continue;
     const dx = h.x - P.x, dy = h.y - P.y, d = dx*dx + dy*dy;
     if (d < bd){ bd = d; best = h; }
   }
@@ -149,31 +316,49 @@ function tryGrab(){
   if (h){
     anchor = h;
     // fixed rope, capped so the swing arc clears the ground (no drag, no strangle)
-    const cap = Math.min(GRAB, GROUND_Y - h.y - 25);
+    const cap = Math.max(MIN_ROPE + 10, Math.min(GRAB, GROUND_Y - h.y - 25));
     ropeLen = clamp(Math.hypot(P.x - h.x, P.y - h.y), MIN_ROPE, cap);
     sGrab(); spawnParticles(h.x, h.y, '#6cf', 8, 3); hideHint();
   }
 }
-function release(){ if (anchor){ anchor = null; sRelease(); } }
+function release(){
+  if (!anchor) return;
+  const h = anchor;
+  if (h.kind === 'boost'){
+    const sp = Math.hypot(P.vx, P.vy) || 1;
+    const k = clamp(19 / sp, 1.25, 2.2);
+    P.vx *= k; P.vy *= k;
+    spawnParticles(h.x, h.y, '#ffa03c', 18, 6);
+    blip(880, 0.12, 'square', 0.05);
+  }
+  if (h.kind === 'once'){ h.used = true; spawnParticles(h.x, h.y, '#ff8fb1', 14, 4); }
+  anchor = null; sRelease();
+}
 
 function pressDown(){
   audio();
+  if (state === 'menu'){ menuClick(lastPointer.x, lastPointer.y); return; }
   if (state === 'play'){ input.hold = true; if (!anchor) tryGrab(); }
   else if (state === 'win')     loadLevel(levelIdx + 1);
-  else if (state === 'gamewin') loadLevel(0);
+  else if (state === 'gamewin') toMenu();
 }
 function pressUp(){ input.hold = false; release(); }
 
-canvas.addEventListener('mousedown', e => { e.preventDefault(); pressDown(); });
+const lastPointer = { x:0, y:0 };
+canvas.addEventListener('mousemove', e => { lastPointer.x = e.clientX; lastPointer.y = e.clientY; });
+canvas.addEventListener('mousedown', e => { e.preventDefault(); lastPointer.x = e.clientX; lastPointer.y = e.clientY; pressDown(); });
 addEventListener('mouseup', () => pressUp());
-canvas.addEventListener('touchstart', e => { e.preventDefault(); pressDown(); }, { passive:false });
+canvas.addEventListener('touchstart', e => { e.preventDefault();
+  const t = e.changedTouches[0]; if (t){ lastPointer.x = t.clientX; lastPointer.y = t.clientY; }
+  pressDown(); }, { passive:false });
 addEventListener('touchend', e => { e.preventDefault(); pressUp(); }, { passive:false });
 addEventListener('keydown', e => {
   if (e.code === 'Space'){ e.preventDefault(); if (!input.hold) pressDown(); input.hold = true; }
   else if (e.code === 'ArrowLeft'  || e.code === 'KeyA') input.left = true;
   else if (e.code === 'ArrowRight' || e.code === 'KeyD') input.right = true;
   else if (e.code === 'KeyR') loadLevel(levelIdx);
-  else if (e.code === 'Enter'){ if (state === 'win') loadLevel(levelIdx + 1); else if (state === 'gamewin') loadLevel(0); }
+  else if (e.code === 'Escape') toMenu();
+  else if (e.code === 'Enter'){ if (state === 'win') loadLevel(levelIdx + 1); else if (state === 'gamewin') toMenu(); }
 });
 addEventListener('keyup', e => {
   if (e.code === 'Space'){ input.hold = false; release(); }
@@ -190,6 +375,15 @@ function physics(){
   if (state !== 'play') return;
   levelTime = (performance.now() - startTime) / 1000;
 
+  // moving hooks travel before the rope constraint runs, so an anchored
+  // player gets carried along instead of snapping
+  const mt = performance.now();
+  for (const h of level.hooks){
+    if (h.kind !== 'mover') continue;
+    const o = Math.sin(mt * h.spd + h.t) * h.amp;
+    if (h.axis === 'x'){ h.x = h.x0 + o; h.y = h.y0; }
+    else { h.x = h.x0; h.y = h.y0 + o; }
+  }
   if (input.hold && !anchor) tryGrab();
   const steer = (input.right ? 1 : 0) - (input.left ? 1 : 0);
 
@@ -219,6 +413,20 @@ function physics(){
     }
   }
 
+  // stars
+  for (let i = 0; i < level.stars.length; i++){
+    const st = level.stars[i];
+    if (st.got) continue;
+    if (Math.hypot(st.x - P.x, st.y - P.y) < 30){
+      st.got = true; runStars[i] = true;
+      spawnParticles(st.x, st.y, '#ffd166', 16, 4);
+      blip(1180, 0.09, 'triangle', 0.05);
+    }
+  }
+  // saws
+  for (const sw of level.saws){
+    if (Math.hypot(sw.x - P.x, sw.y - P.y) < sw.r + PLAYER_R - 6){ die(); return; }
+  }
   // spikes
   for (const sp of level.spikes){
     if (P.x > sp.x - PLAYER_R && P.x < sp.x + sp.w + PLAYER_R && P.y + PLAYER_R > GROUND_Y - 28){ die(); return; }
@@ -238,6 +446,7 @@ function stepEffects(){
     p.vy += 0.25; p.x += p.vx; p.y += p.vy; p.vx *= 0.98; p.life -= 0.025;
     if (p.life <= 0) particles.splice(i, 1);
   }
+  shake *= 0.86;
   if (state === 'dead'){ deathTimer++; if (deathTimer > 32){ resetPlayer(); state = 'play'; } }
 }
 
@@ -303,6 +512,38 @@ function drawWorld(){
     }
   }
 
+  // saws
+  for (const sw of level.saws){
+    if (sw.x < camX - 80 || sw.x > camX + W + 80) continue;
+    const a = performance.now() * 0.004 + sw.ph;
+    ctx.save(); ctx.translate(sw.x, sw.y); ctx.rotate(a);
+    ctx.fillStyle = '#8d97ab';
+    ctx.beginPath();
+    for (let i = 0; i < 14; i++){
+      const ang = i/14*6.283, rr = i%2 ? sw.r : sw.r*0.72;
+      ctx[i ? 'lineTo' : 'moveTo'](Math.cos(ang)*rr, Math.sin(ang)*rr);
+    }
+    ctx.closePath(); ctx.fill();
+    ctx.fillStyle = '#4b5468'; ctx.beginPath(); ctx.arc(0, 0, sw.r*0.3, 0, 6.283); ctx.fill();
+    ctx.restore();
+  }
+
+  // stars
+  for (const st of level.stars){
+    if (st.got || st.x < camX - 60 || st.x > camX + W + 60) continue;
+    const bob = Math.sin(performance.now()*0.004 + st.x)*5;
+    ctx.save(); ctx.translate(st.x, st.y + bob); ctx.rotate(performance.now()*0.0016);
+    ctx.fillStyle = '#ffd166';
+    ctx.beginPath();
+    for (let i = 0; i < 10; i++){
+      const ang = -Math.PI/2 + i/10*6.283, rr = i%2 ? 15 : 7;
+      ctx[i ? 'lineTo' : 'moveTo'](Math.cos(ang)*rr, Math.sin(ang)*rr);
+    }
+    ctx.closePath(); ctx.fill();
+    ctx.strokeStyle = 'rgba(255,255,255,.8)'; ctx.lineWidth = 2; ctx.stroke();
+    ctx.restore();
+  }
+
   // finish flag
   const fx = level.finishX;
   ctx.strokeStyle = '#fff'; ctx.lineWidth = 4;
@@ -313,17 +554,37 @@ function drawWorld(){
   // hooks
   const target = (state === 'play' && !anchor && input.hold) ? findNearestHook() : null;
   const now = performance.now();
+  const HOOK_COL = { normal:'#9cc4ff', mover:'#8ef2c4', once:'#ff8fb1', boost:'#ffa03c' };
   for (const h of level.hooks){
     if (h.x < camX - 60 || h.x > camX + W + 60) continue;
     const isAnchor = anchor === h, isTarget = target === h;
+    if (h.used){          // a spent one-shot hook stays visible as a ghost
+      ctx.globalAlpha = 0.22;
+      ctx.strokeStyle = '#ff8fb1'; ctx.lineWidth = 2; ctx.setLineDash([4, 5]);
+      ctx.beginPath(); ctx.arc(h.x, h.y, 7, 0, 6.283); ctx.stroke();
+      ctx.setLineDash([]); ctx.globalAlpha = 1;
+      continue;
+    }
+    const base = HOOK_COL[h.kind] || HOOK_COL.normal;
     const pulse = 1 + Math.sin(now * 0.005 + h.t) * 0.15;
     ctx.beginPath(); ctx.arc(h.x, h.y, 16 * pulse, 0, 6.283);
     ctx.fillStyle = isAnchor ? 'rgba(120,230,255,0.35)' : isTarget ? 'rgba(255,220,120,0.30)' : 'rgba(120,180,255,0.13)';
     ctx.fill();
+    if (h.kind === 'mover'){            // show the track it runs along
+      ctx.strokeStyle = 'rgba(142,242,196,0.28)'; ctx.lineWidth = 2;
+      ctx.beginPath();
+      if (h.axis === 'x'){ ctx.moveTo(h.x0 - h.amp, h.y0); ctx.lineTo(h.x0 + h.amp, h.y0); }
+      else { ctx.moveTo(h.x0, h.y0 - h.amp); ctx.lineTo(h.x0, h.y0 + h.amp); }
+      ctx.stroke();
+    }
     ctx.beginPath(); ctx.arc(h.x, h.y, 7, 0, 6.283);
-    ctx.fillStyle = isAnchor ? '#7df3ff' : isTarget ? '#ffd166' : '#9cc4ff'; ctx.fill();
+    ctx.fillStyle = isAnchor ? '#7df3ff' : isTarget ? '#ffd166' : base; ctx.fill();
     ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(255,255,255,0.85)';
     ctx.beginPath(); ctx.arc(h.x, h.y, 7, 0, 6.283); ctx.stroke();
+    if (h.kind === 'boost'){
+      ctx.fillStyle = '#fff'; ctx.font = 'bold 13px Segoe UI'; ctx.textAlign = 'center';
+      ctx.fillText('\u00bb', h.x, h.y + 4.5); ctx.textAlign = 'left';
+    }
   }
   if (target){
     ctx.strokeStyle = 'rgba(255,220,120,0.5)'; ctx.lineWidth = 2; ctx.setLineDash([6, 8]);
@@ -402,12 +663,18 @@ function roundRect(x, y, w, h, r){
   ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath();
 }
 function drawHUD(){
-  ctx.fillStyle = 'rgba(0,0,0,0.32)'; roundRect(14, 14, 200, 70, 12); ctx.fill();
+  ctx.fillStyle = 'rgba(0,0,0,0.32)'; roundRect(14, 14, 210, 82, 12); ctx.fill();
   ctx.fillStyle = '#fff'; ctx.font = 'bold 18px Segoe UI';
   ctx.fillText('Level ' + (levelIdx + 1) + ' / ' + NUM_LEVELS, 28, 40);
   ctx.font = '15px Segoe UI'; ctx.fillStyle = '#cfe'; ctx.fillText('Time  ' + fmt(levelTime), 28, 64);
   const b = bestTime(levelIdx);
   if (b !== null){ ctx.fillStyle = '#ffd166'; ctx.fillText('Best ' + fmt(b), 134, 64); }
+  ctx.font = '13px Segoe UI'; ctx.fillStyle = '#9fb0c8';
+  ctx.fillText('Par ' + fmt(level.par), 28, 82);
+  for (let i = 0; i < 3; i++){
+    ctx.beginPath(); ctx.arc(150 + i*20, 78, 7, 0, 6.283);
+    ctx.fillStyle = runStars[i] ? '#ffd166' : 'rgba(255,255,255,0.16)'; ctx.fill();
+  }
 
   const prog = clamp((P.x - level.start.x) / (level.finishX - level.start.x), 0, 1);
   const bw = Math.min(360, W - 240);
@@ -420,13 +687,73 @@ function drawOverlay(){
   ctx.fillStyle = 'rgba(10,16,30,0.72)'; ctx.fillRect(0, 0, W, H);
   ctx.textAlign = 'center';
   ctx.fillStyle = '#ffd166'; ctx.font = 'bold 52px Segoe UI';
-  ctx.fillText(state === 'gamewin' ? 'YOU WIN!' : 'Level Complete!', W/2, H/2 - 50);
-  ctx.fillStyle = '#fff'; ctx.font = '24px Segoe UI'; ctx.fillText('Time: ' + fmt(levelTime), W/2, H/2);
+  ctx.fillText(state === 'gamewin' ? 'ALL LEVELS CLEARED' : 'Level Complete!', W/2, H/2 - 76);
+  ctx.fillStyle = '#fff'; ctx.font = '24px Segoe UI'; ctx.fillText('Time: ' + fmt(levelTime), W/2, H/2 - 32);
+  const m = medalFor(levelIdx, levelTime);
+  ctx.font = 'bold 20px Segoe UI';
+  ctx.fillStyle = ['#8d97ab','#c9884f','#c8d2e0','#ffd166'][m];
+  ctx.fillText(m ? MEDALS[m] + ' \u2014 par ' + fmt(level.par) : 'No medal \u2014 par ' + fmt(level.par), W/2, H/2 + 2);
+  for (let i = 0; i < 3; i++){
+    ctx.beginPath(); ctx.arc(W/2 - 26 + i*26, H/2 + 34, 10, 0, 6.283);
+    ctx.fillStyle = runStars[i] ? '#ffd166' : 'rgba(255,255,255,0.18)'; ctx.fill();
+  }
   const b = bestTime(levelIdx);
-  if (b !== null){ ctx.fillStyle = '#cfe'; ctx.font = '18px Segoe UI'; ctx.fillText('Best: ' + fmt(b), W/2, H/2 + 30); }
+  if (b !== null){ ctx.fillStyle = '#cfe'; ctx.font = '18px Segoe UI'; ctx.fillText('Best: ' + fmt(b), W/2, H/2 + 74); }
   ctx.fillStyle = '#7df3ff'; ctx.font = '20px Segoe UI';
-  ctx.fillText(state === 'gamewin' ? 'Click / Enter to play again' : 'Click / Enter for next level', W/2, H/2 + 76);
+  ctx.fillText(state === 'gamewin' ? 'Click / Enter for the level list' : 'Click / Enter for next level', W/2, H/2 + 112);
   ctx.textAlign = 'left';
+}
+
+/* ---------------- level select ---------------- */
+function drawMenu(){
+  const g = ctx.createLinearGradient(0, 0, 0, H);
+  g.addColorStop(0, '#131b33'); g.addColorStop(1, '#070a14');
+  ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+  ctx.textAlign = 'center';
+  ctx.fillStyle = '#f4f7ff'; ctx.font = 'bold 44px Segoe UI';
+  ctx.fillText('STICKMAN HOOK', W/2, 78);
+  ctx.fillStyle = '#7df3ff'; ctx.font = '15px Segoe UI';
+  ctx.fillText('Hold to grab the nearest hook \u00b7 release to fly \u00b7 beat par for gold', W/2, 106);
+
+  const cols = Math.max(3, Math.min(6, Math.floor((W - 80) / 150)));
+  const tw = 132, th = 96, gap = 16;
+  const gw = cols * tw + (cols - 1) * gap;
+  const x0 = (W - gw) / 2, y0 = 148;
+  menuTiles = [];
+  for (let i = 0; i < NUM_LEVELS; i++){
+    const cx = x0 + (i % cols) * (tw + gap);
+    const cy = y0 + Math.floor(i / cols) * (th + gap);
+    const open = levelUnlocked(i);
+    const b = bestTime(i), m = medalFor(i, b), st = starsGot(i);
+    menuTiles.push({ x:cx, y:cy, w:tw, h:th, i, open });
+    ctx.fillStyle = open ? 'rgba(255,255,255,0.07)' : 'rgba(255,255,255,0.025)';
+    roundRect(cx, cy, tw, th, 12); ctx.fill();
+    ctx.strokeStyle = open ? 'rgba(125,243,255,0.45)' : 'rgba(255,255,255,0.08)';
+    ctx.lineWidth = 2; roundRect(cx, cy, tw, th, 12); ctx.stroke();
+    ctx.fillStyle = open ? '#f4f7ff' : '#495468';
+    ctx.font = 'bold 26px Segoe UI';
+    ctx.fillText(open ? String(i + 1) : '\ud83d\udd12', cx + tw/2, cy + 36);
+    if (open){
+      ctx.font = '12px Segoe UI';
+      ctx.fillStyle = b !== null ? '#cfe' : '#6d7a91';
+      ctx.fillText(b !== null ? fmt(b) : 'not cleared', cx + tw/2, cy + 56);
+      if (m){ ctx.fillStyle = ['','#c9884f','#c8d2e0','#ffd166'][m];
+        ctx.font = 'bold 10px Segoe UI'; ctx.fillText(MEDALS[m], cx + tw/2, cy + 72); }
+      for (let k = 0; k < 3; k++){
+        ctx.beginPath(); ctx.arc(cx + tw/2 - 18 + k*18, cy + 84, 5, 0, 6.283);
+        ctx.fillStyle = st[k] ? '#ffd166' : 'rgba(255,255,255,0.15)'; ctx.fill();
+      }
+    }
+  }
+  ctx.textAlign = 'left';
+}
+function menuClick(mx, my){
+  for (const t of menuTiles){
+    if (mx >= t.x && mx <= t.x + t.w && my >= t.y && my <= t.y + t.h){
+      if (!t.open) return;
+      loadLevel(t.i); hideHint(); return;
+    }
+  }
 }
 
 // ===================== Main loop =====================
@@ -438,15 +765,19 @@ function frame(now){
   acc += dt;
   let guard = 0;
   while (acc >= STEP && guard++ < 5){ physics(); stepEffects(); acc -= STEP; }
+  if (state === 'menu'){ drawMenu(); requestAnimationFrame(frame); return; }
   updateCamera();
   drawBackground();
+  ctx.save();
+  if (shake > 0.4) ctx.translate((Math.random()-0.5)*shake, (Math.random()-0.5)*shake);
   drawWorld();
+  ctx.restore();
   if (state === 'dead'){ ctx.fillStyle = 'rgba(255,40,60,' + clamp(0.4 - deathTimer*0.012, 0, 0.4) + ')'; ctx.fillRect(0,0,W,H); }
   drawHUD();
   requestAnimationFrame(frame);
 }
 
-loadLevel(0);
+state = 'menu';
 requestAnimationFrame(frame);
 })();
 </script>
