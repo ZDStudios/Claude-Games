@@ -11146,4 +11146,200 @@ const Game = {
       Audio_.engine(d ? d.rpm : 800, d ? d.effLimiter : 6000, this.ctrl.throttle,
         d ? d.load : 0, d ? d.boost : 0, inMenu ? 0.5 : (flying ? 0.85 : 0));
       Audio_.jet(flying ? v.throttleLevel * rig.morph : 0, v.speedAbs);
-      Audio_.ambience(v.speedAbs, v.maxSkid, v.rollNoise, FX.rainAmount, FX.wetness > 0.
+      Audio_.ambience(v.speedAbs, v.maxSkid, v.rollNoise, FX.rainAmount, FX.wetness > 0.3);
+
+      // ---- mode logic
+      if (this.mode === 'levels') this.levelLogic(dt);
+      else if (this.mode === 'world') this.worldLogic(dt);
+      else this.menuLogic(dt);
+    }
+
+    // ---- camera + sky + render
+    Cam.update(dt, rig, this.trailer);
+    skyMesh.position.copy(camera.position);
+    if (Sky.stars) Sky.stars.position.copy(camera.position);
+    this.updateSunShadow(v.pos);
+    if (!this.paused && this.mode !== 'menu' && this.mode !== 'garage') {
+      FX.updateWeather(dt, camera.position, FX.rainAmount);
+      UI.updateHUD(rig, dt);
+    }
+    renderer.render(scene, camera);
+  },
+
+  updateSunShadow(target) {
+    const d = skyUniforms.sunDir.value;
+    sun.position.set(target.x + d.x * 90, target.y + Math.max(30, d.y * 90), target.z + d.z * 90);
+    sun.target.position.copy(target);
+    sun.target.updateMatrixWorld();
+  },
+
+  menuLogic(dt) {
+    Sky.advance(dt, 0.4);
+  },
+
+  levelLogic(dt) {
+    const rig = this.rig, v = rig.vehicle;
+    if (this.finished) return;
+    this.runTime += dt;
+    if (v.speedAbs > this.runTop) this.runTop = v.speedAbs;
+    $('timer').textContent = fmtTime(this.runTime);
+    $('timer').style.color = this.runTime > this.level.par ? 'var(--peach)' : 'var(--text)';
+    // goal
+    if (v.pos.distanceTo(this.goalPos) < 5.2) this.completeLevel();
+    // fell off the world
+    if (v.pos.y < -55) {
+      UI.center('WRECKED', 'R to retry', 1200);
+      Audio_.ui('bad');
+      setTimeout(() => { if (this.mode === 'levels' && !this.finished) this.startLevel(this.levelIndex); }, 700);
+      this.finished = true;
+      setTimeout(() => { this.finished = false; }, 900);
+    }
+    if (rig.damage >= 0.995 && !this._wreckToast) {
+      this._wreckToast = true;
+      UI.toast('TOTALLED — press R', 'bad');
+      setTimeout(() => this._wreckToast = false, 4000);
+    }
+  },
+
+  worldLogic(dt) {
+    const rig = this.rig, v = rig.vehicle;
+    // stream terrain around the truck — this is what makes the map endless
+    Chunks.update(v.pos.x, v.pos.z);
+    Minimap.update(dt, v.pos.x, v.pos.z);
+    this.autoBoatCheck(dt);
+    Sky.advance(dt, 1.1);
+    this.updateWeatherCycle(dt);
+    FX.rainAmount = damp(FX.rainAmount, this.weatherTarget, 0.25, dt);
+    // headlights come on by themselves after dusk
+    const wantLights = Sky.night > 0.45 || FX.rainAmount > 0.5;
+    if (wantLights !== rig.lightsOn) rig.setLights(wantLights);
+    // water: slow the truck and splash
+    if (v.lastSurface === 'water' && v.speedAbs > 3 && Math.random() < 0.5) {
+      FX.splash(V3(v.pos.x, 1.2, v.pos.z), clamp01(v.speedAbs / 22));
+      if (Math.random() < 0.1) Audio_.splash(clamp01(v.speedAbs / 25));
+    }
+    // fell out of the world (shouldn't happen — there is no edge — but be safe)
+    if (v.pos.y < -200) this.resetTruck();
+    this.cullProps(dt);
+    this.updateActivities(dt);
+    // payload readout
+    const load = (this.cargo ? this.cargo.totalMass : 0);
+    const cap = (this.trailer && this.trailer.hitched) ? this.trailer.src.payload :
+      (TRUCKS[store.truck].payload || 1);
+    $('loadTxt').textContent = Math.round(load) + ' kg';
+    $('fuelFill').style.width = clamp01(load / cap) * 100 + '%';
+    const a = this.nearestActivity;
+    if (a && a.state === 'running' && a.kind === 'trial') {
+      $('timer').textContent = fmtTime(Math.max(0, a.limit - a.timer));
+      $('timerSub').textContent = 'GATE ' + a.gateIndex + '/' + (a.gates.length - 1);
+    } else if (a && a.state === 'running' && a.kind === 'smash') {
+      $('timer').textContent = Math.ceil(a.timer) + 's';
+      $('timerSub').textContent = a.destroyed + ' WRECKED';
+    } else if (a && a.state === 'carrying') {
+      $('timer').textContent = '';
+      $('timerSub').textContent = Math.round((this.cargo ? this.cargo.integrity : 1) * 100) + '% INTACT';
+    }
+  },
+
+  /**
+   * Hide small loose props once they are far enough away to be a couple of
+   * pixels. Crates, boulders, barrels and rubble each carry their own mesh
+   * because they move independently, and five hundred of them in view was
+   * costing more to draw than the entire city — which is eight draw calls.
+   * The cut-off scales with the object, so a boulder stays visible far longer
+   * than a bin. Rechecked three times a second, not every frame.
+   */
+  cullProps(dt) {
+    this._cullT = (this._cullT || 0) - dt;
+    if (this._cullT > 0) return;
+    this._cullT = 0.35;
+    const cp = camera.position;
+    for (const b of stage.bodies) {
+      const m = b.mesh;
+      if (!m) continue;
+      if (m.__cull === undefined) {
+        if (!m.geometry.boundingSphere) m.geometry.computeBoundingSphere();
+        const r = m.geometry.boundingSphere ? m.geometry.boundingSphere.radius : 4;
+        m.__cull = r > 14 ? Infinity : 70 + r * 55;
+      }
+      if (m.__cull === Infinity) continue;
+      const dx = m.position.x - cp.x, dy = m.position.y - cp.y, dz = m.position.z - cp.z;
+      m.visible = (dx * dx + dy * dy + dz * dz) < m.__cull * m.__cull;
+    }
+  },
+
+  autoQuality(dt) {
+    this.frameTimes.push(dt);
+    if (this.frameTimes.length > 90) this.frameTimes.shift();
+    if (this.frameTimes.length < 90) return;
+    this._qTimer = (this._qTimer || 0) + dt;
+    if (this._qTimer < 2.5) return;
+    this._qTimer = 0;
+    let s = 0; for (const t of this.frameTimes) s += t;
+    const avg = s / this.frameTimes.length;
+    const order = ['low', 'med', 'high'];
+    let idx = order.indexOf(this._autoQ || (IS_MOBILE ? 'low' : 'high'));
+    if (idx < 0) idx = 2;
+    if (avg > 0.023 && idx > 0) idx--;
+    else if (avg < 0.0135 && idx < 2) idx++;
+    else return;
+    this._autoQ = order[idx];
+    Quality.apply(this._autoQ);
+    this.applySettings();
+  },
+};
+
+/* ---------------------------------------------------------------- resize */
+function onResize() {
+  camera.aspect = innerWidth / innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight, false);
+}
+addEventListener('resize', onResize);
+addEventListener('orientationchange', () => setTimeout(onResize, 250));
+
+/* A small handle for poking at the sim from the console. */
+window.HAULHARD = { Game, World, Chunks, Minimap, Sky, FX, Cam, Quality, TRUCKS, LEVELS, TRAILERS,
+                    Weapons, MISSILE, Net, UI, Input, world, scene, camera, renderer, store, Audio_,
+                    THREE, CANNON, worldHeight, worldSurface, spiralRoad,
+                    carveBuilding, damageCity, spawnPoints, randomSpawnPoint,
+                    ground: (x, z) => { const o = {}; chunkTerrainQuery(x, z, o); return o; } };
+
+/* ------------------------------------------------------------------ boot */
+boot(0.75, 'wiring it up…');
+Sky.init();
+FX.init();
+Input.init();
+Cam.initLook();
+Weapons.init();
+UI.init();
+Game.applySettings();
+Sky.set(10, 0.15);
+onResize();
+UI.buildLevels();
+Game.go('menu');
+Game.running = true;
+requestAnimationFrame((t) => Game.frame(t));
+boot(1, 'ready');
+window.__hhStage = 'running';        // stands the watchdog down
+setTimeout(() => {
+  const b = document.getElementById('boot');
+  b.style.transition = 'opacity .5s';
+  b.style.opacity = '0';
+  setTimeout(() => b.remove(), 520);
+}, 260);
+
+})().catch((err) => {
+  // Anything thrown while the game is starting up lands here. Without it a
+  // failure halfway through the build would leave the loading bar frozen with
+  // nothing but a console entry to explain itself.
+  console.error(err);
+  if (window.__hhFail) window.__hhFail('Startup failed', (err && (err.stack || err.message)) || err);
+});
+</script>
+<!-- End-of-file marker. The watchdog above looks for this; if the upload was
+     cut short it never reaches the DOM, which is how a truncated copy is told
+     apart from a browser that simply would not run the script. -->
+<div id="hhEnd" hidden></div>
+</body>
+</html>
