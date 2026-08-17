@@ -5273,8 +5273,10 @@ const Weapons = {
       body, dir: tmpV.clone(), t: 0, dead: false, k,
       speed: MISSILE.speed + Math.max(0, vv.x * tmpV.x + vv.y * tmpV.y + vv.z * tmpV.z),
       mesh: new THREE.Mesh(this.geo, this.mat),
-      // where the contact-fuse sweep starts from on the first frame
+      // where the contact-fuse sweep starts from on the first frame, and the
+      // launch point the safety arm measures its three metres from
       px: tmpV2.x, py: tmpV2.y, pz: tmpV2.z,
+      sx: tmpV2.x, sy: tmpV2.y, sz: tmpV2.z,
     };
     m.mesh.castShadow = true;
     m.mesh.scale.setScalar(k);
@@ -5423,10 +5425,15 @@ const Weapons = {
           (Math.random() - 0.5) * 1.4, 0.5, 0xb8bcc8, 0.7);
       }
 
-      // Safety-arm delay, exactly like the real thing: for the first tenth of a
-      // second (about eight metres) nothing sets the warhead off, so leaving
-      // the tube next to your own bodywork is never fatal.
-      const armed = m.t > 0.10;
+      /* Safety arm, measured in metres rather than in time. A tenth of a
+       * second sounds harmless until you work out that it is eight metres of
+       * flight — so anything you drove right up to was inside the dead zone,
+       * and the rocket sailed straight through the wall you were parked
+       * against. Three metres is clear of your own bodywork (the rocket already
+       * spawns 1.6 m down the firing line, and your own body is excluded from
+       * the sweep) and lets you put one into a tower from touching distance. */
+      const trav = Math.hypot(b.position.x - m.sx, b.position.y - m.sy, b.position.z - m.sz);
+      const armed = trav > 3.0 || m.t > 0.10;
       let hit = armed && m.dead;
       let impact = null;
 
@@ -5456,6 +5463,13 @@ const Weapons = {
           hit = true;
           impact = new THREE.Vector3(rayResult.hitPointWorld.x, rayResult.hitPointWorld.y,
                                      rayResult.hitPointWorld.z);
+        }
+        // The scenery has no colliders — a forest of them would cost a draw
+        // call per tree — so it is swept separately, against the bounding
+        // sphere each item registered when its chunk was built.
+        if (!hit) {
+          const sh = Destruct.hitScenery(cvA.x, cvA.y, cvA.z, cvB.x, cvB.y, cvB.z);
+          if (sh) { hit = true; impact = sh; }
         }
       }
       // The heightfield only has collision within a couple of chunks, so the
@@ -5522,6 +5536,9 @@ const Weapons = {
     // vehicles about: a warhead should take a bite out of a building, not
     // vaporise a whole floor plate of it.
     damageCity(p, R * 0.5, power, fromNet);
+    // and everything that is not a building: turbines, silos, cranes, ramps,
+    // barriers, and every tree and boulder standing in the blast
+    Destruct.blast(p, R * 0.62, power);
     // scorch the ground under the blast
     if (terrainQuery && terrainQuery(p.x, p.z, groundHit) && Math.abs(p.y - groundHit.y) < 6) {
       const r = 2.2 + power * 2.4;
@@ -7709,6 +7726,31 @@ function buildChunkScenery(cx, cz, h, s) {
   const rng = makeRNG(((cx * 73856093) ^ (cz * 19349663) ^ World.seed) >>> 0);
   const parts = [];
   const props = [];
+  /* Every item notes which run of `parts` is its own, so that a warhead can
+   * later find its slice of the merged buffer and take just that tree out.
+   * `mark` is called after each item has pushed its geometry. */
+  const items = [];
+  let itemStart = 0;
+  const mark = () => {
+    if (parts.length <= itemStart) { itemStart = parts.length; return; }
+    let mnx = 1e9, mny = 1e9, mnz = 1e9, mxx = -1e9, mxy = -1e9, mxz = -1e9;
+    for (let i = itemStart; i < parts.length; i++) {
+      const a = parts[i].attributes.position.array;
+      for (let j = 0; j < a.length; j += 3) {
+        if (a[j] < mnx) mnx = a[j]; if (a[j] > mxx) mxx = a[j];
+        if (a[j + 1] < mny) mny = a[j + 1]; if (a[j + 1] > mxy) mxy = a[j + 1];
+        if (a[j + 2] < mnz) mnz = a[j + 2]; if (a[j + 2] > mxz) mxz = a[j + 2];
+      }
+    }
+    const w = mxx - mnx, hgt = mxy - mny, dp = mxz - mnz;
+    items.push({
+      x: (mnx + mxx) / 2, y: (mny + mxy) / 2, z: (mnz + mxz) / 2,
+      r: Math.max(w, hgt, dp) * 0.5 + 0.25,
+      tall: hgt > Math.max(w, dp) * 1.6,          // a trunk topples; a boulder does not
+      p0: itemStart, p1: parts.length, dead: false,
+    });
+    itemStart = parts.length;
+  };
   const ox = cx * CHUNK_SIZE, oz = cz * CHUNK_SIZE;
   const C = CHUNK_CELLS;
   const count = 16;
@@ -7796,6 +7838,7 @@ function buildChunkScenery(cx, cz, h, s) {
           alongZ ? [PI / 2, 0, 0] : [0, 0, PI / 2]));
       }
     }
+    mark();
   }
   // one in eight chunks gets a jump, so there is always something to find
   if (rng() < 0.13 && Math.hypot(ox, oz) > 400) {
@@ -7806,7 +7849,13 @@ function buildChunkScenery(cx, cz, h, s) {
   }
   const mesh = parts.length ? new THREE.Mesh(mergeGeoms(parts), sceneryMaterial()) : null;
   if (mesh) { mesh.castShadow = true; mesh.receiveShadow = true; }
-  return { mesh, props };
+  // turn each item's run of parts into its run of vertices in the merged buffer
+  let off = 0;
+  const offs = new Array(parts.length + 1);
+  for (let i = 0; i < parts.length; i++) { offs[i] = off; off += parts[i].attributes.position.count; }
+  offs[parts.length] = off;
+  for (const it of items) { it.v0 = offs[it.p0]; it.v1 = offs[it.p1]; }
+  return { mesh, props, items };
 }
 let _scenMat = null;
 function sceneryMaterial() {
@@ -7833,7 +7882,8 @@ const Chunks = {
       const built = buildKicker(k.x, k.z, k.yaw, k.w, k.len, k.h, 'dirt', true);
       propBodies.push(built);
     }
-    const rec = { cx, cz, mesh, scenery: sc.mesh, body: null, props: propBodies };
+    const rec = { cx, cz, mesh, scenery: sc.mesh, items: sc.items, body: null, props: propBodies };
+    Destruct.restore(rec);          // anything already flattened here stays flattened
     World.chunks.set(key, rec);
     return rec;
   },
@@ -8665,6 +8715,313 @@ function settleRubble(r) {
   r.body.angularVelocity.set(0, 0, 0);
 }
 
+/* ===========================================================================
+ * EVERYTHING ELSE COMES DOWN TOO
+ *
+ * The voxel system above only knows about city buildings. Everything else in
+ * the world — turbines, silos, hangars, cranes, containers, barriers, ramps,
+ * and every tree, cactus, boulder and log pile in the scenery — was scenery in
+ * the literal sense: it could be driven through or driven round, and a warhead
+ * went off against it without leaving a mark.
+ *
+ * Two different things had to be solved, because they are built two different
+ * ways. Props are a body and a mesh, so they can be shattered directly. The
+ * scenery is not: an entire chunk of trees is merged into one mesh with no
+ * colliders at all, for the very good reason that a forest of individual
+ * objects would cost a draw call each. So the scenery keeps its single mesh,
+ * and every item in it records which slice of the vertex buffer belongs to it.
+ * Destroying one copies its slice out into real geometry, collapses the
+ * original slice to a point so it vanishes from the merged mesh, and throws the
+ * copy about as debris. One draw call, still, and every tree can come down.
+ * ========================================================================= */
+
+/**
+ * Break a mesh into lumps along a coarse grid and throw them away from `p`.
+ * Each lump carries its own slice of the original triangles, so what tumbles
+ * down the hill is the actual bark and foliage rather than grey boxes.
+ *
+ * Tall things topple rather than scatter: a piece is thrown sideways in
+ * proportion to how far above the blast it started, which is what turns a
+ * turbine mast into a falling turbine mast instead of a puff of fragments.
+ */
+function shatterMesh(mesh, p, power, opts = {}) {
+  const geo = mesh.geometry;
+  const pos = geo.attributes.position;
+  if (!pos || pos.count < 3) return 0;
+  const col = geo.attributes.color;
+  mesh.updateMatrixWorld(true);
+  const M = mesh.matrixWorld;
+
+  if (!geo.boundingBox) geo.computeBoundingBox();
+  const bb = geo.boundingBox;
+  const ex = bb.max.x - bb.min.x, ey = bb.max.y - bb.min.y, ez = bb.max.z - bb.min.z;
+  const grain = opts.grain || 5;
+  const gx = clamp(Math.round(ex / grain), 1, 3);
+  const gy = clamp(Math.round(ey / grain), 1, 5);
+  const gz = clamp(Math.round(ez / grain), 1, 3);
+  const cellX = ex / gx || 1, cellY = ey / gy || 1, cellZ = ez / gz || 1;
+
+  // sort triangles into lumps by where their centre sits in the local box
+  const buckets = new Map();
+  const P = pos.array;
+  for (let t = 0; t < pos.count; t += 3) {
+    const i0 = t * 3, i1 = i0 + 3, i2 = i0 + 6;
+    const cx = (P[i0] + P[i1] + P[i2]) / 3;
+    const cy = (P[i0 + 1] + P[i1 + 1] + P[i2 + 1]) / 3;
+    const cz = (P[i0 + 2] + P[i1 + 2] + P[i2 + 2]) / 3;
+    const kx = clamp(Math.floor((cx - bb.min.x) / cellX), 0, gx - 1);
+    const ky = clamp(Math.floor((cy - bb.min.y) / cellY), 0, gy - 1);
+    const kz = clamp(Math.floor((cz - bb.min.z) / cellZ), 0, gz - 1);
+    const key = kx + ky * 4 + kz * 16;
+    let e = buckets.get(key);
+    if (!e) { buckets.set(key, e = []); }
+    e.push(t);
+  }
+
+  const q = new THREE.Quaternion(); const sc = new THREE.Vector3();
+  const centre = new THREE.Vector3();
+  M.decompose(centre, q, sc);
+  let made = 0;
+  for (const tris of buckets.values()) {
+    const n = tris.length * 3;
+    const vp = new Float32Array(n * 3);
+    const vc = col ? new Float32Array(n * 3) : null;
+    // local centre of this lump
+    let sx = 0, sy = 0, sz = 0;
+    let mnx = 1e9, mny = 1e9, mnz = 1e9, mxx = -1e9, mxy = -1e9, mxz = -1e9;
+    for (const t of tris) {
+      for (let k = 0; k < 3; k++) {
+        const a = (t + k) * 3;
+        const x = P[a], y = P[a + 1], z = P[a + 2];
+        sx += x; sy += y; sz += z;
+        if (x < mnx) mnx = x; if (x > mxx) mxx = x;
+        if (y < mny) mny = y; if (y > mxy) mxy = y;
+        if (z < mnz) mnz = z; if (z > mxz) mxz = z;
+      }
+    }
+    const ox = sx / n, oy = sy / n, oz = sz / n;
+    let w = 0;
+    for (const t of tris) {
+      for (let k = 0; k < 3; k++) {
+        const a = (t + k) * 3;
+        vp[w] = P[a] - ox; vp[w + 1] = P[a + 1] - oy; vp[w + 2] = P[a + 2] - oz;
+        if (vc) { const c = col.array; vc[w] = c[a]; vc[w + 1] = c[a + 1]; vc[w + 2] = c[a + 2]; }
+        w += 3;
+      }
+    }
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.BufferAttribute(vp, 3));
+    if (vc) g.setAttribute('color', new THREE.BufferAttribute(vc, 3));
+    g.setAttribute('uv', new THREE.BufferAttribute(new Float32Array(n * 2), 2));
+    g.computeVertexNormals();
+
+    // world placement of the lump's own origin
+    tmpV3.set(ox, oy, oz).applyMatrix4(M);
+    const hw = Math.max((mxx - mnx) * 0.5, 0.12) * sc.x;
+    const hh = Math.max((mxy - mny) * 0.5, 0.12) * sc.y;
+    const hd = Math.max((mxz - mnz) * 0.5, 0.12) * sc.z;
+    const mass = clamp(hw * hh * hd * 8 * (opts.density || 1), 12, 4000);
+    const body = makeBody({
+      mass, pos: [tmpV3.x, tmpV3.y, tmpV3.z], material: PMAT.cargo,
+      surface: opts.surface || 'gravel', group: GROUP.DEBRIS,
+      mask: GROUP.WORLD | GROUP.TERRAIN | GROUP.VEHICLE | GROUP.DEBRIS | GROUP.CARGO,
+      linearDamping: 0.03, angularDamping: 0.2,
+    });
+    addBox(body, hw * 2, hh * 2, hd * 2);
+    body.quaternion.set(q.x, q.y, q.z, q.w);
+    body.updateMassProperties();
+    body.sleepSpeedLimit = 0.6;
+    body.sleepTimeLimit = 0.7;
+
+    // throw it: outward from the blast, plus a lean that grows with height so
+    // anything tall goes over rather than simply bursting where it stood
+    let dx = tmpV3.x - p.x, dy = tmpV3.y - p.y, dz = tmpV3.z - p.z;
+    const d = Math.hypot(dx, dy, dz) || 1;
+    dx /= d; dz /= d;
+    const lean = clamp(tmpV3.y - p.y, 0, 40) * 0.42;
+    const sp = (4 + Math.random() * 7) * power + lean;
+    body.velocity.set(dx * sp, Math.max(dy / d, 0) * sp * 0.35 + 1.5 + Math.random() * 3 * power,
+                      dz * sp);
+    body.angularVelocity.set((Math.random() - 0.5) * 4, (Math.random() - 0.5) * 4,
+                             (Math.random() - 0.5) * 4);
+
+    const dm = new THREE.Mesh(g, mesh.material);
+    dm.castShadow = true; dm.receiveShadow = true;
+    dm.position.copy(tmpV3);
+    dm.quaternion.copy(q);
+    stage.add(body, dm);
+    World.rubble.push({ body, mesh: dm, settled: false, age: 0, ttl: opts.ttl || 22 });
+    made++;
+  }
+  if (made) trimRubble();
+  return made;
+}
+
+/**
+ * Everything in the world that is not a city building and not the ground.
+ * Props are found through the stage; scenery through the loaded chunks.
+ */
+const Destruct = {
+  /** Can this body be blown up? The ground and the city are handled elsewhere. */
+  breakable(body) {
+    if (!body || body.mass > 0 || body.__noBreak || !body.mesh) return false;
+    for (const s of body.shapes) {
+      // never the terrain itself, and never a plane
+      if (s instanceof CANNON.Heightfield || s instanceof CANNON.Plane) return false;
+    }
+    return true;
+  },
+
+  /** Blow up every prop and every piece of scenery inside the blast. */
+  blast(p, R, power) {
+    let hits = 0;
+    // ---- props: anything with a body and a mesh --------------------------
+    const list = stage.bodies.slice();
+    for (const body of list) {
+      if (!this.breakable(body)) continue;
+      const m = body.mesh;
+      if (!m.geometry.boundingSphere) m.geometry.computeBoundingSphere();
+      const bs = m.geometry.boundingSphere;
+      const d = Math.hypot(m.position.x - p.x, m.position.y - p.y, m.position.z - p.z);
+      if (d > R + (bs ? bs.radius : 3)) continue;
+      // extra meshes riding along with this body (a turbine's nacelle, say)
+      const extras = body.__extraMeshes || [];
+      shatterMesh(m, p, power, { grain: 5 });
+      for (const em of extras) shatterMesh(em, p, power, { grain: 5 });
+      if (body.__onBreak) { try { body.__onBreak(); } catch (e) {} }
+      try { world.removeBody(body); } catch (e) {}
+      const bi = stage.bodies.indexOf(body); if (bi >= 0) stage.bodies.splice(bi, 1);
+      for (const em of extras.concat([m])) {
+        scene.remove(em);
+        const mi = stage.objects.indexOf(em); if (mi >= 0) stage.objects.splice(mi, 1);
+        if (em !== m) em.geometry.dispose();
+      }
+      m.geometry.dispose();
+      body.mesh = null;
+      hits++;
+    }
+    // ---- scenery: trees, boulders, cactus, log piles ----------------------
+    hits += this.blastScenery(p, R, power);
+    return hits;
+  },
+
+  /**
+   * Scenery lives inside one merged mesh per chunk. Copy the item's slice of
+   * the buffer out, collapse the original to a point so it disappears, and let
+   * the copy fall over.
+   */
+  blastScenery(p, R, power) {
+    if (!World.chunks) return 0;
+    let hits = 0;
+    for (const rec of World.chunks.values()) {
+      if (!rec.items || !rec.items.length || !rec.scenery) continue;
+      // cheap chunk reject first
+      const cxm = rec.cx * CHUNK_SIZE + CHUNK_SIZE * 0.5;
+      const czm = rec.cz * CHUNK_SIZE + CHUNK_SIZE * 0.5;
+      if (Math.hypot(cxm - p.x, czm - p.z) > R + CHUNK_SIZE) continue;
+      for (const it of rec.items) {
+        if (it.dead) continue;
+        if (Math.hypot(it.x - p.x, it.y - p.y, it.z - p.z) > R + it.r) continue;
+        this.killSceneryItem(rec, it, p, power);
+        hits++;
+      }
+    }
+    return hits;
+  },
+
+  /**
+   * Remember what has already been flattened. Chunks stream in and out as you
+   * drive, and they are rebuilt from the seed — so without this, a forest you
+   * levelled would be standing again by the time you drove back to look at it.
+   */
+  remember(rec, idx) {
+    if (!World.sceneryKilled) World.sceneryKilled = new Map();
+    const key = chunkKey(rec.cx, rec.cz);
+    let s = World.sceneryKilled.get(key);
+    if (!s) World.sceneryKilled.set(key, s = new Set());
+    s.add(idx);
+  },
+
+  /** Re-apply the record to a chunk that has just been (re)built. */
+  restore(rec) {
+    if (!World.sceneryKilled || !rec.items || !rec.scenery) return;
+    const s = World.sceneryKilled.get(chunkKey(rec.cx, rec.cz));
+    if (!s || !s.size) return;
+    const pos = rec.scenery.geometry.attributes.position;
+    for (const idx of s) {
+      const it = rec.items[idx];
+      if (!it || it.dead) continue;
+      it.dead = true;
+      for (let i = it.v0; i < it.v1; i++) {
+        pos.array[i * 3] = it.x; pos.array[i * 3 + 1] = it.y; pos.array[i * 3 + 2] = it.z;
+      }
+    }
+    pos.needsUpdate = true;
+  },
+
+  killSceneryItem(rec, it, p, power) {
+    it.dead = true;
+    this.remember(rec, rec.items.indexOf(it));
+    const geo = rec.scenery.geometry;
+    const pos = geo.attributes.position, col = geo.attributes.color;
+    const n = it.v1 - it.v0;
+    if (n <= 0) return;
+    // lift the slice out into a mesh of its own, centred on the item
+    const vp = new Float32Array(n * 3);
+    const vc = col ? new Float32Array(n * 3) : null;
+    for (let i = 0; i < n; i++) {
+      const a = (it.v0 + i) * 3;
+      vp[i * 3] = pos.array[a] - it.x;
+      vp[i * 3 + 1] = pos.array[a + 1] - it.y;
+      vp[i * 3 + 2] = pos.array[a + 2] - it.z;
+      if (vc) { vc[i * 3] = col.array[a]; vc[i * 3 + 1] = col.array[a + 1]; vc[i * 3 + 2] = col.array[a + 2]; }
+    }
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.BufferAttribute(vp, 3));
+    if (vc) g.setAttribute('color', new THREE.BufferAttribute(vc, 3));
+    g.setAttribute('uv', new THREE.BufferAttribute(new Float32Array(n * 2), 2));
+    g.computeVertexNormals();
+    const tmp = new THREE.Mesh(g, rec.scenery.material);
+    tmp.position.set(it.x, it.y, it.z);
+    tmp.updateMatrixWorld(true);
+
+    // now erase it from the merged mesh — every vertex to one point
+    for (let i = 0; i < n; i++) {
+      const a = (it.v0 + i) * 3;
+      pos.array[a] = it.x; pos.array[a + 1] = it.y; pos.array[a + 2] = it.z;
+    }
+    pos.needsUpdate = true;
+
+    shatterMesh(tmp, p, power, { grain: it.tall ? 3.2 : 2.4, density: it.tall ? 0.7 : 1.4,
+                                 surface: it.tall ? 'grass' : 'gravel', ttl: 16 });
+    g.dispose();
+  },
+
+  /** Does the segment a->b clip any scenery? The missile fuse asks this. */
+  hitScenery(ax, ay, az, bx, by, bz) {
+    if (!World.chunks) return null;
+    const dx = bx - ax, dy = by - ay, dz = bz - az;
+    const len2 = dx * dx + dy * dy + dz * dz;
+    if (len2 < 1e-9) return null;
+    let best = null, bestT = 2;
+    for (const rec of World.chunks.values()) {
+      if (!rec.items || !rec.items.length) continue;
+      const cxm = rec.cx * CHUNK_SIZE + CHUNK_SIZE * 0.5;
+      const czm = rec.cz * CHUNK_SIZE + CHUNK_SIZE * 0.5;
+      if (Math.hypot(cxm - ax, czm - az) > CHUNK_SIZE * 1.5 + Math.sqrt(len2)) continue;
+      for (const it of rec.items) {
+        if (it.dead) continue;
+        let t = ((it.x - ax) * dx + (it.y - ay) * dy + (it.z - az) * dz) / len2;
+        t = clamp(t, 0, 1);
+        const px = ax + dx * t, py = ay + dy * t, pz = az + dz * t;
+        if (Math.hypot(px - it.x, py - it.y, pz - it.z) > it.r) continue;
+        if (t < bestT) { bestT = t; best = new THREE.Vector3(px, py, pz); }
+      }
+    }
+    return best;
+  },
+};
+
 /** Everything a blast does to the skyline. Called from Weapons.blast. */
 function damageCity(p, radius, power, fromNet) {
   if (!World.city || !World.city.length) return;
@@ -9183,8 +9540,11 @@ function buildWindFarm(rng) {
     ]), vcMat({ roughness: 0.7 }));
     tower.position.set(x, gy, z);
     tower.castShadow = true;
-    stage.add(body, null);
-    stage.add(null, tower);
+    // The body and the three meshes are registered together, so a warhead in
+    // the mast takes the nacelle and the blades down with it instead of leaving
+    // them hanging in mid-air.
+    stage.add(body, tower);
+    body.__extraMeshes = [];
 
     // nacelle + hub, yawed so the farm doesn't look regimented
     const yaw = rng.range(-0.5, 0.5);
@@ -9196,6 +9556,7 @@ function buildWindFarm(rng) {
     nac.rotation.y = yaw;
     nac.castShadow = true;
     stage.add(null, nac);
+    body.__extraMeshes.push(nac);
 
     // three blades in a group that spins about the hub axis
     const bladeParts = [];
@@ -9215,7 +9576,11 @@ function buildWindFarm(rng) {
     hub.add(rot);
     rot.position.z = 3.4;
     stage.add(null, hub);
-    rotors.push({ rot, spd: rng.range(0.5, 0.95) });
+    const spin = { rot, spd: rng.range(0.5, 0.95) };
+    rotors.push(spin);
+    body.__extraMeshes.push(rot);
+    // stop driving the blades once the mast they were bolted to is gone
+    body.__onBreak = () => { spin.spd = 0; scene.remove(hub); };
   }
   stage.addUpdater((dt) => { for (const r of rotors) r.rot.rotation.z += r.spd * dt; });
 }
@@ -9670,6 +10035,7 @@ function placeName(x, z) {
 function buildOpenWorld(seed) {
   const rng = makeRNG(seed);
   initWorldGen(seed);
+  World.sceneryKilled = new Map();     // a fresh world grows its trees back
   terrainQuery = chunkTerrainQuery;
   terrainBody = null;                 // there is no single terrain body now
   Chunks.clear();
@@ -11042,398 +11408,4 @@ const Game = {
             if (pr.dead) { n++; continue; }
             const b = pr.body;
             if (!b.home) b.home = { x: b.position.x, y: b.position.y, z: b.position.z };
-            if (Math.hypot(b.position.x - b.home.x, b.position.y - b.home.y, b.position.z - b.home.z) > 2.4) {
-              pr.dead = true; n++;
-              FX.debrisPuff(V3(b.position.x, b.position.y, b.position.z), 0.5);
-              Audio_.impact(0.2, false);
-            }
-          }
-          a.destroyed = n;
-          if (a.timer <= 0) this.finishSmash(a);
-        }
-      }
-    }
-    this.nearestActivity = nearest;
-  },
-  clearObjective() {
-    $('objTitle').textContent = 'FREE ROAM';
-    $('objText').textContent = 'Drive anywhere';
-    $('objSub').textContent = '';
-    $('timer').textContent = '';
-    $('timerSub').textContent = '';
-  },
-  setObjective(title, text, sub) {
-    $('objTitle').textContent = title; $('objText').textContent = text; $('objSub').textContent = sub || '';
-  },
-  cargoZone() {
-    if (this.trailer && this.trailer.hitched) {
-      return { zone: this.trailer.src.cargoZone, body: this.trailer.vehicle.body, group: this.trailer.group };
-    }
-    const bed = TRUCKS[store.truck].bed;
-    if (!bed) return null;
-    return { zone: bed, body: this.rig.vehicle.body, group: this.rig.group };
-  },
-  startDelivery(a) {
-    const cz = this.cargoZone();
-    if (!cz) { UI.center('NO BED', 'hitch a trailer in the garage', 1800); a.state = 'cooldown';
-               setTimeout(() => a.state = 'idle', 5000); return; }
-    if (this.cargo) this.cargo.dispose();
-    this.cargo = new Cargo(cz.body, cz.group, cz.zone, a.count, a.index);
-    a.state = 'carrying'; a.timer = 0;
-    a.marker.children.forEach(c => c.material.color.setHex(0xa6e3a1));
-    this.setObjective('DELIVERY', a.name, 'Get ' + a.count + ' ' + this.cargo.kind.name + ' there intact');
-    UI.center('LOADED', a.name, 1600);
-    Audio_.ui('ok');
-  },
-  finishDelivery(a) {
-    const integ = this.cargo ? this.cargo.integrity : 0;
-    const lost = this.cargo ? this.cargo.lost : 0;
-    a.state = 'done';
-    a.marker.visible = false;
-    const pct = Math.round(integ * 100);
-    UI.center('DELIVERED', pct + '% intact · ' + lost + ' lost', 2600);
-    Audio_.chime(integ > 0.9 ? 3 : integ > 0.6 ? 2 : 1);
-    if (this.cargo) { this.cargo.dispose(); this.cargo = null; }
-    this.clearObjective();
-    setTimeout(() => { a.state = 'idle'; if (a.marker) { a.marker.visible = true;
-      a.marker.children.forEach(c => c.material.color.setHex(a.markerColor)); } }, 12000);
-  },
-  startTrial(a) {
-    a.state = 'running'; a.timer = 0; a.gateIndex = 1;
-    this.setObjective('TIME TRIAL', a.name, (a.gates.length - 1) + ' gates · limit ' + a.limit + 's');
-    UI.center('GO', a.name, 1100);
-    Audio_.ui('ok');
-  },
-  finishTrial(a) {
-    a.state = 'idle'; a.gateIndex = 0;
-    const t = a.timer;
-    if (!a.best || t < a.best) a.best = t;
-    UI.center('FINISH', fmtTime(t) + (a.best === t ? '  NEW BEST' : ''), 2600);
-    Audio_.chime(t < a.limit * 0.6 ? 3 : t < a.limit * 0.8 ? 2 : 1);
-    this.clearObjective();
-  },
-  startSmash(a) {
-    a.state = 'running'; a.timer = a.limit; a.destroyed = 0;
-    this.setObjective('DEMOLITION', a.name, 'Wreck as much as you can');
-    UI.center('SMASH', a.limit + ' seconds', 1400);
-  },
-  finishSmash(a) {
-    a.state = 'idle';
-    UI.center('TIME', a.destroyed + ' / ' + a.props.length + ' wrecked', 2400);
-    Audio_.chime(a.destroyed > a.props.length * 0.7 ? 3 : a.destroyed > a.props.length * 0.4 ? 2 : 1);
-    this.clearObjective();
-    for (const pr of a.props) pr.dead = false;
-    for (const pr of a.props) pr.body.home = null;
-  },
-
-  updateWeatherCycle(dt) {
-    this.weatherTimer -= dt;
-    if (this.weatherTimer <= 0) {
-      this.weatherTimer = 45 + Math.random() * 90;
-      const r = Math.random();
-      this.weatherTarget = r < 0.5 ? 0 : r < 0.78 ? 0.35 : 0.9;
-      Sky.overcast = damp(Sky.overcast, this.weatherTarget > 0.1 ? 0.8 : 0.1, 1, 1);
-      if (this.weatherTarget > 0.5) UI.toast('RAIN INCOMING', 'bad');
-    }
-    Sky.overcast = damp(Sky.overcast, this.weatherTarget > 0.1 ? 0.75 : 0.08, 0.25, dt);
-  },
-
-  /* -------------------------------------------------------- physics ----- */
-  substep(h) {
-    const rig = this.rig;
-    rig.vehicle.update(h, this.ctrl);
-    if (this.trailer) this.trailer.update(h, this.ctrl);
-    stage.step(h, this.time);
-    world.step(h);
-    this.time += h;
-  },
-
-  /* ---------------------------------------------------------- the loop -- */
-  frame(nowMs) {
-    requestAnimationFrame((t) => this.frame(t));
-    const now = nowMs * 0.001;
-    let dt = this._last ? now - this._last : 0.016;
-    this._last = now;
-    // Clamp BOTH ends. A backwards clock — tab suspend/resume, a debugger
-    // pause, a timer glitch — gives a negative dt, which poisons the fixed-step
-    // accumulator permanently and silently stops the physics forever.
-    if (!isFinite(dt) || dt < 0) dt = 0.016;
-    dt = Math.min(dt, 0.05);
-    if (!isFinite(this.accum) || this.accum < 0) this.accum = 0;
-    // the canvas can miss a resize event (hidden tab, container swap, DPR change)
-    if (canvasEl.width !== Math.floor(innerWidth * Quality.pixelRatio) ||
-        canvasEl.height !== Math.floor(innerHeight * Quality.pixelRatio)) onResize();
-    if (!this.running) { renderer.render(scene, camera); return; }
-
-    // ---- frame pacing / adaptive quality
-    if (store.settings.quality === 'auto') this.autoQuality(dt);
-    if (store.settings.fps) {
-      this._fpsAcc = (this._fpsAcc || 0) + dt; this._fpsN = (this._fpsN || 0) + 1;
-      if (this._fpsAcc > 0.5) {
-        $('fps').textContent = Math.round(this._fpsN / this._fpsAcc) + ' fps · ' +
-          Quality.level + ' · ' + world.bodies.length + ' bodies';
-        this._fpsAcc = 0; this._fpsN = 0;
-      }
-    }
-
-    const rig = this.rig;
-    if (!rig) { renderer.render(scene, camera); return; }
-    const v = rig.vehicle;
-    const inMenu = this.mode === 'menu' || this.mode === 'garage';
-
-    if (!this.paused) {
-      // ---- input
-      if (inMenu) {
-        this.ctrl.throttle = 0; this.ctrl.brake = 0; this.ctrl.steer = 0;
-        this.ctrl.handbrake = 1; this.ctrl.clutch = 0; this.ctrl.auto = true;
-        this.ctrl.pitch = 0; this.ctrl.roll = 0;
-      } else {
-        Input.gather(this.ctrl, dt, v);
-      }
-
-      // ---- slow motion
-      // This was firing on almost every jump — and permanently while flying,
-      // since an aeroplane is always airborne and always high. Running at 42%
-      // speed most of the time is exactly what makes gravity feel inconsistent
-      // and glitchy, so it is now a rare, genuinely-big-air event only.
-      let ts = 1;
-      const converted = rig.morph > 0.05 || rig.boatMorph > 0.05;
-      // Levels only. In free roam the clock now runs at 1.0 always, so a fall
-      // is a fall every single time — a time scale that keeps sliding to 42%
-      // is indistinguishable from gravity that keeps changing its mind.
-      if (store.settings.slowmo && !converted && this.mode === 'levels') {
-        if (v.airTime > 0.9) ts = 0.5;
-        // crash slow-motion is part of the damage package — Indestructible
-        // turns it off with everything else. Big-air slow-mo is a stunt, not a
-        // crash, so it stays on the "Slow motion" toggle where it belongs.
-        if (Cam.crashT > 0 && !store.settings.noDamage) ts = 0.4;
-      }
-      this.timeScale = damp(this.timeScale, ts, 7, dt);
-      $('slowmoTint').style.opacity = String((1 - this.timeScale) * 1.4);
-
-      // wet roads lose grip; the tyre model reads this every substep
-      v.wetGrip = FX.wetness;
-      if (this.trailer) this.trailer.vehicle.wetGrip = FX.wetness;
-
-      // ---- fixed-step physics
-      this.accum += dt * this.timeScale;
-      let steps = 0;
-      while (this.accum >= FIXED && steps < MAX_SUB) { this.substep(FIXED); this.accum -= FIXED; steps++; }
-      if (steps === MAX_SUB) this.accum = 0;
-
-      // ---- visuals
-      rig.update(dt);
-      if (this.trailer) this.trailer.render();
-      if (this.cargo) this.cargo.update();
-      stage.syncAll();
-      FX.wheelFX(v, dt);
-      if (this.trailer) FX.wheelFX(this.trailer.vehicle, dt);
-      FX.update(dt * this.timeScale);
-      Weapons.update(dt * this.timeScale);
-      // networking runs on wall-clock time, never the slow-motion clock —
-      // everyone else's trucks must not crawl because you got big air
-      Net.update(dt);
-
-      // ---- audio
-      const d = v.drive;
-      const flying = rig.morph > 0.15;
-      Audio_.engine(d ? d.rpm : 800, d ? d.effLimiter : 6000, this.ctrl.throttle,
-        d ? d.load : 0, d ? d.boost : 0, inMenu ? 0.5 : (flying ? 0.85 : 0));
-      Audio_.jet(flying ? v.throttleLevel * rig.morph : 0, v.speedAbs);
-      Audio_.ambience(v.speedAbs, v.maxSkid, v.rollNoise, FX.rainAmount, FX.wetness > 0.3);
-
-      // ---- mode logic
-      if (this.mode === 'levels') this.levelLogic(dt);
-      else if (this.mode === 'world') this.worldLogic(dt);
-      else this.menuLogic(dt);
-    }
-
-    // ---- camera + sky + render
-    Cam.update(dt, rig, this.trailer);
-    skyMesh.position.copy(camera.position);
-    if (Sky.stars) Sky.stars.position.copy(camera.position);
-    this.updateSunShadow(v.pos);
-    if (!this.paused && this.mode !== 'menu' && this.mode !== 'garage') {
-      FX.updateWeather(dt, camera.position, FX.rainAmount);
-      UI.updateHUD(rig, dt);
-    }
-    renderer.render(scene, camera);
-  },
-
-  updateSunShadow(target) {
-    const d = skyUniforms.sunDir.value;
-    sun.position.set(target.x + d.x * 90, target.y + Math.max(30, d.y * 90), target.z + d.z * 90);
-    sun.target.position.copy(target);
-    sun.target.updateMatrixWorld();
-  },
-
-  menuLogic(dt) {
-    Sky.advance(dt, 0.4);
-  },
-
-  levelLogic(dt) {
-    const rig = this.rig, v = rig.vehicle;
-    if (this.finished) return;
-    this.runTime += dt;
-    if (v.speedAbs > this.runTop) this.runTop = v.speedAbs;
-    $('timer').textContent = fmtTime(this.runTime);
-    $('timer').style.color = this.runTime > this.level.par ? 'var(--peach)' : 'var(--text)';
-    // goal
-    if (v.pos.distanceTo(this.goalPos) < 5.2) this.completeLevel();
-    // fell off the world
-    if (v.pos.y < -55) {
-      UI.center('WRECKED', 'R to retry', 1200);
-      Audio_.ui('bad');
-      setTimeout(() => { if (this.mode === 'levels' && !this.finished) this.startLevel(this.levelIndex); }, 700);
-      this.finished = true;
-      setTimeout(() => { this.finished = false; }, 900);
-    }
-    if (rig.damage >= 0.995 && !this._wreckToast) {
-      this._wreckToast = true;
-      UI.toast('TOTALLED — press R', 'bad');
-      setTimeout(() => this._wreckToast = false, 4000);
-    }
-  },
-
-  worldLogic(dt) {
-    const rig = this.rig, v = rig.vehicle;
-    // stream terrain around the truck — this is what makes the map endless
-    Chunks.update(v.pos.x, v.pos.z);
-    Minimap.update(dt, v.pos.x, v.pos.z);
-    this.autoBoatCheck(dt);
-    Sky.advance(dt, 1.1);
-    this.updateWeatherCycle(dt);
-    FX.rainAmount = damp(FX.rainAmount, this.weatherTarget, 0.25, dt);
-    // headlights come on by themselves after dusk
-    const wantLights = Sky.night > 0.45 || FX.rainAmount > 0.5;
-    if (wantLights !== rig.lightsOn) rig.setLights(wantLights);
-    // water: slow the truck and splash
-    if (v.lastSurface === 'water' && v.speedAbs > 3 && Math.random() < 0.5) {
-      FX.splash(V3(v.pos.x, 1.2, v.pos.z), clamp01(v.speedAbs / 22));
-      if (Math.random() < 0.1) Audio_.splash(clamp01(v.speedAbs / 25));
-    }
-    // fell out of the world (shouldn't happen — there is no edge — but be safe)
-    if (v.pos.y < -200) this.resetTruck();
-    this.cullProps(dt);
-    this.updateActivities(dt);
-    // payload readout
-    const load = (this.cargo ? this.cargo.totalMass : 0);
-    const cap = (this.trailer && this.trailer.hitched) ? this.trailer.src.payload :
-      (TRUCKS[store.truck].payload || 1);
-    $('loadTxt').textContent = Math.round(load) + ' kg';
-    $('fuelFill').style.width = clamp01(load / cap) * 100 + '%';
-    const a = this.nearestActivity;
-    if (a && a.state === 'running' && a.kind === 'trial') {
-      $('timer').textContent = fmtTime(Math.max(0, a.limit - a.timer));
-      $('timerSub').textContent = 'GATE ' + a.gateIndex + '/' + (a.gates.length - 1);
-    } else if (a && a.state === 'running' && a.kind === 'smash') {
-      $('timer').textContent = Math.ceil(a.timer) + 's';
-      $('timerSub').textContent = a.destroyed + ' WRECKED';
-    } else if (a && a.state === 'carrying') {
-      $('timer').textContent = '';
-      $('timerSub').textContent = Math.round((this.cargo ? this.cargo.integrity : 1) * 100) + '% INTACT';
-    }
-  },
-
-  /**
-   * Hide small loose props once they are far enough away to be a couple of
-   * pixels. Crates, boulders, barrels and rubble each carry their own mesh
-   * because they move independently, and five hundred of them in view was
-   * costing more to draw than the entire city — which is eight draw calls.
-   * The cut-off scales with the object, so a boulder stays visible far longer
-   * than a bin. Rechecked three times a second, not every frame.
-   */
-  cullProps(dt) {
-    this._cullT = (this._cullT || 0) - dt;
-    if (this._cullT > 0) return;
-    this._cullT = 0.35;
-    const cp = camera.position;
-    for (const b of stage.bodies) {
-      const m = b.mesh;
-      if (!m) continue;
-      if (m.__cull === undefined) {
-        if (!m.geometry.boundingSphere) m.geometry.computeBoundingSphere();
-        const r = m.geometry.boundingSphere ? m.geometry.boundingSphere.radius : 4;
-        m.__cull = r > 14 ? Infinity : 70 + r * 55;
-      }
-      if (m.__cull === Infinity) continue;
-      const dx = m.position.x - cp.x, dy = m.position.y - cp.y, dz = m.position.z - cp.z;
-      m.visible = (dx * dx + dy * dy + dz * dz) < m.__cull * m.__cull;
-    }
-  },
-
-  autoQuality(dt) {
-    this.frameTimes.push(dt);
-    if (this.frameTimes.length > 90) this.frameTimes.shift();
-    if (this.frameTimes.length < 90) return;
-    this._qTimer = (this._qTimer || 0) + dt;
-    if (this._qTimer < 2.5) return;
-    this._qTimer = 0;
-    let s = 0; for (const t of this.frameTimes) s += t;
-    const avg = s / this.frameTimes.length;
-    const order = ['low', 'med', 'high'];
-    let idx = order.indexOf(this._autoQ || (IS_MOBILE ? 'low' : 'high'));
-    if (idx < 0) idx = 2;
-    if (avg > 0.023 && idx > 0) idx--;
-    else if (avg < 0.0135 && idx < 2) idx++;
-    else return;
-    this._autoQ = order[idx];
-    Quality.apply(this._autoQ);
-    this.applySettings();
-  },
-};
-
-/* ---------------------------------------------------------------- resize */
-function onResize() {
-  camera.aspect = innerWidth / innerHeight;
-  camera.updateProjectionMatrix();
-  renderer.setSize(innerWidth, innerHeight, false);
-}
-addEventListener('resize', onResize);
-addEventListener('orientationchange', () => setTimeout(onResize, 250));
-
-/* A small handle for poking at the sim from the console. */
-window.HAULHARD = { Game, World, Chunks, Minimap, Sky, FX, Cam, Quality, TRUCKS, LEVELS, TRAILERS,
-                    Weapons, MISSILE, Net, UI, Input, world, scene, camera, renderer, store, Audio_,
-                    THREE, CANNON, worldHeight, worldSurface, spiralRoad,
-                    carveBuilding, damageCity, spawnPoints, randomSpawnPoint,
-                    ground: (x, z) => { const o = {}; chunkTerrainQuery(x, z, o); return o; } };
-
-/* ------------------------------------------------------------------ boot */
-boot(0.75, 'wiring it up…');
-Sky.init();
-FX.init();
-Input.init();
-Cam.initLook();
-Weapons.init();
-UI.init();
-Game.applySettings();
-Sky.set(10, 0.15);
-onResize();
-UI.buildLevels();
-Game.go('menu');
-Game.running = true;
-requestAnimationFrame((t) => Game.frame(t));
-boot(1, 'ready');
-window.__hhStage = 'running';        // stands the watchdog down
-setTimeout(() => {
-  const b = document.getElementById('boot');
-  b.style.transition = 'opacity .5s';
-  b.style.opacity = '0';
-  setTimeout(() => b.remove(), 520);
-}, 260);
-
-})().catch((err) => {
-  // Anything thrown while the game is starting up lands here. Without it a
-  // failure halfway through the build would leave the loading bar frozen with
-  // nothing but a console entry to explain itself.
-  console.error(err);
-  if (window.__hhFail) window.__hhFail('Startup failed', (err && (err.stack || err.message)) || err);
-});
-</script>
-<!-- End-of-file marker. The watchdog above looks for this; if the upload was
-     cut short it never reaches the DOM, which is how a truncated copy is told
-     apart from a browser that simply would not run the script. -->
-<div id="hhEnd" hidden></div>
-</body>
-</html>
+            if (Math.hypot(b.position.x - b.home.x, b.position.y - b.home.y, b.position
