@@ -607,11 +607,28 @@ input[type=range]::-moz-range-thumb{width:14px;height:14px;border-radius:50%;bac
     var r = ev.reason;
     window.__hhFail('Startup failed', (r && (r.message || r)) || 'unknown');
   });
+  /* Truncation check. The game is half a megabyte in one file, and a partial
+   * upload or a copy-paste that got cut short leaves the <script> with no
+   * closing tag — at which point the parser swallows the rest of the document
+   * as script text and never runs the element at all. No syntax error, no
+   * console entry, nothing: just a loading bar forever. The marker div sits
+   * after the script, so if the file is short it never makes it into the DOM
+   * and this catches it straight away instead of guessing 30 seconds later. */
+  document.addEventListener('DOMContentLoaded', function () {
+    if (document.getElementById('hhEnd')) return;                 // whole file
+    var kb = Math.round(document.documentElement.outerHTML.length / 1024);
+    window.__hhFail('This copy of the file is incomplete',
+      'The HTML stops part way through the game script, so the browser never ran it. ' +
+      'Only about ' + kb + " KB arrived. That is a truncated upload or a partial " +
+      'download, not a fault in the game — re-upload index.html as a file rather ' +
+      'than pasting its contents, and check the byte count matches the original.');
+  });
   setTimeout(function () {
     if (window.__hhStage === 'not started') {
       window.__hhFail('The game script never ran',
-        'Your browser refused to execute it. Try Chrome, Edge or Firefox, or serve ' +
-        'this folder over HTTP (see the note in the README of the repo).');
+        'The file looks complete, so the browser itself refused to execute it. ' +
+        'Try Chrome, Edge or Firefox, and check for an extension or policy blocking ' +
+        'inline scripts.');
     } else if (window.__hhStage !== 'running') {
       window.__hhFail('Startup stalled',
         'Still waiting 30 seconds in. That is almost always a blocked or very slow CDN — ' +
@@ -11129,41 +11146,4 @@ const Game = {
       Audio_.engine(d ? d.rpm : 800, d ? d.effLimiter : 6000, this.ctrl.throttle,
         d ? d.load : 0, d ? d.boost : 0, inMenu ? 0.5 : (flying ? 0.85 : 0));
       Audio_.jet(flying ? v.throttleLevel * rig.morph : 0, v.speedAbs);
-      Audio_.ambience(v.speedAbs, v.maxSkid, v.rollNoise, FX.rainAmount, FX.wetness > 0.3);
-
-      // ---- mode logic
-      if (this.mode === 'levels') this.levelLogic(dt);
-      else if (this.mode === 'world') this.worldLogic(dt);
-      else this.menuLogic(dt);
-    }
-
-    // ---- camera + sky + render
-    Cam.update(dt, rig, this.trailer);
-    skyMesh.position.copy(camera.position);
-    if (Sky.stars) Sky.stars.position.copy(camera.position);
-    this.updateSunShadow(v.pos);
-    if (!this.paused && this.mode !== 'menu' && this.mode !== 'garage') {
-      FX.updateWeather(dt, camera.position, FX.rainAmount);
-      UI.updateHUD(rig, dt);
-    }
-    renderer.render(scene, camera);
-  },
-
-  updateSunShadow(target) {
-    const d = skyUniforms.sunDir.value;
-    sun.position.set(target.x + d.x * 90, target.y + Math.max(30, d.y * 90), target.z + d.z * 90);
-    sun.target.position.copy(target);
-    sun.target.updateMatrixWorld();
-  },
-
-  menuLogic(dt) {
-    Sky.advance(dt, 0.4);
-  },
-
-  levelLogic(dt) {
-    const rig = this.rig, v = rig.vehicle;
-    if (this.finished) return;
-    this.runTime += dt;
-    if (v.speedAbs > this.runTop) this.runTop = v.speedAbs;
-    $('timer').textContent = fmtTime(this.runTime);
-    $('timer').style.color = this.runTime > this.level.par ? 'var(--peach
+      Audio_.ambience(v.speedAbs, v.maxSkid, v.rollNoise, FX.rainAmount, FX.wetness > 0.
