@@ -2325,7 +2325,23 @@ class Vehicle {
     const maxBrake = sp.brakeTorque * brakeMul * cheatG;
     const maxHand = sp.handbrakeTorque * brakeMul * cheatG;
 
-    let skidSum = 0, skidMax = 0, roll = 0, groundedCount = 0, slipE = 0;
+    /* ---- auto-hold ------------------------------------------------------
+     * Hands off the keyboard used to mean rolling away down the mildest
+     * camber, and once rolling the torque converter would engage, the idle
+     * governor would feed torque through it, and the truck would drive itself
+     * off down the hill. Park it properly instead: with no pedal at all and
+     * below walking pace, clamp the brakes. It fades out by 2.5 m/s so it can
+     * never grab at speed, and any input at all lets go of it instantly.
+     * Trailers are left alone — theirs would fight the rig towing them. */
+    let hold = 0;
+    if (!this.isTrailer && this.wheelsOnGround > 0 &&
+        ctrl.throttle < 0.02 && ctrl.brake < 0.02 && ctrl.handbrake < 0.02 &&
+        this.morph < 0.2 && this.boat < 0.2) {
+      hold = 1 - smoothstep(clamp01((this.speedAbs - 0.9) / 1.6));
+    }
+    this.autoHold = hold;
+
+    let skidSum = 0, skidMax = 0, roll = 0, groundedCount = 0, slipE = 0, holdFz = 0;
 
     for (const w of this.wheels) {
       if (w.detached) continue;
@@ -2333,6 +2349,7 @@ class Vehicle {
       // per-wheel drive torque
       let Td = driveTorque * w.driveFactor;
       let brakeIn = ctrl.brake * maxBrake * w.brakeBias + ctrl.handbrake * maxHand * w.handbrake;
+      if (hold > 0 && w.grounded) brakeIn += hold * maxBrake * 0.95 * w.brakeBias;
       const handbraking = ctrl.handbrake > 0.1 && w.handbrake > 0;
 
       if (!w.grounded) {
@@ -2383,8 +2400,10 @@ class Vehicle {
 
       // ---- driver aids ----------------------------------------------------
       // ABS releases a locking wheel (sx > 0 means the tyre is turning slower
-      // than the road). The handbrake deliberately bypasses it.
-      if (store.settings.abs && brakeIn > 0 && !handbraking) {
+      // than the road). The handbrake deliberately bypasses it, and so does the
+      // auto-hold — a parking brake that releases itself the moment the wheel
+      // locks is not a parking brake.
+      if (store.settings.abs && brakeIn > 0 && !handbraking && hold < 0.5) {
         const lock = clamp01((sx - 0.16) / 0.22);
         w.absCut = damp(w.absCut, lock, 40, dt);
         brakeIn *= (1 - w.absCut * 0.92);
@@ -2491,6 +2510,36 @@ class Vehicle {
       skidSum += w.skid; if (w.skid > skidMax) skidMax = w.skid;
       roll += clamp01(Math.abs(vLong) / 18) * surf.rollNoise;
       slipE += slipPower;
+      holdFz += w.Fz;
+    }
+
+    /* ---- auto-hold, part two: stiction ----------------------------------
+     * Brake torque alone cannot park this vehicle, and it never could. Look at
+     * the spin dynamics above: at a crawl the brake zeroes the wheel in a
+     * single step, and then "never overshoot rolling" snaps it straight back
+     * to road speed, so no slip ever builds and the tyre produces no force at
+     * all. It works beautifully at speed, where the wheel cannot be stopped in
+     * one step, and does nothing whatsoever at 2 km/h — which is exactly the
+     * speed at which you want to stand still.
+     *
+     * So hold the body directly instead, the way static friction actually
+     * behaves: cancel the horizontal velocity outright, but never with more
+     * force than the tyres have to give. Capped that way it is honest — park
+     * on something steep enough and it still slides, and a blast still shoves
+     * you. */
+    if (hold > 0.01 && holdFz > 0) {
+      const vx = b.velocity.x, vz = b.velocity.z;
+      const vh = Math.hypot(vx, vz);
+      if (vh > 1e-4) {
+        const need = b.mass * vh / Math.max(dt, 1e-4);      // stop it inside this step
+        const grip = holdFz * 0.95 * (this.spec.tyre.grip || 1);
+        const F = Math.min(need, grip) * hold;
+        if (isFinite(F)) { b.force.x -= vx / vh * F; b.force.z -= vz / vh * F; }
+      }
+      // and stop it pivoting on the spot while it sits there
+      const wy = vdot(b.angularVelocity, this.upC);
+      const T = -wy * b.inertia.y * 6 * hold;
+      b.torque.x += this.upC.x * T; b.torque.y += this.upC.y * T; b.torque.z += this.upC.z * T;
     }
 
     // ---- locked differential: tie the driven wheels together --------------
@@ -5062,6 +5111,17 @@ const MISSILE = {
 /** The Warhead slider. One number drives size, blast radius and impulse. */
 function warhead() { return clamp(store.settings.warhead || 1, 0.25, 4); }
 
+/**
+ * What a contact fuse counts as solid: buildings and props, the streamed
+ * terrain colliders, loose debris and rubble, and anything being carried.
+ * Vehicles are in there too, so a rocket goes off on another player's truck —
+ * the one that fired it is excluded by body, not by group.
+ */
+const MISSILE_RAY_OPTS = {
+  collisionFilterMask: GROUP.WORLD | GROUP.TERRAIN | GROUP.DEBRIS | GROUP.CARGO | GROUP.VEHICLE,
+  skipBackfaces: false,   // a rocket already inside a wall must still go off
+};
+
 /** The rocket itself: body tube, nose cone, motor bell, four tail fins. */
 function missileGeometry() {
   const parts = [
@@ -5213,6 +5273,8 @@ const Weapons = {
       body, dir: tmpV.clone(), t: 0, dead: false, k,
       speed: MISSILE.speed + Math.max(0, vv.x * tmpV.x + vv.y * tmpV.y + vv.z * tmpV.z),
       mesh: new THREE.Mesh(this.geo, this.mat),
+      // where the contact-fuse sweep starts from on the first frame
+      px: tmpV2.x, py: tmpV2.y, pz: tmpV2.z,
     };
     m.mesh.castShadow = true;
     m.mesh.scale.setScalar(k);
@@ -5366,6 +5428,36 @@ const Weapons = {
       // the tube next to your own bodywork is never fatal.
       const armed = m.t > 0.10;
       let hit = armed && m.dead;
+      let impact = null;
+
+      /* Contact fuse, swept rather than sampled. A rocket covers about a metre
+       * and a half between physics steps, so waiting for a collision event let
+       * it pass clean through a wall thinner than that — most shots at a tower
+       * simply carried on and went off in the field behind it. Sweeping the
+       * segment it just travelled catches the first solid thing on the line,
+       * whatever it is, and hands back the exact point of contact so the hole
+       * appears where the rocket actually struck. Hit the foot of a tower and
+       * the foot is what goes. */
+      if (armed && !hit) {
+        rayResult.reset();
+        // reach a nose-length past the body so the tip triggers, not the middle
+        const ahead = 0.70 * m.k;
+        cvA.set(m.px, m.py, m.pz);
+        cvB.set(b.position.x + m.dir.x * ahead,
+                b.position.y + m.dir.y * ahead,
+                b.position.z + m.dir.z * ahead);
+        // Its own casing sits on that line, so take it out of the cast first.
+        const g0 = b.collisionFilterGroup;
+        b.collisionFilterGroup = 0;
+        const found = world.raycastClosest(cvA, cvB, MISSILE_RAY_OPTS, rayResult);
+        b.collisionFilterGroup = g0;
+        if (found && rayResult.hasHit &&
+            rayResult.body !== (Game.rig && Game.rig.vehicle.body)) {
+          hit = true;
+          impact = new THREE.Vector3(rayResult.hitPointWorld.x, rayResult.hitPointWorld.y,
+                                     rayResult.hitPointWorld.z);
+        }
+      }
       // The heightfield only has collision within a couple of chunks, so the
       // ground is checked analytically as well — otherwise a long shot sails
       // straight through the hillside it was aimed at.
@@ -5374,15 +5466,17 @@ const Weapons = {
       }
       if (armed && !hit && World.built && b.position.y < WATER_Y + 0.2) hit = true;
       if (!hit && m.t > MISSILE.life) hit = true;
+      // remember where it was, so next frame can sweep from here
+      m.px = b.position.x; m.py = b.position.y; m.pz = b.position.z;
       if (hit) {
-        this.detonate(m);
+        this.detonate(m, impact);
         this.live.splice(i, 1);
       }
     }
   },
 
-  detonate(m) {
-    const p = m.mesh.position.clone();
+  detonate(m, impact) {
+    const p = impact || m.mesh.position.clone();
     scene.remove(m.mesh);
     if (m.flame) m.flame.geometry.dispose();
     try { world.removeBody(m.body); } catch (e) {}
