@@ -1421,8 +1421,11 @@ function updatePlayer(dt){
   if (isStatic){ ix = 0; iz = 0; }
 
   // move relative to where the camera is looking
+  // Camera basis. In a right-handed, Y-up world, screen-right is
+  // forward x up — facing +Z that is -X, not +X. Getting this backwards
+  // swaps A and D.
   const cf = { x: Math.sin(camYaw), z: Math.cos(camYaw) };
-  const cr = { x: Math.cos(camYaw), z: -Math.sin(camYaw) };
+  const cr = { x: -Math.cos(camYaw), z: Math.sin(camYaw) };
   let wx = cf.x*iz + cr.x*ix, wz = cf.z*iz + cr.z*ix;
   const wl = Math.hypot(wx, wz);
   if (wl > 1){ wx/=wl; wz/=wl; }
