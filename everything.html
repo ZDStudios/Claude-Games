@@ -409,7 +409,292 @@ function bakeGroup(root){
   return out;
 }
 
-const KIT_CASTLE = [
+const KIT_ARCTIC = [
+
+{
+  id: 'arctic.igloo',
+  name: 'Igloo',
+  kit: 'Arctic',
+  build(K, PAL){
+    const p = [];
+    const cz = -0.2;
+    p.push(K.at(K.cyl(1.75, 1.85, 0.70, 10, PAL.snow), 0, 0.35, cz));
+    p.push(K.at(K.rot(K.torus(1.70, 0.07, PAL.ice, 12), Math.PI / 2, 0, 0), 0, 0.69, cz));
+    p.push(K.at(K.cyl(1.45, 1.72, 0.62, 10, PAL.snow), 0, 1.00, cz));
+    p.push(K.at(K.rot(K.torus(1.38, 0.06, PAL.ice, 12), Math.PI / 2, 0, 0), 0, 1.30, cz));
+    p.push(K.at(K.cyl(1.05, 1.42, 0.55, 10, PAL.snow), 0, 1.55, cz));
+    p.push(K.at(K.sph(0.95, PAL.snow, 8), 0, 1.60, cz));
+    /* smoke hole */
+    p.push(K.at(K.cyl(0.17, 0.22, 0.30, 6, PAL.snow), 0, 2.55, cz));
+    p.push(K.at(K.cyl(0.11, 0.11, 0.08, 6, PAL.black), 0, 2.68, cz));
+    /* crawl tunnel, mouth at +Z */
+    p.push(K.at(K.rot(K.cyl(0.60, 0.68, 1.10, 8, PAL.snow), Math.PI / 2, 0, 0), 0, 0.70, 1.55));
+    p.push(K.at(K.torus(0.60, 0.06, PAL.ice, 10), 0, 0.68, 2.06));
+    p.push(K.at(K.rot(K.cyl(0.44, 0.44, 0.10, 8, PAL.black), Math.PI / 2, 0, 0), 0, 0.66, 2.02));
+    /* drifts piled against the walls */
+    p.push(K.at(K.rot(K.box(0.75, 0.30, 0.55, PAL.white), 0, 0.5, 0), -1.50, 0.15, 0.95));
+    p.push(K.at(K.rot(K.box(0.65, 0.26, 0.50, PAL.white), 0, -0.7, 0), 1.58, 0.13, 0.65));
+    return K.group(...p);
+  },
+  size: [3.95, 2.72, 4.2],
+  rarity: 2,
+  form: { move: 'static', speed: 0, turn: 0, jump: 0, mass: 26, ability: 'light',
+    desc: 'You are a bubble of warm orange lamplight wearing three tonnes of packed snow as a coat.' }
+},
+
+{
+  id: 'arctic.penguin',
+  name: 'Penguin',
+  kit: 'Arctic',
+  build(K, PAL){
+    const p = [];
+    for (let s = -1; s <= 1; s += 2){
+      p.push(K.at(K.box(0.22, 0.08, 0.32, PAL.orange), s * 0.14, 0.04, 0.08));
+      p.push(K.at(K.cyl(0.06, 0.06, 0.18, 6, PAL.orange), s * 0.14, 0.15, 0.02));
+      p.push(K.at(K.rot(K.box(0.07, 0.40, 0.20, PAL.black), 0, 0, s * -0.30), s * 0.33, 0.62, 0));
+      p.push(K.at(K.sph(0.04, PAL.black, 6), s * 0.09, 1.13, 0.22));
+    }
+    p.push(K.at(K.scl(K.sph(0.34, PAL.black, 8), 1, 1.20, 0.90), 0, 0.62, 0));
+    p.push(K.at(K.scl(K.sph(0.27, PAL.white, 8), 1, 1.15, 0.75), 0, 0.60, 0.17));
+    p.push(K.at(K.rot(K.box(0.30, 0.10, 0.26, PAL.black), 0.35, 0, 0), 0, 0.30, -0.32));
+    p.push(K.at(K.sph(0.25, PAL.black, 8), 0, 1.08, 0.02));
+    p.push(K.at(K.scl(K.sph(0.19, PAL.white, 8), 1, 1, 0.55), 0, 1.05, 0.16));
+    p.push(K.at(K.rot(K.cone(0.08, 0.24, 5, PAL.orange), Math.PI / 2, 0, 0), 0, 1.02, 0.30));
+    return K.group(...p);
+  },
+  size: [0.85, 1.35, 0.9],
+  rarity: 1,
+  form: { move: 'hop', speed: 5, turn: 3.4, jump: 5, mass: 0.8, ability: 'glide',
+    desc: 'You waddle like a wobbling skittle until you flop onto your belly and become a missile.' }
+},
+
+{
+  id: 'arctic.snowman',
+  name: 'Snowman',
+  kit: 'Arctic',
+  build(K, PAL){
+    const p = [];
+    p.push(K.at(K.scl(K.sph(0.55, PAL.white, 9), 1, 0.90, 1), 0, 0.50, 0));
+    p.push(K.at(K.sph(0.40, PAL.white, 9), 0, 1.18, 0));
+    p.push(K.at(K.sph(0.29, PAL.white, 9), 0, 1.72, 0));
+    /* coal */
+    for (let i = 0; i < 3; i++) p.push(K.at(K.sph(0.05, PAL.black, 6), 0, 1.05 + i * 0.13, 0.39 - i * 0.02));
+    p.push(K.at(K.sph(0.05, PAL.black, 6), -0.11, 1.79, 0.24));
+    p.push(K.at(K.sph(0.05, PAL.black, 6), 0.11, 1.79, 0.24));
+    p.push(K.at(K.rot(K.cone(0.07, 0.30, 5, PAL.orange), Math.PI / 2, 0, 0), 0, 1.71, 0.33));
+    /* twig arms */
+    for (let s = -1; s <= 1; s += 2){
+      p.push(K.at(K.rot(K.cyl(0.05, 0.06, 0.75, 5, PAL.bark), 0, 0, s * -1.05), s * 0.55, 1.45, 0));
+      p.push(K.at(K.rot(K.cyl(0.035, 0.035, 0.28, 4, PAL.bark), 0, 0, s * -0.40), s * 0.95, 1.76, 0));
+    }
+    /* scarf + top hat */
+    p.push(K.at(K.rot(K.torus(0.33, 0.09, PAL.red, 10), Math.PI / 2, 0, 0), 0, 1.47, 0));
+    p.push(K.at(K.rot(K.box(0.14, 0.50, 0.09, PAL.red), 0.20, 0, 0.25), 0.30, 1.20, 0.30));
+    p.push(K.at(K.cyl(0.44, 0.44, 0.07, 10, PAL.black), 0, 1.96, 0));
+    p.push(K.at(K.cyl(0.27, 0.29, 0.36, 10, PAL.black), 0, 2.17, 0));
+    p.push(K.at(K.rot(K.torus(0.29, 0.045, PAL.red, 10), Math.PI / 2, 0, 0), 0, 2.02, 0));
+    return K.group(...p);
+  },
+  size: [2.05, 2.35, 1.15],
+  rarity: 1,
+  form: { move: 'roll', speed: 8, turn: 2.6, jump: 3, mass: 3, ability: 'grow',
+    desc: 'Every metre you roll makes you fatter, and somehow the hat always stays on.' }
+},
+
+{
+  id: 'arctic.iceberg',
+  name: 'Iceberg',
+  kit: 'Arctic',
+  build(K, PAL){
+    const p = [];
+    p.push(K.at(K.cyl(2.90, 3.00, 0.16, 7, PAL.white), 0, 0.08, 0));
+    p.push(K.at(K.cyl(2.50, 2.95, 0.55, 7, PAL.ice), 0, 0.275, 0));
+    p.push(K.at(K.rot(K.box(3.00, 1.30, 2.60, PAL.ice), 0, 0.35, 0), 0, 1.05, 0));
+    /* peaks */
+    p.push(K.at(K.cone(1.50, 2.90, 5, PAL.ice), 0, 2.00, 0));
+    p.push(K.at(K.cone(0.60, 1.10, 5, PAL.snow), 0, 2.90, 0));
+    p.push(K.at(K.cone(0.85, 1.90, 5, PAL.ice), 1.45, 1.10, -0.55));
+    p.push(K.at(K.cone(0.35, 0.70, 5, PAL.snow), 1.45, 1.70, -0.55));
+    p.push(K.at(K.cone(0.60, 1.30, 5, PAL.ice), -1.60, 0.90, 0.70));
+    /* shelves shearing off at the waterline */
+    p.push(K.at(K.rot(K.wedge(1.40, 0.50, 1.60, PAL.ice), 0, 0.60, 0), -1.90, 0.30, -1.10));
+    p.push(K.at(K.rot(K.wedge(1.20, 0.45, 1.40, PAL.ice), 0, -0.90, 0), 1.75, 0.28, 1.25));
+    /* snow patches on the deck */
+    p.push(K.at(K.rot(K.box(1.20, 0.10, 0.90, PAL.snow), 0, 0.40, 0), 0.45, 0.58, 1.45));
+    p.push(K.at(K.rot(K.box(0.90, 0.10, 0.70, PAL.snow), 0, -0.30, 0), -1.30, 0.58, -1.60));
+    return K.group(...p);
+  },
+  size: [6.0, 3.45, 6.0],
+  rarity: 3,
+  form: { move: 'swim', speed: 4, turn: 0.6, jump: 0, mass: 40, ability: 'smash',
+    desc: 'Nine tenths of you is underwater and all ten tenths of you are unstoppable.' }
+},
+
+{
+  id: 'arctic.seal',
+  name: 'Seal',
+  kit: 'Arctic',
+  build(K, PAL){
+    const p = [];
+    p.push(K.at(K.scl(K.sph(0.44, PAL.white, 8), 1, 0.45, 1.70), 0, 0.20, -0.10));
+    p.push(K.at(K.scl(K.sph(0.50, PAL.grey, 8), 1, 0.78, 1.85), 0, 0.42, -0.15));
+    p.push(K.at(K.scl(K.sph(0.12, PAL.greyDark, 6), 1, 0.28, 1), 0.18, 0.78, -0.30));
+    p.push(K.at(K.scl(K.sph(0.10, PAL.greyDark, 6), 1, 0.28, 1), -0.20, 0.74, -0.70));
+    p.push(K.at(K.scl(K.sph(0.09, PAL.greyDark, 6), 1, 0.28, 1), 0.05, 0.79, 0.15));
+    p.push(K.at(K.scl(K.sph(0.33, PAL.grey, 8), 1, 1, 1.05), 0, 0.62, 0.80));
+    p.push(K.at(K.scl(K.sph(0.20, PAL.white, 8), 1.15, 0.85, 1), 0, 0.50, 1.02));
+    p.push(K.at(K.sph(0.07, PAL.black, 6), 0, 0.56, 1.16));
+    p.push(K.at(K.sph(0.065, PAL.black, 6), 0.15, 0.72, 0.98));
+    p.push(K.at(K.sph(0.065, PAL.black, 6), -0.15, 0.72, 0.98));
+    for (let s = -1; s <= 1; s += 2){
+      p.push(K.at(K.rot(K.cyl(0.012, 0.012, 0.30, 4, PAL.white), 0, 0, Math.PI / 2), s * 0.20, 0.50, 1.08));
+      p.push(K.at(K.rot(K.box(0.55, 0.10, 0.30, PAL.greyDark), 0, s * 0.55, s * -0.15), s * 0.42, 0.13, 0.35));
+      p.push(K.at(K.rot(K.box(0.50, 0.09, 0.34, PAL.greyDark), 0, s * 0.70, 0), s * 0.22, 0.14, -1.20));
+    }
+    return K.group(...p);
+  },
+  size: [1.5, 0.95, 2.75],
+  rarity: 2,
+  form: { move: 'swim', speed: 6.5, turn: 2.4, jump: 3, mass: 4, ability: 'float',
+    desc: 'On land you are a heavy sock full of pudding; in water you are pure liquid genius.' }
+},
+
+{
+  id: 'arctic.ice_spike',
+  name: 'Ice Spike',
+  kit: 'Arctic',
+  build(K, PAL){
+    const p = [];
+    p.push(K.at(K.cyl(1.15, 1.25, 0.12, 9, PAL.snow), 0, 0.06, 0));
+    p.push(K.at(K.cyl(0.85, 1.15, 0.40, 7, PAL.ice), 0, 0.20, 0));
+    p.push(K.at(K.cone(0.55, 4.00, 6, PAL.ice), 0, 2.00, 0));
+    p.push(K.at(K.cone(0.14, 0.60, 6, PAL.white), 0, 3.70, 0));
+    p.push(K.at(K.rot(K.cone(0.34, 2.40, 6, PAL.ice), 0, 0, -0.13), 0.62, 1.26, 0.20));
+    p.push(K.at(K.rot(K.cone(0.26, 1.60, 5, PAL.ice), 0, 0, 0.16), -0.58, 0.87, -0.28));
+    p.push(K.at(K.rot(K.cone(0.18, 1.00, 5, PAL.ice), 0.20, 0, 0), 0.15, 0.56, -0.62));
+    p.push(K.at(K.cone(0.13, 0.45, 4, PAL.cyan), 0.95, 0.23, -0.55));
+    p.push(K.at(K.cone(0.10, 0.35, 4, PAL.cyan), -0.85, 0.18, 0.60));
+    p.push(K.at(K.cone(0.11, 0.40, 4, PAL.ice), 0.20, 0.20, 0.85));
+    p.push(K.at(K.rot(K.box(0.30, 0.30, 0.30, PAL.cyan), 0.40, 0.60, 0), -0.32, 0.30, 0.55));
+    return K.group(...p);
+  },
+  size: [2.5, 4.0, 2.5],
+  rarity: 2,
+  form: { move: 'static', speed: 0, turn: 0, jump: 0, mass: 9, ability: 'light',
+    desc: 'You are four metres of frozen blue spite, glittering at anyone who walks too close.' }
+},
+
+{
+  id: 'arctic.wooden_sled',
+  name: 'Wooden Sled',
+  kit: 'Arctic',
+  build(K, PAL){
+    const p = [];
+    for (let s = -1; s <= 1; s += 2){
+      p.push(K.at(K.box(0.11, 0.10, 1.50, PAL.woodDark), s * 0.30, 0.06, -0.15));
+      p.push(K.at(K.rot(K.box(0.11, 0.10, 0.42, PAL.woodDark), -0.70, 0, 0), s * 0.30, 0.19, 0.73));
+      p.push(K.at(K.rot(K.box(0.11, 0.10, 0.30, PAL.woodDark), -1.50, 0, 0), s * 0.30, 0.45, 0.85));
+      p.push(K.at(K.box(0.10, 0.24, 0.10, PAL.wood), s * 0.30, 0.18, 0.38));
+      p.push(K.at(K.box(0.10, 0.24, 0.10, PAL.wood), s * 0.30, 0.18, -0.62));
+      p.push(K.at(K.box(0.06, 0.08, 1.25, PAL.wood), s * 0.34, 0.34, -0.15));
+    }
+    for (let i = 0; i < 5; i++) p.push(K.at(K.box(0.72, 0.06, 0.14, PAL.wood), 0, 0.30, -0.72 + i * 0.30));
+    p.push(K.at(K.rot(K.cyl(0.025, 0.025, 0.62, 5, PAL.sand), 0, 0, Math.PI / 2), 0, 0.58, 0.85));
+    p.push(K.at(K.torus(0.17, 0.03, PAL.sand, 10), 0, 0.40, 0.87));
+    return K.group(...p);
+  },
+  size: [0.75, 0.6, 1.85],
+  rarity: 1,
+  form: { move: 'drive', speed: 14, turn: 2.2, jump: 2, mass: 1.5, ability: 'boost',
+    desc: 'You have no brakes, no steering worth the name, and a truly heroic opinion of that hill.' }
+},
+
+{
+  id: 'arctic.snowy_fir',
+  name: 'Snowy Fir',
+  kit: 'Arctic',
+  build(K, PAL){
+    const p = [];
+    p.push(K.at(K.cyl(1.15, 1.35, 0.14, 9, PAL.snow), 0, 0.07, 0));
+    p.push(K.at(K.cyl(0.30, 0.42, 0.26, 7, PAL.bark), 0, 0.13, 0));
+    p.push(K.at(K.cyl(0.16, 0.28, 1.30, 7, PAL.bark), 0, 0.65, 0));
+    p.push(K.at(K.cone(1.25, 1.80, 7, PAL.leafDark), 0, 1.70, 0));
+    p.push(K.at(K.cone(0.62, 0.50, 7, PAL.snow), 0, 2.35, 0));
+    p.push(K.at(K.cone(1.00, 1.70, 7, PAL.leafDark), 0, 2.90, 0));
+    p.push(K.at(K.cone(0.52, 0.45, 7, PAL.snow), 0, 3.53, 0));
+    p.push(K.at(K.cone(0.80, 1.60, 7, PAL.leaf), 0, 4.00, 0));
+    p.push(K.at(K.cone(0.42, 0.42, 7, PAL.snow), 0, 4.59, 0));
+    p.push(K.at(K.cone(0.55, 1.50, 7, PAL.leaf), 0, 5.10, 0));
+    p.push(K.at(K.cone(0.30, 0.36, 7, PAL.snow), 0, 5.67, 0));
+    p.push(K.at(K.cone(0.32, 1.10, 6, PAL.leaf), 0, 6.10, 0));
+    p.push(K.at(K.cone(0.20, 0.30, 6, PAL.snow), 0, 6.50, 0));
+    p.push(K.at(K.scl(K.sph(0.22, PAL.white, 6), 1, 0.55, 1), 0.75, 2.15, 0.40));
+    return K.group(...p);
+  },
+  size: [2.7, 6.65, 2.7],
+  rarity: 1,
+  form: { move: 'static', speed: 0, turn: 0, jump: 0, mass: 18, ability: 'none',
+    desc: 'You hold half a tonne of snow perfectly still, waiting for one bird to land and ruin it.' }
+},
+
+{
+  id: 'arctic.polar_bear',
+  name: 'Polar Bear',
+  kit: 'Arctic',
+  build(K, PAL){
+    const p = [];
+    for (let s = -1; s <= 1; s += 2){
+      for (let f = -1; f <= 1; f += 2){
+        const z = f > 0 ? 0.42 : -0.82;
+        p.push(K.at(K.box(0.30, 0.14, 0.36, PAL.white), s * 0.34, 0.07, z + 0.04));
+        p.push(K.at(K.cyl(0.15, 0.17, 0.45, 6, PAL.white), s * 0.34, 0.32, z));
+      }
+    }
+    p.push(K.at(K.scl(K.sph(0.55, PAL.white, 9), 1.15, 0.95, 1.75), 0, 0.88, -0.30));
+    p.push(K.at(K.sph(0.42, PAL.white, 8), 0, 1.08, 0.25));
+    p.push(K.at(K.sph(0.10, PAL.white, 6), 0, 1.02, -1.35));
+    p.push(K.at(K.sph(0.34, PAL.white, 8), 0, 1.15, 0.85));
+    p.push(K.at(K.box(0.30, 0.26, 0.42, PAL.white), 0, 1.02, 1.16));
+    p.push(K.at(K.sph(0.09, PAL.black, 6), 0, 1.08, 1.37));
+    p.push(K.at(K.sph(0.05, PAL.black, 6), 0.15, 1.25, 1.08));
+    p.push(K.at(K.sph(0.05, PAL.black, 6), -0.15, 1.25, 1.08));
+    p.push(K.at(K.sph(0.10, PAL.white, 6), 0.22, 1.42, 0.78));
+    p.push(K.at(K.sph(0.10, PAL.white, 6), -0.22, 1.42, 0.78));
+    return K.group(...p);
+  },
+  size: [1.3, 1.55, 2.9],
+  rarity: 3,
+  form: { move: 'walk', speed: 6, turn: 1.8, jump: 4, mass: 14, ability: 'smash',
+    desc: 'You are half a tonne of polite-looking white fluff and everything smaller than you knows it.' }
+},
+
+{
+  id: 'arctic.ice_block',
+  name: 'Ice Block',
+  kit: 'Arctic',
+  build(K, PAL){
+    const p = [];
+    p.push(K.at(K.box(1.16, 0.14, 1.16, PAL.ice), 0, 0.07, 0));
+    p.push(K.at(K.box(1.10, 1.00, 1.10, PAL.ice), 0, 0.50, 0));
+    p.push(K.at(K.box(0.92, 0.16, 0.92, PAL.white), 0, 1.08, 0));
+    for (let sx = -1; sx <= 1; sx += 2){
+      for (let sz = -1; sz <= 1; sz += 2){
+        p.push(K.at(K.rot(K.box(0.20, 0.92, 0.20, PAL.white), 0, 0.785, 0), sx * 0.52, 0.55, sz * 0.52));
+        p.push(K.at(K.stud(0.13, 0.09, PAL.white), sx * 0.27, 1.20, sz * 0.27));
+      }
+    }
+    p.push(K.at(K.rot(K.box(0.05, 0.65, 0.04, PAL.white), 0, 0, 0.35), 0.14, 0.58, 0.57));
+    p.push(K.at(K.rot(K.box(0.04, 0.40, 0.04, PAL.white), 0, 0, -0.30), -0.34, 0.72, 0.57));
+    p.push(K.at(K.rot(K.box(0.26, 0.26, 0.05, PAL.cyan), 0, 0, 0.50), -0.20, 0.40, 0.57));
+    return K.group(...p);
+  },
+  size: [1.32, 1.25, 1.32],
+  rarity: 1,
+  form: { move: 'roll', speed: 9, turn: 3, jump: 4, mass: 6, ability: 'bounce',
+    desc: 'You are a cube with no friction, no plan, and a deep commitment to hitting the far wall.' }
+}
+
+];const KIT_CASTLE = [
 
 {
   id: 'castle.castle_wall',
@@ -2157,6 +2442,375 @@ const KIT_CASTLE = [
     }
   }
 
+];const KIT_PIRATE = [
+
+{
+  id: 'pirate.pirate_ship',
+  name: 'Pirate Ship',
+  kit: 'Pirate',
+  build(K, PAL){
+    const parts = [];
+    // hull
+    parts.push(K.at(K.box(2.4, 0.9, 7.6, PAL.woodDark), 0, 0.45, -1.15));
+    parts.push(K.at(K.box(3.0, 1.3, 8.8, PAL.wood), 0, 1.5, -1.15));
+    parts.push(K.at(K.box(3.16, 0.28, 8.9, PAL.woodDark), 0, 2.05, -1.15));
+    parts.push(K.at(K.box(2.7, 0.18, 8.4, PAL.crate), 0, 2.24, -1.15));
+    // raked bow and bowsprit
+    parts.push(K.at(K.rot(K.cone(1.2, 2.4, 4, PAL.wood), Math.PI / 2, Math.PI / 4, 0), 0, 1.5, 4.25));
+    parts.push(K.at(K.rot(K.cyl(0.08, 0.12, 1.8, 6, PAL.woodDark), Math.PI / 2, 0, 0), 0, 2.45, 5.35));
+    // stern castle and rudder
+    parts.push(K.at(K.box(2.5, 1.1, 2.0, PAL.wood), 0, 2.75, -4.65));
+    parts.push(K.at(K.box(2.64, 0.16, 2.14, PAL.woodDark), 0, 3.38, -4.65));
+    parts.push(K.at(K.box(0.16, 1.2, 0.5, PAL.woodDark), 0, 0.9, -5.8));
+    // gun ports
+    for (let i = -1; i <= 1; i += 2){
+      parts.push(K.at(K.box(0.08, 0.4, 0.4, PAL.black), i * 1.52, 1.5, 0.95));
+      parts.push(K.at(K.box(0.08, 0.4, 0.4, PAL.black), i * 1.52, 1.5, -1.45));
+    }
+    // mainmast
+    parts.push(K.at(K.cyl(0.14, 0.18, 6.4, 8, PAL.woodDark), 0, 5.5, -0.8));
+    parts.push(K.at(K.rot(K.cyl(0.08, 0.08, 3.4, 6, PAL.woodDark), 0, 0, Math.PI / 2), 0, 5.2, -0.8));
+    parts.push(K.at(K.box(3.2, 2.6, 0.12, PAL.white), 0, 3.9, -0.8));
+    parts.push(K.at(K.box(3.24, 0.4, 0.16, PAL.red), 0, 3.3, -0.8));
+    parts.push(K.at(K.rot(K.cyl(0.07, 0.07, 2.4, 6, PAL.woodDark), 0, 0, Math.PI / 2), 0, 7.6, -0.8));
+    parts.push(K.at(K.box(2.2, 1.7, 0.1, PAL.white), 0, 6.75, -0.8));
+    parts.push(K.at(K.cyl(0.44, 0.36, 0.4, 8, PAL.woodDark), 0, 8.0, -0.8));
+    parts.push(K.at(K.box(1.0, 0.6, 0.05, PAL.black), 0.6, 8.45, -0.8));
+    // foremast
+    parts.push(K.at(K.cyl(0.11, 0.14, 4.8, 8, PAL.woodDark), 0, 4.7, 2.3));
+    parts.push(K.at(K.rot(K.cyl(0.07, 0.07, 2.6, 6, PAL.woodDark), 0, 0, Math.PI / 2), 0, 5.0, 2.3));
+    parts.push(K.at(K.box(2.4, 1.9, 0.1, PAL.white), 0, 4.0, 2.3));
+    return K.group.apply(K, parts);
+  },
+  size: [3.2, 8.8, 12.3],
+  rarity: 3,
+  form: {
+    move: 'swim', speed: 7, turn: 0.8, jump: 0, mass: 40, ability: 'smash',
+    desc: 'You wallow forward like a floating cathedral, and everything smaller than you is now driftwood.'
+  }
+},
+
+{
+  id: 'pirate.palm_hut',
+  name: 'Palm Hut',
+  kit: 'Pirate',
+  build(K, PAL){
+    const parts = [];
+    const legX = [-1.2, 1.2, -1.2, 1.2];
+    const legZ = [-1.2, -1.2, 1.2, 1.2];
+    for (let i = 0; i < 4; i++){
+      parts.push(K.at(K.cyl(0.11, 0.15, 1.0, 6, PAL.woodDark), legX[i], 0.5, legZ[i]));
+    }
+    parts.push(K.at(K.box(2.9, 0.18, 2.9, PAL.wood), 0, 1.09, 0));
+    parts.push(K.at(K.box(2.3, 1.3, 2.3, PAL.crate), 0, 1.83, 0));
+    parts.push(K.at(K.box(0.8, 1.0, 0.1, PAL.black), 0, 1.68, 1.16));
+    parts.push(K.at(K.box(0.16, 1.42, 0.16, PAL.woodDark), -1.12, 1.89, 1.12));
+    parts.push(K.at(K.box(0.16, 1.42, 0.16, PAL.woodDark), 1.12, 1.89, 1.12));
+    // palm thatch
+    parts.push(K.at(K.cone(1.95, 0.8, 6, PAL.leafDark), 0, 2.82, 0));
+    parts.push(K.at(K.cone(1.45, 0.95, 6, PAL.moss), 0, 3.4, 0));
+    parts.push(K.at(K.cyl(0.09, 0.09, 0.34, 6, PAL.woodDark), 0, 3.98, 0));
+    parts.push(K.at(K.sph(0.16, PAL.red, 6), 0, 4.18, 0));
+    // ladder
+    parts.push(K.at(K.box(0.09, 1.16, 0.09, PAL.woodDark), -0.3, 0.58, 1.62));
+    parts.push(K.at(K.box(0.09, 1.16, 0.09, PAL.woodDark), 0.3, 0.58, 1.62));
+    for (let i = 0; i < 3; i++){
+      parts.push(K.at(K.box(0.68, 0.07, 0.07, PAL.wood), 0, 0.32 + i * 0.34, 1.62));
+    }
+    return K.group.apply(K, parts);
+  },
+  size: [3.4, 4.35, 3.9],
+  rarity: 2,
+  form: {
+    move: 'static', speed: 0, turn: 0, jump: 0, mass: 22, ability: 'none',
+    desc: 'You stand on four wobbly legs in the sand and every gull on the island considers your roof a toilet.'
+  }
+},
+
+{
+  id: 'pirate.treasure_chest',
+  name: 'Treasure Chest',
+  kit: 'Pirate',
+  build(K, PAL){
+    const parts = [];
+    parts.push(K.at(K.box(1.2, 0.5, 0.74, PAL.wood), 0, 0.25, 0));
+    parts.push(K.at(K.box(1.22, 0.06, 0.76, PAL.woodDark), 0, 0.33, 0));
+    parts.push(K.at(K.box(1.22, 0.06, 0.76, PAL.woodDark), 0, 0.13, 0));
+    // domed lid
+    parts.push(K.at(K.rot(K.cyl(0.37, 0.37, 1.2, 10, PAL.wood), 0, 0, Math.PI / 2), 0, 0.5, 0));
+    // iron straps and gold corners
+    for (let i = -1; i <= 1; i += 2){
+      parts.push(K.at(K.box(0.1, 0.5, 0.78, PAL.metalDark), i * 0.42, 0.25, 0));
+      parts.push(K.at(K.rot(K.cyl(0.4, 0.4, 0.1, 10, PAL.metalDark), 0, 0, Math.PI / 2), i * 0.42, 0.5, 0));
+      parts.push(K.at(K.box(0.12, 0.12, 0.12, PAL.gold), i * 0.55, 0.06, 0.31));
+      parts.push(K.at(K.box(0.12, 0.12, 0.12, PAL.gold), i * 0.55, 0.06, -0.31));
+    }
+    // lock
+    parts.push(K.at(K.box(0.26, 0.28, 0.07, PAL.gold), 0, 0.44, 0.38));
+    parts.push(K.at(K.box(0.07, 0.11, 0.05, PAL.black), 0, 0.42, 0.43));
+    return K.group.apply(K, parts);
+  },
+  size: [1.22, 0.87, 0.86],
+  rarity: 2,
+  form: {
+    move: 'hop', speed: 5, turn: 3.2, jump: 5.5, mass: 3, ability: 'bounce',
+    desc: 'You are a box full of somebody else\'s money, and you hop like the coins inside are trying to escape.'
+  }
+},
+
+{
+  id: 'pirate.powder_barrel',
+  name: 'Powder Barrel',
+  kit: 'Pirate',
+  build(K, PAL){
+    const parts = [];
+    parts.push(K.at(K.cyl(0.4, 0.33, 0.34, 10, PAL.wood), 0, 0.17, 0));
+    parts.push(K.at(K.cyl(0.44, 0.44, 0.34, 10, PAL.wood), 0, 0.5, 0));
+    parts.push(K.at(K.cyl(0.33, 0.4, 0.34, 10, PAL.wood), 0, 0.83, 0));
+    parts.push(K.at(K.cyl(0.42, 0.42, 0.08, 10, PAL.metalDark), 0, 0.2, 0));
+    parts.push(K.at(K.cyl(0.42, 0.42, 0.08, 10, PAL.metalDark), 0, 0.8, 0));
+    parts.push(K.at(K.cyl(0.34, 0.34, 0.06, 10, PAL.woodDark), 0, 1.0, 0));
+    parts.push(K.at(K.cyl(0.12, 0.12, 0.05, 8, PAL.woodDark), 0, 1.04, 0));
+    // skull stencil on the belly
+    parts.push(K.at(K.box(0.22, 0.2, 0.06, PAL.bone), 0, 0.56, 0.45));
+    parts.push(K.at(K.box(0.14, 0.09, 0.06, PAL.bone), 0, 0.43, 0.45));
+    parts.push(K.at(K.box(0.06, 0.07, 0.04, PAL.black), -0.055, 0.58, 0.48));
+    parts.push(K.at(K.box(0.06, 0.07, 0.04, PAL.black), 0.055, 0.58, 0.48));
+    // lit fuse
+    parts.push(K.at(K.rot(K.cyl(0.035, 0.045, 0.3, 6, PAL.grey), 0, 0, -0.5), 0.07, 1.15, 0));
+    parts.push(K.at(K.rot(K.cyl(0.03, 0.035, 0.2, 6, PAL.grey), 0, 0, -1.1), 0.24, 1.26, 0));
+    parts.push(K.at(K.sph(0.09, PAL.orange, 6), 0.33, 1.31, 0));
+    parts.push(K.at(K.sph(0.05, PAL.yellow, 6), 0.36, 1.36, 0));
+    return K.group.apply(K, parts);
+  },
+  size: [0.9, 1.4, 0.95],
+  rarity: 1,
+  form: {
+    move: 'roll', speed: 9, turn: 2.2, jump: 2, mass: 4, ability: 'boost',
+    desc: 'You trundle about with a lit fuse on your head and a strong opinion about crowded rooms.'
+  }
+},
+
+{
+  id: 'pirate.cannon',
+  name: 'Cannon',
+  kit: 'Pirate',
+  build(K, PAL){
+    const parts = [];
+    // carriage
+    parts.push(K.at(K.box(0.76, 0.34, 1.2, PAL.wood), 0, 0.34, 0));
+    parts.push(K.at(K.box(0.13, 0.5, 1.1, PAL.wood), -0.4, 0.42, 0));
+    parts.push(K.at(K.box(0.13, 0.5, 1.1, PAL.wood), 0.4, 0.42, 0));
+    for (let i = -1; i <= 1; i += 2){
+      parts.push(K.at(K.rot(K.cyl(0.05, 0.05, 1.0, 6, PAL.metalDark), 0, 0, Math.PI / 2), 0, 0.2, i * 0.45));
+      for (let j = -1; j <= 1; j += 2){
+        parts.push(K.at(K.rot(K.cyl(0.2, 0.2, 0.1, 10, PAL.woodDark), 0, 0, Math.PI / 2), j * 0.46, 0.2, i * 0.45));
+      }
+    }
+    // barrel
+    parts.push(K.at(K.rot(K.cyl(0.15, 0.21, 1.6, 10, PAL.metalDark), Math.PI / 2, 0, 0), 0, 0.7, 0.1));
+    parts.push(K.at(K.rot(K.cyl(0.24, 0.24, 0.14, 10, PAL.metal), Math.PI / 2, 0, 0), 0, 0.7, 0.86));
+    parts.push(K.at(K.rot(K.cyl(0.13, 0.13, 0.05, 10, PAL.black), Math.PI / 2, 0, 0), 0, 0.7, 0.94));
+    parts.push(K.at(K.rot(K.cyl(0.25, 0.25, 0.12, 10, PAL.metal), Math.PI / 2, 0, 0), 0, 0.7, 0.1));
+    parts.push(K.at(K.sph(0.24, PAL.metalDark, 8), 0, 0.7, -0.66));
+    parts.push(K.at(K.sph(0.1, PAL.metal, 6), 0, 0.7, -0.92));
+    parts.push(K.at(K.rot(K.cyl(0.07, 0.07, 0.98, 8, PAL.metal), 0, 0, Math.PI / 2), 0, 0.66, 0.1));
+    // shot
+    parts.push(K.at(K.sph(0.13, PAL.black, 6), 0.29, 0.13, -0.66));
+    parts.push(K.at(K.sph(0.13, PAL.black, 6), -0.27, 0.13, -0.72));
+    return K.group.apply(K, parts);
+  },
+  size: [1.05, 0.95, 2.0],
+  rarity: 2,
+  form: {
+    move: 'drive', speed: 10, turn: 1.4, jump: 0, mass: 12, ability: 'boost',
+    desc: 'You are one long iron throat, and every time you cough you leave the ground for a moment.'
+  }
+},
+
+{
+  id: 'pirate.crab',
+  name: 'Crab',
+  kit: 'Pirate',
+  build(K, PAL){
+    const parts = [];
+    // carapace
+    parts.push(K.at(K.box(0.95, 0.24, 0.68, PAL.red), 0, 0.34, 0));
+    parts.push(K.at(K.scl(K.sph(0.45, PAL.red, 6), 1.05, 0.5, 0.8), 0, 0.5, -0.02));
+    parts.push(K.at(K.box(0.78, 0.16, 0.56, PAL.orange), 0, 0.18, 0));
+    parts.push(K.at(K.box(0.36, 0.1, 0.12, PAL.orange), 0, 0.28, 0.34));
+    // eyes on stalks
+    for (let i = -1; i <= 1; i += 2){
+      parts.push(K.at(K.cyl(0.045, 0.05, 0.22, 6, PAL.red), i * 0.18, 0.68, 0.24));
+      parts.push(K.at(K.sph(0.09, PAL.white, 6), i * 0.18, 0.84, 0.25));
+      parts.push(K.at(K.sph(0.045, PAL.black, 6), i * 0.18, 0.85, 0.32));
+    }
+    // pincers
+    for (let i = -1; i <= 1; i += 2){
+      parts.push(K.at(K.rot(K.box(0.26, 0.13, 0.13, PAL.red), 0, i * -0.5, i * 0.15), i * 0.44, 0.34, 0.16));
+      parts.push(K.at(K.rot(K.box(0.32, 0.28, 0.22, PAL.red), 0, i * -0.5, 0), i * 0.6, 0.42, 0.34));
+      parts.push(K.at(K.rot(K.box(0.26, 0.1, 0.12, PAL.orange), 0, i * -0.5, i * 0.26), i * 0.75, 0.54, 0.5));
+      parts.push(K.at(K.rot(K.box(0.24, 0.09, 0.12, PAL.red), 0, i * -0.5, i * -0.16), i * 0.74, 0.34, 0.48));
+    }
+    // legs
+    for (let i = -1; i <= 1; i += 2){
+      for (let j = 0; j < 3; j++){
+        parts.push(K.at(K.rot(K.box(0.36, 0.09, 0.1, PAL.red), 0, (j - 1) * 0.45, i * -0.85), i * 0.5, 0.19, (1 - j) * 0.24));
+      }
+    }
+    return K.group.apply(K, parts);
+  },
+  size: [1.75, 0.95, 1.0],
+  rarity: 1,
+  form: {
+    move: 'walk', speed: 5.5, turn: 4, jump: 3, mass: 0.9, ability: 'boost',
+    desc: 'You never walk towards anything, only sideways past it, clacking your enormous show-off claw.'
+  }
+},
+
+{
+  id: 'pirate.ship_anchor',
+  name: 'Ship Anchor',
+  kit: 'Pirate',
+  build(K, PAL){
+    const parts = [];
+    parts.push(K.at(K.box(0.22, 1.96, 0.22, PAL.metalDark), 0, 1.0, 0));
+    // arms and flukes
+    for (let i = -1; i <= 1; i += 2){
+      parts.push(K.at(K.rot(K.box(0.86, 0.17, 0.19, PAL.metalDark), 0, 0, i * 0.5), i * 0.34, 0.31, 0));
+      parts.push(K.at(K.rot(K.cone(0.28, 0.46, 3, PAL.metalDark), 0, 0, i * -0.5), i * 0.78, 0.62, 0));
+    }
+    // stock
+    parts.push(K.at(K.box(1.5, 0.16, 0.16, PAL.metalDark), 0, 1.72, 0));
+    parts.push(K.at(K.box(0.17, 0.28, 0.24, PAL.metalDark), -0.72, 1.72, 0));
+    parts.push(K.at(K.box(0.17, 0.28, 0.24, PAL.metalDark), 0.72, 1.72, 0));
+    // shackle ring
+    parts.push(K.at(K.torus(0.2, 0.07, PAL.metal, 8), 0, 2.12, 0));
+    parts.push(K.at(K.box(0.14, 0.2, 0.14, PAL.metal), 0, 1.92, 0));
+    // rope
+    parts.push(K.at(K.rot(K.torus(0.17, 0.055, PAL.sand, 8), Math.PI / 2, 0, 0), 0, 1.3, 0));
+    parts.push(K.at(K.rot(K.torus(0.17, 0.055, PAL.sand, 8), Math.PI / 2, 0, 0), 0, 1.44, 0));
+    parts.push(K.at(K.rot(K.torus(0.42, 0.08, PAL.sand, 10), Math.PI / 2, 0, 0), 0, 0.08, 0.06));
+    parts.push(K.at(K.rot(K.torus(0.3, 0.07, PAL.sand, 10), Math.PI / 2, 0, 0), 0.1, 0.2, 0.1));
+    return K.group.apply(K, parts);
+  },
+  size: [1.8, 2.4, 1.05],
+  rarity: 2,
+  form: {
+    move: 'roll', speed: 7, turn: 1.6, jump: 0, mass: 14, ability: 'smash',
+    desc: 'You clang end over end down the dock, dragging your rope and an unshakeable sense of gravity.'
+  }
+},
+
+{
+  id: 'pirate.harbour_buoy',
+  name: 'Harbour Buoy',
+  kit: 'Pirate',
+  build(K, PAL){
+    const parts = [];
+    parts.push(K.at(K.cyl(0.5, 0.56, 0.14, 10, PAL.white), 0, 0.07, 0));
+    parts.push(K.at(K.cyl(0.42, 0.5, 0.78, 10, PAL.red), 0, 0.53, 0));
+    parts.push(K.at(K.cyl(0.46, 0.46, 0.16, 10, PAL.white), 0, 0.72, 0));
+    parts.push(K.at(K.cone(0.44, 0.5, 10, PAL.red), 0, 1.17, 0));
+    parts.push(K.at(K.cyl(0.16, 0.16, 0.12, 8, PAL.metalDark), 0, 1.46, 0));
+    // lamp cage
+    parts.push(K.at(K.rot(K.torus(0.17, 0.035, PAL.metal, 8), Math.PI / 2, 0, 0), 0, 1.6, 0));
+    parts.push(K.at(K.rot(K.torus(0.17, 0.035, PAL.metal, 8), Math.PI / 2, 0, 0), 0, 2.06, 0));
+    const bx = [0.15, -0.15, 0, 0];
+    const bz = [0, 0, 0.15, -0.15];
+    for (let i = 0; i < 4; i++){
+      parts.push(K.at(K.cyl(0.028, 0.028, 0.5, 6, PAL.metal), bx[i], 1.83, bz[i]));
+    }
+    parts.push(K.at(K.sph(0.15, PAL.yellow, 8), 0, 1.83, 0));
+    parts.push(K.at(K.cone(0.18, 0.22, 6, PAL.metalDark), 0, 2.2, 0));
+    // barnacles and a rusty hatch
+    parts.push(K.at(K.sph(0.09, PAL.stoneLight, 5), 0.44, 0.3, 0.16));
+    parts.push(K.at(K.sph(0.07, PAL.stoneLight, 5), -0.36, 0.22, -0.3));
+    parts.push(K.at(K.box(0.16, 0.14, 0.05, PAL.black), 0, 0.5, 0.5));
+    return K.group.apply(K, parts);
+  },
+  size: [1.1, 2.3, 1.12],
+  rarity: 1,
+  form: {
+    move: 'swim', speed: 4.5, turn: 2.2, jump: 1.5, mass: 3, ability: 'light',
+    desc: 'You bob, you clang, you blink your little lamp at ships that never once say thank you.'
+  }
+},
+
+{
+  id: 'pirate.skull_rock',
+  name: 'Skull Rock',
+  kit: 'Pirate',
+  build(K, PAL){
+    const parts = [];
+    parts.push(K.at(K.cyl(1.4, 1.85, 0.9, 7, PAL.stoneDark), 0, 0.45, 0));
+    parts.push(K.at(K.scl(K.sph(1.35, PAL.stone, 6), 1.15, 1.0, 1.0), 0, 2.25, -0.1));
+    parts.push(K.at(K.box(1.95, 0.34, 0.5, PAL.stone), 0, 2.62, 0.82));
+    // eye caves with fires burning in them
+    for (let i = -1; i <= 1; i += 2){
+      parts.push(K.at(K.sph(0.42, PAL.black, 6), i * 0.62, 2.2, 0.95));
+      parts.push(K.at(K.sph(0.22, PAL.orange, 6), i * 0.62, 2.1, 1.2));
+    }
+    parts.push(K.at(K.rot(K.cone(0.3, 0.5, 3, PAL.black), Math.PI, 0, 0), 0, 1.72, 1.15));
+    // jaw and teeth
+    parts.push(K.at(K.box(2.0, 0.55, 1.0, PAL.stone), 0, 1.08, 0.85));
+    for (let i = 0; i < 4; i++){
+      parts.push(K.at(K.box(0.24, 0.3, 0.14, PAL.bone), -0.54 + i * 0.36, 1.45, 1.34));
+    }
+    parts.push(K.at(K.box(0.5, 0.5, 0.45, PAL.stone), -1.02, 1.62, 0.62));
+    parts.push(K.at(K.box(0.5, 0.5, 0.45, PAL.stone), 1.02, 1.62, 0.62));
+    parts.push(K.at(K.box(1.1, 0.6, 1.0, PAL.stoneDark), 1.16, 0.9, -0.8));
+    // somebody planted a flag up there
+    parts.push(K.at(K.cyl(0.06, 0.07, 1.3, 6, PAL.woodDark), 0.75, 3.4, -0.4));
+    parts.push(K.at(K.box(0.75, 0.46, 0.05, PAL.black), 1.1, 3.8, -0.4));
+    return K.group.apply(K, parts);
+  },
+  size: [3.7, 4.05, 3.7],
+  rarity: 3,
+  form: {
+    move: 'static', speed: 0, turn: 0, jump: 0, mass: 40, ability: 'light',
+    desc: 'You are a cliff shaped like a warning, with a fire burning in each eye socket and nowhere to be.'
+  }
+},
+
+{
+  id: 'pirate.rowing_dinghy',
+  name: 'Rowing Dinghy',
+  kit: 'Pirate',
+  build(K, PAL){
+    const parts = [];
+    // open hull
+    parts.push(K.at(K.box(1.1, 0.14, 2.7, PAL.woodDark), 0, 0.07, -0.45));
+    parts.push(K.at(K.box(0.94, 0.06, 2.4, PAL.crate), 0, 0.17, -0.45));
+    for (let i = -1; i <= 1; i += 2){
+      parts.push(K.at(K.box(0.12, 0.5, 2.7, PAL.wood), i * 0.56, 0.39, -0.45));
+      parts.push(K.at(K.box(0.2, 0.1, 2.74, PAL.woodDark), i * 0.56, 0.69, -0.45));
+    }
+    parts.push(K.at(K.box(1.12, 0.5, 0.14, PAL.wood), 0, 0.39, -1.79));
+    parts.push(K.at(K.box(1.16, 0.1, 0.22, PAL.woodDark), 0, 0.69, -1.8));
+    parts.push(K.at(K.rot(K.cone(0.6, 1.0, 4, PAL.wood), Math.PI / 2, Math.PI / 4, 0), 0, 0.48, 1.2));
+    // thwarts
+    parts.push(K.at(K.box(1.16, 0.09, 0.24, PAL.crate), 0, 0.62, 0.1));
+    parts.push(K.at(K.box(1.16, 0.09, 0.24, PAL.crate), 0, 0.62, -1.0));
+    // oars in their locks
+    for (let i = -1; i <= 1; i += 2){
+      parts.push(K.at(K.cyl(0.045, 0.045, 0.16, 6, PAL.metalDark), i * 0.58, 0.79, 0.25));
+      parts.push(K.at(K.rot(K.cyl(0.045, 0.05, 1.2, 6, PAL.wood), 0, -i * 0.35, -i * (Math.PI / 2 + 0.12)), i * 0.3, 0.78, 0.15));
+      parts.push(K.at(K.rot(K.box(0.34, 0.06, 0.16, PAL.woodDark), 0, -i * 0.35, 0), i * 0.92, 0.71, 0.45));
+    }
+    // rope coil and a lantern
+    parts.push(K.at(K.rot(K.torus(0.18, 0.05, PAL.sand, 8), Math.PI / 2, 0, 0), 0, 0.24, 0.72));
+    parts.push(K.at(K.box(0.18, 0.22, 0.18, PAL.yellow), 0, 0.79, -1.55));
+    return K.group.apply(K, parts);
+  },
+  size: [2.25, 0.95, 3.6],
+  rarity: 1,
+  form: {
+    move: 'swim', speed: 6, turn: 2.4, jump: 0, mass: 3, ability: 'float',
+    desc: 'You are four planks of stubborn optimism, riding every wave like it was your idea.'
+  }
+}
+
 ];const KIT_RACING = [
   {
     id: 'racing.go_kart',
@@ -2819,6 +3473,304 @@ const KIT_CASTLE = [
       desc: 'Bulky, slow, and always one bad step from a very long fall in any direction.'
     }
   }
+
+];const KIT_TOYBOX = [
+
+{
+  id: 'toybox.rubber_duck',
+  name: 'Rubber Duck',
+  kit: 'Toybox',
+  build(K, PAL){
+    const p = [];
+    p.push(K.at(K.cyl(0.24, 0.20, 0.10, 12, PAL.yellow), 0, 0.05, 0));
+    p.push(K.scl(K.at(K.sph(0.26, PAL.yellow, 10), 0, 0.30, 0), 1.25, 1.00, 1.50));
+    p.push(K.rot(K.at(K.wedge(0.34, 0.30, 0.34, PAL.yellow), 0, 0.30, -0.30), 0, -Math.PI / 2, 0));
+    p.push(K.at(K.cyl(0.11, 0.14, 0.18, 8, PAL.yellow), 0, 0.52, 0.12));
+    p.push(K.at(K.sph(0.19, PAL.yellow, 10), 0, 0.68, 0.14));
+    p.push(K.at(K.sph(0.075, PAL.yellow, 8), 0, 0.84, 0.06));
+    p.push(K.at(K.box(0.15, 0.07, 0.20, PAL.orange), 0, 0.66, 0.34));
+    p.push(K.at(K.box(0.10, 0.05, 0.08, PAL.orange), 0, 0.62, 0.44));
+    for (let s = -1; s <= 1; s += 2){
+      p.push(K.scl(K.at(K.sph(0.14, PAL.yellow, 8), s * 0.29, 0.34, 0.02), 0.40, 0.90, 1.40));
+      p.push(K.at(K.sph(0.038, PAL.black, 8), s * 0.10, 0.74, 0.28));
+      p.push(K.at(K.sph(0.016, PAL.white, 6), s * 0.12, 0.77, 0.31));
+    }
+    return K.group.apply(K, p);
+  },
+  size: [0.72, 0.92, 1.02],
+  rarity: 1,
+  form: { move: 'swim', speed: 5, turn: 3.2, jump: 3, mass: 0.6, ability: 'float',
+    desc: 'You are unsinkable, faintly smug, and every puddle you meet is a personal invitation.' }
+},
+
+{
+  id: 'toybox.tin_robot',
+  name: 'Tin Robot',
+  kit: 'Toybox',
+  build(K, PAL){
+    const p = [];
+    for (let s = -1; s <= 1; s += 2){
+      p.push(K.at(K.box(0.24, 0.12, 0.34, PAL.red), s * 0.17, 0.06, 0.03));
+      p.push(K.at(K.cyl(0.075, 0.085, 0.30, 8, PAL.metal), s * 0.17, 0.26, 0));
+      p.push(K.at(K.sph(0.12, PAL.red, 8), s * 0.35, 1.00, 0));
+      p.push(K.at(K.cyl(0.07, 0.07, 0.36, 8, PAL.metal), s * 0.35, 0.80, 0));
+      p.push(K.at(K.box(0.14, 0.12, 0.16, PAL.metalDark), s * 0.35, 0.56, 0.02));
+      p.push(K.rot(K.at(K.cyl(0.05, 0.05, 0.03, 8, s < 0 ? PAL.red : PAL.green), s * 0.09, 0.88, 0.24), Math.PI / 2, 0, 0));
+      p.push(K.rot(K.at(K.cyl(0.045, 0.045, 0.05, 8, PAL.cyan), s * 0.09, 1.39, 0.19), Math.PI / 2, 0, 0));
+    }
+    p.push(K.at(K.box(0.50, 0.14, 0.34, PAL.red), 0, 0.47, 0));
+    p.push(K.at(K.box(0.58, 0.54, 0.38, PAL.blue), 0, 0.81, 0));
+    p.push(K.at(K.box(0.60, 0.08, 0.40, PAL.gold), 0, 0.58, 0));
+    p.push(K.at(K.box(0.34, 0.24, 0.06, PAL.yellow), 0, 0.88, 0.20));
+    p.push(K.at(K.cyl(0.09, 0.09, 0.10, 8, PAL.metal), 0, 1.13, 0));
+    p.push(K.at(K.box(0.36, 0.32, 0.34, PAL.steel), 0, 1.34, 0));
+    p.push(K.at(K.box(0.22, 0.07, 0.04, PAL.gold), 0, 1.24, 0.18));
+    p.push(K.at(K.cyl(0.018, 0.022, 0.20, 6, PAL.metal), 0, 1.60, 0));
+    p.push(K.at(K.sph(0.055, PAL.red, 8), 0, 1.73, 0));
+    p.push(K.at(K.torus(0.09, 0.025, PAL.gold, 10), 0, 0.92, -0.24));
+    p.push(K.at(K.box(0.05, 0.05, 0.10, PAL.gold), 0, 0.92, -0.16));
+    return K.group.apply(K, p);
+  },
+  size: [0.94, 1.79, 0.52],
+  rarity: 3,
+  form: { move: 'walk', speed: 4.5, turn: 2.2, jump: 3, mass: 2.5, ability: 'light',
+    desc: 'You clank forward in tiny stiff steps while a key in your back slowly, slowly unwinds.' }
+},
+
+{
+  id: 'toybox.quadcopter_drone',
+  name: 'Quadcopter Drone',
+  kit: 'Toybox',
+  build(K, PAL){
+    const p = [];
+    for (let i = 0; i < 4; i++){
+      const a = Math.PI / 4 + i * Math.PI / 2;
+      const sx = Math.sin(a), cz = Math.cos(a);
+      p.push(K.rot(K.at(K.box(0.06, 0.05, 0.30, PAL.black), sx * 0.19, 0.24, cz * 0.19), 0, a, 0));
+      p.push(K.at(K.cyl(0.055, 0.06, 0.10, 8, PAL.grey), sx * 0.34, 0.27, cz * 0.34));
+      p.push(K.at(K.cyl(0.19, 0.19, 0.012, 12, PAL.glass), sx * 0.34, 0.335, cz * 0.34));
+      p.push(K.rot(K.at(K.box(0.34, 0.022, 0.05, PAL.greyDark), sx * 0.34, 0.335, cz * 0.34), 0, a + 0.6, 0));
+    }
+    p.push(K.at(K.box(0.34, 0.10, 0.40, PAL.greyDark), 0, 0.24, 0));
+    p.push(K.at(K.box(0.28, 0.09, 0.32, PAL.white), 0, 0.325, 0));
+    p.push(K.at(K.box(0.20, 0.06, 0.10, PAL.orange), 0, 0.30, 0.20));
+    p.push(K.at(K.sph(0.07, PAL.black, 8), 0, 0.17, 0.15));
+    p.push(K.rot(K.at(K.cyl(0.04, 0.04, 0.04, 8, PAL.glass), 0, 0.17, 0.21), Math.PI / 2, 0, 0));
+    for (let s = -1; s <= 1; s += 2){
+      p.push(K.at(K.box(0.045, 0.05, 0.34, PAL.greyDark), s * 0.15, 0.025, 0));
+      p.push(K.at(K.box(0.04, 0.18, 0.06, PAL.greyDark), s * 0.15, 0.12, 0));
+    }
+    return K.group.apply(K, p);
+  },
+  size: [0.86, 0.37, 0.86],
+  rarity: 2,
+  form: { move: 'fly', speed: 12, turn: 3.4, jump: 0, mass: 0.7, ability: 'boost',
+    desc: 'You hover at head height making an angry wasp noise, and everyone below you is annoyed.' }
+},
+
+{
+  id: 'toybox.beach_ball',
+  name: 'Beach Ball',
+  kit: 'Toybox',
+  build(K, PAL){
+    const p = [];
+    const cols = [PAL.red, PAL.yellow, PAL.green, PAL.blue, PAL.magenta];
+    p.push(K.at(K.sph(0.34, PAL.white, 12), 0, 0.355, 0));
+    for (let i = 0; i < cols.length; i++){
+      p.push(K.scl(K.rot(K.at(K.sph(0.355, cols[i], 12), 0, 0.355, 0), 0, i * Math.PI / cols.length, 0), 0.50, 1.00, 1.00));
+    }
+    p.push(K.at(K.cyl(0.10, 0.10, 0.02, 10, PAL.white), 0, 0.712, 0));
+    p.push(K.rot(K.at(K.cyl(0.035, 0.045, 0.06, 8, PAL.white), 0, 0.50, 0.335), Math.PI / 2.6, 0, 0));
+    return K.group.apply(K, p);
+  },
+  size: [0.71, 0.73, 0.71],
+  rarity: 1,
+  form: { move: 'roll', speed: 10, turn: 3.6, jump: 5, mass: 0.4, ability: 'bounce',
+    desc: 'You are mostly air in a stripey coat, and the tiniest breeze can ruin an entire afternoon.' }
+},
+
+{
+  id: 'toybox.building_brick',
+  name: 'Building Brick',
+  kit: 'Toybox',
+  build(K, PAL){
+    const p = [];
+    p.push(K.at(K.box(1.20, 0.40, 0.62, PAL.red), 0, 0.20, 0));
+    p.push(K.at(K.box(1.16, 0.04, 0.58, PAL.red), 0, 0.415, 0));
+    for (let i = 0; i < 4; i++){
+      for (let s = -1; s <= 1; s += 2){
+        p.push(K.at(K.stud(0.11, 0.12, PAL.red), -0.45 + i * 0.30, 0.49, s * 0.15));
+      }
+    }
+    p.push(K.at(K.box(0.04, 0.30, 0.50, PAL.orange), -0.60, 0.20, 0));
+    p.push(K.at(K.box(0.04, 0.30, 0.50, PAL.orange), 0.60, 0.20, 0));
+    return K.group.apply(K, p);
+  },
+  size: [1.24, 0.55, 0.62],
+  rarity: 1,
+  form: { move: 'hop', speed: 5, turn: 3.4, jump: 5, mass: 1.2, ability: 'grow',
+    desc: 'You are eight little knobs of pure potential, and at 3am you are a weapon.' }
+},
+
+{
+  id: 'toybox.toy_train',
+  name: 'Toy Train',
+  kit: 'Toybox',
+  build(K, PAL){
+    const p = [];
+    p.push(K.at(K.box(0.56, 0.14, 1.44, PAL.yellow), 0, 0.26, 0));
+    const zs = [-0.44, 0.06, 0.50];
+    for (let i = 0; i < zs.length; i++){
+      for (let s = -1; s <= 1; s += 2){
+        p.push(K.rot(K.at(K.cyl(0.19, 0.19, 0.09, 10, PAL.red), s * 0.31, 0.19, zs[i]), 0, 0, Math.PI / 2));
+      }
+    }
+    p.push(K.rot(K.at(K.cyl(0.26, 0.26, 0.82, 10, PAL.blue), 0, 0.59, 0.30), Math.PI / 2, 0, 0));
+    p.push(K.rot(K.at(K.cyl(0.28, 0.28, 0.05, 10, PAL.gold), 0, 0.59, 0.52), Math.PI / 2, 0, 0));
+    p.push(K.rot(K.at(K.cyl(0.27, 0.27, 0.06, 10, PAL.metalDark), 0, 0.59, 0.72), Math.PI / 2, 0, 0));
+    p.push(K.rot(K.at(K.cyl(0.075, 0.075, 0.10, 8, PAL.gold), 0, 0.76, 0.78), Math.PI / 2, 0, 0));
+    p.push(K.at(K.box(0.10, 0.10, 0.03, PAL.white), 0, 0.76, 0.84));
+    p.push(K.at(K.cyl(0.11, 0.15, 0.26, 8, PAL.black), 0, 0.98, 0.44));
+    p.push(K.at(K.cyl(0.16, 0.14, 0.07, 8, PAL.black), 0, 1.12, 0.44));
+    p.push(K.at(K.sph(0.11, PAL.gold, 8), 0, 0.88, 0.10));
+    p.push(K.at(K.box(0.58, 0.52, 0.50, PAL.red), 0, 0.85, -0.34));
+    p.push(K.at(K.box(0.68, 0.08, 0.60, PAL.white), 0, 1.15, -0.34));
+    for (let s = -1; s <= 1; s += 2){
+      p.push(K.at(K.box(0.04, 0.22, 0.26, PAL.black), s * 0.29, 0.94, -0.34));
+      p.push(K.rot(K.at(K.cyl(0.05, 0.05, 0.08, 8, PAL.gold), s * 0.21, 0.26, 0.87), Math.PI / 2, 0, 0));
+    }
+    p.push(K.at(K.box(0.62, 0.14, 0.10, PAL.red), 0, 0.26, 0.80));
+    p.push(K.at(K.box(0.10, 0.10, 0.12, PAL.gold), 0, 0.26, -0.66));
+    return K.at(K.group.apply(K, p), 0, 0, -0.10);
+  },
+  size: [0.71, 1.19, 1.63],
+  rarity: 2,
+  form: { move: 'drive', speed: 11, turn: 1.8, jump: 0, mass: 3.5, ability: 'smash',
+    desc: 'You chuff along at ankle height with the total confidence of something that has never needed a track.' }
+},
+
+{
+  id: 'toybox.paper_kite',
+  name: 'Paper Kite',
+  kit: 'Toybox',
+  build(K, PAL){
+    const sail = K.group(
+      K.at(K.wedge(0.45, 0.55, 0.03, PAL.yellow), 0.225, 0.275, 0),
+      K.rot(K.at(K.wedge(0.45, 0.55, 0.03, PAL.red), -0.225, 0.275, 0), 0, Math.PI, 0),
+      K.rot(K.at(K.wedge(0.45, 1.05, 0.03, PAL.red), -0.225, -0.525, 0), 0, 0, Math.PI),
+      K.rot(K.at(K.wedge(0.45, 1.05, 0.03, PAL.yellow), 0.225, -0.525, 0), Math.PI, 0, 0),
+      K.at(K.box(0.05, 1.58, 0.04, PAL.wood), 0, -0.25, -0.035),
+      K.at(K.box(0.92, 0.05, 0.04, PAL.wood), 0, 0, -0.035),
+      K.at(K.torus(0.07, 0.022, PAL.blue, 8), 0, 0, 0.03)
+    );
+    K.rot(sail, -0.4, 0, 0);
+    K.at(sail, 0, 0.982, -0.36);
+    const p = [sail];
+    p.push(K.at(K.box(0.025, 0.025, 0.56, PAL.white), 0, 0.03, 0.33));
+    p.push(K.rot(K.at(K.box(0.20, 0.03, 0.10, PAL.red), 0, 0.05, 0.18), 0, 0.4, 0));
+    p.push(K.rot(K.at(K.box(0.20, 0.03, 0.10, PAL.blue), 0, 0.05, 0.38), 0, -0.4, 0));
+    p.push(K.rot(K.at(K.box(0.20, 0.03, 0.10, PAL.yellow), 0, 0.05, 0.56), 0, 0.4, 0));
+    return K.group.apply(K, p);
+  },
+  size: [0.92, 1.49, 1.27],
+  rarity: 2,
+  form: { move: 'fly', speed: 9, turn: 2.2, jump: 0, mass: 0.3, ability: 'glide',
+    desc: 'You are two sticks and a promise, and the wind is the only one who really understands you.' }
+},
+
+{
+  id: 'toybox.party_balloon',
+  name: 'Party Balloon',
+  kit: 'Toybox',
+  build(K, PAL){
+    const link = function(x1, y1, z1, x2, y2, z2, r, col){
+      const dx = x2 - x1, dy = y2 - y1, dz = z2 - z1;
+      const L = Math.sqrt(dx * dx + dy * dy + dz * dz);
+      const ux = dx / L, uy = dy / L, uz = dz / L;
+      const rz = -Math.asin(Math.max(-1, Math.min(1, ux)));
+      const rx = Math.atan2(uz, uy);
+      return K.rot(K.at(K.cyl(r, r, L, 6, col), (x1 + x2) / 2, (y1 + y2) / 2, (z1 + z2) / 2), rx, 0, rz);
+    };
+    const p = [];
+    const balloons = [
+      [0.00, 1.18, 0.03, 0.270, PAL.magenta, 0.84],
+      [-0.31, 0.99, -0.15, 0.235, PAL.cyan, 0.69],
+      [0.30, 0.92, 0.16, 0.225, PAL.yellow, 0.63]
+    ];
+    for (let i = 0; i < balloons.length; i++){
+      const b = balloons[i];
+      p.push(K.scl(K.at(K.sph(b[3], b[4], 10), b[0], b[1], b[2]), 1.00, 1.15, 1.00));
+      p.push(K.rot(K.at(K.cone(0.05, 0.10, 6, b[4]), b[0], b[5], b[2]), Math.PI, 0, 0));
+      p.push(link(b[0], b[5] - 0.04, b[2], 0, 0.40, 0, 0.012, PAL.white));
+    }
+    p.push(K.at(K.sph(0.035, PAL.white, 6), 0, 0.40, 0));
+    p.push(link(0, 0.40, 0, 0.02, 0.05, 0.05, 0.012, PAL.white));
+    p.push(K.rot(K.at(K.torus(0.07, 0.015, PAL.white, 10), 0.02, 0.016, 0.05), Math.PI / 2, 0, 0));
+    p.push(K.at(K.sph(0.06, PAL.white, 6), -0.11, 1.30, 0.17));
+    return K.group.apply(K, p);
+  },
+  size: [1.07, 1.50, 0.78],
+  rarity: 1,
+  form: { move: 'fly', speed: 5, turn: 2.4, jump: 0, mass: 0.2, ability: 'float',
+    desc: 'You drift upward with no plan whatsoever, and every ceiling fan is a mortal enemy.' }
+},
+
+{
+  id: 'toybox.spinning_top',
+  name: 'Spinning Top',
+  kit: 'Toybox',
+  build(K, PAL){
+    const p = [];
+    p.push(K.rot(K.at(K.cone(0.05, 0.12, 8, PAL.metalDark), 0, 0.06, 0), Math.PI, 0, 0));
+    p.push(K.rot(K.at(K.cone(0.30, 0.46, 12, PAL.red), 0, 0.35, 0), Math.PI, 0, 0));
+    p.push(K.at(K.cyl(0.135, 0.135, 0.05, 12, PAL.yellow), 0, 0.30, 0));
+    p.push(K.at(K.cyl(0.245, 0.245, 0.05, 12, PAL.blue), 0, 0.46, 0));
+    p.push(K.at(K.cyl(0.31, 0.31, 0.06, 12, PAL.blue), 0, 0.61, 0));
+    p.push(K.at(K.cyl(0.26, 0.26, 0.04, 12, PAL.yellow), 0, 0.66, 0));
+    p.push(K.scl(K.at(K.sph(0.16, PAL.red, 10), 0, 0.66, 0), 1.00, 0.55, 1.00));
+    p.push(K.at(K.cyl(0.05, 0.065, 0.18, 8, PAL.wood), 0, 0.81, 0));
+    p.push(K.at(K.sph(0.075, PAL.wood, 8), 0, 0.92, 0));
+    for (let i = 0; i < 4; i++){
+      const a = i * Math.PI / 2 + 0.4;
+      p.push(K.at(K.stud(0.05, 0.03, i % 2 ? PAL.white : PAL.green), Math.sin(a) * 0.20, 0.655, Math.cos(a) * 0.20));
+    }
+    return K.group.apply(K, p);
+  },
+  size: [0.62, 1.00, 0.62],
+  rarity: 2,
+  form: { move: 'roll', speed: 8, turn: 4, jump: 0, mass: 0.8, ability: 'boost',
+    desc: 'You are perfectly upright only while you are frantically busy, which you feel is deeply unfair.' }
+},
+
+{
+  id: 'toybox.teddy_bear',
+  name: 'Teddy Bear',
+  kit: 'Toybox',
+  build(K, PAL){
+    const p = [];
+    for (let s = -1; s <= 1; s += 2){
+      p.push(K.scl(K.at(K.sph(0.13, PAL.wood, 8), s * 0.16, 0.124, 0.04), 1.00, 0.95, 1.25));
+      p.push(K.at(K.cyl(0.10, 0.115, 0.26, 8, PAL.wood), s * 0.155, 0.30, 0));
+      p.push(K.rot(K.at(K.cyl(0.09, 0.10, 0.34, 8, PAL.wood), s * 0.33, 0.68, 0.02), 0, 0, s * 0.40));
+      p.push(K.at(K.sph(0.105, PAL.wood, 8), s * 0.40, 0.51, 0.03));
+      p.push(K.at(K.sph(0.10, PAL.wood, 8), s * 0.20, 1.33, -0.02));
+      p.push(K.scl(K.at(K.sph(0.055, PAL.sand, 8), s * 0.215, 1.335, 0.03), 1.00, 1.00, 0.60));
+      p.push(K.at(K.sph(0.035, PAL.black, 8), s * 0.10, 1.20, 0.22));
+      p.push(K.rot(K.at(K.box(0.13, 0.09, 0.05, PAL.red), s * 0.14, 0.95, 0.20), 0, s * 0.5, 0));
+    }
+    p.push(K.scl(K.at(K.sph(0.28, PAL.wood, 10), 0, 0.62, 0), 1.00, 1.15, 0.92));
+    p.push(K.scl(K.at(K.sph(0.18, PAL.sand, 8), 0, 0.58, 0.16), 1.00, 1.10, 0.50));
+    p.push(K.at(K.sph(0.26, PAL.wood, 10), 0, 1.15, 0));
+    p.push(K.scl(K.at(K.sph(0.13, PAL.sand, 8), 0, 1.08, 0.20), 1.00, 0.85, 0.90));
+    p.push(K.at(K.sph(0.048, PAL.black, 8), 0, 1.13, 0.30));
+    p.push(K.at(K.box(0.09, 0.09, 0.07, PAL.red), 0, 0.95, 0.23));
+    return K.group.apply(K, p);
+  },
+  size: [1.01, 1.43, 0.62],
+  rarity: 3,
+  form: { move: 'walk', speed: 4.5, turn: 3, jump: 4, mass: 1.5, ability: 'bounce',
+    desc: 'You are soft all the way through, slightly flattened on one side, and someone would fight a war for you.' }
+}
 
 ];
 /* ==========================================================================
