@@ -56,6 +56,14 @@ canvas#gl{position:fixed;inset:0;width:100%;height:100%;display:block;z-index:1}
   border:1px solid var(--acid);color:var(--acid);font-size:10.5px;font-weight:900;
   letter-spacing:.16em;opacity:0;transition:.18s;pointer-events:none}
 #mountTip.on{opacity:1}
+/* seeker-mode scoreboard */
+#seekCard{position:absolute;left:50%;top:112px;transform:translateX(-50%);
+  display:none;align-items:center;gap:16px;padding:9px 18px}
+#seekCard.on{display:flex}
+#seekFound{font-size:20px;font-weight:900;letter-spacing:.05em;color:var(--acid)}
+#seekStrikes{display:flex;gap:5px}
+#seekStrikes i{width:11px;height:11px;border-radius:50%;border:1.5px solid var(--line)}
+#seekStrikes i.used{background:var(--hot);border-color:var(--hot)}
 #susBar{height:8px;border-radius:5px;background:rgba(255,255,255,.12);overflow:hidden;margin-top:6px}
 #susBarF{height:100%;width:0%;background:linear-gradient(90deg,var(--amber),var(--hot))}
 
@@ -81,9 +89,12 @@ canvas#gl{position:fixed;inset:0;width:100%;height:100%;display:block;z-index:1}
 #swatch{width:34px;height:34px;border-radius:9px;border:2px solid rgba(255,255,255,.45);
   background:#ffffff;flex:0 0 auto;box-shadow:0 2px 10px rgba(0,0,0,.4)}
 #palette{display:flex;gap:4px;flex-wrap:wrap;flex:1}
-.pchip{width:19px;height:19px;border-radius:6px;cursor:pointer;pointer-events:auto;
-  border:1px solid rgba(255,255,255,.25)}
+.pchip{width:20px;height:20px;border-radius:6px;cursor:pointer;pointer-events:auto;
+  border:1px solid rgba(255,255,255,.25);transition:.1s}
 .pchip:hover{transform:scale(1.16)}
+.pchip.on{outline:2px solid var(--cyan);outline-offset:1px;transform:scale(1.1)}
+#swatchCol{display:flex;flex-direction:column;align-items:center;gap:3px;flex:0 0 auto}
+#swatchHex{font-size:8px;letter-spacing:.05em;opacity:.6}
 #sizeRow{display:flex;align-items:center;gap:9px;margin-top:9px;font-size:9.5px;letter-spacing:.1em;opacity:.75}
 #brushSize{flex:1;pointer-events:auto;accent-color:var(--cyan)}
 
@@ -153,6 +164,7 @@ canvas#gl{position:fixed;inset:0;width:100%;height:100%;display:block;z-index:1}
 #logoJp{font-size:11px;letter-spacing:.5em;opacity:.42;margin-top:11px;font-weight:800}
 #sub{margin-top:16px;font-size:13.5px;line-height:1.8;opacity:.62;max-width:480px;margin-left:auto;margin-right:auto}
 .btnRow{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:26px}
+.big small{display:block;font-size:8.5px;letter-spacing:.18em;opacity:.62;margin-top:3px;font-weight:700}
 .big{pointer-events:auto;padding:14px 34px;border-radius:13px;border:none;cursor:pointer;
   font-family:inherit;font-size:13px;font-weight:900;letter-spacing:.16em;
   background:linear-gradient(180deg,var(--acid),#9ed016);color:#131a04;
@@ -207,6 +219,11 @@ canvas#gl{position:fixed;inset:0;width:100%;height:100%;display:block;z-index:1}
 
   <div id="mountTip"></div>
 
+  <div id="seekCard" class="panel">
+    <div><span class="kicker">FOUND</span><div id="seekFound" class="mono">0 / 6</div></div>
+    <div><span class="kicker">STRIKES</span><div id="seekStrikes"></div></div>
+  </div>
+
   <div id="susCard" class="panel">
     <div style="display:flex;justify-content:space-between;align-items:baseline">
       <span class="kicker">SEEKER SUSPICION</span><span id="susTxt" class="mono" style="font-size:11px;font-weight:900">0%</span>
@@ -253,8 +270,12 @@ canvas#gl{position:fixed;inset:0;width:100%;height:100%;display:block;z-index:1}
       <button class="tool" data-tool="stripes">STRIPES</button>
       <button class="tool" data-tool="noise">NOISE</button>
       <button class="tool" data-tool="grain">GRAIN</button>
+      <button class="tool" id="btnUndo" style="flex:0 0 66px">UNDO</button>
     </div>
-    <div id="swatchRow"><div id="swatch"></div><div id="palette"></div></div>
+    <div id="swatchRow">
+      <div id="swatchCol"><div id="swatch"></div><span id="swatchHex" class="mono">#7D6A86</span></div>
+      <div id="palette"></div>
+    </div>
     <div id="sizeRow"><span>BRUSH</span><input id="brushSize" type="range" min="2" max="48" value="14"><span id="sizeVal" class="mono">14</span></div>
   </div>
 
@@ -283,12 +304,15 @@ canvas#gl{position:fixed;inset:0;width:100%;height:100%;display:block;z-index:1}
     <p id="sub">You are a blank white mannequin in a collector's mansion.<br>
       Steal the colours off the walls, paint yourself, strike a pose —<br>and do not move when the light comes.</p>
     <div class="btnRow">
-      <button class="big" id="btnPlay">START ROUND</button>
-      <button class="big ghost" id="btnTutorial">HOW TO HIDE</button>
+      <button class="big" id="btnPlay">HIDE <small>best <span id="bestHide">0</span></small></button>
+      <button class="big" id="btnSeek">SEEK <small>best <span id="bestSeek">0</span></small></button>
+      <button class="big ghost" id="btnTutorial">HOW TO PLAY</button>
     </div>
     <div id="keys">
       <b>WASD</b> move &nbsp;·&nbsp; <b>MOUSE</b> look &nbsp;·&nbsp; <b>CLICK</b> eyedrop a surface<br>
-      <b>1-8</b> poses &nbsp;·&nbsp; <b>R</b> take a plinth &nbsp;·&nbsp; <b>F</b> freeze &nbsp;·&nbsp; <b>Q</b> whistle &nbsp;·&nbsp; <b>E</b> decoy &nbsp;·&nbsp; <b>TAB</b> studio
+      <b>1-8</b> poses &nbsp;·&nbsp; <b>R</b> take a plinth &nbsp;·&nbsp; <b>F</b> freeze &nbsp;·&nbsp; <b>Q</b> whistle &nbsp;·&nbsp; <b>E</b> decoy<br>
+      <b>TAB</b> paint studio &nbsp;·&nbsp; <b>SHIFT</b> sprint &nbsp;·&nbsp; <b>CTRL+Z</b> undo a stroke
+      <div style="margin-top:9px;opacity:.75"><b>SEEK</b> — light them up with the torch and <b>CLICK</b> to call it. Three wrong calls and you are out.</div>
     </div>
     <div id="credits">Three.js renderer · procedural PBR textures · WebAudio synthesis · no external assets required</div>
   </div>
@@ -298,9 +322,10 @@ canvas#gl{position:fixed;inset:0;width:100%;height:100%;display:block;z-index:1}
   <div id="resTitle">SURVIVED</div>
   <div id="resSub">The seeker walked right past you</div>
   <div id="resStats">
-    <div class="rs"><div class="v mono" id="rsMatch">0%</div><div class="k">BEST MATCH</div></div>
+    <div class="rs"><div class="v mono" id="rsMatch">0%</div><div class="k" id="rsMatchK">BEST MATCH</div></div>
     <div class="rs"><div class="v mono" id="rsTime">0s</div><div class="k">TIME HIDDEN</div></div>
     <div class="rs"><div class="v mono" id="rsScore">0</div><div class="k">SCORE</div></div>
+    <div class="rs"><div class="v mono" id="rsBest">0</div><div class="k">PERSONAL BEST</div></div>
   </div>
   <div class="btnRow">
     <button class="big" id="btnAgain">PLAY AGAIN</button>
@@ -6408,7 +6433,12 @@ function rgbToHex(r,g,b){
 }
 function setColor(hex){
   curColor = hex;
-  document.getElementById('swatch').style.background = hex;
+  const sw = document.getElementById('swatch');
+  sw.style.background = hex;
+  const t = document.getElementById('swatchHex');
+  if (t) t.textContent = hex.toUpperCase();
+  [...document.getElementById('palette').children].forEach(el =>
+    el.classList.toggle('on', el.dataset.c === hex));
 }
 function paintAt(px, py, down){
   const c = paintCtx;
@@ -6537,14 +6567,55 @@ function doEyedrop(){
   d.classList.add('on');
   clearTimeout(d._t); d._t = setTimeout(() => d.classList.remove('on'), 1600);
 }
-const recents = [];
-function addRecent(hex){
-  if (recents.includes(hex)) return;
-  recents.unshift(hex);
-  if (recents.length > 10) recents.pop();
+/* The palette opens with every surface colour in the mansion already loaded,
+   so a new player can paint something that actually matches before they have
+   worked out what the eyedropper is for. Sampled colours push in at the front.
+   It used to start with a single chip the same off-white as the body, which
+   meant the first brush stroke landed invisibly and the studio looked broken. */
+const BASE_SWATCHES = [
+  '#e4e1da', '#7d6a86', '#7a5d50', '#74533a', '#8e2f38', '#c8bfae',
+  '#2c3138', '#f2f0eb', '#8a6a2c', '#3f6b40', '#2f5d7c', '#8c3b3b'
+];
+const recents = BASE_SWATCHES.slice();
+function renderPalette(){
   const pal = document.getElementById('palette');
-  pal.innerHTML = recents.map(h => `<div class="pchip" data-c="${h}" style="background:${h}"></div>`).join('');
-  [...pal.children].forEach(el => el.onclick = () => setColor(el.dataset.c));
+  pal.innerHTML = recents.map(h =>
+    `<div class="pchip${h === curColor ? ' on' : ''}" data-c="${h}" style="background:${h}"></div>`).join('');
+  [...pal.children].forEach(el => el.onclick = () => { setColor(el.dataset.c); renderPalette(); });
+}
+function addRecent(hex){
+  const i = recents.indexOf(hex);
+  if (i >= 0) recents.splice(i, 1);
+  recents.unshift(hex);
+  if (recents.length > 14) recents.pop();
+  renderPalette();
+}
+
+/* ---------- undo ----------
+   Painting is destructive on a single canvas, so each stroke stashes the
+   canvas as it was before the stroke began. Ten deep is plenty for the
+   45 seconds of prep the round allows. */
+const paintUndo = [];
+function pushUndo(){
+  const c = document.createElement('canvas');
+  c.width = c.height = PAINT_S;
+  c.getContext('2d').drawImage(paintCv, 0, 0);
+  paintUndo.push(c);
+  if (paintUndo.length > 10) paintUndo.shift();
+  syncUndo();
+}
+function undoPaint(){
+  const c = paintUndo.pop();
+  if (!c){ SFX.nope(); return; }
+  paintCtx.clearRect(0, 0, PAINT_S, PAINT_S);
+  paintCtx.drawImage(c, 0, 0);
+  paintTex.needsUpdate = true; paintDirty = true;
+  SFX.drop();
+  syncUndo();
+}
+function syncUndo(){
+  const b = document.getElementById('btnUndo');
+  if (b) b.disabled = paintUndo.length === 0;
 }
 
 /* ---------- camouflage match ----------
@@ -6918,9 +6989,332 @@ const SFX = {
   phase(){ [392,523,659].forEach((f,i)=>tone(f,0.28,0.16,'triangle',f,i*0.1)); }
 };
 /* ==========================================================================
+   Section 8 — SEEKER MODE
+   The other half of the game. Instead of hiding among the exhibits you walk
+   the mansion with a torch and try to pick the painted mannequins out of the
+   scenery. Every hider is generated the way a player would build one: sample
+   the surface it is standing against, paint that colour on, add some texture,
+   and hold a pose borrowed from the statues around it.
+
+   The difficulty is entirely in how well each one did. A sloppy hider is off
+   by a wide margin and pops out; a good one is within a few percent of the
+   wall behind it and you will walk past it twice.
+   ========================================================================== */
+const HIDERS = [];
+const SEEKGAME = { found: 0, strikes: 0, total: 0, torch: null, cone: null };
+const SEEK_LEN = 110;          // seconds on the clock
+const MAX_STRIKES = 3;
+
+/* Where a hider can stand: flat against a wall, in a corner, or up on one of
+   the empty plinths where it reads as part of the collection. */
+function hiderSpots(){
+  const L = ROOMS.library, F = ROOMS.foyer, E = ROOMS.exhibition;
+  const spots = [
+    { x: F.x0 + 1.2, z: -6.4, yaw: Math.PI/2 },
+    { x: F.x1 - 1.2, z:  6.4, yaw: -Math.PI/2 },
+    { x: -3.2,       z: F.z0 + 1.1, yaw: 0 },
+    { x: L.x0 + 1.3, z: -6.2, yaw: Math.PI/2 },
+    { x: L.x0 + 13.6, z: 6.2, yaw: -Math.PI/2 },
+    { x: L.x1 - 1.4, z: -6.6, yaw: -Math.PI/2 },
+    { x: E.x0 + 1.4, z: -7.2, yaw: Math.PI/2 },
+    { x: E.x1 - 1.4, z:  7.0, yaw: -Math.PI/2 },
+    { x: E.x0 + 8.0, z: E.z0 + 1.2, yaw: 0 },
+    { x: E.x0 + 15.0, z: E.z1 - 1.2, yaw: Math.PI }
+  ];
+  // the empty plinths are the best hiding places in the building
+  for (const m of MOUNTS) spots.push({ x: m.x, z: m.z, yaw: rnd(0, TAU), y: m.y });
+  return spots;
+}
+
+/* Build one hider's albedo: the backdrop colour, plus the same tools a player
+   has in the studio, applied with whatever care `skill` allows. */
+function hiderTexture(base, skill){
+  const c = document.createElement('canvas');
+  c.width = c.height = 128;
+  const x = c.getContext('2d');
+  // A poor hider misjudges the colour; a good one nails it.
+  const err = (1 - skill) * 46;
+  const j = () => (Math.random()*2 - 1) * err;
+  const r = clamp(base.r*255 + j(), 0, 255), g = clamp(base.g*255 + j(), 0, 255),
+        b = clamp(base.b*255 + j(), 0, 255);
+  x.fillStyle = `rgb(${r|0},${g|0},${b|0})`;
+  x.fillRect(0, 0, 128, 128);
+  // texture breakup — the better the hider, the more closely it matches
+  const n = 40 + Math.round(skill * 130);
+  for (let i = 0; i < n; i++){
+    const v = 0.86 + Math.random()*0.28;
+    x.fillStyle = `rgba(${clamp(r*v,0,255)|0},${clamp(g*v,0,255)|0},${clamp(b*v,0,255)|0},.5)`;
+    x.beginPath();
+    x.arc(Math.random()*128, Math.random()*128, 2 + Math.random()*9, 0, TAU);
+    x.fill();
+  }
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  return t;
+}
+
+/* What colour is the wall behind this spot? Cast the same ray the player's
+   eyedropper would, so hiders and players are matching against one truth. */
+const _hray = new THREE.Raycaster();
+function backdropAt(x, z, yaw){
+  _hray.set(new THREE.Vector3(x, FIG.chest, z),
+            new THREE.Vector3(Math.sin(yaw), 0, Math.cos(yaw)).negate());
+  _hray.far = 4;
+  const hits = _hray.intersectObjects(pickables, false);
+  for (const h of hits){
+    if (h.object.userData.hider) continue;
+    return sampleHit(h);
+  }
+  return new THREE.Color(0xbfb9ae);
+}
+
+function clearHiders(){
+  for (const h of HIDERS){
+    scene.remove(h.mesh);
+    const i = pickables.indexOf(h.mesh);
+    if (i >= 0) pickables.splice(i, 1);
+    if (h.mesh.material.map) h.mesh.material.map.dispose();
+    h.mesh.material.dispose();
+  }
+  HIDERS.length = 0;
+}
+
+function placeHiders(count){
+  clearHiders();
+  const spots = hiderSpots();
+  // shuffle so no two rounds hide in the same order
+  for (let i = spots.length - 1; i > 0; i--){
+    const j = Math.floor(Math.random()*(i+1));
+    [spots[i], spots[j]] = [spots[j], spots[i]];
+  }
+  const poses = ['stand','tpose','cheer','wave','hold','crouch','lean'];
+  for (let i = 0; i < Math.min(count, spots.length); i++){
+    const s = spots[i];
+    // Skill climbs through the set: the first few are gettable, the last one
+    // is very nearly the wall it is standing on.
+    const skill = clamp(0.30 + (i / Math.max(1, count-1)) * 0.66, 0, 0.96);
+    const poseKey = s.y !== undefined
+      ? poses[1 + Math.floor(Math.random()*4)]        // plinth hiders strike a pose
+      : poses[Math.floor(Math.random()*poses.length)];
+    const base = backdropAt(s.x, s.z, s.yaw);
+    const mat = new THREE.MeshStandardMaterial({
+      map: hiderTexture(base, skill), roughness: 0.66, metalness: 0.03 });
+    mat.userData.sig = base.getHex();
+    mat.userData.matName = 'hider';
+    const m = new THREE.Mesh(POSE_GEO[poseKey], mat);
+    const po = POSES[poseKey];
+    m.position.set(s.x, (s.y || 0), s.z);
+    m.rotation.set(po.rootRot[0], s.yaw + po.rootRot[1], po.rootRot[2]);
+    m.castShadow = true; m.receiveShadow = true;
+    m.userData.hider = true;
+    scene.add(m); pickables.push(m);
+    HIDERS.push({ mesh: m, found: false, skill });
+  }
+  SEEKGAME.total = HIDERS.length;
+}
+
+/* ---------- the player's torch ---------- */
+function initTorch(){
+  const t = new THREE.SpotLight(0xfff2d2, 90, 22, 0.40, 0.45, 1.5);
+  t.castShadow = true;
+  t.shadow.mapSize.set(1024, 1024);
+  t.shadow.bias = -0.003;
+  t.visible = false;
+  scene.add(t); scene.add(t.target);
+  SEEKGAME.torch = t;
+
+  const len = 13, rad = 4.4;
+  const cg = new THREE.ConeGeometry(rad, len, 24, 1, true);
+  cg.translate(0, -len/2, 0); cg.rotateX(-Math.PI/2);
+  const cone = new THREE.Mesh(cg, new THREE.ShaderMaterial({
+    transparent:true, depthWrite:false, side:THREE.DoubleSide,
+    blending:THREE.AdditiveBlending,
+    uniforms:{ uCol:{ value:new THREE.Color(0xffeec2) }, uLen:{ value:len } },
+    vertexShader:`
+      varying vec3 vP; varying vec3 vN;
+      void main(){ vP = position; vN = normalize(normalMatrix * normal);
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }`,
+    fragmentShader:`
+      uniform vec3 uCol; uniform float uLen;
+      varying vec3 vP; varying vec3 vN;
+      void main(){
+        float t = clamp(vP.z / uLen, 0.0, 1.0);
+        float rim = pow(1.0 - abs(dot(normalize(vN), vec3(0.0,0.0,1.0))), 1.4);
+        gl_FragColor = vec4(uCol, pow(1.0-t, 2.0) * (0.07 + rim*0.17));
+      }`
+  }));
+  cone.frustumCulled = false; cone.visible = false;
+  scene.add(cone);
+  SEEKGAME.cone = cone;
+}
+/* The torch points wherever the camera is looking, from the player's shoulder,
+   so what you light is what you are about to accuse. */
+const _tv = new THREE.Vector3(), _tp = new THREE.Vector3();
+function updateTorch(){
+  const t = SEEKGAME.torch, cone = SEEKGAME.cone;
+  if (!t || !t.visible) return;
+  camera.getWorldDirection(_tv);
+  _tp.set(P.x, FIG.chest + P.y + 0.12, P.z);
+  t.position.copy(_tp);
+  t.target.position.copy(_tp).addScaledVector(_tv, 12);
+  t.target.updateMatrixWorld();
+  cone.position.copy(_tp);
+  cone.lookAt(t.target.position);
+}
+
+/* ---------- accusing something ----------
+   The ray leaves the player's chest along the way the camera is facing — the
+   same origin and direction the torch uses. Casting from the camera instead
+   would send the ray straight THROUGH the player and accuse whatever happened
+   to be standing behind them, which is not what the beam is lighting up. */
+const _tagRay = new THREE.Raycaster();
+function torchHit(){
+  const dir = new THREE.Vector3();
+  camera.getWorldDirection(dir);
+  _tagRay.set(new THREE.Vector3(P.x, FIG.chest + P.y + 0.12, P.z), dir);
+  _tagRay.far = 16;
+  const hits = _tagRay.intersectObjects(pickables, false);
+  for (const h of hits){ if (h.object !== P.mesh) return h; }
+  return null;
+}
+function tagUnderCrosshair(){
+  if (GAME.phase !== 'seek' || GAME.over) return;
+  const hit = torchHit();
+  if (!hit){ SFX.nope(); return; }
+  if (hit.distance > 14){ toast('Too far — get closer to be sure'); SFX.nope(); return; }
+
+  const h = HIDERS.find(x => x.mesh === hit.object);
+  if (h && !h.found){
+    h.found = true;
+    SEEKGAME.found++;
+    // caught ones stand up and go bright, so the room reads as progress
+    h.mesh.material.emissive = new THREE.Color(0x2f7d3a);
+    h.mesh.material.emissiveIntensity = 0.7;
+    h.mesh.material.needsUpdate = true;
+    burst(h.mesh.position.x, FIG.chest, h.mesh.position.z);
+    SFX.found();
+    toast(`Found one — ${SEEKGAME.found} of ${SEEKGAME.total}`);
+    syncSeekHUD();
+    if (SEEKGAME.found >= SEEKGAME.total) endSeek(true);
+    return;
+  }
+  if (h){ toast('Already caught that one'); SFX.nope(); return; }
+
+  // wrong call: it was a statue, a painting, or the wallpaper
+  SEEKGAME.strikes++;
+  GAME.t += 6;                            // and it costs you six seconds
+  SFX.nope();
+  const what = hit.object.userData.statue ? 'That is a real statue.' : 'Nothing there.';
+  toast(`${what}  Strike ${SEEKGAME.strikes} of ${MAX_STRIKES}`);
+  syncSeekHUD();
+  if (SEEKGAME.strikes >= MAX_STRIKES) endSeek(false);
+}
+
+function syncSeekHUD(){
+  const f = document.getElementById('seekFound');
+  if (f) f.textContent = SEEKGAME.found + ' / ' + SEEKGAME.total;
+  const s = document.getElementById('seekStrikes');
+  if (s){
+    s.innerHTML = '';
+    for (let i = 0; i < MAX_STRIKES; i++){
+      const d = document.createElement('i');
+      if (i < SEEKGAME.strikes) d.className = 'used';
+      s.appendChild(d);
+    }
+  }
+}
+
+function startSeek(){
+  initAudio(); if (AC && AC.state === 'suspended') AC.resume();
+  document.getElementById('menu').classList.add('off');
+  document.getElementById('result').classList.add('off');
+  GAME.mode = 'seek'; GAME.over = false; GAME.hidden = 0;
+  SEEKGAME.found = 0; SEEKGAME.strikes = 0;
+  P.x = 0; P.z = 2.0; P.yaw = 0; P.frozen = false; P.mount = null;
+  P.y = 0; P.vx = P.vz = 0;
+  setPose('stand');
+  // The player is the guard now, so the AI seeker steps off the board.
+  if (SEEK.mesh){ SEEK.mesh.visible = false; SEEK.cone.visible = false; SEEK.light.visible = false; }
+  fillAll('#39435a');                       // a guard's uniform, not camouflage
+  placeHiders(6);
+  SEEKGAME.torch.visible = true;
+  SEEKGAME.cone.visible = true;
+  document.getElementById('seekCard').classList.add('on');
+  document.getElementById('studio').classList.remove('on');
+  document.getElementById('poseCard').classList.remove('on');
+  document.getElementById('susCard').classList.remove('on');
+  document.getElementById('matchCard').style.display = 'none';
+  document.getElementById('actions').style.display = 'none';
+  GAME.studio = false;
+  GAME.phase = 'seek'; GAME.t = 0; GAME.len = SEEK_LEN;
+  document.getElementById('phaseName').textContent = 'YOUR ROUND TO SEEK';
+  document.getElementById('phaseJp').textContent = 'さがす — find them all';
+  camYaw = 0; camPitch = 0.16; camDist = 3.8; snapCamera();
+  syncSeekHUD();
+  SFX.phase();
+  toast('Six of them are painted into this house. Click one to call it.');
+  CV3.requestPointerLock();
+}
+
+function endSeek(win){
+  if (GAME.over) return;
+  GAME.over = true;
+  GAME.phase = 'over';
+  SEEKGAME.torch.visible = false;
+  SEEKGAME.cone.visible = false;
+  document.getElementById('seekCard').classList.remove('on');
+  document.getElementById('actions').style.display = '';
+  // reveal whatever got away
+  for (const h of HIDERS) if (!h.found){
+    h.mesh.material.emissive = new THREE.Color(0x8c2f3a);
+    h.mesh.material.emissiveIntensity = 0.55;
+    h.mesh.material.needsUpdate = true;
+  }
+  const timeLeft = Math.max(0, GAME.len - GAME.t);
+  const score = Math.round(SEEKGAME.found * 220 + (win ? timeLeft * 6 : 0)
+                           - SEEKGAME.strikes * 90);
+  GAME.score = Math.max(0, score);
+  const $$ = id => document.getElementById(id);
+  $$('resTitle').textContent = win ? 'ALL FOUND' : (SEEKGAME.strikes >= MAX_STRIKES ? 'THROWN OUT' : 'TIME UP');
+  $$('resTitle').style.color = win ? 'var(--acid)' : 'var(--hot)';
+  $$('resSub').textContent = win
+    ? 'Not one of them got past you'
+    : (SEEKGAME.strikes >= MAX_STRIKES
+        ? 'Three wrong accusations. The curator has seen enough.'
+        : 'The lights came up and some of them were still standing there.');
+  $$('rsMatch').textContent = SEEKGAME.found + '/' + SEEKGAME.total;
+  $$('rsMatchK').textContent = 'FOUND';
+  $$('rsTime').textContent = Math.round(GAME.len - timeLeft) + 's';
+  $$('rsScore').textContent = GAME.score;
+  recordBest('seek', GAME.score);
+  $$('result').classList.remove('off');
+  document.exitPointerLock();
+  if (win) SFX.survive(); else SFX.found();
+}
+
+/* ---------- best scores, kept between sessions ---------- */
+function recordBest(mode, score){
+  let best = 0;
+  try {
+    best = +(localStorage.getItem('chameleon.best.' + mode) || 0);
+    if (score > best){ best = score; localStorage.setItem('chameleon.best.' + mode, String(score)); }
+  } catch(e){ /* private browsing — the score just does not persist */ }
+  const el = document.getElementById('rsBest');
+  if (el) el.textContent = String(Math.max(best, score));
+  return best;
+}
+function loadBest(mode){
+  try { return +(localStorage.getItem('chameleon.best.' + mode) || 0); } catch(e){ return 0; }
+}
+function syncMenuBests(){
+  const h = document.getElementById('bestHide'), s = document.getElementById('bestSeek');
+  if (h) h.textContent = loadBest('hide');
+  if (s) s.textContent = loadBest('seek');
+}
+/* ==========================================================================
    Section 7 — phases, input, HUD, main loop
    ========================================================================== */
-const GAME = { phase:'boot', t:0, len:0, score:0, hidden:0, studio:false, over:false };
+const GAME = { phase:'boot', t:0, len:0, score:0, hidden:0, studio:false, over:false, mode:'hide' };
 const PHASE_LEN = { prep: 45, hunt: 75 };
 const $ = id => document.getElementById(id);
 const keys = {};
@@ -6969,9 +7363,11 @@ function endRound(survived){
     : 'The light stopped moving. That is never good.';
   const sc = Math.round(bestMatch*600 + GAME.hidden*8 + (survived?400:0));
   GAME.score = sc;
+  $('rsMatchK').textContent = 'BEST MATCH';
   $('rsMatch').textContent = Math.round(bestMatch*100) + '%';
   $('rsTime').textContent = Math.round(GAME.hidden) + 's';
   $('rsScore').textContent = sc;
+  recordBest('hide', sc);
   $('result').classList.remove('off');
   document.exitPointerLock();
   if (survived) SFX.survive();
@@ -7200,6 +7596,7 @@ function initInput(){
     if (k === 'r'){ toggleMount(); return; }
     if (k === 'f' && GAME.phase === 'prep'){ setPhase('hunt'); return; }
     if (k === 'c'){ doEyedrop(); return; }
+    if (k === 'z' && (e.ctrlKey || e.metaKey)){ e.preventDefault(); undoPaint(); return; }
     const n = parseInt(k, 10);
     if (n >= 1 && n <= POSE_KEYS.length && GAME.phase === 'prep') setPose(POSE_KEYS[n-1]);
   });
@@ -7208,9 +7605,12 @@ function initInput(){
 
   CV3.addEventListener('mousedown', e => {
     if (GAME.phase === 'boot' || GAME.phase === 'over') return;
-    if (GAME.studio) return;
+    // Clicking the world while painting is a request to go and look at
+    // something, so close the studio and take the mouse back.
+    if (GAME.studio){ toggleStudio(); return; }
     if (!locked){ CV3.requestPointerLock(); return; }
-    if (e.button === 0) doEyedrop();
+    if (e.button !== 0) return;
+    if (GAME.phase === 'seek') tagUnderCrosshair(); else doEyedrop();
   });
   document.addEventListener('pointerlockchange', () => { locked = document.pointerLockElement === CV3; });
   addEventListener('mousemove', e => {
@@ -7227,12 +7627,13 @@ function initInput(){
     const r = paintCv.getBoundingClientRect();
     return { x:(e.clientX-r.left)/r.width*PAINT_S, y:(e.clientY-r.top)/r.height*PAINT_S };
   };
-  paintCv.addEventListener('mousedown', e => { painting = true; const p = toCv(e); paintAt(p.x,p.y,true); });
+  paintCv.addEventListener('mousedown', e => { pushUndo(); painting = true; const p = toCv(e); paintAt(p.x,p.y,true); });
   addEventListener('mouseup', () => painting = false);
   paintCv.addEventListener('mousemove', e => { if (painting){ const p = toCv(e); paintAt(p.x,p.y,false); } });
 
   // tools
-  document.querySelectorAll('.tool').forEach(b => b.onclick = () => {
+  $('btnUndo').onclick = undoPaint;
+  document.querySelectorAll('.tool[data-tool]').forEach(b => b.onclick = () => {
     document.querySelectorAll('.tool').forEach(x => x.classList.remove('on'));
     b.classList.add('on');
     curTool = b.dataset.tool;
@@ -7250,9 +7651,18 @@ function initInput(){
   $('btnWhistle').onclick = whistle;
   $('btnDecoy').onclick = spawnDecoy;
   $('btnPlay').onclick = startRound;
-  $('btnAgain').onclick = () => { $('result').classList.add('off'); startRound(); };
-  $('btnMenu').onclick = () => { $('result').classList.add('off'); $('menu').classList.remove('off'); GAME.phase='boot'; };
-  $('btnTutorial').onclick = () => toast('Eyedrop a wall (C) → paint yourself → pick a pose → press F and hold still.');
+  $('btnSeek').onclick = startSeek;
+  // Replay whichever mode was just played, rather than always the hiding one.
+  $('btnAgain').onclick = () => { $('result').classList.add('off');
+    (GAME.mode === 'seek' ? startSeek : startRound)(); };
+  $('btnMenu').onclick = () => { $('result').classList.add('off'); $('menu').classList.remove('off');
+    GAME.phase = 'boot'; clearHiders();
+    if (SEEKGAME.torch){ SEEKGAME.torch.visible = false; SEEKGAME.cone.visible = false; }
+    $('seekCard').classList.remove('on'); $('matchCard').style.display = '';
+    syncMenuBests(); };
+  $('btnTutorial').onclick = () => toast(GAME.mode === 'seek'
+    ? 'Sweep the torch, look for the one whose paint is slightly off, then click it.'
+    : 'Eyedrop a wall (C) → paint yourself → pick a pose → press F and hold still.');
 }
 function toggleStudio(){
   if (GAME.phase !== 'prep'){ toast('The studio is closed once the seeker is inside'); return; }
@@ -7270,14 +7680,26 @@ function startRound(){
   P.vx = P.vz = 0;
   setPose('stand');
   fillAll('#f2f0eb');
-  recents.length = 0; addRecent('#f2f0eb');
-  setColor('#f2f0eb');
+  paintUndo.length = 0; syncUndo();
+  recents.length = 0; recents.push(...BASE_SWATCHES);
+  // NOT the body's own colour — starting there paints invisibly
+  setColor('#7d6a86'); renderPalette();
   decoys.forEach(d => { scene.remove(d); const i = pickables.indexOf(d); if (i>=0) pickables.splice(i,1); });
   decoys.length = 0;
   SEEK.sus = 0; SEEK.wp = 0; SEEK.x = 0; SEEK.z = -8.5; SEEK.investigate = null;
   camYaw = 0; camPitch = 0.22; camDist = 5.0; camHold = 5.0;
+  GAME.mode = 'hide';
+  if (SEEK.mesh) SEEK.mesh.visible = false;
+  if (SEEKGAME.torch){ SEEKGAME.torch.visible = false; SEEKGAME.cone.visible = false; }
+  $('seekCard').classList.remove('on');
+  $('actions').style.display = '';
+  $('matchCard').style.display = '';
   setPhase('prep');
-  CV3.requestPointerLock();
+  // Open holding the brush, not the mouse. Pointer lock hides the cursor, so
+  // starting locked made the paint studio look present but dead — you could
+  // see it and not click it until you found TAB.
+  GAME.studio = true;
+  $('studio').style.outline = '2px solid var(--cyan)';
 }
 
 /* ---------- main loop ---------- */
@@ -7289,24 +7711,27 @@ function frame(now){
   fpsAcc += dt; fpsN++;
   if (fpsAcc > 0.5){ $('fps').textContent = Math.round(fpsN/fpsAcc) + ' FPS'; fpsAcc = 0; fpsN = 0; }
 
-  const playing = GAME.phase === 'prep' || GAME.phase === 'hunt';
+  const playing = GAME.phase === 'prep' || GAME.phase === 'hunt' || GAME.phase === 'seek';
   if (playing && !GAME.over){
     GAME.t += dt;
     if (P.whistleCd > 0) P.whistleCd -= dt;
     movePlayer(dt);
     updateMount(dt);
-    updateSeeker(dt);
+    if (GAME.phase === 'seek') updateTorch(); else updateSeeker(dt);
     if (GAME.phase === 'hunt') GAME.hidden += dt;
     // clock ticks
     const left = GAME.len - GAME.t;
     if (left < 11 && Math.floor(left) !== GAME._lastTick){ GAME._lastTick = Math.floor(left); SFX.tick(left < 6); }
     if (GAME.t >= GAME.len){
       if (GAME.phase === 'prep') setPhase('hunt');
+      else if (GAME.phase === 'seek') endSeek(false);
       else endRound(true);
     }
     // match is a few raycasts — 6 Hz is plenty
-    matchT += dt;
-    if (matchT > 0.16){ matchT = 0; matchVal = computeMatch(); bestMatch = Math.max(bestMatch, matchVal); }
+    if (GAME.phase !== 'seek'){
+      matchT += dt;
+      if (matchT > 0.16){ matchT = 0; matchVal = computeMatch(); bestMatch = Math.max(bestMatch, matchVal); }
+    }
   }
   followSun(P.x, P.z);
   updateCamera(dt);
@@ -7356,12 +7781,14 @@ async function boot(){
   buildSeeker();
   initWaves();
   initBurst();
+  initTorch();
   initInput();
   syncPoseUI(); syncActions();
   step(100, 'READY');
   await new Promise(r => setTimeout(r, 200));
   $('boot').classList.add('off');
   $('menu').classList.remove('off');
+  syncMenuBests();
   camera.position.set(0, 3, 12);
   requestAnimationFrame(frame);
 }
