@@ -60,6 +60,16 @@ hr{border:0;border-top:1px solid var(--s0);margin:14px 0}
 .row.wrap{flex-wrap:wrap}
 .spacer{flex:1}
 
+#demoPanel{position:absolute;right:14px;top:78px;text-align:right;pointer-events:none;
+  opacity:0;transition:opacity .35s}
+#demoPanel.on{opacity:1}
+#demoScore{font-size:26px;font-weight:800;color:var(--peach);line-height:1;
+  text-shadow:0 2px 12px rgba(0,0,0,.55)}
+#demoSub{font-size:10px;letter-spacing:.16em;color:var(--sub0);margin-top:3px}
+#demoCombo{font-size:13px;font-weight:700;letter-spacing:.06em;color:var(--yellow);margin-top:4px;
+  opacity:0;transition:opacity .2s}
+#demoCombo.on{opacity:1}
+
 /* ---------- boot ---------- */
 #boot{position:fixed;inset:0;z-index:90;display:flex;flex-direction:column;align-items:center;
   justify-content:center;gap:18px;background:var(--crust)}
@@ -181,6 +191,8 @@ input[type=range]::-moz-range-thumb{width:14px;height:14px;border-radius:50%;bac
 .meter .bar i{display:block;height:100%;width:0%;border-radius:7px;transition:width .16s}
 #dmgFill{background:linear-gradient(90deg,var(--green),var(--yellow) 55%,var(--red))}
 #fuelFill{background:linear-gradient(90deg,var(--sapphire),var(--sky))}
+#boostFill{background:linear-gradient(90deg,var(--peach),var(--yellow))}
+#boostMeter.hot #boostTxt{color:var(--peach)}
 #minimap{margin-top:8px;width:158px;height:158px;border-radius:12px;border:1px solid var(--s0);
   background:rgba(17,17,27,.6)}
 #hud .tr{position:absolute;right:14px;top:12px;text-align:right;font-size:11px;color:var(--sub0)}
@@ -323,6 +335,11 @@ input[type=range]::-moz-range-thumb{width:14px;height:14px;border-radius:50%;bac
     <div id="wxLine"></div>
     <div id="camTag">CHASE</div>
   </div>
+  <div id="demoPanel">
+    <div id="demoScore">0</div>
+    <div id="demoSub">DEMOLITION</div>
+    <div id="demoCombo">x1</div>
+  </div>
   <div class="bl">
     <div class="meter">
       <div class="cap"><span>Damage</span><span id="dmgPct">0%</span></div>
@@ -331,6 +348,10 @@ input[type=range]::-moz-range-thumb{width:14px;height:14px;border-radius:50%;bac
     <div class="meter" id="loadMeter">
       <div class="cap"><span>Payload</span><span id="loadTxt">0 kg</span></div>
       <div class="bar"><i id="fuelFill"></i></div>
+    </div>
+    <div class="meter" id="boostMeter">
+      <div class="cap"><span>Boost</span><span id="boostTxt">READY</span></div>
+      <div class="bar"><i id="boostFill"></i></div>
     </div>
     <canvas id="minimap" width="316" height="316" class="hide"></canvas>
   </div>
@@ -389,7 +410,7 @@ input[type=range]::-moz-range-thumb{width:14px;height:14px;border-radius:50%;bac
     </div>
     <div class="credit">
       <b style="color:var(--sapphire)">C = aeroplane · N = boat</b> — mid-air is fine · V drops the trailer<br>
-      WASD drive · SPACE jump · X handbrake · H horn · G diff · Z low range · T telemetry<br>
+      WASD drive · SPACE jump · F boost · X handbrake · U flip · H horn · G diff · Z low range<br>
       SHIFT/CTRL gears · R reset · B camera · F flip · drag mouse to look around<br>
       Everything here — geometry, textures, audio, terrain — is generated at runtime.
     </div>
@@ -1625,6 +1646,21 @@ function disposeObj(o) {
  * 4. PHYSICS WORLD + SURFACES
  * ========================================================================= */
 
+/* Overboost. Five seconds of thrust applied straight to the hull along its own
+ * nose, so it works exactly the same whether the wheels are on the ground, in
+ * the air, folded into an aeroplane or floating. Scaled by mass, so the eleven
+ * tonne hauler gets shoved as hard as the rally car does. */
+const BOOST_TIME = 5.0;        // seconds of full thrust
+const BOOST_COOL = 14.0;       // seconds to recharge once it runs out
+const BOOST_ACCEL = 9.0;       // m/s^2 of pure thrust — a shade under 1 g
+/* Top speed is where thrust and drag balance, and drag goes as the square of
+ * speed — so a quarter of the drag is exactly twice the top speed, no more and
+ * no less. The thrust is what gets you there in a hurry; the drag figure is
+ * what sets the ceiling. Left at 17.5 the two compounded and the boost was
+ * worth nearly four times the speed, which is not what was asked for and is
+ * not controllable either. */
+const BOOST_TORQUE = 1.7;      // and the engine leans on the wheels this much harder
+
 const GROUP = { WORLD: 1, VEHICLE: 2, CARGO: 4, DEBRIS: 8, TRIGGER: 16, TERRAIN: 32 };
 /** Wheel rays only care about built geometry — never cargo, debris, or the
  *  heightfield (that one is sampled analytically instead, which is far faster). */
@@ -2126,6 +2162,8 @@ class Vehicle {
     this.diffLock = false;
     this.morph = 0;              // 0 = truck, 1 = aeroplane (driven by TruckRig)
     this.boat = 0;               // 0 = truck, 1 = boat
+    this.boostT = 0;             // seconds of overboost left
+    this.boostCool = 0;          // seconds until it can be used again
     this.throttleLevel = 0.7;    // jet throttle, separate from the road throttle
     this.aoa = 0;
     this.stalling = false;
@@ -2317,6 +2355,7 @@ class Vehicle {
       this.drive.clutchIn = ctrl.clutch;
       // jets or the water jet take over from the road wheels
       driveTorque *= (1 - clamp01(Math.max(this.morph, this.boat) * 1.4));
+      if (this.boostT > 0) driveTorque *= BOOST_TORQUE;
     }
 
     const brakeMul = 1 - 0.4 * this.damage;
@@ -2336,7 +2375,7 @@ class Vehicle {
     let hold = 0;
     if (!this.isTrailer && this.wheelsOnGround > 0 &&
         ctrl.throttle < 0.02 && ctrl.brake < 0.02 && ctrl.handbrake < 0.02 &&
-        this.morph < 0.2 && this.boat < 0.2) {
+        this.morph < 0.2 && this.boat < 0.2 && this.boostT <= 0) {
       hold = 1 - smoothstep(clamp01((this.speedAbs - 0.9) / 1.6));
     }
     this.autoHold = hold;
@@ -2561,6 +2600,27 @@ class Vehicle {
   }
 
   /* --------------------------------------------------- aero + air control */
+  /**
+   * Overboost. The force goes on the body along its own forward axis rather
+   * than through the tyres, which is the whole point — it pulls just as hard
+   * with all four wheels off the ground, mid-jump, or halfway through folding
+   * into an aeroplane. Mass-scaled so every vehicle gets the same shove in g.
+   */
+  overboost(dt) {
+    if (this.boostT > 0) {
+      this.boostT -= dt;
+      if (this.boostT <= 0) { this.boostT = 0; this.boostCool = BOOST_COOL; }
+      const b = this.body;
+      const F = b.mass * BOOST_ACCEL;
+      b.force.x += this.fwdC.x * F;
+      b.force.y += this.fwdC.y * F;
+      b.force.z += this.fwdC.z * F;
+    } else if (this.boostCool > 0) {
+      this.boostCool -= dt;
+      if (this.boostCool < 0) this.boostCool = 0;
+    }
+  }
+
   aero(dt, ctrl) {
     const b = this.body;
     const v = b.velocity;
@@ -2570,8 +2630,13 @@ class Vehicle {
       // drag is what actually caps top speed, so the cheat has to thin it out
       // a deployed air brake is worth about half again as much drag
       const ab = this.aeroBrake || 0;
+      // Overboost does not just push harder, it slips through the air: top
+      // speed is set by where thrust and drag balance, so quartering the drag
+      // is what actually doubles the number on the dial rather than just
+      // getting you to the old one sooner.
+      const boostDrag = this.boostT > 0 ? 0.25 : 1;
       const F = 0.5 * 1.2 * this.spec.aero.cd * (1 + ab * 0.55) * cheatDrag() *
-                this.spec.aero.area * sp2;
+                this.spec.aero.area * sp2 * boostDrag;
       vset(cvA, -v.x / spd * F, -v.y / spd * F, -v.z / spd * F);
       b.force.x += cvA.x; b.force.y += cvA.y; b.force.z += cvA.z;
       if (this.spec.aero.downforce) {
@@ -2627,6 +2692,7 @@ class Vehicle {
     this.suspension(dt);
     this.tyres(dt, ctrl);
     this.aero(dt, ctrl);
+    this.overboost(dt);
     this.flight(dt, ctrl);
     this.buoyancy(dt, ctrl);
     this.stability(dt);
@@ -3112,6 +3178,54 @@ const TRUCKS = {
            smooth: true, wheel: 'alloy', wing: true },
   },
 
+
+  /* --------------------------------------------------------- muscle coupe */
+  // The other lofted body in the game, and the opposite character to the
+  // hypercar in every way that matters: all of its torque goes to the back
+  // axle, it makes no downforce worth the name, and its rear tyres give up
+  // long before its front ones do. That combination is the whole point — it
+  // is the only thing here you steer with the throttle on tarmac.
+  muscle: {
+    id: 'muscle', name: 'DOMINION 427', klass: 'MUSCLE',
+    desc: 'Seven litres, two driven wheels and no electronics worth the name. Sideways is the default.',
+    paint: 0xeba0ac, trim: 0x1c1c28, mass: 1690,
+    colliders: [
+      { s: [1.86, 0.46, 3.70], p: [0, 0.02, 0] },
+      { s: [1.62, 0.34, 0.95], p: [0, 0.06, 2.18] },
+      { s: [1.74, 0.36, 0.95], p: [0, 0.08, -2.16] },
+      { s: [1.56, 0.46, 2.05], p: [0, 0.42, -0.24] },
+    ],
+    wheelDef: { radius: 0.40, width: 0.36, rest: 0.30 },
+    // Rear drive, and a rear axle that is deliberately the weak end: a lower
+    // brake bias and no steer, so a bootful out of a corner steps it out and
+    // keeps it there rather than snapping back.
+    wheels: [
+      { x: -0.86, y: 0.00, z: 1.50, steer: 1, drive: 0, brake: 1.18, handbrake: 0, axle: 0 },
+      { x: 0.86, y: 0.00, z: 1.50, steer: 1, drive: 0, brake: 1.18, handbrake: 0, axle: 0 },
+      { x: -0.90, y: 0.00, z: -1.55, steer: 0, drive: 1, brake: 0.74, handbrake: 1, axle: 1 },
+      { x: 0.90, y: 0.00, z: -1.55, steer: 0, drive: 1, brake: 0.74, handbrake: 1, axle: 1 },
+    ],
+    // Big and lazy: peak torque low down, and it runs out of breath early.
+    engine: { peakTorque: 810, redline: 6200, idle: 780, limiter: 6500, inertia: 0.46, turbo: 0.10 },
+    gears: { ratios: [2.88, 1.90, 1.42, 1.00, 0.78], reverse: 2.70, final: 3.90,
+             shiftTime: 0.20, efficiency: 0.93 },
+    brakeTorque: 4200, handbrakeTorque: 4600,
+    susp: { rest: 0.30, stiffness: 1.12, damping: 0.98, arb: 0.42, staticFrac: 0.34 },
+    // Note the grip figure against the hypercar's 1.36. It is not a slow car,
+    // it is a car that cannot put its power down, which is a different and far
+    // more entertaining problem.
+    tyre: { grip: 1.06, rollInfluence: 0.10, rollDrag: 0.94 },
+    steer: { maxDeg: 38, speedFalloff: 96, minFactor: 0.42, rate: 250 },
+    aero: { cd: 0.46, area: 2.34, downforce: 0.7 },
+    airControl: { pitch: 4.0, roll: 5.0, yaw: 2.0, damp: 1.1 },
+    flight: { wing: 0.016, thrust: 8.0, pitch: 5.6, roll: 6.2, yaw: 1.6, damp: 1.7, stall: 18 },
+    hitch: [0, 0.34, -2.42],
+    bed: { p: [0, 0.20, -1.55], s: [1.10, 0.50, 1.00] }, payload: 300,
+    rig: { camScale: 0.92, hood: [0, 0.62, 1.70], cockpit: [-0.34, 0.62, 0.05],
+           lights: [0.62, 0.14, 2.46], lightScale: 0.62, smokeZ: 1.9, toughness: 1.1,
+           smooth: true, wheel: 'alloy' },
+  },
+
   /* ------------------------------------------------------- 8x8 heavy hauler */
   titan: {
     id: 'titan', name: 'TITAN 8x8', klass: 'HEAVY HAULER',
@@ -3151,7 +3265,7 @@ const TRUCKS = {
            lights: [1.00, 0.55, 3.85], smokeZ: 2.4, toughness: 0.85 },
   },
 };
-const TRUCK_IDS = ['pickup', 'rally', 'hyper', 'monster', 'semi', 'dump', 'titan'];
+const TRUCK_IDS = ['pickup', 'rally', 'muscle', 'hyper', 'monster', 'semi', 'dump', 'titan'];
 
 /** Default tuning per truck (all multipliers, 1 = stock). */
 function defaultTune() {
@@ -3375,6 +3489,111 @@ function buildHyperBody(paint, trim) {
   return body;
 }
 
+
+/**
+ * The DOMINION's shell. Same technique as the hypercar — a lofted tub with a
+ * lofted glasshouse sunk into it — but drawn to a completely different set of
+ * proportions: a bonnet half the length of the car, the cabin pushed back over
+ * the rear axle, and a fastback roofline that runs all the way to the tail.
+ * Returns the merged decoration with the two lofted shells first, because only
+ * that leading run of vertices gets averaged normals.
+ */
+function buildMuscleBody(paint, trim) {
+  const body = [];
+  const chrome = 0xc6ccd8, dark = 0x0e0e15, glass = 0x16232f, black = 0x14141c;
+  const stripe = 0x1e1e2e;
+
+  /* ---- lofted tub ------------------------------------------------------
+   * The arch tucks are the same trick as the hypercar: over each axle the
+   * body is at its widest but its lower corners are rounded hard away, so the
+   * tyre stands proud below the sill instead of disappearing into the flank.
+   * (z, half-width, top rise, bottom drop, centre y, top squareness, bottom) */
+  const tub = [
+    [-2.55, 0.72, 0.30, 0.22, 0.10, 3.4, 3.0], [-2.30, 0.90, 0.34, 0.26, 0.09, 5.0, 3.2],
+    [-1.95, 0.97, 0.34, 0.24, 0.08, 6.0, 2.0], [-1.55, 0.99, 0.33, 0.18, 0.07, 6.5, 1.4],
+    [-1.05, 0.94, 0.33, 0.27, 0.06, 6.5, 4.2], [-0.20, 0.92, 0.33, 0.29, 0.05, 7.0, 5.0],
+    [0.70, 0.92, 0.32, 0.29, 0.05, 7.0, 5.0], [1.15, 0.95, 0.30, 0.26, 0.05, 6.5, 3.4],
+    [1.50, 0.99, 0.28, 0.18, 0.04, 6.5, 1.4], [2.05, 0.95, 0.26, 0.24, 0.03, 5.5, 3.0],
+    [2.45, 0.86, 0.23, 0.22, 0.02, 4.2, 3.0], [2.60, 0.70, 0.20, 0.20, 0.02, 3.4, 3.0],
+  ];
+  body.push(loftGeo(tub.map(s =>
+    ({ z: s[0], pts: seRing(18, s[1], s[2], s[3], s[4], s[5], s[6]) })), paint));
+
+  /* ---- fastback glasshouse --------------------------------------------- */
+  const cab = [
+    [-1.62, 0.46, 0.05, 0.10, 0.42], [-1.10, 0.72, 0.20, 0.10, 0.44],
+    [-0.55, 0.80, 0.31, 0.10, 0.46], [0.10, 0.81, 0.34, 0.10, 0.46],
+    [0.62, 0.78, 0.30, 0.10, 0.45], [1.02, 0.68, 0.15, 0.10, 0.42],
+  ];
+  body.push(loftGeo(cab.map(s =>
+    ({ z: s[0], pts: seRing(14, s[1], s[2], s[3], s[4], 2.6, 6.0) })), glass));
+
+  /* Roof panel, pillars and the twin stripes down the middle. The pillars are
+   * placed as chords between two points on the glasshouse rather than by eye:
+   * a box rotated by θ about X sends its long axis to (0, -sinθ, cosθ), so the
+   * angle falls straight out of the rise and run between the two ends. Guessing
+   * at it left them standing out of the roof like fins. */
+  body.push(boxG(0.80, 0.04, 1.16, paint, [0, 0.784, 0.02]));
+  for (const sx of [-1, 1]) {
+    // A-pillar: base of the windscreen up to the front of the roof
+    body.push(boxG(0.06, 0.075, 0.452, paint, [sx * 0.66, 0.675, 0.80], [0.484, 0, 0]));
+    // C-pillar: back of the roof down into the fastback
+    body.push(boxG(0.06, 0.075, 0.886, paint, [sx * 0.53, 0.595, -1.02], [-0.286, 0, 0]));
+    body.push(boxG(0.20, 0.028, 3.40, stripe, [sx * 0.22, 0.40, 0.55]));
+  }
+  body.push(boxG(0.84, 0.04, 0.05, dark, [0, 0.74, 0.98], [0.52, 0, 0]));
+
+  /* ---- the long bonnet: power bulge, shaker scoop, pins ----------------- */
+  body.push(boxG(0.74, 0.09, 1.34, paint, [0, 0.34, 1.72]));
+  body.push(boxG(0.46, 0.13, 0.52, black, [0, 0.42, 1.86]));
+  body.push(boxG(0.40, 0.06, 0.10, dark, [0, 0.49, 2.10], [-0.22, 0, 0]));
+  for (const sx of [-1, 1]) {
+    body.push(cylG(0.032, 0.032, 0.05, 6, chrome, [sx * 0.60, 0.31, 2.18], [PI / 2, 0, 0]));
+    body.push(boxG(0.30, 0.035, 0.16, dark, [sx * 0.44, 0.33, 1.26], [0.18, 0, 0]));
+  }
+
+  /* ---- front: quad lamps, split grille, chrome bumper ------------------- */
+  body.push(boxG(1.30, 0.20, 0.10, dark, [0, 0.10, 2.56]));
+  for (let i = 0; i < 5; i++) body.push(boxG(0.05, 0.17, 0.07, chrome, [(i - 2) * 0.20, 0.10, 2.585]));
+  body.push(boxG(1.94, 0.15, 0.24, chrome, [0, -0.10, 2.55]));
+  body.push(boxG(1.86, 0.07, 0.10, chrome, [0, 0.30, 2.50]));
+  for (const sx of [-1, 1]) {
+    body.push(boxG(0.42, 0.20, 0.06, dark, [sx * 0.62, 0.14, 2.50]));
+    body.push(boxG(0.10, 0.09, 0.11, chrome, [sx * 0.90, -0.10, 2.42], [0, sx * 0.5, 0]));
+  }
+
+  /* ---- flanks: arch lips, sills, side pipes, mirrors -------------------- */
+  for (const sx of [-1, 1]) {
+    for (const [wz, wx, ar] of [[1.50, 0.965, 0.34], [-1.55, 0.985, 0.36]]) {
+      body.push(...arcBoxes(ar, -1.42, 1.42, 7, 0.055, 0.05, trim, [sx * wx, -0.02, wz]));
+    }
+    // side-exit exhaust running under the sill, the way these things always did
+    body.push(cylG(0.062, 0.062, 1.60, 8, chrome, [sx * 0.93, -0.20, -0.10], [PI / 2, 0, 0]));
+    body.push(cylG(0.075, 0.075, 0.18, 8, chrome, [sx * 0.93, -0.20, -0.92], [PI / 2, 0, 0]));
+    body.push(boxG(0.10, 0.10, 1.10, trim, [sx * 0.90, -0.24, 0.30]));
+    // gill vents behind the front arch
+    for (let i = 0; i < 3; i++) {
+      body.push(boxG(0.05, 0.035, 0.22, dark, [sx * 0.925, 0.04 + i * 0.08, 0.92], [0.20, 0, 0]));
+    }
+    body.push(boxG(0.16, 0.035, 0.05, chrome, [sx * 0.80, 0.34, 0.90], [0, sx * 0.34, 0]));
+    body.push(boxG(0.055, 0.10, 0.17, paint, [sx * 0.88, 0.37, 0.92], [0, sx * 0.26, 0]));
+    body.push(boxG(0.10, 0.028, 0.030, chrome, [sx * 0.945, 0.30, -0.20]));
+  }
+
+  /* ---- tail: ducktail spoiler, full-width panel, quad pipes ------------- */
+  body.push(boxG(1.72, 0.07, 0.34, paint, [0, 0.36, -2.06], [0.30, 0, 0]));
+  body.push(boxG(1.66, 0.24, 0.07, dark, [0, 0.14, -2.52]));
+  body.push(boxG(1.94, 0.15, 0.22, chrome, [0, -0.08, -2.50]));
+  body.push(boxG(0.34, 0.05, 0.04, chrome, [0, 0.30, -2.54]));
+  for (const sx of [-1, 1]) {
+    body.push(cylG(0.070, 0.078, 0.16, 8, chrome, [sx * 0.30, -0.06, -2.60], [PI / 2, 0, 0]));
+    body.push(cylG(0.070, 0.078, 0.16, 8, chrome, [sx * 0.48, -0.06, -2.60], [PI / 2, 0, 0]));
+  }
+  // fuel filler in the tail panel, because that is where it went
+  body.push(cylG(0.10, 0.10, 0.04, 10, chrome, [0, 0.14, -2.56], [PI / 2, 0, 0]));
+  return body;
+}
+
 /** The active rear wing — its own mesh so it can rise and tilt in flight. */
 function buildHyperWing(paint, trim) {
   const carbon = 0x1a1a24;
@@ -3521,6 +3740,25 @@ function buildTruckVisual(spec) {
     // is its own mesh and is shed separately (see TruckRig.updateActiveAero).
     panels.push({ name: 'splitter', g: boxG(1.62, 0.05, 0.36, 0x1a1a24, [0, -0.32, 2.06], null, 2),
                   local: [0, -0.32, 2.06], size: [1.62, 0.05, 0.36], mass: 9, thresh: 0.24 });
+  }
+
+  if (spec.id === 'muscle') {
+    const mb = buildMuscleBody(paint, trim);
+    // same rule as the hypercar: the two lofted shells lead the buffer, and
+    // only that range gets its normals averaged
+    smoothVerts = mb[0].attributes.position.count + mb[1].attributes.position.count;
+    for (const g of mb) P(g);
+    // Panels have to stand clear of the loft — detaching collapses every vertex
+    // inside the panel's box, so anything flush with the shell would tear a
+    // hole in it. The bonnet bulge, both bumpers and the ducktail all do.
+    panels.push({ name: 'bonnet', g: boxG(0.74, 0.09, 1.34, paint, [0, 0.34, 1.72], null, 2),
+                  local: [0, 0.34, 1.72], size: [0.74, 0.09, 1.34], mass: 22, thresh: 0.34 });
+    panels.push({ name: 'spoiler', g: boxG(1.72, 0.07, 0.34, paint, [0, 0.36, -2.06], null, 2),
+                  local: [0, 0.36, -2.06], size: [1.72, 0.07, 0.34], mass: 10, thresh: 0.28 });
+    panels.push({ name: 'bumperF', g: boxG(1.94, 0.15, 0.24, 0xc6ccd8, [0, -0.10, 2.55], null, 1),
+                  local: [0, -0.10, 2.55], size: [1.94, 0.15, 0.24], mass: 20, thresh: 0.26 });
+    panels.push({ name: 'bumperR', g: boxG(1.94, 0.15, 0.22, 0xc6ccd8, [0, -0.08, -2.50], null, 1),
+                  local: [0, -0.08, -2.50], size: [1.94, 0.15, 0.22], mass: 20, thresh: 0.30 });
   }
 
   if (spec.id === 'titan') {
@@ -4355,6 +4593,25 @@ class TruckRig {
     }
     this.updateActiveAero(dt);
     if (this.podGroup) this.podGroup.visible = Weapons.armed;
+    // ---- overboost: meter, flame, shake
+    const bt = v.boostT, bc = v.boostCool;
+    const bm = document.getElementById('boostMeter');
+    if (bm) {
+      const frac = bt > 0 ? bt / BOOST_TIME : (bc > 0 ? 1 - bc / BOOST_COOL : 1);
+      document.getElementById('boostFill').style.width = clamp01(frac) * 100 + '%';
+      document.getElementById('boostTxt').textContent =
+        bt > 0 ? bt.toFixed(1) + ' S' : (bc > 0 ? 'CHARGING' : 'READY — F');
+      bm.classList.toggle('hot', bt > 0);
+    }
+    if (bt > 0) {
+      // torch out of the back, wherever this rig's exhaust happens to be
+      const z = (this.spec.rig && this.spec.rig.smokeZ) || 1.9;
+      tmpV.set((Math.random() - 0.5) * 0.5, 0.1, -Math.abs(z) - 0.7);
+      this.group.localToWorld(tmpV);
+      FX.smoke(tmpV, 0.5 + Math.random() * 0.4, Math.random() < 0.6 ? 0xfab387 : 0xf38ba8);
+      if (Math.random() < 0.5) FX.sparks(tmpV, v.fwdC, 3 + Math.random() * 5);
+      Cam.addShake(0.012);
+    }
     // brake lights
     const braking = Game.ctrl.brake > 0.15 || Game.ctrl.handbrake > 0.15;
     this.tailMat.color.setHex(braking ? 0xf38ba8 : (this.lightsOn ? 0x9a3346 : 0x5a2030));
@@ -5107,6 +5364,7 @@ const MISSILE = {
   ammo: 6,
   reload: 1.6,      // seconds per rocket back in the rack
   cooldown: 0.28,   // minimum spacing between launches
+  strikeReload: 28, // seconds between airstrikes — its own weapon, its own clock
 };
 /** The Warhead slider. One number drives size, blast radius and impulse. */
 function warhead() { return clamp(store.settings.warhead || 1, 0.25, 4); }
@@ -5165,6 +5423,8 @@ function buildLauncherPods(spec) {
 }
 
 const Weapons = {
+  strikeCool: 0,
+  strike: null,   // rockets still queued for an inbound airstrike
   live: [], ammo: MISSILE.ammo, cool: 0, reload: 0,
   geo: null, mat: null, flameMat: null, next: 0, fireBtn: null,
 
@@ -5199,7 +5459,7 @@ const Weapons = {
       store.settings.missiles = true;
       this.ammo = MISSILE.ammo;
       saveStore();
-      UI.center('ORDNANCE UNLOCKED', 'RIGHT CLICK to fire · toggle in Settings', 3400);
+      UI.center('ORDNANCE UNLOCKED', 'RIGHT CLICK to fire · K calls an airstrike · toggle in Settings', 3800);
       Audio_.chime(3);
       if (UI.current === 'settings') UI.buildSettings();
     } else {
@@ -5256,8 +5516,29 @@ const Weapons = {
     tmpV2.addScaledVector(tmpV, 1.6);
 
     const k = warhead();
+    this.spawnRocket(tmpV2, tmpV, k, rig.vehicle.body.velocity);
+    this.ammo--;
+    this.cool = MISSILE.cooldown;
+    if (this.reload <= 0) this.reload = MISSILE.reload;
+    Cam.addShake(0.22);
+  },
+
+  /**
+   * Put one rocket in the air. Lifted out of fire() because the airstrike
+   * launches from a hundred metres above the target rather than from the pods,
+   * and everything else about the rocket is identical.
+   */
+  spawnRocket(origin, dir, k, carrierVel) {
+    if (!this.geo) {
+      this.geo = missileGeometry();
+      this.mat = vcMat({ roughness: 0.5, metalness: 0.4 });
+      this.mat.__keep = true;
+      this.flameMat = new THREE.MeshBasicMaterial({ color: 0xfab387, transparent: true, opacity: 0.85 });
+      this.flameMat.__keep = true;
+    }
+    const o = origin.clone(), d = dir.clone().normalize();
     const body = makeBody({
-      mass: MISSILE.mass * k, pos: [tmpV2.x, tmpV2.y, tmpV2.z], material: PMAT.metal,
+      mass: MISSILE.mass * k, pos: [o.x, o.y, o.z], material: PMAT.metal,
       group: GROUP.DEBRIS,
       // deliberately not GROUP.VEHICLE — a rocket leaving the tube must not
       // clip the rig that fired it. The blast still reaches you.
@@ -5268,15 +5549,15 @@ const Weapons = {
     body.updateMassProperties();
     body.allowSleep = false;
 
-    const vv = rig.vehicle.body.velocity;
+    const closing = carrierVel ? Math.max(0, carrierVel.x * d.x + carrierVel.y * d.y + carrierVel.z * d.z) : 0;
     const m = {
-      body, dir: tmpV.clone(), t: 0, dead: false, k,
-      speed: MISSILE.speed + Math.max(0, vv.x * tmpV.x + vv.y * tmpV.y + vv.z * tmpV.z),
+      body, dir: d, t: 0, dead: false, k,
+      speed: MISSILE.speed + closing,
       mesh: new THREE.Mesh(this.geo, this.mat),
       // where the contact-fuse sweep starts from on the first frame, and the
       // launch point the safety arm measures its three metres from
-      px: tmpV2.x, py: tmpV2.y, pz: tmpV2.z,
-      sx: tmpV2.x, sy: tmpV2.y, sz: tmpV2.z,
+      px: o.x, py: o.y, pz: o.z,
+      sx: o.x, sy: o.y, sz: o.z,
     };
     m.mesh.castShadow = true;
     m.mesh.scale.setScalar(k);
@@ -5291,14 +5572,84 @@ const Weapons = {
     scene.add(m.mesh);
     world.addBody(body);
     this.live.push(m);
-
-    this.ammo--;
-    this.cool = MISSILE.cooldown;
-    if (this.reload <= 0) this.reload = MISSILE.reload;
     Audio_.launch();
-    Cam.addShake(0.22);
-    FX.smoke(tmpV2, 0.7, 0x9399b2);
-    Net.sendShoot(tmpV2, tmpV, m.speed, k);
+    FX.smoke(o, 0.7, 0x9399b2);
+    Net.sendShoot(o, d, m.speed, k);
+    return m;
+  },
+
+  /**
+   * Where is the player actually looking? March the camera's forward line out
+   * until it meets a building or the ground. Used to place the airstrike, and
+   * deliberately capped — you cannot call one down on the far side of the map.
+   */
+  aimPoint(maxRange) {
+    const range = maxRange || 260;
+    camera.getWorldDirection(tmpV);
+    const from = camera.position;
+    const own = Game.rig && Game.rig.vehicle.body;
+    /* Nothing within fifteen metres counts. The camera sits behind the truck,
+     * so the line of sight leaves through your own bodywork, your trailer, and
+     * whatever wreckage you are currently parked in — none of which is what you
+     * are looking AT. The strike has a 26 m minimum anyway. */
+    const near = 15;
+    let bestT = range;
+    /* Built geometry first. The camera sits several metres behind the truck,
+     * so the line of sight starts by going straight through it — without
+     * skipping our own body every strike would land on the bonnet. */
+    const g0 = own ? own.collisionFilterGroup : 0;
+    if (own) own.collisionFilterGroup = 0;
+    rayResult.reset();
+    cvA.set(from.x + tmpV.x * near, from.y + tmpV.y * near, from.z + tmpV.z * near);
+    cvB.set(from.x + tmpV.x * range, from.y + tmpV.y * range, from.z + tmpV.z * range);
+    if (world.raycastClosest(cvA, cvB, MISSILE_RAY_OPTS, rayResult) && rayResult.hasHit) {
+      bestT = Math.min(bestT, near + rayResult.distance);
+    }
+    if (own) own.collisionFilterGroup = g0;
+    /* Then the ground, marched analytically — the heightfield only has
+     * colliders within a couple of chunks and a strike out-ranges them. Look
+     * for the crossing rather than for "below ground", so a camera that starts
+     * inside a bank of earth does not put the strike at its own feet. */
+    if (terrainQuery) {
+      let wasAbove = false;
+      for (let d = near; d < bestT; d += 3) {
+        const x = from.x + tmpV.x * d, y = from.y + tmpV.y * d, z = from.z + tmpV.z * d;
+        if (!terrainQuery(x, z, groundHit)) continue;
+        if (y > groundHit.y + 0.4) { wasAbove = true; continue; }
+        if (wasAbove) { bestT = d; break; }
+      }
+    }
+    return new THREE.Vector3(from.x + tmpV.x * bestT, from.y + tmpV.y * bestT,
+                             from.z + tmpV.z * bestT);
+  },
+
+  /**
+   * An airstrike: seven rockets falling out of the sky onto wherever you are
+   * looking, a fifth of a second apart so they walk across the target instead
+   * of arriving as one bang. It has nothing to do with the rack — the pods
+   * keep their own ammo — but it does have a long cooldown of its own.
+   */
+  airstrike() {
+    if (!this.armed) { UI.toast('NO LAUNCHERS FITTED', 'bad'); return; }
+    if (!Game.rig || Game.paused) return;
+    if (this.strikeCool > 0) {
+      UI.toast('STRIKE RELOADING — ' + Math.ceil(this.strikeCool) + ' S', 'bad');
+      Audio_.ui('bad'); return;
+    }
+    const t = this.aimPoint();
+    if (Game.rig.vehicle.pos.distanceTo(t) < 26) {
+      UI.toast('TOO CLOSE — AIM FURTHER OUT', 'bad'); Audio_.ui('bad'); return;
+    }
+    this.strikeCool = MISSILE.strikeReload;
+    this.strike = [];
+    const n = 7;
+    for (let i = 0; i < n; i++) {
+      const a = i / n * TAU + Math.random();
+      const r = (i === 0 ? 0 : 4 + Math.random() * 13);
+      this.strike.push({ t: i * 0.19, x: t.x + Math.cos(a) * r, z: t.z + Math.sin(a) * r });
+    }
+    UI.center('AIRSTRIKE INBOUND', Math.round(Game.rig.vehicle.pos.distanceTo(t)) + ' M', 1600);
+    Audio_.ui('ok');
   },
 
   /**
@@ -5385,6 +5736,23 @@ const Weapons = {
 
   update(dt) {
     if (this.cool > 0) this.cool -= dt;
+    if (this.strikeCool > 0) this.strikeCool -= dt;
+    // walk the inbound salvo in: each rocket appears high above its own
+    // aim point and comes straight down, so the contact fuse does the rest
+    if (this.strike) {
+      const k = warhead();
+      for (let i = this.strike.length - 1; i >= 0; i--) {
+        const s = this.strike[i];
+        s.t -= dt;
+        if (s.t > 0) continue;
+        const gy = terrainQuery && terrainQuery(s.x, s.z, groundHit) ? groundHit.y : 0;
+        tmpV3.set(s.x, gy + 165, s.z);
+        tmpV2.set((Math.random() - 0.5) * 0.10, -1, (Math.random() - 0.5) * 0.10).normalize();
+        this.spawnRocket(tmpV3, tmpV2, k, null);
+        this.strike.splice(i, 1);
+      }
+      if (!this.strike.length) this.strike = null;
+    }
     if (this.ammo < MISSILE.ammo) {
       this.reload -= dt;
       if (this.reload <= 0) {
@@ -5568,6 +5936,7 @@ const Weapons = {
   },
 
   reset() {
+    this.strike = null; this.strikeCool = 0;
     for (const m of this.live) {
       scene.remove(m.mesh);
       if (m.flame) m.flame.geometry.dispose();
@@ -8627,6 +8996,7 @@ function carveBuilding(b, p, radius, power) {
   if (!hit.length) return 0;
 
   for (const c of hit) { c.alive = false; b.live--; }
+  Demo.add('cell', hit.length);
   b.mergedGeo = null; b.mergedLit = null;
 
   // the bite itself, thrown outward as individual lumps of real bodywork
@@ -8647,6 +9017,7 @@ function carveBuilding(b, p, radius, power) {
     for (const group of connectedGroups(b, loose)) {
       const cells = group.map(i => b.cells[i]);
       for (const c of cells) { c.alive = false; b.live--; }
+      Demo.add('cell', cells.length);
       // lean away from the hole it lost, and harder the taller it was
       let lx = 0, lz = 0, top = 0;
       for (const c of cells) { lx += c.cx - p.x; lz += c.cz - p.z; top = Math.max(top, c.cy); }
@@ -8898,6 +9269,7 @@ const Destruct = {
       }
       m.geometry.dispose();
       body.mesh = null;
+      Demo.add('prop', 1);
       hits++;
     }
     // ---- scenery: trees, boulders, cactus, log piles ----------------------
@@ -8923,6 +9295,7 @@ const Destruct = {
         if (it.dead) continue;
         if (Math.hypot(it.x - p.x, it.y - p.y, it.z - p.z) > R + it.r) continue;
         this.killSceneryItem(rec, it, p, power);
+        Demo.add('tree', 1);
         hits++;
       }
     }
@@ -9019,6 +9392,76 @@ const Destruct = {
       }
     }
     return best;
+  },
+};
+
+
+/* ===========================================================================
+ * DEMOLITION — a running tally of the damage you have done
+ *
+ * Everything destructible reports here. Keeping it in one place means the
+ * scoring does not have to be threaded through the carve, prop and scenery
+ * paths separately, and the combo timer gives a reason to keep the rack
+ * emptying rather than lobbing one rocket every thirty seconds.
+ * ========================================================================= */
+const Demo = {
+  score: 0, count: 0, combo: 1, comboT: 0, peak: 1, shown: 0,
+  el: null, elScore: null, elCombo: null, elSub: null,
+  MILESTONES: [1000, 5000, 15000, 40000, 100000],
+  _next: 0,
+
+  init() {
+    this.el = document.getElementById('demoPanel');
+    this.elScore = document.getElementById('demoScore');
+    this.elCombo = document.getElementById('demoCombo');
+    this.elSub = document.getElementById('demoSub');
+  },
+  reset() {
+    this.score = 0; this.count = 0; this.combo = 1; this.comboT = 0; this.peak = 1;
+    this.shown = 0; this._next = 0;
+    if (this.el) { this.el.classList.remove('on'); this.elScore.textContent = '0'; }
+  },
+
+  /** `n` things of `kind` just stopped existing. */
+  add(kind, n) {
+    if (!n) return;
+    const unit = kind === 'cell' ? 30 : kind === 'prop' ? 55 : kind === 'tree' ? 12 : 20;
+    // The combo climbs while the destruction keeps coming and lapses when it
+    // stops. It counts events far more than it counts debris — one rocket into
+    // a tower can free thirty cells at once, and scaling on that alone pinned
+    // the multiplier at its cap on the very first shot, which made it a
+    // decoration rather than a reason to keep shooting.
+    this.combo = Math.min(8, this.combo + 0.34 + n * 0.015);
+    this.comboT = 3.2;
+    if (this.combo > this.peak) this.peak = this.combo;
+    this.score += Math.round(unit * n * this.combo);
+    this.count += n;
+    if (this.el) this.el.classList.add('on');
+  },
+
+  update(dt) {
+    if (this.comboT > 0) {
+      this.comboT -= dt;
+      if (this.comboT <= 0) this.combo = 1;
+    }
+    if (!this.el) return;
+    // the counter rolls up to the real figure rather than snapping
+    if (this.shown !== this.score) {
+      const d = this.score - this.shown;
+      this.shown += Math.abs(d) < 3 ? d : Math.ceil(d * Math.min(1, dt * 7));
+      this.elScore.textContent = this.shown.toLocaleString();
+      this.elSub.textContent = this.count + (this.count === 1 ? ' THING WRECKED' : ' THINGS WRECKED');
+    }
+    const hot = this.combo > 1.15;
+    this.elCombo.classList.toggle('on', hot);
+    if (hot) this.elCombo.textContent = 'x' + this.combo.toFixed(1);
+    while (this._next < this.MILESTONES.length && this.score >= this.MILESTONES[this._next]) {
+      const v = this.MILESTONES[this._next++];
+      const names = ['NUISANCE', 'MENACE', 'WRECKING BALL', 'NATURAL DISASTER', 'ACT OF GOD'];
+      UI.center(names[Math.min(this._next - 1, names.length - 1)],
+        v.toLocaleString() + ' POINTS OF DAMAGE', 2400);
+      Audio_.ui('ok');
+    }
   },
 };
 
@@ -10031,6 +10474,113 @@ function placeName(x, z) {
   return Math.round(bd / 100) * 100 + ' M FROM ' + best.name;
 }
 
+
+/**
+ * TUNNELS — arched galleries over the hill-climb road.
+ *
+ * The terrain is a heightfield, and a heightfield cannot have a hole bored
+ * through it: every column has exactly one surface. So these are galleries
+ * rather than bores — the road runs on the graded spiral as it always did and
+ * the tunnel is a shell built over it, the way a real mountain road handles a
+ * rock face or an avalanche path. You drive through a lit concrete tube, which
+ * is the part that matters, and no terrain has to be lied about.
+ *
+ * Each one is aligned to the road's tangent, which on an Archimedean spiral is
+ * near enough perpendicular to the radius.
+ */
+function buildTunnels(rng) {
+  const P = World.landmarks.PEAK;
+  const R0 = P.r * 0.90;
+  const W = P.w + 3.4;              // clear width — wider than the carriageway
+  const HGT = 7.2;                  // clear height under the crown
+  const made = [];
+
+  // Space them round the climb: a bearing and which turn of the spiral to sit on
+  /* Candidates, not sites: the spiral climbs the whole way round, so a long
+   * gallery pinned to one sampled height ends up buried at the top end and on
+   * stilts at the bottom. Sample the ground along each candidate's own axis
+   * and only build where it is genuinely level over the span. */
+  const sites = [];
+  for (let turn = 0; turn <= 3; turn++) {
+    for (let s = 0; s < 8; s++) sites.push({ th: s / 8 + 0.06, turn });
+  }
+  for (const site of sites) {
+    // radius of that turn at that bearing, straight out of the spiral formula
+    const dc = R0 - P.pitch * (site.turn + site.th);
+    if (dc < P.pad + 12 || dc > R0) continue;
+    const a = site.th * TAU - PI;
+    const cx = P.x + Math.cos(a) * dc, cz = P.z + Math.sin(a) * dc;
+    if (!spiralRoad(cx, cz)) continue;             // not actually on the road
+    let gy = worldHeight(cx, cz);
+    const len = 30;
+    // level enough? sample the ground the length of the bore
+    const yawT = Math.atan2(Math.cos(a), -Math.sin(a));
+    let lo = 1e9, hi = -1e9;
+    for (let i = -3; i <= 3; i++) {
+      const f = i / 3 * len / 2;
+      const h = worldHeight(cx + Math.sin(yawT) * f, cz + Math.cos(yawT) * f);
+      lo = Math.min(lo, h); hi = Math.max(hi, h);
+    }
+    if (hi - lo > 1.6) continue;                 // too steep to roof over
+    if (made.length >= 5) break;
+    if (made.some(m => Math.hypot(m.x - cx, m.z - cz) < 90)) continue;
+    // tangent to the spiral: perpendicular to the radius, near enough
+    const yaw = yawT;
+
+    gy = lo - 0.25;                            // sit the sill on the low point
+    const body = makeBody({ pos: [cx, gy, cz], rot: [0, yaw, 0], surface: 'road' });
+    const parts = [], lit = [];
+    const conc = 0x6b6f80, dark = 0x3a3d4c, rim = 0x8b90a3;
+
+    // side walls, set just outside the carriageway
+    for (const sx of [-1, 1]) {
+      body.addShape(new CANNON.Box(CV(0.6, HGT * 0.5, len / 2)),
+        CV(sx * (W / 2 + 0.6), HGT * 0.5, 0));
+      parts.push(boxG(1.2, HGT, len, conc, [sx * (W / 2 + 0.6), HGT * 0.5, 0]));
+      // a rubbing strip and a run of lights down each wall
+      parts.push(boxG(1.3, 0.30, len, dark, [sx * (W / 2 + 0.6), 0.85, 0]));
+      const n = Math.max(3, Math.round(len / 9));
+      for (let i = 0; i < n; i++) {
+        const z = (i / (n - 1) - 0.5) * (len - 5);
+        lit.push(boxG(0.16, 0.34, 1.5, 0xffe7b0, [sx * (W / 2 + 0.05), HGT * 0.62, z]));
+      }
+    }
+    // arched crown: real colliders, so you cannot drive up through the roof
+    const segs = 9, R = W * 0.62;
+    for (let i = 0; i < segs; i++) {
+      const t0 = -0.98, t1 = 0.98;
+      const ang = t0 + (t1 - t0) * ((i + 0.5) / segs);
+      const chord = Math.abs(t1 - t0) / segs * R * 1.16;
+      const px = Math.sin(ang) * R, py = HGT - 0.4 + Math.cos(ang) * R * 0.34;
+      const q = new CANNON.Quaternion(); q.setFromEuler(0, 0, -ang);
+      body.addShape(new CANNON.Box(CV(chord / 2, 0.45, len / 2)), CV(px, py, 0), q);
+      parts.push(boxG(chord, 0.9, len, i % 2 ? conc : 0x767a8c, [px, py, 0], [0, 0, -ang]));
+    }
+    // portal frames, so the mouth reads from a distance
+    for (const sz of [-1, 1]) {
+      parts.push(boxG(W + 4.6, 1.4, 1.5, rim, [0, HGT + 0.9, sz * len / 2]));
+      for (const sx of [-1, 1]) {
+        parts.push(boxG(1.5, HGT + 1.6, 1.5, rim, [sx * (W / 2 + 1.4), (HGT + 1.6) / 2, sz * len / 2]));
+      }
+      lit.push(boxG(2.4, 0.34, 0.30, 0xf9a03a, [0, HGT + 0.9, sz * (len / 2 + 0.8)]));
+    }
+
+    body.updateBoundingRadius && body.updateBoundingRadius();
+    const mesh = new THREE.Mesh(mergeGeoms(parts), vcMat({ roughness: 0.92 }));
+    mesh.position.set(cx, gy, cz); mesh.rotation.y = yaw;
+    mesh.castShadow = true; mesh.receiveShadow = true;
+    stage.add(body, mesh);
+
+    const lm = new THREE.Mesh(mergeGeoms(lit), lightMaterial());
+    lm.position.set(cx, gy, cz); lm.rotation.y = yaw;
+    stage.add(null, lm);
+    body.__extraMeshes = [lm];
+
+    made.push({ x: cx, z: cz, len });
+  }
+  return made;
+}
+
 /* --------------------------------------------------------- build it all -- */
 function buildOpenWorld(seed) {
   const rng = makeRNG(seed);
@@ -10048,6 +10598,7 @@ function buildOpenWorld(seed) {
   buildStuntPark(rng);
   buildAirfield(rng);
   buildPeak(rng);
+  buildTunnels(rng);
   buildMarina(rng);
   buildWindFarm(rng);
   buildTruckStop(rng);
@@ -10535,7 +11086,7 @@ const UI = {
       { k: 'autoBoat', label: 'Auto boat mode', sub: 'fold into a boat the moment you hit water, and back on dry land', bool: true },
       // only appears once you have found the launchers
       ...(store.ordnance ? [{ k: 'missiles', label: 'Missile launchers',
-        sub: 'RIGHT CLICK to fire · six in the rack, one back every 1.6 s', bool: true }] : []),
+        sub: 'RIGHT CLICK to fire · K calls an airstrike on whatever you are looking at · six in the rack', bool: true }] : []),
       { k: 'tyreModel', label: 'Tyre wear & temperature', sub: 'grip changes as tyres heat up and wear out', bool: true },
       { k: 'telemetry', label: 'Telemetry panel', sub: 'toggle in game with V', bool: true },
       { k: 'steerAssist', label: 'Counter-steer assist', sub: 'helps catch slides on a keyboard', bool: true },
@@ -10959,6 +11510,7 @@ const Game = {
   clearStage() {
     FX.reset();
     Weapons.reset();
+    Demo.reset();
     if (this.cargo) { this.cargo.dispose(); this.cargo = null; }
     if (this.trailer) { this.trailer.dispose(); this.trailer = null; }
     if (this.rig) { this.rig.dispose(); this.rig = null; }
@@ -11248,7 +11800,8 @@ const Game = {
     }
     if (this.paused) return;
     if (k === 'r') this.resetTruck();
-    if (k === 'f') this.flipTruck();
+    if (k === 'f') this.boost();
+    if (k === 'u') this.flipTruck();
     if (k === 'b') Cam.cycle();
     if (k === 'c') this.transform();
     if (k === 'v') this.toggleTrailer();
@@ -11257,6 +11810,7 @@ const Game = {
     if (k === 'Shift' && (!this.rig || this.rig.morph < 0.15)) this.shiftUp();
     if (k === 'Control' && (!this.rig || this.rig.morph < 0.15)) this.shiftDown();
     if (k === 'n') this.transformBoat();
+    if (k === 'k') Weapons.airstrike();
     if (k === ']' && this.mode === 'levels') this.nextLevel();
     if (k === 't') { store.settings.telemetry = !store.settings.telemetry; saveStore();
                      UI.telemetry.classList.toggle('hide', !store.settings.telemetry); }
@@ -11270,6 +11824,22 @@ const Game = {
       else { d.lowRange = !d.lowRange;
              UI.toast(d.lowRange ? 'LOW RANGE' : 'HIGH RANGE', d.lowRange ? 'ok' : null); }
     }
+  },
+
+  /** F — five seconds of overboost, in any form. */
+  boost() {
+    if (!this.rig) return;
+    const v = this.rig.vehicle;
+    if (v.boostT > 0) return;
+    if (v.boostCool > 0) {
+      UI.toast('BOOST RECHARGING — ' + Math.ceil(v.boostCool) + ' S', 'bad');
+      Audio_.ui('bad'); return;
+    }
+    v.boostT = BOOST_TIME;
+    // the trailer gets dragged along by the hitch, but an unhitched one stays put
+    UI.center('OVERBOOST', '', 900);
+    Audio_.ui('ok');
+    Cam.addShake(0.22);
   },
 
   /** V — drop or pick up the trailer, in either form. */
@@ -11594,6 +12164,7 @@ const Game = {
       stage.syncAll();
       FX.wheelFX(v, dt);
       if (this.trailer) FX.wheelFX(this.trailer.vehicle, dt);
+      Demo.update(dt);
       FX.update(dt * this.timeScale);
       Weapons.update(dt * this.timeScale);
       // networking runs on wall-clock time, never the slow-motion clock —
@@ -11760,7 +12331,7 @@ addEventListener('orientationchange', () => setTimeout(onResize, 250));
 
 /* A small handle for poking at the sim from the console. */
 window.HAULHARD = { Game, World, Chunks, Minimap, Sky, FX, Cam, Quality, TRUCKS, LEVELS, TRAILERS,
-                    Weapons, MISSILE, Net, UI, Input, world, scene, camera, renderer, store, Audio_,
+                    Weapons, MISSILE, Net, UI, Input, Demo, Destruct, shatterMesh, world, scene, camera, renderer, store, Audio_,
                     THREE, CANNON, worldHeight, worldSurface, spiralRoad,
                     carveBuilding, damageCity, spawnPoints, randomSpawnPoint,
                     ground: (x, z) => { const o = {}; chunkTerrainQuery(x, z, o); return o; } };
@@ -11772,6 +12343,7 @@ FX.init();
 Input.init();
 Cam.initLook();
 Weapons.init();
+Demo.init();
 UI.init();
 Game.applySettings();
 Sky.set(10, 0.15);
