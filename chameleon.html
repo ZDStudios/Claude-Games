@@ -76,6 +76,27 @@ canvas#gl{position:fixed;inset:0;width:100%;height:100%;display:block;z-index:1}
   background:rgba(255,255,255,.05);font-size:12.5px}
 .mpRank{width:20px;opacity:.5;font-weight:900}
 .mpScore{margin-left:auto;font-weight:900;color:var(--acid)}
+/* map picker */
+#mapPicker,#mapPickSolo{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));
+  gap:9px;max-height:280px;overflow:auto;padding-right:4px}
+.mapCard{border:1px solid var(--line);border-radius:12px;overflow:hidden;cursor:pointer;
+  background:rgba(255,255,255,.04);transition:.13s}
+.mapCard:hover{border-color:var(--cyan);transform:translateY(-2px)}
+.mapCard.on{border-color:var(--acid);box-shadow:0 0 0 1px var(--acid)}
+.mapCard img{display:block;width:100%;height:96px;object-fit:cover}
+.mapNoThumb{width:100%;height:96px}
+.mapCardBody{padding:8px 10px 10px}
+.mapCardBody b{font-size:11.5px;letter-spacing:.06em}
+.mapJp{font-size:8.5px;letter-spacing:.24em;opacity:.4;margin-left:6px}
+.mapCardBody p{font-size:9.5px;line-height:1.5;opacity:.55;margin-top:4px}
+/* host settings */
+#mpSettings{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:9px}
+.setRow{display:flex;flex-direction:column;gap:4px}
+.setRow label{font-size:9px;letter-spacing:.2em;opacity:.55;font-weight:800}
+.setRow select{padding:9px 10px;border-radius:9px;border:1px solid var(--line);
+  background:rgba(255,255,255,.06);color:var(--paper);font-family:inherit;font-size:11.5px}
+.setToggle{display:flex;align-items:center;gap:8px;font-size:11px;opacity:.85;
+  padding:9px 10px;border-radius:9px;background:rgba(255,255,255,.05);cursor:pointer}
 /* in-match multiplayer HUD */
 #mpHud{position:absolute;left:16px;top:14px;display:none;gap:14px;align-items:center;
   padding:9px 16px}
@@ -375,6 +396,7 @@ canvas#gl{position:fixed;inset:0;width:100%;height:100%;display:block;z-index:1}
       <button class="big" id="btnPlay">HIDE <small>best <span id="bestHide">0</span></small></button>
       <button class="big" id="btnSeek">SEEK <small>best <span id="bestSeek">0</span></small></button>
       <button class="big" id="btnMulti">MULTIPLAYER <small>play with friends</small></button>
+      <button class="big ghost" id="btnMaps">CHOOSE MAP</button>
       <button class="big ghost" id="btnTutorial">HOW TO PLAY</button>
     </div>
     <div id="keys">
@@ -389,6 +411,15 @@ canvas#gl{position:fixed;inset:0;width:100%;height:100%;display:block;z-index:1}
 
 
 <!-- ================= multiplayer: browse / create / join ================= -->
+<div class="screen off" id="mapMenu">
+  <div class="mpCard">
+    <h2>CHOOSE A MAP</h2>
+    <div style="font-size:11px;opacity:.5;margin-bottom:10px">Each one hides you a different way.</div>
+    <div id="mapPickSolo"></div>
+    <div class="mpRowBtns"><button class="mpBtn go" id="mapDone">PLAY THIS MAP</button></div>
+  </div>
+</div>
+
 <div class="screen off" id="mpMenu">
   <div class="mpCard">
     <h2>MULTIPLAYER</h2>
@@ -435,6 +466,31 @@ canvas#gl{position:fixed;inset:0;width:100%;height:100%;display:block;z-index:1}
   <div class="mpCard">
     <h2>ROOM <span id="mpRoomCode" class="mpCode"></span></h2>
     <div style="font-size:11px;opacity:.5" id="mpWaiting">Waiting for the host to start.</div>
+
+    <div id="mpHostSetup" style="display:none">
+      <h3>MAP</h3>
+      <div id="mapPicker"></div>
+      <h3>SETTINGS</h3>
+      <div id="mpSettings">
+        <div class="setRow"><label>HIDE TIME</label><select id="setPrep">
+          <option value="25">25 seconds</option><option value="40" selected>40 seconds</option>
+          <option value="60">60 seconds</option><option value="90">90 seconds</option></select></div>
+        <div class="setRow"><label>HUNT TIME</label><select id="setHunt">
+          <option value="60">60 seconds</option><option value="80" selected>80 seconds</option>
+          <option value="120">2 minutes</option><option value="180">3 minutes</option></select></div>
+        <div class="setRow"><label>SEEKERS</label><select id="setSeekers">
+          <option value="1" selected>1 seeker</option><option value="2">2 seekers</option></select></div>
+        <div class="setRow"><label>ROUNDS</label><select id="setRounds">
+          <option value="1">1</option><option value="3" selected>3</option>
+          <option value="5">5</option><option value="99">endless</option></select></div>
+        <div class="setRow"><label>SEEKER SPEED</label><select id="setSpeed">
+          <option value="0.9">slower</option><option value="1" selected>normal</option>
+          <option value="1.15">faster</option></select></div>
+        <label class="setToggle"><input type="checkbox" id="setGun" checked> Confetti cannon</label>
+        <label class="setToggle"><input type="checkbox" id="setReveal" checked> Light up who is caught</label>
+        <label class="setToggle"><input type="checkbox" id="setPoses" checked> Allow poses</label>
+      </div>
+    </div>
 
     <h3>PLAYERS <span id="mpCount" class="mono" style="opacity:.5"></span></h3>
     <div id="mpPlayers"></div>
@@ -6719,6 +6775,145 @@ function buildMaterials(){
       normalScale: new THREE.Vector2(0.25,0.25), roughness: 0.93, metalness: 0
     }), 0xe2e0dc);
   }
+
+  /* ---------- gravel: greenhouse paths ---------- */
+  {
+    const a = cv(S), x = a.getContext('2d');
+    const f = fbmField(S, 30, 3, 211), g = fbmField(S, 60, 2, 307);
+    const img = x.getImageData(0,0,S,S), d = img.data;
+    for (let i = 0; i < S*S; i++){
+      const v = 0.84 + f[i]*0.16 + (g[i]-0.5)*0.10;
+      d[i*4]   = clamp(122*v,0,255);
+      d[i*4+1] = clamp(116*v,0,255);
+      d[i*4+2] = clamp(104*v,0,255);
+      d[i*4+3] = 255;
+    }
+    x.putImageData(img,0,0);
+    reg('gravel', new THREE.MeshStandardMaterial({
+      map: texFrom(a, 7, true),
+      normalMap: texFrom(heightToNormal(fieldToCanvas(g, S, 90, 165), 2.2), 7),
+      normalScale: new THREE.Vector2(0.45,0.45), roughness: 0.98, metalness: 0
+    }), 0x7a7568);
+  }
+
+  /* ---------- glass: greenhouse panes with glazing bars ---------- */
+  {
+    const a = cv(S), x = a.getContext('2d');
+    x.fillStyle = '#cfe3dd'; x.fillRect(0,0,S,S);
+    const f = fbmField(S, 12, 3, 223);
+    const img = x.getImageData(0,0,S,S), d = img.data;
+    for (let i = 0; i < S*S; i++){
+      const v = 0.92 + (f[i]-0.5)*0.20;                 // grime and condensation
+      d[i*4] = clamp(198*v,0,255); d[i*4+1] = clamp(220*v,0,255); d[i*4+2] = clamp(210*v,0,255);
+    }
+    x.putImageData(img,0,0);
+    x.fillStyle = '#4d5a4f';                             // glazing bars
+    for (let i = 0; i <= 4; i++){
+      x.fillRect(i*S/4 - 3, 0, 6, S);
+      x.fillRect(0, i*S/4 - 3, S, 6);
+    }
+    reg('glass', new THREE.MeshStandardMaterial({
+      map: texFrom(a, 2, true), roughness: 0.24, metalness: 0.06,
+      transparent: true, opacity: 0.93
+    }), 0xc3d8d0);
+  }
+
+  /* ---------- concrete: factory floor and walls ---------- */
+  {
+    const f = fbmField(S, 14, 4, 401), sp = fbmField(S, 48, 2, 409);
+    const a = cv(S), x = a.getContext('2d');
+    const img = x.getImageData(0,0,S,S), d = img.data;
+    for (let i = 0; i < S*S; i++){
+      const v = 0.84 + (f[i]-0.5)*0.22 + (sp[i]-0.5)*0.10;
+      d[i*4] = clamp(150*v,0,255); d[i*4+1] = clamp(150*v,0,255); d[i*4+2] = clamp(154*v,0,255);
+      d[i*4+3] = 255;
+    }
+    x.putImageData(img,0,0);
+    x.strokeStyle = 'rgba(70,70,76,.45)'; x.lineWidth = 3;   // expansion joints
+    x.beginPath(); x.moveTo(0, S/2); x.lineTo(S, S/2);
+    x.moveTo(S/2, 0); x.lineTo(S/2, S); x.stroke();
+    reg('concrete', new THREE.MeshStandardMaterial({
+      map: texFrom(a, 5, true),
+      normalMap: texFrom(heightToNormal(fieldToCanvas(sp, S, 110, 150), 1.2), 5),
+      normalScale: new THREE.Vector2(0.4,0.4), roughness: 0.95, metalness: 0
+    }), 0x969699);
+  }
+
+  /* ---------- painted steel panel: factory walls ---------- */
+  {
+    const a = cv(S), x = a.getContext('2d');
+    x.fillStyle = '#3f6b74'; x.fillRect(0,0,S,S);
+    const f = fbmField(S, 20, 3, 503);
+    const img = x.getImageData(0,0,S,S), d = img.data;
+    for (let i = 0; i < S*S; i++){
+      const v = 0.93 + (f[i]-0.5)*0.16;
+      d[i*4] = clamp(63*v,0,255); d[i*4+1] = clamp(107*v,0,255); d[i*4+2] = clamp(116*v,0,255);
+    }
+    x.putImageData(img,0,0);
+    x.fillStyle = 'rgba(20,36,40,.55)';                   // corrugation
+    for (let i = 0; i < 8; i++) x.fillRect(i*S/8, 0, 4, S);
+    x.fillStyle = 'rgba(255,255,255,.10)';
+    for (let i = 0; i < 8; i++) x.fillRect(i*S/8 + 6, 0, 3, S);
+    const hc = cv(S), hx = hc.getContext('2d');
+    hx.fillStyle = '#808080'; hx.fillRect(0,0,S,S);
+    hx.fillStyle = '#3a3a3a';
+    for (let i = 0; i < 8; i++) hx.fillRect(i*S/8, 0, 4, S);
+    reg('panel', new THREE.MeshStandardMaterial({
+      map: texFrom(a, 3, true), normalMap: texFrom(heightToNormal(hc, 2.0), 3),
+      normalScale: new THREE.Vector2(0.7,0.7), roughness: 0.62, metalness: 0.30
+    }), 0x3f6b74);
+  }
+
+  /* ---------- tile: bathhouse. Flat, even and very easy to match, which is
+       the point of the map it belongs to. ---------- */
+  {
+    const a = cv(S), x = a.getContext('2d');
+    const T = 32;
+    const r = mulberry32(17);
+    x.fillStyle = '#d8e6e8'; x.fillRect(0,0,S,S);
+    for (let ty = 0; ty < S/T; ty++) for (let tx = 0; tx < S/T; tx++){
+      const v = 0.95 + r()*0.10;
+      x.fillStyle = `rgb(${clamp(150*v,0,255)|0},${clamp(196*v,0,255)|0},${clamp(204*v,0,255)|0})`;
+      x.fillRect(tx*T+2, ty*T+2, T-4, T-4);
+    }
+    const hc = cv(S), hx = hc.getContext('2d');
+    hx.fillStyle = '#2e2e2e'; hx.fillRect(0,0,S,S);
+    hx.fillStyle = '#d0d0d0';
+    for (let ty = 0; ty < S/T; ty++) for (let tx = 0; tx < S/T; tx++)
+      hx.fillRect(tx*T+2, ty*T+2, T-4, T-4);
+    reg('tile', new THREE.MeshStandardMaterial({
+      map: texFrom(a, 6, true), normalMap: texFrom(heightToNormal(hc, 2.6), 6),
+      normalScale: new THREE.Vector2(0.55,0.55), roughness: 0.22, metalness: 0.02
+    }), 0x96c4cc);
+  }
+
+  /* ---------- cedar: sauna and changing room ---------- */
+  {
+    const a = cv(S), x = a.getContext('2d');
+    const PL = 8, ph = S/PL;            // must divide S exactly
+    const r = mulberry32(29);
+    const grain = fbmField(S, 8, 4, 601), tight = fbmField(S, 30, 2, 607);
+    x.fillStyle = '#7a4f33'; x.fillRect(0,0,S,S);
+    for (let p = 0; p < PL; p++){
+      const tone = 0.92 + r()*0.16, off = r()*S;
+      const img = x.getImageData(0, p*ph, S, ph), d = img.data;
+      for (let y = 0; y < ph; y++) for (let xx = 0; xx < S; xx++){
+        const gy = y + p*ph;
+        const g = grain[((gy*9)%S)*S + ((xx+off)|0)%S];
+        const tg = tight[((gy*4)%S)*S + ((xx+off*1.3)|0)%S];
+        const rings = Math.sin(xx*0.09 + g*8.0 + tg*1.4)*0.5 + 0.5;
+        const v = (0.78 + rings*0.14 + (g-0.5)*0.10)*tone;
+        const i = (y*S+xx)*4;
+        d[i] = clamp(176*v,0,255); d[i+1] = clamp(126*v,0,255); d[i+2] = clamp(84*v,0,255);
+        d[i+3] = 255;
+      }
+      x.putImageData(img, 0, p*ph);
+      x.fillStyle = 'rgba(52,30,16,.6)'; x.fillRect(0, p*ph, S, 2);
+    }
+    reg('cedar', new THREE.MeshStandardMaterial({
+      map: texFrom(a, 4, true), roughness: 0.72, metalness: 0
+    }), 0xa8794f);
+  }
 }
 
 /* An abstract canvas painting, generated per-frame-buffer. Each returns both a
@@ -6768,11 +6963,44 @@ const colliders = [];          // {x0,z0,x1,z1,h}  axis-aligned, for movement
 const pickables = [];          // meshes the eyedropper / seeker may hit
 const WALL_H = 4.6;
 
-const ROOMS = {
-  library:    { x0:-30, z0:-8,  x1:-12, z1:8,  floor:'wood',   wall:'brick',     name:'LIBRARY' },
-  foyer:      { x0:-10, z0:-10, x1:10,  z1:10, floor:'marble', wall:'wallpaper', name:'GRAND FOYER' },
-  exhibition: { x0:12,  z0:-9,  x1:32,  z1:9,  floor:'carpet', wall:'plaster',   name:'EXHIBITION' }
-};
+/* The active map's rooms. Reassigned by buildWorld when a map is loaded, so
+   everything that reads ROOMS follows the map without being told. */
+let ROOMS = {};
+let ACTIVE_MAP = null;
+
+/* Everything a map builds goes into one group, so swapping maps is a matter
+   of throwing that group away rather than hunting the scene for strays.
+   Permanent fixtures — the player, peers, the cannon, the counting room, the
+   lights that belong to the renderer — are added to the scene directly and
+   survive the swap. */
+let WORLD = null;
+const SHARED_GEO = new Set();
+function worldAdd(o){ (WORLD || scene).add(o); return o; }
+function clearWorld(){
+  if (!WORLD){ WORLD = new THREE.Group(); scene.add(WORLD); return; }
+  WORLD.traverse(o => {
+    if (!o.isMesh && !o.isInstancedMesh) return;
+    // Shared buffers (prop geometry, baked poses, the bind mesh) are reused by
+    // every map and by the figures; disposing those would empty the game.
+    if (o.geometry && !SHARED_GEO.has(o.geometry)) o.geometry.dispose();
+    const mats = Array.isArray(o.material) ? o.material : [o.material];
+    for (const m of mats){
+      if (!m || !m.userData) continue;
+      if (m.userData.matName === 'painting'){       // one canvas per picture
+        if (m.map) m.map.dispose();
+        m.dispose();
+      }
+    }
+  });
+  scene.remove(WORLD);
+  WORLD = new THREE.Group();
+  scene.add(WORLD);
+  colliders.length = 0;
+  pickables.length = 0;
+  MOUNTS.length = 0;
+  for (const c of chandeliers) if (c.parent) c.parent.remove(c);
+  chandeliers.length = 0;
+}
 function roomAt(x, z){
   for (const k in ROOMS){ const r = ROOMS[k];
     if (x >= r.x0 && x <= r.x1 && z >= r.z0 && z <= r.z1) return k; }
@@ -6827,7 +7055,7 @@ function addBox(w, h, d, mat, x, y, z, ry, opts){
   if (ry) m.rotation.y = ry;
   m.castShadow = !(opts && opts.noCast);
   m.receiveShadow = true;
-  scene.add(m);
+  worldAdd(m);
   if (!(opts && opts.noPick)) pickables.push(m);
   if (opts && opts.collide){
     const hw = (ry ? Math.max(w,d) : w)/2, hd = (ry ? Math.max(w,d) : d)/2;
@@ -6850,65 +7078,36 @@ function buildRoom(key){
   // floor
   const f = new THREE.Mesh(new THREE.PlaneGeometry(w, d, 1, 1), MATS[r.floor]);
   f.rotation.x = -Math.PI/2; f.position.set(cx, 0, cz);
-  f.receiveShadow = true; scene.add(f); pickables.push(f);
+  f.receiveShadow = true; worldAdd(f); pickables.push(f);
   // ceiling
-  const c = new THREE.Mesh(new THREE.PlaneGeometry(w, d), MATS.plaster);
+  const c = new THREE.Mesh(new THREE.PlaneGeometry(w, d), MATS[r.ceil] || MATS.plaster);
   // seated a hair below the wall tops, or daylight leaks along the seam
   c.rotation.x = Math.PI/2; c.position.set(cx, WALL_H - 0.03, cz);
-  c.receiveShadow = true; c.castShadow = true; scene.add(c);
+  c.receiveShadow = true; c.castShadow = true; worldAdd(c);
   // skirting so the floor/wall junction reads
   return { r, cx, cz, w, d };
 }
 /* The two link corridors are floor and ceiling gaps between the room boxes.
    Left open they let daylight pour in from above and the eye straight out of
    the building, which instantly reads as an unfinished level. */
-function buildCorridors(){
-  const L = ROOMS.library, F = ROOMS.foyer, E = ROOMS.exhibition;
-  for (const [x0, x1, floorMat] of [[L.x1, F.x0, MATS.wood], [F.x1, E.x0, MATS.carpet]]){
+function buildCorridors(list){
+  for (const seg of (list || [])){
+    const { x0, x1, z = 0, w: cw = 4 } = seg;
+    const floorMat = MATS[seg.floor] || MATS.wood;
     const w = x1 - x0, cx = (x0 + x1)/2;
-    const f = new THREE.Mesh(new THREE.PlaneGeometry(w, 4), floorMat);
-    f.rotation.x = -Math.PI/2; f.position.set(cx, 0, 0);
-    f.receiveShadow = true; scene.add(f); pickables.push(f);
-    const c = new THREE.Mesh(new THREE.PlaneGeometry(w, 4), MATS.plaster);
-    c.rotation.x = Math.PI/2; c.position.set(cx, WALL_H - 0.03, 0);
-    c.receiveShadow = true; c.castShadow = true; scene.add(c);
+    const f = new THREE.Mesh(new THREE.PlaneGeometry(w, cw), floorMat);
+    f.rotation.x = -Math.PI/2; f.position.set(cx, 0, z);
+    f.receiveShadow = true; worldAdd(f); pickables.push(f);
+    const c = new THREE.Mesh(new THREE.PlaneGeometry(w, cw), MATS[seg.ceil] || MATS.plaster);
+    c.rotation.x = Math.PI/2; c.position.set(cx, WALL_H - 0.03, z);
+    c.receiveShadow = true; c.castShadow = true; worldAdd(c);
   }
 }
 
-/* Walls are laid as explicit segments so doorways are real gaps. */
-function buildWalls(){
-  const L = ROOMS.library, F = ROOMS.foyer, E = ROOMS.exhibition;
-  const wp = MATS.wallpaper, br = MATS.brick, pl = MATS.plaster;
-
-  // library box, with a doorway on its east wall
-  wallRun(L.x0, L.z0, L.x1, L.z0, br);
-  wallRun(L.x0, L.z1, L.x1, L.z1, br);
-  wallRun(L.x0, L.z0, L.x0, L.z1, br);
-  wallRun(L.x1, L.z0, L.x1, -2, br);
-  wallRun(L.x1, 2,   L.x1, L.z1, br);
-
-  // corridor between library and foyer
-  wallRun(L.x1, -2, F.x0, -2, wp);
-  wallRun(L.x1,  2, F.x0,  2, wp);
-
-  // foyer box, doorways west and east
-  wallRun(F.x0, F.z0, F.x1, F.z0, wp);
-  wallRun(F.x0, F.z1, F.x1, F.z1, wp);
-  wallRun(F.x0, F.z0, F.x0, -2, wp);
-  wallRun(F.x0, 2,   F.x0, F.z1, wp);
-  wallRun(F.x1, F.z0, F.x1, -2, wp);
-  wallRun(F.x1, 2,   F.x1, F.z1, wp);
-
-  // corridor to exhibition
-  wallRun(F.x1, -2, E.x0, -2, pl);
-  wallRun(F.x1,  2, E.x0,  2, pl);
-
-  // exhibition box
-  wallRun(E.x0, E.z0, E.x1, E.z0, pl);
-  wallRun(E.x0, E.z1, E.x1, E.z1, pl);
-  wallRun(E.x1, E.z0, E.x1, E.z1, pl);
-  wallRun(E.x0, E.z0, E.x0, -2, pl);
-  wallRun(E.x0, 2,   E.x0, E.z1, pl);
+/* Walls are laid as explicit segments so doorways are real gaps. Each map
+   supplies its own list rather than the mansion's being hard-coded here. */
+function buildWalls(list){
+  for (const w of (list || [])) wallRun(w[0], w[1], w[2], w[3], MATS[w[4]] || MATS.plaster);
 }
 
 /* ---------- instanced prop helper ---------- */
@@ -6924,7 +7123,7 @@ function instanced(geo, mat, list, castShadow){
   m.instanceMatrix.needsUpdate = true;
   m.castShadow = castShadow !== false; m.receiveShadow = true;
   m.frustumCulled = false;
-  scene.add(m);
+  worldAdd(m);
   return m;
 }
 
@@ -7015,7 +7214,7 @@ const FIG = {
   neck:     1.222,
   headY:    1.348,
   headR:    0.205,  // ~4 heads to the full height: the whole gag in one number
-  hipX:     0.088,  // half the pelvis width
+  hipX:     0.125,  // half the pelvis width
   shX:      0.226,  // half the shoulder width
   thigh:    0.345, shin: 0.293,
   uarm:     0.232, farm: 0.203
@@ -7111,67 +7310,234 @@ function ballAt(p, r, sy){
   return g;
 }
 
-let BIND_GEO = null, BONE_SPEC = null, REST_J = null;
+/* ==========================================================================
+   ONE SKIN, NOT A PILE OF PARTS
+   --------------------------------------------------------------------------
+   Overlapping capsules merged into a single buffer are still visibly separate
+   objects: wherever two of them cross, the union has a hard crease, and the
+   interior walls of each shape are sitting inside the body catching light.
+   No amount of nudging radii fixes that, because the surface genuinely is
+   several surfaces.
+
+   So the body is not built from meshes at all. It is defined as a distance
+   field — a function saying how far any point in space is from the figure —
+   with the limbs joined by a SMOOTH minimum, which fuses them the way clay
+   fuses rather than the way two tubes intersect. That field is then walked
+   once by surface nets to produce a single closed skin, and the normals come
+   from the gradient of the field, so the shading is continuous everywhere.
+   There is exactly one surface, no seams, and nothing inside it.
+   ========================================================================== */
+// Small enough that a limb still reads as a limb. Too large and the whole
+// figure slumps into a snowman: the blend has to be a fillet at the joins,
+// not a third of the body's radius.
+const BLEND = 0.042;
+function smin(a, b, k){              // polynomial smooth minimum
+  const h = Math.max(k - Math.abs(a - b), 0) / k;
+  return Math.min(a, b) - h*h*k*0.25;
+}
+/* Distance to a capsule, optionally squashed along Z so the torso can be a
+   slab while the limbs stay round. */
+function sdCapsule(px, py, pz, a, b, r0, r1, sz){
+  if (sz && sz !== 1) pz /= sz;
+  const az = (sz && sz !== 1) ? a[2]/sz : a[2];
+  const bz = (sz && sz !== 1) ? b[2]/sz : b[2];
+  const bax = b[0]-a[0], bay = b[1]-a[1], baz = bz-az;
+  const pax = px-a[0],  pay = py-a[1],  paz = pz-az;
+  const bb = bax*bax + bay*bay + baz*baz;
+  let t = bb > 1e-9 ? (pax*bax + pay*bay + paz*baz) / bb : 0;
+  t = t < 0 ? 0 : t > 1 ? 1 : t;
+  const dx = pax - bax*t, dy = pay - bay*t, dz = paz - baz*t;
+  const r = r1 === undefined ? r0 : lerp(r0, r1, t);
+  const d = Math.sqrt(dx*dx + dy*dy + dz*dz) - r;
+  return (sz && sz !== 1) ? d*sz : d;
+}
+
+let BIND_GEO = null, BONE_SPEC = null, REST_J = null, PRIMS = null;
 function buildRigGeo(){
   const J = REST_J = jointTable();
   BONE_SPEC = boneSpec(J);
-
-  // Each part declares which bone owns it. Ownership matters: on a figure this
-  // stubby the inner face of one thigh is physically closer to the OTHER
-  // thigh's bone than to its own, so a pure nearest-bone search welds the legs
-  // into a single column and drags the arms into the chest.
-  const parts = [], owner = [];
   const B = {};
   BONE_SPEC.forEach((s, i) => B[s.name] = i);
-  const add = (geo, boneName) => { parts.push(geo); owner.push(B[boneName]); };
 
-  // Barrel torso — wide at the chest, pinched at the waist, so the silhouette
-  // is a rounded bean rather than a human ribcage. The printed figures in the
-  // reference are visibly SLAB-like: broad from the front, thin from the side.
-  // Only the body is flattened; the limbs stay round tubes, as they do there.
-  const slab = g => { g.scale(1, 1, 0.76); return g; };
-  add(slab(segCapsule(J.pelvis, J.chest, 0.196, 0.168)), 'spine');
-  add(slab(ballAt(J.pelvis, 0.170, 0.86)), 'pelvis');
-  add(slab(ballAt([0, FIG.chest - 0.02, 0], 0.198, 0.82)), 'chest');
-  add(slab(segCapsule(J.chest, J.neck, 0.124, 0.178)), 'chest');
-  // The shoulder girdle: one bar across, matched to the top of the upper arm
-  // so the arm grows out of the body instead of stepping off a wider ledge.
-  add(slab(segCapsule(J.shL, J.shR, 0.092)), 'chest');
-  // barely any neck — the head sits down on the shoulders, as in the reference
-  add(segCapsule([0, FIG.neck - 0.06, 0], [0, FIG.headY - FIG.headR*0.80, 0], 0.108), 'neck');
-  add(ballAt(J.head, FIG.headR), 'head');
-  // Stubby limbs. Each joint carries a ball, but sized to sit just INSIDE the
-  // limb radius either side of it, never proud of it — the printed figures in
-  // the reference have no knuckles or knobs anywhere, just smooth tapered
-  // tubes. The ball is there to keep the volume solid while the joint bends;
-  // the skinning is what makes it bend, so it never has to show.
+  /* The figure, as primitives. Each is tagged with the bone that owns it,
+     which is how the skin weights are worked out later — the field itself has
+     no parts, so ownership has to come from whichever primitive a point is
+     nearest. */
+  const prims = [];
+  const cap = (a, b, r0, r1, bone, sz) =>
+    prims.push({ a, b, r0, r1, sz: sz || 1, bone: B[bone] });
+
+  // body: hips to neck, flattened front-to-back
+  cap(J.pelvis, [0, FIG.neck + 0.05, 0], 0.200, 0.178, 'spine', 0.80);
+  // head: a capsule of zero length is a sphere
+  cap(J.head, J.head, FIG.headR, FIG.headR, 'head');
+
   for (const k of ['L','R']){
-    add(ballAt(J['sh'+k], 0.078), 'uarm'+k);
-    add(segCapsule(J['sh'+k], J['el'+k], 0.0700, 0.0790), 'uarm'+k);
-    add(ballAt(J['el'+k], 0.0620), 'farm'+k);
-    add(segCapsule(J['el'+k], J['wr'+k], 0.0605, 0.0650), 'farm'+k);
-    add(ballAt(J['wr'+k], 0.0615, 1.06), 'farm'+k);      // mitten hands
-
-    add(ballAt(J['hip'+k], 0.118), 'thigh'+k);
-    add(segCapsule(J['hip'+k], J['knee'+k], 0.0940, 0.1130), 'thigh'+k);
-    add(ballAt(J['knee'+k], 0.0875), 'shin'+k);
-    add(segCapsule(J['knee'+k], J['ank'+k], 0.0705, 0.0900), 'shin'+k);
-    add(ballAt(J['ank'+k], 0.0690), 'foot'+k);
-    // little rounded boot
-    const toe = J['toe'+k];
-    add(segCapsule([J['ank'+k][0], J['ank'+k][1] - 0.012, 0.004],
-                   [toe[0], toe[1] - 0.018, toe[2]], 0.058, 0.070), 'foot'+k);
+    // Arms and legs start inside the body. The smooth union does the rest —
+    // there is no shoulder or hip to model because there is no join to hide.
+    cap([J['sh'+k][0]*0.86, J['sh'+k][1] - 0.01, 0], J['el'+k], 0.076, 0.070, 'uarm'+k);
+    cap(J['el'+k], J['wr'+k], 0.068, 0.062, 'farm'+k);
+    cap([J['hip'+k][0], J['hip'+k][1] + 0.05, 0], J['knee'+k], 0.098, 0.090, 'thigh'+k);
+    cap(J['knee'+k], [J['ank'+k][0], J['ank'+k][1] + 0.04, 0], 0.086, 0.078, 'shin'+k);
   }
-  // expand per-part ownership to per-vertex before the parts are merged away
-  const vOwner = [];
-  parts.forEach((g, i) => {
-    const n = g.attributes.position.count;
-    for (let v = 0; v < n; v++) vOwner.push(owner[i]);
-  });
+  PRIMS = prims;
 
-  BIND_GEO = mergeGeos(parts);
-  BIND_GEO.computeVertexNormals();
+  const field = (x, y, z) => {
+    let d = 1e9;
+    for (let i = 0; i < prims.length; i++){
+      const p = prims[i];
+      const pd = sdCapsule(x, y, z, p.a, p.b, p.r0, p.r1, p.sz);
+      d = (i === 0) ? pd : smin(d, pd, BLEND);
+    }
+    return d;
+  };
+  const ownerAt = (x, y, z) => {
+    let best = 0, bd = 1e9;
+    for (let i = 0; i < prims.length; i++){
+      const p = prims[i];
+      const pd = sdCapsule(x, y, z, p.a, p.b, p.r0, p.r1, p.sz);
+      if (pd < bd){ bd = pd; best = p.bone; }
+    }
+    return best;
+  };
+
+  BIND_GEO = surfaceNet(field, { x0:-0.52, y0:-0.16, z0:-0.36,
+                                 x1: 0.52, y1: 1.68, z1: 0.36 }, 0.0225);
+  sdfNormals(BIND_GEO, field);
+  applyBodyUV(BIND_GEO);
+  SHARED_GEO.add(BIND_GEO);
+
+  // ownership per vertex, read straight off the field's nearest primitive
+  const pos = BIND_GEO.attributes.position;
+  const vOwner = new Array(pos.count);
+  for (let i = 0; i < pos.count; i++)
+    vOwner[i] = ownerAt(pos.getX(i), pos.getY(i), pos.getZ(i));
   skinBindGeometry(BIND_GEO, BONE_SPEC, vOwner);
+}
+
+/* ---------- surface nets ----------
+   One vertex per cell that straddles the surface, placed at the average of
+   the crossings on that cell's edges, then quads stitched between neighbouring
+   cells. Simpler than marching cubes, no lookup tables, and it produces a
+   closed manifold with an even, rounded distribution of vertices — which is
+   exactly what a soft body wants. */
+function surfaceNet(field, box, cell){
+  const nx = Math.ceil((box.x1-box.x0)/cell),
+        ny = Math.ceil((box.y1-box.y0)/cell),
+        nz = Math.ceil((box.z1-box.z0)/cell);
+  const gx = nx+1, gy = ny+1, gz = nz+1;
+  const val = new Float32Array(gx*gy*gz);
+  const at = (i,j,k) => (k*gy + j)*gx + i;
+  for (let k = 0; k < gz; k++){
+    const z = box.z0 + k*cell;
+    for (let j = 0; j < gy; j++){
+      const y = box.y0 + j*cell;
+      for (let i = 0; i < gx; i++)
+        val[at(i,j,k)] = field(box.x0 + i*cell, y, z);
+    }
+  }
+
+  const idx = new Int32Array(nx*ny*nz).fill(-1);
+  const cidx = (i,j,k) => (k*ny + j)*nx + i;
+  const verts = [];
+  // the eight corners of a cell, and the twelve edges between them
+  const CO = [[0,0,0],[1,0,0],[1,1,0],[0,1,0],[0,0,1],[1,0,1],[1,1,1],[0,1,1]];
+  const ED = [[0,1],[1,2],[2,3],[3,0],[4,5],[5,6],[6,7],[7,4],[0,4],[1,5],[2,6],[3,7]];
+  for (let k = 0; k < nz; k++) for (let j = 0; j < ny; j++) for (let i = 0; i < nx; i++){
+    const s = [];
+    let neg = 0;
+    for (let c = 0; c < 8; c++){
+      const v = val[at(i+CO[c][0], j+CO[c][1], k+CO[c][2])];
+      s.push(v);
+      if (v < 0) neg++;
+    }
+    if (neg === 0 || neg === 8) continue;            // wholly in or wholly out
+    let sx = 0, sy = 0, sz = 0, n = 0;
+    for (const [a, b] of ED){
+      const va = s[a], vb = s[b];
+      if ((va < 0) === (vb < 0)) continue;
+      const t = va / (va - vb);
+      sx += lerp(CO[a][0], CO[b][0], t);
+      sy += lerp(CO[a][1], CO[b][1], t);
+      sz += lerp(CO[a][2], CO[b][2], t);
+      n++;
+    }
+    idx[cidx(i,j,k)] = verts.length/3;
+    verts.push(box.x0 + (i + sx/n)*cell,
+               box.y0 + (j + sy/n)*cell,
+               box.z0 + (k + sz/n)*cell);
+  }
+
+  // A quad for every grid edge whose two ends straddle the surface, joining
+  // the four cells around that edge. Winding follows the sign direction so
+  // the whole shell faces outward.
+  const tris = [];
+  const quad = (a,b,c,d, flip) => {
+    if (a < 0 || b < 0 || c < 0 || d < 0) return;
+    if (flip) tris.push(a,c,b, a,d,c); else tris.push(a,b,c, a,c,d);
+  };
+  for (let k = 0; k < gz; k++) for (let j = 0; j < gy; j++) for (let i = 0; i < gx; i++){
+    const v0 = val[at(i,j,k)];
+    if (i < nx && j > 0 && k > 0){
+      const v1 = val[at(i+1,j,k)];
+      if ((v0 < 0) !== (v1 < 0))
+        quad(idx[cidx(i,j-1,k-1)], idx[cidx(i,j,k-1)], idx[cidx(i,j,k)], idx[cidx(i,j-1,k)], v0 < 0);
+    }
+    if (j < ny && i > 0 && k > 0){
+      const v1 = val[at(i,j+1,k)];
+      if ((v0 < 0) !== (v1 < 0))
+        quad(idx[cidx(i-1,j,k-1)], idx[cidx(i,j,k-1)], idx[cidx(i,j,k)], idx[cidx(i-1,j,k)], v0 >= 0);
+    }
+    if (k < nz && i > 0 && j > 0){
+      const v1 = val[at(i,j,k+1)];
+      if ((v0 < 0) !== (v1 < 0))
+        quad(idx[cidx(i-1,j-1,k)], idx[cidx(i,j-1,k)], idx[cidx(i,j,k)], idx[cidx(i-1,j,k)], v0 < 0);
+    }
+  }
+
+  /* Winding, decided rather than assumed. The four cells around a grid edge
+     wind opposite ways depending on which axis the edge runs along, and
+     getting one of the three cases wrong leaves a scatter of back-facing
+     triangles that get culled and read as holes. Since the field's gradient
+     is the true outward direction at any point, each triangle is simply
+     checked against it and flipped if it disagrees. */
+  for (let t = 0; t < tris.length; t += 3){
+    const a = tris[t]*3, b = tris[t+1]*3, c = tris[t+2]*3;
+    const ux = verts[b]-verts[a], uy = verts[b+1]-verts[a+1], uz = verts[b+2]-verts[a+2];
+    const vx = verts[c]-verts[a], vy = verts[c+1]-verts[a+1], vz = verts[c+2]-verts[a+2];
+    const fx = uy*vz - uz*vy, fy = uz*vx - ux*vz, fz = ux*vy - uy*vx;
+    const cx = (verts[a]+verts[b]+verts[c])/3,
+          cy = (verts[a+1]+verts[b+1]+verts[c+1])/3,
+          cz = (verts[a+2]+verts[b+2]+verts[c+2])/3;
+    const e = 0.004;
+    const gx = field(cx+e,cy,cz) - field(cx-e,cy,cz);
+    const gy = field(cx,cy+e,cz) - field(cx,cy-e,cz);
+    const gz = field(cx,cy,cz+e) - field(cx,cy,cz-e);
+    if (fx*gx + fy*gy + fz*gz < 0){ const tmp = tris[t+1]; tris[t+1] = tris[t+2]; tris[t+2] = tmp; }
+  }
+
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(verts, 3));
+  g.setIndex(tris);
+  return g;
+}
+
+/* Normals from the field's gradient rather than from face averages: the
+   surface is an isosurface, so the true normal is known analytically and
+   comes out perfectly smooth with no faceting at the joins. */
+function sdfNormals(geo, field){
+  const p = geo.attributes.position, n = p.count;
+  const out = new Float32Array(n*3);
+  const e = 0.006;
+  for (let i = 0; i < n; i++){
+    const x = p.getX(i), y = p.getY(i), z = p.getZ(i);
+    let nx = field(x+e,y,z) - field(x-e,y,z);
+    let ny = field(x,y+e,z) - field(x,y-e,z);
+    let nz = field(x,y,z+e) - field(x,y,z-e);
+    const l = Math.hypot(nx,ny,nz) || 1;
+    out[i*3] = nx/l; out[i*3+1] = ny/l; out[i*3+2] = nz/l;
+  }
+  geo.setAttribute('normal', new THREE.BufferAttribute(out, 3));
 }
 
 /* ---------- skin weights ----------
@@ -7315,7 +7681,7 @@ function applyPose(rig, key, w){
     mix(l.hp.rotation, 'x', -hx);
     mix(l.hp.rotation, 'z', l.side * p.hipZ);
     mix(l.kn.rotation, 'x', -kx);
-    mix(l.ft.rotation, 'x', (hx + kx) * 0.35);
+    mix(l.ft.rotation, 'x', 0);
   });
   mix(rig.spine.rotation, 'x', p.spineX);
   mix(rig.spine.rotation, 'z', p.spineZ);
@@ -7368,8 +7734,9 @@ function animateGait(rig, dt, speed, sprintness){
     // plant the heel.
     const fold = Math.pow(Math.max(0, Math.sin(th + 1.90)), 1.3);
     l.kn.rotation.x = fold * kneeA + 0.06 * drive;
-    // Ankle rolls through the step: toe-off behind, toe lifted in front.
-    l.ft.rotation.x = swing * 0.26 * drive - fold * 0.20 * drive;
+    // No feet on this figure, so nothing to roll — the shin's rounded end
+    // does the whole job of a foot.
+    l.ft.rotation.x = 0;
   });
   rig.arms.forEach((a, i) => {
     const th = ph + (i === 0 ? Math.PI : 0);           // arms oppose the legs
@@ -7435,9 +7802,9 @@ function applyBodyUV(geo, offset){
 /* Give every shared part geometry its UVs, unwrapped from where that part
    sits in the rest pose. Done once; all figures then share the buffers. */
 function unwrapRigGeo(){
-  // The bind geometry is already authored in rest-pose world space, so it
-  // unwraps directly with no offset. Every figure shares this one buffer.
-  applyBodyUV(BIND_GEO);
+  // buildRigGeo already unwrapped the surface as it came off the field; this
+  // stays as the single place the mapping is defined, and is a no-op now.
+  if (!BIND_GEO.attributes.uv) applyBodyUV(BIND_GEO);
 }
 
 /* Statues and decoys never animate, so they are flattened into one mesh each
@@ -7454,6 +7821,7 @@ function bakePoses(){
     g.translate(0, POSES[k].groundY, 0);
     g.computeBoundingBox();
     POSE_GEO[k] = g;
+    SHARED_GEO.add(g);
   }
 }
 function bakePosedGeometry(key){
@@ -7481,6 +7849,8 @@ function bakePosedGeometry(key){
   g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
   g.setAttribute('uv', src.attributes.uv.clone());
   g.setIndex(src.index.clone());
+  // The bind normals came from the field's gradient and are smooth; deriving
+  // them again from the posed faces would put the facets back.
   g.computeVertexNormals();
   return g;
 }
@@ -7528,6 +7898,8 @@ function buildGeo(){
   GEO.plinth   = new THREE.BoxGeometry(0.74, 0.10, 0.74);
   GEO.rope     = new THREE.CylinderGeometry(0.035, 0.035, 1.9, 6);
   GEO.post     = new THREE.CylinderGeometry(0.06, 0.08, 0.95, 10);
+  // reused by every map, so the teardown must leave these alone
+  for (const k in GEO) SHARED_GEO.add(GEO[k]);
 }
 
 /* ---------- painting on a wall ---------- */
@@ -7537,12 +7909,12 @@ function painting(x, y, z, ry, w, h){
   const canvasM = new THREE.Mesh(new THREE.PlaneGeometry(w, h), mat);
   canvasM.position.set(x, y, z); canvasM.rotation.y = ry;
   canvasM.receiveShadow = true;
-  scene.add(canvasM); pickables.push(canvasM);
+  worldAdd(canvasM); pickables.push(canvasM);
   // gilt frame
   const fr = new THREE.Mesh(new THREE.BoxGeometry(w+0.20, h+0.20, 0.09), MATS.brass);
   fr.position.set(x - Math.sin(ry)*0.055, y, z - Math.cos(ry)*0.055);
   fr.rotation.y = ry; fr.castShadow = true; fr.receiveShadow = true;
-  scene.add(fr); pickables.push(fr);
+  worldAdd(fr); pickables.push(fr);
   return canvasM;
 }
 
@@ -7557,11 +7929,11 @@ function statue(x, z, poseKey, ry){
   m.rotation.set(P.rootRot[0], (ry || 0) + P.rootRot[1], P.rootRot[2]);
   m.castShadow = true; m.receiveShadow = true;
   m.userData.statue = true;
-  scene.add(m); pickables.push(m);
+  worldAdd(m); pickables.push(m);
   return m;
 }
 
-function buildProps(){
+function buildMansionProps(){
   const F = ROOMS.foyer, L = ROOMS.library, E = ROOMS.exhibition;
 
   /* ============ GRAND FOYER ============ */
@@ -7594,11 +7966,11 @@ function buildProps(){
     const rod = new THREE.Mesh(new THREE.CylinderGeometry(0.03,0.03,1.1,6), MATS.brass);
     rod.position.y = 0.55; g.add(rod);
     g.position.set(0, WALL_H - 1.15, 0);
-    scene.add(g);
+    worldAdd(g);
     const pl = new THREE.PointLight(0xffd9a0, 26, 22, 2);
     pl.position.set(0, WALL_H - 1.3, 0);
     pl.castShadow = true; pl.shadow.mapSize.set(1024,1024); pl.shadow.bias = -0.004;
-    scene.add(pl); chandeliers.push(pl);
+    worldAdd(pl); chandeliers.push(pl);
   }
   painting(-1.6, 2.5, F.z0 + 0.22, 0, 2.6, 1.8);
   painting( 3.4, 2.5, F.z0 + 0.22, 0, 1.7, 2.3);
@@ -7669,7 +8041,8 @@ function buildProps(){
     peds.push({ x:px, y:0.55, z:pz });
     colliders.push({ x0:px-0.43, z0:pz-0.43, x1:px+0.43, z1:pz+0.43, h:PED_TOP });
     if (statuePoses[i]) statue(px, pz, statuePoses[i], rnd(0, TAU));
-    else MOUNTS.push({ x:px, z:pz, y:PED_TOP });
+    else { MOUNTS.push({ x:px, z:pz, y:PED_TOP });
+           HIDE_SPOTS.push({ x:px, z:pz, yaw:rnd(0,TAU), y:PED_TOP, tag:'plinth' }); }
   }
   instanced(GEO.pedBase,  MATS.marble, peds.map(p => ({ x:p.x, y:0.055, z:p.z })));
   instanced(GEO.pedestal, MATS.marble, peds);
@@ -7714,36 +8087,36 @@ function buildProps(){
     sp.position.set(gx, WALL_H - 0.25, 0);
     sp.target.position.set(gx, 0, 0);
     sp.castShadow = true; sp.shadow.mapSize.set(1024,1024); sp.shadow.bias = -0.004;
-    scene.add(sp); scene.add(sp.target); chandeliers.push(sp);
+    worldAdd(sp); worldAdd(sp.target); chandeliers.push(sp);
   }
   // Library lamps. The ceilings block the sun (as they should), so every room
   // has to earn its own light — a single lamp left this end of the wing a cave.
   for (const lx of [L.x0 + 3.5, L.x0 + 9, L.x0 + 14.5]){
     const lp = new THREE.PointLight(0xffd2a0, 20, 24, 1.5);
-    lp.position.set(lx, 3.3, 0); scene.add(lp); chandeliers.push(lp);
+    lp.position.set(lx, 3.3, 0); worldAdd(lp); chandeliers.push(lp);
   }
   // sconces washing the shelf faces, so the books are not black slots.
   // One per bay, sat between the two facing shelves — six would double the
   // per-fragment light loop for very little extra read.
   for (const sx of shelfX){
     const sc = new THREE.PointLight(0xffe0b4, 9, 14, 1.6);
-    sc.position.set(sx, 2.5, 0); scene.add(sc);
+    sc.position.set(sx, 2.5, 0); worldAdd(sc);
   }
   // hearth glow
   const hearth = new THREE.PointLight(0xff8a3a, 14, 12, 1.6);
-  hearth.position.set(L.x0 + 0.55, 1.0, L.z1 - 1.5); scene.add(hearth);
+  hearth.position.set(L.x0 + 0.55, 1.0, L.z1 - 1.5); worldAdd(hearth);
 
   // A soft, shadowless fill grid. Without it the upper walls crush to black
   // and the whole mansion reads as a cave.
-  for (const k in ROOMS){
-    const r = ROOMS[k];
-    const n = Math.max(1, Math.round((r.x1 - r.x0) / 11));
-    for (let i = 0; i < n; i++){
-      const fill = new THREE.PointLight(0xdce4f2, 11, 30, 1.45);
-      fill.position.set(r.x0 + (r.x1-r.x0)*(i+0.5)/n, WALL_H - 0.8, (r.z0+r.z1)/2);
-      scene.add(fill);
-    }
-  }
+  fillGrid(11);
+
+  // corners and gaps worth tucking into
+  for (const sp of [
+    [F.x0+1.2,-6.4, Math.PI/2], [F.x1-1.2, 6.4,-Math.PI/2], [-3.2, F.z0+1.1, 0],
+    [L.x0+1.3,-6.2, Math.PI/2], [L.x0+13.6,6.2,-Math.PI/2], [L.x1-1.4,-6.6,-Math.PI/2],
+    [E.x0+1.4,-7.2, Math.PI/2], [E.x1-1.4, 7.0,-Math.PI/2], [E.x0+8.0,E.z0+1.2, 0],
+    [E.x0+15.0,E.z1-1.2, Math.PI]
+  ]) hideSpot(sp[0], sp[1], sp[2], 'corner');
 }
 /* ==========================================================================
    Section 5 — the player, the paint studio, and camouflage scoring
@@ -8927,6 +9300,15 @@ function renderLobbyPlayers(){
   if (!mp || !mp.room) return;
   const host = mp.isHost;
   netEl('mpHostBar').style.display = host ? 'flex' : 'none';
+  netEl('mpHostSetup').style.display = host ? 'block' : 'none';
+  if (host && !NET.pickerReady){
+    NET.pickerReady = true;
+    NET.pickMap = cfg().map;
+    renderMapPicker('mapPicker', NET.pickMap, k => { NET.pickMap = k; hostPushCfg(); });
+    ['setPrep','setHunt','setSeekers','setRounds','setSpeed','setGun','setReveal','setPoses']
+      .forEach(id => { const e = netEl(id); if (e) e.onchange = hostPushCfg; });
+    hostPushCfg();
+  }
   netEl('mpWaiting').textContent = host
     ? 'You are the host. Start when everyone is ready.'
     : 'Waiting for the host to start.';
@@ -8972,8 +9354,30 @@ function sendChat(){
 /* ==========================================================================
    Match state — written by the host only
    ========================================================================== */
+function defaultCfg(){
+  return { map:'mansion', prep:40, hunt:80, seekers:1, rounds:3,
+           speed:1, gun:true, reveal:true, poses:true };
+}
 function freshMatchState(){
-  return { round: 0, phase: 'lobby', ends: 0, seeker: null, found: {}, scores: {} };
+  return { round:0, phase:'lobby', ends:0, seeker:null, seekers:[],
+           found:{}, scores:{}, cfg: defaultCfg() };
+}
+function cfg(){ return Object.assign(defaultCfg(), (matchState() || {}).cfg || {}); }
+
+/* Read every control in the host's panel and publish it. Guests never write
+   these; they read them off the state like everything else. */
+function hostPushCfg(){
+  const mp = NET.mp;
+  if (!mp || !mp.isHost || !mp.room) return;
+  const v = id => netEl(id) ? netEl(id).value : null;
+  const on = id => netEl(id) ? netEl(id).checked : true;
+  mp.patchState({ cfg: {
+    map: NET.pickMap || cfg().map,
+    prep: +v('setPrep') || 40, hunt: +v('setHunt') || 80,
+    seekers: +v('setSeekers') || 1, rounds: +v('setRounds') || 3,
+    speed: +v('setSpeed') || 1,
+    gun: on('setGun'), reveal: on('setReveal'), poses: on('setPoses')
+  }});
 }
 function matchState(){ return (NET.mp && NET.mp.state) || freshMatchState(); }
 
@@ -8981,12 +9385,17 @@ function matchState(){ return (NET.mp && NET.mp.state) || freshMatchState(); }
 function hostStartRound(nextRound){
   const mp = NET.mp;
   if (!mp || !mp.isHost) return;
+  const c = cfg();
   const ids = mp.players.map(p => p.id);
-  const seeker = ids[(nextRound - 1) % ids.length];
+  // Rotate through the roster so everyone takes a turn seeking, and take as
+  // many as the host asked for — never so many that nobody is left to hide.
+  const want = clamp(c.seekers | 0, 1, Math.max(1, ids.length - 1));
+  const seekers = [];
+  for (let i = 0; i < want; i++) seekers.push(ids[(nextRound - 1 + i) % ids.length]);
   const scores = Object.assign({}, matchState().scores || {});
   mp.setState({
-    round: nextRound, phase: 'prep', ends: Date.now() + MP_PREP*1000,
-    seeker, found: {}, scores
+    round: nextRound, phase: 'prep', ends: Date.now() + c.prep*1000,
+    seeker: seekers[0], seekers, found: {}, scores, cfg: c
   });
   if (mp.status !== 'playing') mp.start();
 }
@@ -9001,14 +9410,15 @@ function hostAdvance(foundNow){
   if (!mp || !mp.isHost) return;
   const s = matchState();
   if (s.phase === 'prep'){
-    mp.patchState({ phase: 'hunt', ends: Date.now() + MP_HUNT*1000 });
+    mp.patchState({ phase: 'hunt', ends: Date.now() + cfg().hunt*1000 });
   } else if (s.phase === 'hunt'){
     // survivors bank points; the seeker is paid per catch
     const scores = Object.assign({}, s.scores || {});
     const found = foundNow || s.found || {};
+    const seekers = (s.seekers && s.seekers.length) ? s.seekers : [s.seeker];
     for (const p of mp.players){
-      if (p.id === s.seeker) scores[p.id] = (scores[p.id] || 0) + Object.keys(found).length * 150;
-      else if (!found[p.id])  scores[p.id] = (scores[p.id] || 0) + 200;
+      if (seekers.indexOf(p.id) >= 0) scores[p.id] = (scores[p.id] || 0) + Object.keys(found).length * 150;
+      else if (!found[p.id])          scores[p.id] = (scores[p.id] || 0) + 200;
     }
     mp.patchState({ phase: 'over', ends: 0, scores, found });
   }
@@ -9020,7 +9430,9 @@ function onMatchState(s){
   if (!NET.on || !s) return;
   NET.seekerId = s.seeker;
   const me = NET.mp.me.id;
-  NET.role = (s.seeker === me) ? 'seeker' : 'hider';
+  const seekers = (s.seekers && s.seekers.length) ? s.seekers : (s.seeker ? [s.seeker] : []);
+  NET.role = seekers.indexOf(me) >= 0 ? 'seeker' : 'hider';
+  NET.seekers = seekers;
   NET.caught = !!(s.found && s.found[me]);
 
   if (s.phase !== lastPhase){
@@ -9033,6 +9445,10 @@ function onMatchState(s){
 }
 
 function beginNetPrep(){
+  const c = cfg();
+  // Everyone builds the same map the host chose. Cheap enough to redo each
+  // round, and it means a late joiner is never on the wrong one.
+  if (!ACTIVE_MAP || MAP_KEYS.find(k => MAPS[k] === ACTIVE_MAP) !== c.map) buildWorld(c.map);
   netShow('mpLobby', false);
   netEl('menu').classList.add('off');
   netEl('mpHud').classList.add('on');
@@ -9056,7 +9472,7 @@ function beginNetPrep(){
     fillAll('#39435a');
   } else {
     netEl('studio').classList.add('on');
-    netEl('poseCard').classList.add('on');
+    netEl('poseCard').classList.toggle('on', c.poses !== false);
     netEl('matchCard').style.display = '';
     GAME.studio = true;
     fillAll('#ffffff');            // a blank canvas, not an off-white one
@@ -9089,7 +9505,7 @@ function beginNetHunt(){
     leaveBooth(mapSpawn());
     P.frozen = false;
     SEEKGAME.torch.visible = true; SEEKGAME.cone.visible = true;
-    GUN.held = true;
+    GUN.held = cfg().gun !== false;
     netEl('matchCard').style.display = 'none';
   }
   snapCamera();
@@ -9107,7 +9523,8 @@ function beginNetOver(){
   const s = matchState();
   const rows = NET.mp.players
     .map(p => ({ name: p.name || 'Player', score: (s.scores && s.scores[p.id]) || 0,
-                 seeker: p.id === s.seeker, caught: !!(s.found && s.found[p.id]) }))
+                 seeker: (NET.seekers || [s.seeker]).indexOf(p.id) >= 0,
+                 caught: !!(s.found && s.found[p.id]) }))
     .sort((a, b) => b.score - a.score);
   netEl('mpBoard').innerHTML = rows.map((r, i) => `
     <div class="mpRow">
@@ -9226,7 +9643,7 @@ function updatePeers(dt){
     else settleRig(pe.rig, pe.pose, dt);
 
     // caught players are lit up so everyone can see the score change
-    const caught = !!(s.found && s.found[p.id]);
+    const caught = !!(s.found && s.found[p.id]) && cfg().reveal !== false;
     if (caught !== pe.caught){
       pe.caught = caught;
       pe.mat.emissive = new THREE.Color(caught ? 0x2f7d3a : 0x000000);
@@ -9270,8 +9687,9 @@ function hostResolveTag(fromId, targetId){
   if (!mp || !mp.isHost) return;
   const s = matchState();
   if (s.phase !== 'hunt') return;
-  if (fromId !== s.seeker) return;                     // only the seeker tags
-  if (!targetId || targetId === s.seeker) return;
+  const seekers = (s.seekers && s.seekers.length) ? s.seekers : [s.seeker];
+  if (seekers.indexOf(fromId) < 0) return;              // only a seeker may tag
+  if (!targetId || seekers.indexOf(targetId) >= 0) return;   // seekers cannot tag each other
   if (s.found && s.found[targetId]) return;
   const seeker = mp.player(fromId), target = mp.player(targetId);
   if (!seeker || !target || !seeker.data || !target.data) return;
@@ -9286,7 +9704,7 @@ function hostResolveTag(fromId, targetId){
   mp.send('caught', { id: targetId, by: fromId });
   onCaught({ id: targetId, by: fromId });
   // everyone caught? end the round early
-  const hiders = mp.players.filter(p => p.id !== s.seeker);
+  const hiders = mp.players.filter(p => seekers.indexOf(p.id) < 0);
   if (hiders.every(p => found[p.id])) hostAdvance(found);
 }
 
@@ -9373,7 +9791,7 @@ function renderNetHud(){
   if (!hud) return;
   const mp = NET.mp;
   if (!mp || !mp.room) return;
-  const hiders = mp.players.filter(p => p.id !== s.seeker);
+  const hiders = mp.players.filter(p => (NET.seekers || [s.seeker]).indexOf(p.id) < 0);
   const found = Object.keys(s.found || {}).length;
   netEl('mpRole').textContent = NET.role === 'seeker' ? 'SEEKER' : (NET.caught ? 'CAUGHT' : 'HIDING');
   netEl('mpRole').style.color = NET.role === 'seeker' ? 'var(--hot)'
@@ -9754,6 +10172,694 @@ function leaveBooth(spawn){
   camDist = 4.2; snapCamera();
 }
 /* ==========================================================================
+   Section 11 — maps
+   --------------------------------------------------------------------------
+   A map is data: the rooms it is made of, the walls between them, the light
+   it sits under, and a recipe that furnishes it. buildWorld throws the last
+   map away and runs the next one, so a lobby can switch between them without
+   a reload.
+
+   Every map is furnished from the same small vocabulary of props below, which
+   is what keeps five of them affordable. What differs is the palette, the
+   scale of the rooms, and — the part that actually matters for this game —
+   the KIND of cover on offer. A room full of white statues rewards holding a
+   pose; a room full of crates rewards standing in a corner painted crate
+   brown. Each map is built around one such idea.
+   ========================================================================== */
+
+/* ---------- shared prop vocabulary ---------- */
+/* Every one of these registers colliders, so they are cover you can stand
+   behind as well as scenery, and pushes into `pickables` so the eyedropper
+   can steal their colour. */
+function pShelf(x, z, ry, mat, w, h, d){
+  w = w || 2.4; h = h || 2.6; d = d || 0.5;
+  const inward = 1;
+  addBox(w, 0.08, d, mat, x, h - 0.04, z, ry, {});
+  addBox(w, 0.08, d, mat, x, 0.04, z, ry, { collide:true });
+  for (const sx of [-1, 1])
+    addBox(0.09, h, d, mat, x + sx*(w/2 - 0.045)*Math.cos(ry), h/2,
+           z - sx*(w/2 - 0.045)*Math.sin(ry), ry, { collide:true });
+  addBox(w, h, 0.07, mat, x + Math.sin(ry)*(d/2), h/2, z + Math.cos(ry)*(d/2), ry, {});
+  for (let i = 1; i < 4; i++)
+    addBox(w - 0.16, 0.06, d - 0.06, mat, x, h*i/4, z, ry, { noCast:true, noPick:true });
+}
+function pCrate(x, y, z, s, mat, ry){
+  addBox(s, s, s, mat, x, y + s/2, z, ry || 0, { collide:true });
+}
+function pCrateStack(x, z, mat, seed){
+  const r = mulberry32(seed || 1);
+  let y = 0;
+  const n = 2 + Math.floor(r()*3);
+  for (let i = 0; i < n; i++){
+    const s = 0.85 - i*0.13;
+    pCrate(x + (r()-0.5)*0.22, y, z + (r()-0.5)*0.22, s, mat, r()*0.6);
+    y += s;
+  }
+  return y;
+}
+function pBarrel(x, z, mat, h, r){
+  h = h || 0.95; r = r || 0.36;
+  const m = new THREE.Mesh(new THREE.CylinderGeometry(r, r*0.94, h, 14), mat);
+  m.position.set(x, h/2, z);
+  m.castShadow = true; m.receiveShadow = true;
+  worldAdd(m); pickables.push(m);
+  colliders.push({ x0:x-r, z0:z-r, x1:x+r, z1:z+r, h });
+}
+function pPillar(x, z, mat, r){
+  r = r || 0.42;
+  const m = new THREE.Mesh(new THREE.CylinderGeometry(r, r*1.08, WALL_H, 16), mat);
+  m.position.set(x, WALL_H/2, z);
+  m.castShadow = true; m.receiveShadow = true;
+  worldAdd(m); pickables.push(m);
+  colliders.push({ x0:x-r-0.06, z0:z-r-0.06, x1:x+r+0.06, z1:z+r+0.06, h:WALL_H });
+}
+function pLocker(x, z, ry, mat){
+  addBox(0.72, 2.0, 0.55, mat, x, 1.0, z, ry, { collide:true });
+  addBox(0.06, 0.28, 0.05, MATS.brass, x + 0.24, 1.15, z + Math.cos(ry)*0.30, ry, { noPick:true });
+}
+/* An alcove: two side walls and a back, forming a body-width niche you can
+   stand in and be genuinely hard to see from the side. The best cover in the
+   game, because it hides your silhouette rather than just your colour. */
+function pAlcove(x, z, ry, mat, w, d){
+  w = w || 1.3; d = d || 0.9;
+  const c = Math.cos(ry), s = Math.sin(ry);
+  addBox(0.24, WALL_H*0.82, d, mat, x - c*(w/2), WALL_H*0.41, z + s*(w/2), ry, { collide:true });
+  addBox(0.24, WALL_H*0.82, d, mat, x + c*(w/2), WALL_H*0.41, z - s*(w/2), ry, { collide:true });
+  addBox(w + 0.24, WALL_H*0.82, 0.2, mat, x + s*(d/2), WALL_H*0.41, z + c*(d/2), ry, { collide:true });
+  addBox(w + 0.24, 0.22, d + 0.2, mat, x, WALL_H*0.82, z, ry, { noPick:true });
+  HIDE_SPOTS.push({ x: x - s*0.1, z: z - c*0.1, yaw: ry + Math.PI, tag:'alcove' });
+}
+function pPlanter(x, z, mat, leafMat){
+  const r = 0.55;
+  addBox(1.15, 0.62, 1.15, mat, x, 0.31, z, 0, { collide:true });
+  const bush = new THREE.Mesh(new THREE.IcosahedronGeometry(0.62, 1), leafMat);
+  bush.position.set(x, 1.12, z); bush.scale.set(1, 0.86, 1);
+  bush.castShadow = true; bush.receiveShadow = true;
+  worldAdd(bush); pickables.push(bush);
+  colliders.push({ x0:x-r, z0:z-r, x1:x+r, z1:z+r, h:1.6 });
+}
+function pTable(x, z, mat, w, d){
+  w = w || 2.2; d = d || 1.1;
+  addBox(w, 0.12, d, mat, x, 0.78, z, 0, { collide:true });
+  for (const dx of [-1,1]) for (const dz of [-1,1])
+    addBox(0.13, 0.78, 0.13, mat, x + dx*(w/2-0.18), 0.39, z + dz*(d/2-0.16), 0, { noPick:true });
+}
+function pPipe(x0, z, x1, y, mat){
+  const len = Math.abs(x1 - x0);
+  const m = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.13, len, 12), mat);
+  m.rotation.z = Math.PI/2;
+  m.position.set((x0+x1)/2, y, z);
+  m.castShadow = true; m.receiveShadow = true;
+  worldAdd(m); pickables.push(m);
+}
+/* A plinth you can climb, exactly like the gallery's. */
+function pPlinth(x, z, mat, occupied, poseKey){
+  const peds = [{ x, y:0.55, z }];
+  instanced(GEO.pedBase,  mat, [{ x, y:0.055, z }]);
+  instanced(GEO.pedestal, mat, peds);
+  instanced(GEO.plinth,   mat, [{ x, y:1.06, z }]);
+  colliders.push({ x0:x-0.43, z0:z-0.43, x1:x+0.43, z1:z+0.43, h:PED_TOP });
+  if (occupied) statue(x, z, poseKey || 'stand', rnd(0, TAU));
+  else { MOUNTS.push({ x, z, y:PED_TOP }); HIDE_SPOTS.push({ x, z, yaw:rnd(0,TAU), y:PED_TOP, tag:'plinth' }); }
+}
+
+/* Places a hider (or a player) can sensibly tuck into, gathered as the map
+   builds so nothing has to be hand-listed twice. */
+const HIDE_SPOTS = [];
+function hideSpot(x, z, yaw, tag){ HIDE_SPOTS.push({ x, z, yaw, tag: tag || 'nook' }); }
+
+/* ---------- lighting per map ---------- */
+function applyMapLook(m){
+  const L = m.look || {};
+  scene.background = new THREE.Color(L.bg !== undefined ? L.bg : 0x0a0c12);
+  scene.fog = new THREE.FogExp2(L.fog !== undefined ? L.fog : 0x1b2130,
+                                L.fogD !== undefined ? L.fogD : 0.009);
+  hemi.color.setHex(L.skyC !== undefined ? L.skyC : 0xc4d8f2);
+  hemi.groundColor.setHex(L.gndC !== undefined ? L.gndC : 0x54483c);
+  hemi.intensity = L.hemi !== undefined ? L.hemi : 0.80;
+  sun.color.setHex(L.sunC !== undefined ? L.sunC : 0xffe9c8);
+  sun.intensity = L.sun !== undefined ? L.sun : 2.1;
+  renderer.toneMappingExposure = L.exposure !== undefined ? L.exposure : 1.04;
+}
+
+/* A soft fill grid so no room crushes to black. Every map wants this. */
+function fillGrid(intensity, colour){
+  for (const k in ROOMS){
+    const r = ROOMS[k];
+    const n = Math.max(1, Math.round((r.x1 - r.x0) / 11));
+    for (let i = 0; i < n; i++){
+      const f = new THREE.PointLight(colour || 0xdce4f2, intensity || 11, 30, 1.45);
+      f.position.set(r.x0 + (r.x1-r.x0)*(i+0.5)/n, WALL_H - 0.8, (r.z0+r.z1)/2);
+      worldAdd(f);
+    }
+  }
+}
+function lamps(list, colour, power, dist){
+  for (const p of list){
+    const l = new THREE.PointLight(colour || 0xffd2a0, power || 20, dist || 24, 1.5);
+    l.position.set(p[0], p[1] !== undefined ? p[1] : 3.3, p[2]);
+    worldAdd(l); chandeliers.push(l);
+  }
+}
+
+/* ==========================================================================
+   THE MAPS
+   ========================================================================== */
+const MAPS = {
+
+  /* --------------------------------------------------------------------
+     THE MANSION — the original. White statues everywhere, so the winning
+     move is to hold a pose and be counted as part of the collection.
+     -------------------------------------------------------------------- */
+  mansion: {
+    name: 'The Mansion', jp: 'やしき',
+    blurb: 'Marble, books and a gallery of white mannequins. Hold a pose and pass for one of them.',
+    tint: '#c9c3b4',
+    spawn: { x: 0, z: 7.2 },
+    rooms: {
+      library:    { x0:-30, z0:-8,  x1:-12, z1:8,  floor:'wood',   wall:'brick',     name:'LIBRARY' },
+      foyer:      { x0:-10, z0:-10, x1:10,  z1:10, floor:'marble', wall:'wallpaper', name:'GRAND FOYER' },
+      exhibition: { x0:12,  z0:-9,  x1:32,  z1:9,  floor:'carpet', wall:'plaster',   name:'EXHIBITION' }
+    },
+    corridors: [ { x0:-12, x1:-10, floor:'wood' }, { x0:10, x1:12, floor:'carpet' } ],
+    walls: [
+      [-30,-8,-12,-8,'brick'], [-30,8,-12,8,'brick'], [-30,-8,-30,8,'brick'],
+      [-12,-8,-12,-2,'brick'], [-12,2,-12,8,'brick'],
+      [-12,-2,-10,-2,'wallpaper'], [-12,2,-10,2,'wallpaper'],
+      [-10,-10,10,-10,'wallpaper'], [-10,10,10,10,'wallpaper'],
+      [-10,-10,-10,-2,'wallpaper'], [-10,2,-10,10,'wallpaper'],
+      [10,-10,10,-2,'wallpaper'],   [10,2,10,10,'wallpaper'],
+      [10,-2,12,-2,'plaster'], [10,2,12,2,'plaster'],
+      [12,-9,32,-9,'plaster'], [12,9,32,9,'plaster'], [32,-9,32,9,'plaster'],
+      [12,-9,12,-2,'plaster'], [12,2,12,9,'plaster']
+    ],
+    look: { hemi:0.80, sun:2.1, exposure:1.04, fogD:0.009 },
+    props: () => buildMansionProps()
+  },
+
+  /* --------------------------------------------------------------------
+     THE GREENHOUSE — hedges and planters. Cover here is leafy and green,
+     so the whole palette of the map is a colour most people never paint.
+     -------------------------------------------------------------------- */
+  greenhouse: {
+    name: 'The Greenhouse', jp: 'おんしつ',
+    blurb: 'Glass, gravel and rows of hedges. Everything is green, so anyone who is not sticks out.',
+    tint: '#7fa860',
+    spawn: { x: 0, z: 12.5 },
+    rooms: {
+      beds:    { x0:-26, z0:-11, x1:-6, z1:11, floor:'gravel', wall:'glass', ceil:'glass', name:'GROWING BEDS' },
+      atrium:  { x0:-4,  z0:-14, x1:14, z1:14, floor:'gravel', wall:'glass', ceil:'glass', name:'ATRIUM' },
+      potting: { x0:16,  z0:-10, x1:32, z1:10, floor:'wood',   wall:'plaster', name:'POTTING SHED' }
+    },
+    corridors: [ { x0:-6, x1:-4, floor:'gravel' }, { x0:14, x1:16, floor:'wood' } ],
+    walls: [
+      [-26,-11,-6,-11,'glass'], [-26,11,-6,11,'glass'], [-26,-11,-26,11,'glass'],
+      [-6,-11,-6,-2,'glass'], [-6,2,-6,11,'glass'],
+      [-6,-2,-4,-2,'glass'], [-6,2,-4,2,'glass'],
+      [-4,-14,14,-14,'glass'], [-4,14,14,14,'glass'],
+      [-4,-14,-4,-2,'glass'], [-4,2,-4,14,'glass'],
+      [14,-14,14,-2,'glass'], [14,2,14,14,'glass'],
+      [14,-2,16,-2,'plaster'], [14,2,16,2,'plaster'],
+      [16,-10,32,-10,'plaster'], [16,10,32,10,'plaster'], [32,-10,32,10,'plaster'],
+      [16,-10,16,-2,'plaster'], [16,2,16,10,'plaster']
+    ],
+    look: { hemi:1.15, sun:2.9, sunC:0xf4ffe0, exposure:1.10, fog:0x1e2a20, fogD:0.011, bg:0x101a12 },
+    props: () => buildGreenhouseProps()
+  },
+
+  /* --------------------------------------------------------------------
+     THE TOY FACTORY — crates, conveyors and primary colours. Loud enough
+     that a badly painted hider disappears and a well painted one is
+     invisible; the hardest map to seek on.
+     -------------------------------------------------------------------- */
+  factory: {
+    name: 'The Toy Factory', jp: 'こうじょう',
+    blurb: 'Crates, conveyors and paint in every primary colour. Loud enough to lose anybody in.',
+    tint: '#d4643c',
+    spawn: { x: 0, z: 11.5 },
+    rooms: {
+      floorRm: { x0:-28, z0:-12, x1:-4, z1:12, floor:'concrete', wall:'panel', name:'FACTORY FLOOR' },
+      packing: { x0:-2,  z0:-13, x1:16, z1:13, floor:'concrete', wall:'panel', name:'PACKING' },
+      store:   { x0:18,  z0:-9,  x1:34, z1:9,  floor:'concrete', wall:'brick', name:'STOREROOM' }
+    },
+    corridors: [ { x0:-4, x1:-2, floor:'concrete' }, { x0:16, x1:18, floor:'concrete' } ],
+    walls: [
+      [-28,-12,-4,-12,'panel'], [-28,12,-4,12,'panel'], [-28,-12,-28,12,'panel'],
+      [-4,-12,-4,-2,'panel'], [-4,2,-4,12,'panel'],
+      [-4,-2,-2,-2,'panel'], [-4,2,-2,2,'panel'],
+      [-2,-13,16,-13,'panel'], [-2,13,16,13,'panel'],
+      [-2,-13,-2,-2,'panel'], [-2,2,-2,13,'panel'],
+      [16,-13,16,-2,'panel'], [16,2,16,13,'panel'],
+      [16,-2,18,-2,'brick'], [16,2,18,2,'brick'],
+      [18,-9,34,-9,'brick'], [18,9,34,9,'brick'], [34,-9,34,9,'brick'],
+      [18,-9,18,-2,'brick'], [18,2,18,9,'brick']
+    ],
+    look: { hemi:0.90, sun:1.7, sunC:0xdfe8ff, exposure:1.02, fog:0x232733, fogD:0.010 },
+    props: () => buildFactoryProps()
+  },
+
+  /* --------------------------------------------------------------------
+     THE BATHHOUSE — tile, steam and stone. Tiled walls are the single
+     easiest surface in the game to match, so this map is the one where
+     patient painters win outright.
+     -------------------------------------------------------------------- */
+  bathhouse: {
+    name: 'The Bathhouse', jp: 'せんとう',
+    blurb: 'Tile, steam and cedar. The flattest colours in the game — a careful painter is invisible here.',
+    tint: '#6fb8c4',
+    spawn: { x: 0, z: 10.5 },
+    rooms: {
+      changing: { x0:-24, z0:-9,  x1:-6, z1:9,  floor:'wood',  wall:'cedar', name:'CHANGING ROOM' },
+      baths:    { x0:-4,  z0:-12, x1:16, z1:12, floor:'tile',  wall:'tile',  name:'THE BATHS' },
+      sauna:    { x0:18,  z0:-7,  x1:30, z1:7,  floor:'cedar', wall:'cedar', name:'SAUNA' }
+    },
+    corridors: [ { x0:-6, x1:-4, floor:'tile' }, { x0:16, x1:18, floor:'cedar' } ],
+    walls: [
+      [-24,-9,-6,-9,'cedar'], [-24,9,-6,9,'cedar'], [-24,-9,-24,9,'cedar'],
+      [-6,-9,-6,-2,'cedar'], [-6,2,-6,9,'cedar'],
+      [-6,-2,-4,-2,'tile'], [-6,2,-4,2,'tile'],
+      [-4,-12,16,-12,'tile'], [-4,12,16,12,'tile'],
+      [-4,-12,-4,-2,'tile'], [-4,2,-4,12,'tile'],
+      [16,-12,16,-2,'tile'], [16,2,16,12,'tile'],
+      [16,-2,18,-2,'cedar'], [16,2,18,2,'cedar'],
+      [18,-7,30,-7,'cedar'], [18,7,30,7,'cedar'], [30,-7,30,7,'cedar'],
+      [18,-7,18,-2,'cedar'], [18,2,18,7,'cedar']
+    ],
+    look: { hemi:1.00, sun:1.5, sunC:0xdff2ff, exposure:1.08, fog:0x2a3944, fogD:0.017, bg:0x0d151b },
+    props: () => buildBathhouseProps()
+  },
+
+  /* --------------------------------------------------------------------
+     THE ATTIC — dust sheets and stacked furniture in near-darkness. The
+     seeker's torch matters most here; hiders barely need to paint well,
+     they need to pick a shape that already exists in the room.
+     -------------------------------------------------------------------- */
+  attic: {
+    name: 'The Attic', jp: 'やねうら',
+    blurb: 'Dust sheets over stacked furniture, and almost no light. Pick a shape that already lives here.',
+    tint: '#6a5c4a',
+    spawn: { x: 0, z: 9.5 },
+    rooms: {
+      westEnd: { x0:-26, z0:-8, x1:-8, z1:8, floor:'wood', wall:'brick', name:'WEST END' },
+      loft:    { x0:-6,  z0:-11, x1:14, z1:11, floor:'wood', wall:'brick', name:'THE LOFT' },
+      eaves:   { x0:16,  z0:-6, x1:28, z1:6, floor:'wood', wall:'brick', name:'THE EAVES' }
+    },
+    corridors: [ { x0:-8, x1:-6, floor:'wood' }, { x0:14, x1:16, floor:'wood' } ],
+    walls: [
+      [-26,-8,-8,-8,'brick'], [-26,8,-8,8,'brick'], [-26,-8,-26,8,'brick'],
+      [-8,-8,-8,-2,'brick'], [-8,2,-8,8,'brick'],
+      [-8,-2,-6,-2,'brick'], [-8,2,-6,2,'brick'],
+      [-6,-11,14,-11,'brick'], [-6,11,14,11,'brick'],
+      [-6,-11,-6,-2,'brick'], [-6,2,-6,11,'brick'],
+      [14,-11,14,-2,'brick'], [14,2,14,11,'brick'],
+      [14,-2,16,-2,'brick'], [14,2,16,2,'brick'],
+      [16,-6,28,-6,'brick'], [16,6,28,6,'brick'], [28,-6,28,6,'brick'],
+      [16,-6,16,-2,'brick'], [16,2,16,6,'brick']
+    ],
+    look: { hemi:0.42, sun:0.9, sunC:0xffd7a8, exposure:1.16, fog:0x1a1712, fogD:0.024, bg:0x090805 },
+    props: () => buildAtticProps()
+  }
+};
+const MAP_KEYS = Object.keys(MAPS);
+
+/* ==========================================================================
+   Build / rebuild
+   ========================================================================== */
+/* The clamp that keeps a player inside the building, recomputed per map. */
+const mapBounds = { x0:-40, z0:-20, x1:40, z1:20 };
+function recomputeBounds(){
+  let x0 = Infinity, z0 = Infinity, x1 = -Infinity, z1 = -Infinity;
+  for (const k in ROOMS){
+    const r = ROOMS[k];
+    x0 = Math.min(x0, r.x0); z0 = Math.min(z0, r.z0);
+    x1 = Math.max(x1, r.x1); z1 = Math.max(z1, r.z1);
+  }
+  mapBounds.x0 = x0 - 1; mapBounds.z0 = z0 - 1;
+  mapBounds.x1 = x1 + 1; mapBounds.z1 = z1 + 1;
+}
+
+/* The map the player last chose, so a reload does not always drop you in the
+   mansion. Falls back safely when storage is unavailable. */
+function loadPreferredMap(){
+  try {
+    const k = localStorage.getItem('chameleon.map');
+    if (k && MAPS[k]) return k;
+  } catch(e){}
+  return 'mansion';
+}
+function savePreferredMap(k){ try { localStorage.setItem('chameleon.map', k); } catch(e){} }
+
+function buildWorld(key){
+  const m = MAPS[key] || MAPS.mansion;
+  ACTIVE_MAP = m;
+  clearWorld();
+  HIDE_SPOTS.length = 0;
+  ROOMS = m.rooms;
+  applyMapLook(m);
+  for (const k in ROOMS) buildRoom(k);
+  buildCorridors(m.corridors);
+  buildWalls(m.walls);
+  m.props();
+  recomputeBounds();
+  savePreferredMap(m === MAPS.mansion ? 'mansion' : Object.keys(MAPS).find(k => MAPS[k] === m));
+  return m;
+}
+
+/* ==========================================================================
+   Prop recipes — one per map
+   ========================================================================== */
+
+/* ---------- THE GREENHOUSE ----------
+   Rows of hedges you can step between, planters to crouch behind, and a
+   potting shed of shelving. The trick of this map is that almost nothing is
+   grey: a hider who does not commit to green is obvious from across the hall. */
+function buildGreenhouseProps(){
+  const B = ROOMS.beds, A = ROOMS.atrium, S = ROOMS.potting;
+  const leaf  = new THREE.MeshStandardMaterial({ color:0x4e7a3a, roughness:0.92 });
+  leaf.userData.sig = 0x4e7a3a; leaf.userData.matName = 'leaf';
+  const leaf2 = new THREE.MeshStandardMaterial({ color:0x6f9a48, roughness:0.9 });
+  leaf2.userData.sig = 0x6f9a48; leaf2.userData.matName = 'leaf';
+  const terra = new THREE.MeshStandardMaterial({ color:0xa5643f, roughness:0.88 });
+  terra.userData.sig = 0xa5643f; terra.userData.matName = 'terracotta';
+
+  // hedge rows: long, waist-to-shoulder, with gaps to slip through
+  for (let row = 0; row < 4; row++){
+    const z = B.z0 + 3.0 + row*4.6;
+    for (let seg = 0; seg < 4; seg++){
+      const x = B.x0 + 2.4 + seg*4.6;
+      if (seg === (row % 4)) { hideSpot(x, z, row%2 ? 0 : Math.PI, 'hedge gap'); continue; }
+      addBox(3.6, 1.55, 1.5, row % 2 ? leaf : leaf2, x, 0.78, z, 0, { collide:true });
+      hideSpot(x + 1.9, z, Math.PI/2, 'hedge end');
+    }
+  }
+  for (const zz of [B.z0+1.2, B.z1-1.2]) for (let i = 0; i < 4; i++)
+    pPlanter(B.x0 + 3 + i*4.4, zz, terra, leaf);
+
+  // atrium: a big central bed ringed with potted trees
+  addBox(6.2, 0.7, 6.2, terra, 4, 0.35, 0, 0, { collide:true });
+  const bush = new THREE.Mesh(new THREE.IcosahedronGeometry(2.6, 2), leaf);
+  bush.position.set(4, 1.9, 0); bush.scale.set(1, 0.75, 1);
+  bush.castShadow = true; bush.receiveShadow = true;
+  worldAdd(bush); pickables.push(bush);
+  colliders.push({ x0:1, z0:-3, x1:7, z1:3, h:2.4 });
+  for (const a of [0, 1, 2, 3, 4, 5]){
+    const th = a/6*TAU;
+    pPlanter(4 + Math.cos(th)*8.2, Math.sin(th)*8.6, terra, leaf2);
+    hideSpot(4 + Math.cos(th)*8.2, Math.sin(th)*8.6 + 1.0, th, 'planter');
+  }
+  for (const sx of [A.x0+1.6, A.x1-1.6]) pAlcove(sx, 0, sx < 0 ? -Math.PI/2 : Math.PI/2, MATS.glass);
+
+  // potting shed: benches and shelving
+  for (const z of [S.z0+2.0, S.z1-2.0]){
+    pShelf(S.x0 + 3.4, z, z < 0 ? 0 : Math.PI, MATS.wood, 3.0, 2.4, 0.55);
+    pShelf(S.x0 + 9.0, z, z < 0 ? 0 : Math.PI, MATS.wood, 3.0, 2.4, 0.55);
+    hideSpot(S.x0 + 6.2, z, z < 0 ? 0 : Math.PI, 'between shelves');
+  }
+  pTable(S.x0 + 6.4, 0, MATS.wood, 3.4, 1.4);
+  for (let i = 0; i < 5; i++) pBarrel(S.x1 - 1.6, S.z0 + 2.4 + i*1.2, terra, 0.9, 0.34);
+  for (let i = 0; i < 3; i++) pPlinth(S.x0 + 2.4 + i*4.6, S.z1 - 4.0, MATS.plaster, i === 1, 'hold');
+
+  lamps([[B.x0+5,3.6,0],[B.x1-5,3.6,0],[4,3.9,0],[S.x0+4,3.4,0],[S.x1-4,3.4,0]], 0xeaffd0, 22, 26);
+  fillGrid(13, 0xdff0dc);
+}
+
+/* ---------- THE TOY FACTORY ----------
+   Crates in primary colours, conveyor lines and shelving racks. Loud, busy,
+   and full of hard edges to stand flat against. */
+function buildFactoryProps(){
+  const F = ROOMS.floorRm, K = ROOMS.packing, S = ROOMS.store;
+  const mk = (hex, rough) => {
+    const m = new THREE.MeshStandardMaterial({ color:hex, roughness:rough === undefined ? 0.8 : rough });
+    m.userData.sig = hex; m.userData.matName = 'crate';
+    return m;
+  };
+  const crates = [mk(0xc4552f), mk(0xd8a02c), mk(0x2f6f8f), mk(0x4d7d3a), mk(0x8a4b7d)];
+  const steel  = mk(0x8b939c, 0.45);
+  const rubber = mk(0x24272c, 0.95);
+
+  // conveyor lines down the factory floor
+  for (const z of [F.z0 + 4.5, F.z1 - 4.5]){
+    addBox(20, 0.34, 1.5, rubber, F.x0 + 11, 0.86, z, 0, { collide:true });
+    for (let i = 0; i < 9; i++)
+      addBox(0.24, 0.86, 0.24, steel, F.x0 + 2 + i*2.4, 0.43, z, 0, { noPick:true });
+    for (let i = 0; i < 5; i++)
+      pCrate(F.x0 + 3 + i*4.6, 1.03, z, 0.7, crates[i % crates.length], rnd(0,0.5));
+  }
+  // stacks against the walls, and the gaps between them
+  for (let i = 0; i < 6; i++){
+    pCrateStack(F.x0 + 2.4 + i*3.8, F.z0 + 1.5, crates[i % crates.length], 100 + i);
+    pCrateStack(F.x0 + 2.4 + i*3.8, F.z1 - 1.5, crates[(i+2) % crates.length], 200 + i);
+    if (i < 5){
+      hideSpot(F.x0 + 4.3 + i*3.8, F.z0 + 1.6, 0, 'between crates');
+      hideSpot(F.x0 + 4.3 + i*3.8, F.z1 - 1.6, Math.PI, 'between crates');
+    }
+  }
+  for (const sx of [F.x0 + 1.4]) pAlcove(sx, 0, -Math.PI/2, MATS.panel);
+
+  // packing hall: racks, pallets, a paint station
+  for (const z of [K.z0 + 2.4, K.z1 - 2.4]){
+    for (let i = 0; i < 3; i++){
+      pShelf(K.x0 + 3.2 + i*5.2, z, z < 0 ? 0 : Math.PI, steel, 4.0, 2.8, 0.6);
+      if (i < 2) hideSpot(K.x0 + 5.8 + i*5.2, z, z < 0 ? 0 : Math.PI, 'rack gap');
+    }
+  }
+  for (let i = 0; i < 4; i++) pBarrel(K.x0 + 2.2 + i*3.6, 0, crates[i % crates.length], 1.05, 0.42);
+  pTable(K.x1 - 3.0, 0, steel, 2.6, 1.3);
+  for (let i = 0; i < 4; i++) pPlinth(K.x0 + 4 + i*3.2, K.z0 + 6.2, steel, i % 2 === 0, 'tpose');
+
+  // storeroom: lockers and a forest of crates
+  for (let i = 0; i < 7; i++) pLocker(S.x0 + 1.1, S.z0 + 1.6 + i*1.0, -Math.PI/2, steel);
+  for (let i = 0; i < 5; i++){
+    pCrateStack(S.x0 + 4.5 + i*2.7, S.z0 + 2.4, crates[i % crates.length], 300 + i);
+    pCrateStack(S.x0 + 4.5 + i*2.7, S.z1 - 2.4, crates[(i+1) % crates.length], 400 + i);
+    hideSpot(S.x0 + 5.8 + i*2.7, 0, 0, 'aisle');
+  }
+  for (const y of [2.6, 3.1]) pPipe(F.x0, F.z0 + 2.0, F.x1, y, steel);
+
+  lamps([[F.x0+6,4.0,0],[F.x0+16,4.0,0],[K.x0+5,4.0,0],[K.x1-5,4.0,0],[S.x0+8,3.6,0]],
+        0xfff2d8, 24, 26);
+  fillGrid(12, 0xd8e2f0);
+}
+
+/* ---------- THE BATHHOUSE ----------
+   Tile everywhere: the flattest, most uniform colour in the game. Painting
+   well is easy here, so the map compensates with wide open sightlines and
+   very little to stand behind. */
+function buildBathhouseProps(){
+  const C = ROOMS.changing, B = ROOMS.baths, S = ROOMS.sauna;
+  const water = new THREE.MeshStandardMaterial({
+    color:0x2f7f96, roughness:0.12, metalness:0.05, transparent:true, opacity:0.86 });
+  water.userData.sig = 0x2f7f96; water.userData.matName = 'water';
+  const stone = new THREE.MeshStandardMaterial({ color:0x8d9296, roughness:0.86 });
+  stone.userData.sig = 0x8d9296; stone.userData.matName = 'stone';
+
+  // changing room: banks of lockers and benches
+  for (let i = 0; i < 8; i++){
+    pLocker(C.x0 + 1.1, C.z0 + 1.4 + i*0.95, -Math.PI/2, MATS.cedar);
+    pLocker(C.x1 - 1.1, C.z0 + 1.4 + i*0.95,  Math.PI/2, MATS.cedar);
+  }
+  for (let i = 0; i < 3; i++){
+    const bx = C.x0 + 5.0 + i*4.2;
+    addBox(0.9, 0.45, 4.6, MATS.cedar, bx, 0.42, 0, 0, { collide:true });
+    hideSpot(bx + 0.9, 2.6, 0, 'behind bench');
+    hideSpot(bx - 0.9, -2.6, Math.PI, 'behind bench');
+  }
+  for (const sx of [C.x0 + 1.6, C.x1 - 1.6]) pAlcove(sx, 6.4, sx < C.x0+3 ? -Math.PI/2 : Math.PI/2, MATS.cedar);
+
+  // the baths: two sunken pools with a tiled surround
+  for (const [px, pz, pw, pd] of [[B.x0+5.5, -5.0, 7.0, 5.0], [B.x0+13.0, 5.0, 7.0, 5.0]]){
+    const w = new THREE.Mesh(new THREE.PlaneGeometry(pw, pd), water);
+    w.rotation.x = -Math.PI/2; w.position.set(px, 0.10, pz);
+    w.receiveShadow = true; worldAdd(w); pickables.push(w);
+    for (const s of [-1, 1]){
+      addBox(pw + 1.2, 0.42, 0.6, MATS.tile, px, 0.21, pz + s*(pd/2 + 0.3), 0, { collide:true });
+      addBox(0.6, 0.42, pd, MATS.tile, px + s*(pw/2 + 0.3), 0.21, pz, 0, { collide:true });
+    }
+    hideSpot(px, pz + pd/2 + 1.3, 0, 'poolside');
+  }
+  // pillars and stools
+  for (const px of [B.x0 + 3.0, B.x0 + 10.0, B.x0 + 17.0])
+    for (const pz of [-9.0, 9.0]) pPillar(px, pz, MATS.tile, 0.46);
+  for (let i = 0; i < 8; i++)
+    pBarrel(B.x0 + 2 + (i%4)*4.2, i < 4 ? -1.0 : 1.0, MATS.cedar, 0.44, 0.24);
+  for (let i = 0; i < 3; i++) pPlinth(B.x0 + 4 + i*5.0, B.z0 + 1.8, MATS.tile, i !== 1, 'stand');
+
+  // sauna: tiered cedar benches and a stove
+  for (let t = 0; t < 3; t++){
+    const h = 0.42 + t*0.42;
+    addBox(S.x1 - S.x0 - 2.0, h, 1.1, MATS.cedar, (S.x0+S.x1)/2, h/2, S.z0 + 1.0 + t*1.15, 0, { collide:true });
+    addBox(S.x1 - S.x0 - 2.0, h, 1.1, MATS.cedar, (S.x0+S.x1)/2, h/2, S.z1 - 1.0 - t*1.15, 0, { collide:true });
+  }
+  pBarrel(S.x0 + 2.0, 0, stone, 1.0, 0.5);
+  hideSpot(S.x0 + 2.0, 1.4, 0, 'behind the stove');
+  hideSpot(S.x1 - 1.6, 0, Math.PI/2, 'sauna corner');
+
+  lamps([[C.x0+5,3.4,0],[C.x1-5,3.4,0],[B.x0+5,4.0,0],[B.x0+15,4.0,0],[S.x0+6,3.2,0]],
+        0xdff4ff, 20, 24);
+  fillGrid(14, 0xd6ecf4);
+}
+
+/* ---------- THE ATTIC ----------
+   Sheeted furniture in the dark. Hiders barely need a colour match here —
+   they need a silhouette that already belongs. */
+function buildAtticProps(){
+  const W = ROOMS.westEnd, L = ROOMS.loft, E = ROOMS.eaves;
+  const sheet = new THREE.MeshStandardMaterial({ color:0xd8d2c4, roughness:0.95 });
+  sheet.userData.sig = 0xd8d2c4; sheet.userData.matName = 'dust sheet';
+  const dark  = new THREE.MeshStandardMaterial({ color:0x4a3f31, roughness:0.9 });
+  dark.userData.sig = 0x4a3f31; dark.userData.matName = 'old wood';
+
+  /* A sheeted shape: a lumpy white form roughly the size of a person, which
+     is the whole joke of this map — half of them are furniture. */
+  const sheeted = (x, z, s) => {
+    const g = new THREE.Group();
+    // A cloth drape flares toward the floor and rounds off at the top. The
+    // silhouette has to be continuous — a box with a ball balanced on it reads
+    // as two props, and the whole point is that it might be a person.
+    const R = 0.56*s;
+    const body = new THREE.Mesh(new THREE.CylinderGeometry(R*0.86, R*1.22, 1.30*s, 9, 1), sheet);
+    body.position.y = 0.65*s; g.add(body);
+    const top = new THREE.Mesh(new THREE.SphereGeometry(R*0.86, 10, 8), sheet);
+    top.position.y = 1.30*s; top.scale.set(1, 0.86, 1); g.add(top);
+    // a couple of folds so it is not a smooth turned cone
+    for (const a of [0.7, 2.6, 4.4]){
+      const f = new THREE.Mesh(new THREE.BoxGeometry(0.07*s, 1.1*s, 0.13*s), sheet);
+      f.position.set(Math.cos(a)*R*1.02, 0.6*s, Math.sin(a)*R*1.02);
+      f.rotation.y = -a; g.add(f);
+    }
+    g.position.set(x, 0, z);
+    g.rotation.y = rnd(0, TAU);
+    g.traverse(o => { if (o.isMesh){ o.castShadow = true; o.receiveShadow = true; pickables.push(o); } });
+    worldAdd(g);
+    colliders.push({ x0:x-0.6*s, z0:z-0.55*s, x1:x+0.6*s, z1:z+0.55*s, h:1.9*s });
+    hideSpot(x + 0.9*s, z, Math.PI/2, 'beside a sheet');
+  };
+
+  for (let i = 0; i < 7; i++)
+    sheeted(W.x0 + 2.4 + (i%4)*4.2, i < 4 ? W.z0 + 2.4 : W.z1 - 2.4, 0.9 + Math.random()*0.35);
+  for (let i = 0; i < 4; i++) pShelf(W.x0 + 3 + i*4.0, 0, 0, dark, 3.0, 2.6, 0.5);
+
+  // the loft: stacked chairs, wardrobes, trunks
+  for (let i = 0; i < 5; i++){
+    pLocker(L.x0 + 1.2, L.z0 + 2.0 + i*1.8, -Math.PI/2, dark);
+    pLocker(L.x1 - 1.2, L.z0 + 2.0 + i*1.8,  Math.PI/2, dark);
+  }
+  for (let i = 0; i < 6; i++){
+    pCrateStack(L.x0 + 4.0 + (i%3)*5.0, i < 3 ? L.z0 + 3.0 : L.z1 - 3.0, dark, 700 + i);
+    hideSpot(L.x0 + 5.6 + (i%3)*5.0, i < 3 ? L.z0 + 3.0 : L.z1 - 3.0, 0, 'behind a trunk');
+  }
+  for (let i = 0; i < 5; i++) sheeted(L.x0 + 3.0 + i*2.4, 0, 0.85 + Math.random()*0.4);
+  pTable(L.x1 - 4.0, L.z1 - 3.6, dark, 2.6, 1.2);
+  for (const sx of [L.x0 + 1.6, L.x1 - 1.6]) pAlcove(sx, L.z1 - 6.0, sx < 0 ? -Math.PI/2 : Math.PI/2, MATS.brick);
+
+  // the eaves: low, tight, and full of corners
+  for (let i = 0; i < 5; i++){
+    pCrateStack(E.x0 + 2.0 + i*2.4, E.z0 + 1.6, dark, 800 + i);
+    pCrateStack(E.x0 + 2.0 + i*2.4, E.z1 - 1.6, dark, 900 + i);
+    hideSpot(E.x0 + 3.2 + i*2.4, 0, 0, 'the eaves');
+  }
+  for (let i = 0; i < 3; i++) pPlinth(E.x0 + 3 + i*3.4, 0, MATS.plaster, i === 0, 'lean');
+
+  // one bare bulb per room, and very little else
+  lamps([[W.x0+8,3.2,0],[0,3.4,0],[E.x0+6,3.0,0]], 0xffcf94, 19, 19);
+  fillGrid(7, 0x8f96a8);
+}
+
+/* ==========================================================================
+   Map previews
+   Real thumbnails rather than drawn floorplans: each map is built, framed
+   from a corner of its largest room and rendered once into an offscreen
+   target. Five rebuilds cost about a second, which is why they are made
+   lazily the first time a picker opens and then cached for the session.
+   ========================================================================== */
+const MAP_THUMBS = {};
+let thumbsBuilding = false;
+function buildMapThumbs(){
+  if (thumbsBuilding) return;
+  if (Object.keys(MAP_THUMBS).length === MAP_KEYS.length) return;
+  // Never rebuild the world out from under a live round.
+  if (GAME.phase === 'prep' || GAME.phase === 'hunt' || GAME.phase === 'seek' ||
+      GAME.phase === 'netprep' || GAME.phase === 'nethunt') return;
+  thumbsBuilding = true;
+  const W = 384, H = 216;
+  const rt = new THREE.WebGLRenderTarget(W, H);
+  const cam = new THREE.PerspectiveCamera(60, W/H, 0.1, 220);
+  const buf = new Uint8Array(W*H*4);
+  const cv2 = document.createElement('canvas');
+  cv2.width = W; cv2.height = H;
+  const cx2 = cv2.getContext('2d');
+  const img = cx2.createImageData(W, H);
+
+  // hide anything that is not scenery so the shot is of the map
+  const hidden = [];
+  for (const o of [P.mesh, SEEK.mesh, GUN.mesh, BOOTH.group]){
+    if (o && o.visible){ o.visible = false; hidden.push(o); }
+  }
+  const wasKey = ACTIVE_MAP ? MAP_KEYS.find(k => MAPS[k] === ACTIVE_MAP) : 'mansion';
+
+  for (const k of MAP_KEYS){
+    buildWorld(k);
+    // frame the biggest room from one corner, looking at its middle
+    let best = null, bestA = -1;
+    for (const rk in ROOMS){
+      const r = ROOMS[rk], a = (r.x1-r.x0)*(r.z1-r.z0);
+      if (a > bestA){ bestA = a; best = r; }
+    }
+    const mx = (best.x0+best.x1)/2, mz = (best.z0+best.z1)/2;
+    cam.position.set(best.x0 + 1.6, WALL_H - 1.0, best.z0 + 1.6);
+    cam.lookAt(mx, 1.1, mz);
+    cam.updateMatrixWorld(true);
+    renderer.setRenderTarget(rt);
+    renderer.render(scene, cam);
+    renderer.setRenderTarget(null);
+    renderer.readRenderTargetPixels(rt, 0, 0, W, H, buf);
+    // GL reads bottom-up; the canvas wants top-down
+    for (let y = 0; y < H; y++){
+      const src = (H-1-y)*W*4, dst = y*W*4;
+      for (let i = 0; i < W*4; i++) img.data[dst+i] = buf[src+i];
+    }
+    cx2.putImageData(img, 0, 0);
+    MAP_THUMBS[k] = cv2.toDataURL('image/jpeg', 0.72);
+  }
+
+  buildWorld(wasKey);
+  for (const o of hidden) o.visible = true;
+  rt.dispose();
+  thumbsBuilding = false;
+}
+
+/* The picker itself, reused by the solo menu and by the host's room lobby. */
+function renderMapPicker(containerId, current, onPick){
+  const box = document.getElementById(containerId);
+  if (!box) return;
+  // Draw the cards NOW with whatever thumbnails exist, then build the missing
+  // ones off the main thread's critical path and redraw. Building five maps
+  // inline blocks for seconds, and this runs from the room lobby's player-list
+  // update, which must stay snappy.
+  if (Object.keys(MAP_THUMBS).length < MAP_KEYS.length && !thumbsBuilding){
+    setTimeout(() => {
+      try { buildMapThumbs(); } catch(e){ console.warn('thumbnails unavailable', e); }
+      renderMapPicker(containerId, current, onPick);
+    }, 60);
+  }
+  box.innerHTML = MAP_KEYS.map(k => {
+    const m = MAPS[k];
+    const thumb = MAP_THUMBS[k];
+    return `<div class="mapCard${k === current ? ' on' : ''}" data-k="${k}">
+      ${thumb ? `<img src="${thumb}" alt="">` : `<div class="mapNoThumb" style="background:${m.tint}"></div>`}
+      <div class="mapCardBody">
+        <b>${escapeHtml(m.name)}</b><span class="mapJp">${m.jp}</span>
+        <p>${escapeHtml(m.blurb)}</p>
+      </div>
+    </div>`;
+  }).join('');
+  [...box.children].forEach(el => el.onclick = () => {
+    [...box.children].forEach(c => c.classList.remove('on'));
+    el.classList.add('on');
+    if (onPick) onPick(el.dataset.k);
+  });
+}
+/* ==========================================================================
    Section 7 — phases, input, HUD, main loop
    ========================================================================== */
 const GAME = { phase:'boot', t:0, len:0, score:0, hidden:0, studio:false, over:false, mode:'hide' };
@@ -9903,7 +11009,9 @@ function movePlayer(dt){
   // is heard from much further away.
   const wantSprint = keys['shift'] && wl > 0.05 ? 1 : 0;
   P.sprint += (wantSprint - P.sprint) * Math.min(1, dt*7);
-  const spd = WALK_SPD + (SPRINT_SPD - WALK_SPD) * P.sprint;
+  let spd = WALK_SPD + (SPRINT_SPD - WALK_SPD) * P.sprint;
+  // the host can tune how fast a seeker moves relative to everyone else
+  if (GAME.phase === 'nethunt' && NET.role === 'seeker') spd *= (cfg().speed || 1);
   P.vx += (wx*spd - P.vx) * Math.min(1, dt*11);
   P.vz += (wz*spd - P.vz) * Math.min(1, dt*11);
 
@@ -9927,7 +11035,12 @@ function movePlayer(dt){
       }
     }
   }
-  P.x = clamp(P.x, -33, 35); P.z = clamp(P.z, -13, 13);
+  // Clamp to the active map's own extent — plus the counting room, which
+  // lives far outside every map's bounds on purpose.
+  if (!boothActive){
+    P.x = clamp(P.x, mapBounds.x0, mapBounds.x1);
+    P.z = clamp(P.z, mapBounds.z0, mapBounds.z1);
+  }
 
   // Turn toward the direction of travel rather than snapping to it, so the
   // figure banks through a change of heading instead of pivoting on the spot.
@@ -10041,7 +11154,17 @@ function initInput(){
     if (k === 'c'){ doEyedrop(); return; }
     if (k === 'z' && (e.ctrlKey || e.metaKey)){ e.preventDefault(); undoPaint(); return; }
     const n = parseInt(k, 10);
-    if (n >= 1 && n <= POSE_KEYS.length && GAME.phase === 'prep') setPose(POSE_KEYS[n-1]);
+    if (n >= 1 && n <= POSE_KEYS.length){
+      // Poses belong to every hiding phase, not only the solo one — gating
+      // this on 'prep' alone meant the pose keys did nothing in multiplayer.
+      const hiding = GAME.phase === 'prep' ||
+                     (GAME.phase === 'netprep' && NET.role !== 'seeker');
+      if (!hiding) return;
+      if (GAME.phase === 'netprep' && cfg().poses === false){
+        toast('Poses are switched off in this room'); return;
+      }
+      setPose(POSE_KEYS[n-1]);
+    }
   });
   addEventListener('keyup', e => { keys[e.key.toLowerCase()] = false; });
   addEventListener('blur', () => { for (const k in keys) keys[k] = false; });
@@ -10098,6 +11221,15 @@ function initInput(){
   $('btnPlay').onclick = startRound;
   $('btnSeek').onclick = startSeek;
   $('btnMulti').onclick = openMultiplayer;
+  $('btnMaps').onclick = () => {
+    $('menu').classList.add('off'); $('mapMenu').classList.remove('off');
+    const cur = MAP_KEYS.find(k => MAPS[k] === ACTIVE_MAP) || 'mansion';
+    renderMapPicker('mapPickSolo', cur, k => { NET.soloMap = k; });
+  };
+  $('mapDone').onclick = () => {
+    if (NET.soloMap) buildWorld(NET.soloMap);
+    $('mapMenu').classList.add('off'); $('menu').classList.remove('off');
+  };
   $('mpBack').onclick    = () => { $('mpMenu').classList.add('off'); $('menu').classList.remove('off'); };
   $('mpRefresh').onclick = netBrowse;
   $('mpQuick').onclick   = netQuick;
@@ -10259,12 +11391,9 @@ async function boot(){
   step(62, res.ok ? `LOADED ${res.ok}/${res.total} EXTERNAL` : 'OFFLINE — PROCEDURAL FALLBACK');
   await new Promise(r => setTimeout(r, 16));
   step(72, 'RAISING WALLS');
-  for (const k in ROOMS) buildRoom(k);
-  buildCorridors();
-  buildWalls();
+  buildWorld(loadPreferredMap());
   step(86, 'PLACING THE COLLECTION');
   await new Promise(r => setTimeout(r, 16));
-  buildProps();
   initPlayer();
   buildSeeker();
   initWaves();
