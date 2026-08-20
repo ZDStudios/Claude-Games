@@ -192,6 +192,8 @@ input[type=range]::-moz-range-thumb{width:14px;height:14px;border-radius:50%;bac
 #dmgFill{background:linear-gradient(90deg,var(--green),var(--yellow) 55%,var(--red))}
 #fuelFill{background:linear-gradient(90deg,var(--sapphire),var(--sky))}
 #boostFill{background:linear-gradient(90deg,var(--peach),var(--yellow))}
+#nosFill{background:linear-gradient(90deg,var(--sapphire),var(--teal))}
+#nosMeter.hot #nosTxt{color:var(--sky)}
 #boostMeter.hot #boostTxt{color:var(--peach)}
 #minimap{margin-top:8px;width:158px;height:158px;border-radius:12px;border:1px solid var(--s0);
   background:rgba(17,17,27,.6)}
@@ -353,6 +355,10 @@ input[type=range]::-moz-range-thumb{width:14px;height:14px;border-radius:50%;bac
       <div class="cap"><span>Boost</span><span id="boostTxt">READY</span></div>
       <div class="bar"><i id="boostFill"></i></div>
     </div>
+    <div class="meter" id="nosMeter">
+      <div class="cap"><span>Nitrous</span><span id="nosTxt">100%</span></div>
+      <div class="bar"><i id="nosFill"></i></div>
+    </div>
     <canvas id="minimap" width="316" height="316" class="hide"></canvas>
   </div>
   <canvas id="gauge" width="600" height="340"></canvas>
@@ -410,7 +416,7 @@ input[type=range]::-moz-range-thumb{width:14px;height:14px;border-radius:50%;bac
     </div>
     <div class="credit">
       <b style="color:var(--sapphire)">C = aeroplane · N = boat</b> — mid-air is fine · V drops the trailer<br>
-      WASD drive · SPACE jump · F boost · X handbrake · U flip · H horn · G diff · Z low range<br>
+      WASD drive · SPACE jump · N nitrous · F boost · Y turn around · X handbrake · U flip · J boat<br>
       SHIFT/CTRL gears · R reset · B camera · F flip · drag mouse to look around<br>
       Everything here — geometry, textures, audio, terrain — is generated at runtime.
     </div>
@@ -1650,6 +1656,23 @@ function disposeObj(o) {
  * nose, so it works exactly the same whether the wheels are on the ground, in
  * the air, folded into an aeroplane or floating. Scaled by mass, so the eleven
  * tonne hauler gets shoved as hard as the rally car does. */
+/* Nitrous is the other half of the pair, and deliberately a different animal.
+ * The F overboost is a fixed five-second shove on the hull that works in every
+ * form; nitrous is a tank you meter out through the engine, so it only pulls
+ * when the wheels have something to push against — and you choose how much of
+ * it to spend and when. */
+const NOS_DRAIN = 0.26;        // tank per second, held down — near four seconds flat out
+const NOS_REFILL = 0.085;      // tank per second, off the button
+const NOS_TORQUE = 1.35;       // engine multiplier while it is flowing
+/* And a push on the hull as well as torque at the wheels. Torque alone was
+ * useless and then worse than useless: this car is traction limited in the
+ * first place, so more of it only span the rears up, and traction control then
+ * took the difference back out again — nitrous measured SLOWER than not using
+ * it. The thrust is what actually reaches the road. It is gated on the wheels
+ * being down, which is the line between this and the F overboost. */
+const NOS_ACCEL = 6.5;         // m/s^2, on the ground only
+const NOS_DRAG = 0.62;         // and it slips a little cleaner too
+
 const BOOST_TIME = 5.0;        // seconds of full thrust
 const BOOST_COOL = 14.0;       // seconds to recharge once it runs out
 const BOOST_ACCEL = 9.0;       // m/s^2 of pure thrust — a shade under 1 g
@@ -2162,6 +2185,8 @@ class Vehicle {
     this.diffLock = false;
     this.morph = 0;              // 0 = truck, 1 = aeroplane (driven by TruckRig)
     this.boat = 0;               // 0 = truck, 1 = boat
+    this.nos = 1;                // nitrous tank, 0..1
+    this.nosOn = false;          // flowing right now
     this.boostT = 0;             // seconds of overboost left
     this.boostCool = 0;          // seconds until it can be used again
     this.throttleLevel = 0.7;    // jet throttle, separate from the road throttle
@@ -2356,6 +2381,10 @@ class Vehicle {
       // jets or the water jet take over from the road wheels
       driveTorque *= (1 - clamp01(Math.max(this.morph, this.boat) * 1.4));
       if (this.boostT > 0) driveTorque *= BOOST_TORQUE;
+      // nitrous: only while there is something in the bottle, and only through
+      // the engine — no wheels on the ground, no shove
+      this.nosOn = !!(ctrl.nos && this.nos > 0 && ctrl.throttle > 0.05 && this.wheelsOnGround > 0);
+      if (this.nosOn) driveTorque *= NOS_TORQUE;
     }
 
     const brakeMul = 1 - 0.4 * this.damage;
@@ -2375,7 +2404,7 @@ class Vehicle {
     let hold = 0;
     if (!this.isTrailer && this.wheelsOnGround > 0 &&
         ctrl.throttle < 0.02 && ctrl.brake < 0.02 && ctrl.handbrake < 0.02 &&
-        this.morph < 0.2 && this.boat < 0.2 && this.boostT <= 0) {
+        this.morph < 0.2 && this.boat < 0.2 && this.boostT <= 0 && !this.nosOn) {
       hold = 1 - smoothstep(clamp01((this.speedAbs - 0.9) / 1.6));
     }
     this.autoHold = hold;
@@ -2607,6 +2636,17 @@ class Vehicle {
    * into an aeroplane. Mass-scaled so every vehicle gets the same shove in g.
    */
   overboost(dt) {
+    // the bottle drains only while it is actually being burnt, and fills back
+    // up slowly the moment you come off it
+    if (this.nosOn) {
+      this.nos = clamp01(this.nos - NOS_DRAIN * dt);
+      const b2 = this.body, F = b2.mass * NOS_ACCEL;
+      b2.force.x += this.fwdC.x * F;
+      b2.force.y += this.fwdC.y * F;
+      b2.force.z += this.fwdC.z * F;
+    }
+    else this.nos = clamp01(this.nos + NOS_REFILL * dt);
+
     if (this.boostT > 0) {
       this.boostT -= dt;
       if (this.boostT <= 0) { this.boostT = 0; this.boostCool = BOOST_COOL; }
@@ -2634,7 +2674,7 @@ class Vehicle {
       // speed is set by where thrust and drag balance, so quartering the drag
       // is what actually doubles the number on the dial rather than just
       // getting you to the old one sooner.
-      const boostDrag = this.boostT > 0 ? 0.25 : 1;
+      const boostDrag = (this.boostT > 0 ? 0.25 : 1) * (this.nosOn ? NOS_DRAG : 1);
       const F = 0.5 * 1.2 * this.spec.aero.cd * (1 + ab * 0.55) * cheatDrag() *
                 this.spec.aero.area * sp2 * boostDrag;
       vset(cvA, -v.x / spd * F, -v.y / spd * F, -v.z / spd * F);
@@ -4602,6 +4642,20 @@ class TruckRig {
       document.getElementById('boostTxt').textContent =
         bt > 0 ? bt.toFixed(1) + ' S' : (bc > 0 ? 'CHARGING' : 'READY — F');
       bm.classList.toggle('hot', bt > 0);
+    }
+    const nm = document.getElementById('nosMeter');
+    if (nm) {
+      document.getElementById('nosFill').style.width = (v.nos * 100).toFixed(0) + '%';
+      document.getElementById('nosTxt').textContent =
+        v.nosOn ? 'BURNING' : Math.round(v.nos * 100) + '%';
+      nm.classList.toggle('hot', v.nosOn);
+    }
+    if (v.nosOn) {
+      const nz = (this.spec.rig && this.spec.rig.smokeZ) || 1.9;
+      tmpV.set((Math.random() - 0.5) * 0.44, 0.08, -Math.abs(nz) - 0.6);
+      this.group.localToWorld(tmpV);
+      FX.smoke(tmpV, 0.34 + Math.random() * 0.3, Math.random() < 0.7 ? 0x89b4fa : 0x94e2d5);
+      Cam.addShake(0.006);
     }
     if (bt > 0) {
       // torch out of the back, wherever this rig's exhaust happens to be
@@ -10491,8 +10545,14 @@ function placeName(x, z) {
 function buildTunnels(rng) {
   const P = World.landmarks.PEAK;
   const R0 = P.r * 0.90;
-  const W = P.w + 3.4;              // clear width — wider than the carriageway
-  const HGT = 7.2;                  // clear height under the crown
+  /* Clear width. Generous on purpose: the road through here is a spiral, so a
+   * straight bore cuts the chord of a curve and the carriageway drifts toward
+   * one wall in the middle. Every extra metre of width buys a longer tunnel. */
+  const W = P.w + 9.0;
+  /* Clear height. Raised along with the width, because the ground inside a
+   * long bore humps as well as curving, and that hump eats headroom — the
+   * tallest rig in the game stands about 3.7 m. */
+  const HGT = 8.8;
   const made = [];
 
   // Space them round the climb: a bearing and which turn of the spiral to sit on
@@ -10512,23 +10572,47 @@ function buildTunnels(rng) {
     const cx = P.x + Math.cos(a) * dc, cz = P.z + Math.sin(a) * dc;
     if (!spiralRoad(cx, cz)) continue;             // not actually on the road
     let gy = worldHeight(cx, cz);
-    const len = 30;
-    // level enough? sample the ground the length of the bore
     const yawT = Math.atan2(Math.cos(a), -Math.sin(a));
-    let lo = 1e9, hi = -1e9;
-    for (let i = -3; i <= 3; i++) {
-      const f = i / 3 * len / 2;
-      const h = worldHeight(cx + Math.sin(yawT) * f, cz + Math.cos(yawT) * f);
-      lo = Math.min(lo, h); hi = Math.max(hi, h);
+    /* Don't demand level ground — there isn't any. The hill-climb road gains
+     * twelve metres over a bore this long at its gentlest, so a gallery that
+     * insisted on the flat could only ever be a short one. Pitch the whole
+     * structure to match the gradient instead and let it climb with the road.
+     * What actually matters is that the road runs STRAIGHT through it, so the
+     * test is how far the ground strays from the line joining the two ends. */
+    /* Take the longest bore this site can actually carry. The road is a spiral,
+     * so a long straight chord wanders away from it — try a long one first and
+     * fall back until the ground under the bore is straight enough that the
+     * carriageway stays between the walls the whole way through. */
+    let len = 0, hA = 0, hB = 0;
+    for (const cand of [86, 68, 52, 38]) {
+      const a0 = worldHeight(cx - Math.sin(yawT) * cand / 2, cz - Math.cos(yawT) * cand / 2);
+      const b0 = worldHeight(cx + Math.sin(yawT) * cand / 2, cz + Math.cos(yawT) * cand / 2);
+      let bow = 0;
+      for (let i = -3; i <= 3; i++) {
+        const u = i / 6 + 0.5;
+        const f = (u - 0.5) * cand;
+        const h = worldHeight(cx + Math.sin(yawT) * f, cz + Math.cos(yawT) * f);
+        bow = Math.max(bow, Math.abs(h - (a0 + (b0 - a0) * u)));
+      }
+      /* Two tests, and the second is the one that actually bites. The bow is the
+       * vertical hump, which costs headroom. The sagitta is how far the curved
+       * road strays sideways from the straight bore — L^2/8R — and that is what
+       * decides whether you clip a wall halfway through. */
+      const sag = cand * cand / (8 * dc);
+      if (bow <= 3.6 && sag <= (W - P.w) / 2 - 1.2) { len = cand; hA = a0; hB = b0; break; }
     }
-    if (hi - lo > 1.6) continue;                 // too steep to roof over
-    if (made.length >= 5) break;
-    if (made.some(m => Math.hypot(m.x - cx, m.z - cz) < 90)) continue;
+    if (!len) continue;                          // nowhere straight enough here
+    if (made.length >= 4) break;
+    if (made.some(m => Math.hypot(m.x - cx, m.z - cz) < 120)) continue;
     // tangent to the spiral: perpendicular to the radius, near enough
     const yaw = yawT;
 
-    gy = lo - 0.25;                            // sit the sill on the low point
-    const body = makeBody({ pos: [cx, gy, cz], rot: [0, yaw, 0], surface: 'road' });
+    gy = (hA + hB) / 2 - 0.25;                 // midpoint of the graded run
+    // yaw first, then pitch about the tunnel's own X — hence the YXZ order
+    const pitch = -Math.atan2(hB - hA, len);
+    const rotQ = new THREE.Quaternion().setFromEuler(new THREE.Euler(pitch, yaw, 0, 'YXZ'));
+    const body = makeBody({ pos: [cx, gy, cz], surface: 'road' });
+    body.quaternion.set(rotQ.x, rotQ.y, rotQ.z, rotQ.w);
     const parts = [], lit = [];
     const conc = 0x6b6f80, dark = 0x3a3d4c, rim = 0x8b90a3;
 
@@ -10546,7 +10630,7 @@ function buildTunnels(rng) {
       }
     }
     // arched crown: real colliders, so you cannot drive up through the roof
-    const segs = 9, R = W * 0.62;
+    const segs = 11, R = W * 0.60;
     for (let i = 0; i < segs; i++) {
       const t0 = -0.98, t1 = 0.98;
       const ang = t0 + (t1 - t0) * ((i + 0.5) / segs);
@@ -10567,12 +10651,12 @@ function buildTunnels(rng) {
 
     body.updateBoundingRadius && body.updateBoundingRadius();
     const mesh = new THREE.Mesh(mergeGeoms(parts), vcMat({ roughness: 0.92 }));
-    mesh.position.set(cx, gy, cz); mesh.rotation.y = yaw;
+    mesh.position.set(cx, gy, cz); mesh.quaternion.copy(rotQ);
     mesh.castShadow = true; mesh.receiveShadow = true;
     stage.add(body, mesh);
 
     const lm = new THREE.Mesh(mergeGeoms(lit), lightMaterial());
-    lm.position.set(cx, gy, cz); lm.rotation.y = yaw;
+    lm.position.set(cx, gy, cz); lm.quaternion.copy(rotQ);
     stage.add(null, lm);
     body.__extraMeshes = [lm];
 
@@ -10719,6 +10803,7 @@ const Input = {
     if (K['w'] || K['ArrowUp']) throttle = 1;
     if (K['s'] || K['ArrowDown']) brake = 1;
     if (K['x']) hand = 1;                 // SPACE is the jump now, so handbrake moved
+    ctrl.nos = (K['n'] || this.touch.nos) ? 1 : 0;
 
     // touch
     if (IS_TOUCH || this.touch.gas || this.touch.brake) {
@@ -10748,8 +10833,14 @@ const Input = {
     const rate = Math.abs(steer) > 0.01 ? steerRate : releaseRate;
     ctrl.steerRaw = moveTowards(ctrl.steerRaw, steer, rate * dt);
     ctrl.steer = ctrl.steerRaw;
-    ctrl.throttleRaw = damp(ctrl.throttleRaw || 0, throttle, 14, dt);
-    ctrl.brakeRaw = damp(ctrl.brakeRaw || 0, brake, 18, dt);
+    /* Attack instantly, release smoothly. Both pedals used to ramp in over
+     * about a tenth of a second, which is why standing on the brake at speed
+     * felt like nothing happened for a beat. Coming off them is still damped —
+     * that part stops the tyre model getting a step input it cannot use. */
+    const attack = (prev, target, lambda) =>
+      target >= prev ? target : damp(prev, target, lambda, dt);
+    ctrl.throttleRaw = attack(ctrl.throttleRaw || 0, throttle, 16);
+    ctrl.brakeRaw = attack(ctrl.brakeRaw || 0, brake, 20);
 
     // in auto, S is brake until stopped, then reverse
     const auto = store.settings.gearbox === 'auto';
@@ -10760,14 +10851,23 @@ const Input = {
     const d = vehicle.drive;
     if (auto && d) {
       const fwdSpeed = vehicle.speed;
-      if (d.gear >= 0) {
-        if (brake > 0.4 && fwdSpeed < 0.7) { vehicle.revHold += dt; }
+      if (d.pending >= 0) {
+        // Nearly stopped and still asking for reverse? Take it now. This used
+        // to want 0.28 s of held brake and then a full shift time on top, so
+        // half a second could pass with the car doing nothing at all.
+        if (brake > 0.4 && fwdSpeed < 1.2) { vehicle.revHold += dt; }
         else vehicle.revHold = 0;
-        if (vehicle.revHold > 0.28) { d.shiftTo(-1); vehicle.revHold = 0; }
+        if (vehicle.revHold > 0.05) {
+          d.shiftT = 0; d.shiftTo(-1, true);
+          d.shiftT = Math.min(d.shiftT, 0.06); vehicle.revHold = 0;
+        }
       } else {
-        if (throttle > 0.4 && fwdSpeed > -0.7) { vehicle.revHold += dt; }
+        if (throttle > 0.4 && fwdSpeed > -1.2) { vehicle.revHold += dt; }
         else vehicle.revHold = 0;
-        if (vehicle.revHold > 0.22) { d.shiftTo(1); vehicle.revHold = 0; }
+        if (vehicle.revHold > 0.05) {
+          d.shiftT = 0; d.shiftTo(1, true);
+          d.shiftT = Math.min(d.shiftT, 0.06); vehicle.revHold = 0;
+        }
       }
       if (d.gear < 0) { ctrl.throttle = ctrl.brakeRaw; ctrl.brake = ctrl.throttleRaw; }
       else { ctrl.throttle = ctrl.throttleRaw; ctrl.brake = ctrl.brakeRaw; }
@@ -11802,6 +11902,7 @@ const Game = {
     if (k === 'r') this.resetTruck();
     if (k === 'f') this.boost();
     if (k === 'u') this.flipTruck();
+    if (k === 'y') this.flipAround();
     if (k === 'b') Cam.cycle();
     if (k === 'c') this.transform();
     if (k === 'v') this.toggleTrailer();
@@ -11809,7 +11910,7 @@ const Game = {
     if (k === 'l' && this.rig) { this.rig.setLights(!this.rig.lightsOn); }
     if (k === 'Shift' && (!this.rig || this.rig.morph < 0.15)) this.shiftUp();
     if (k === 'Control' && (!this.rig || this.rig.morph < 0.15)) this.shiftDown();
-    if (k === 'n') this.transformBoat();
+    if (k === 'j') this.transformBoat();
     if (k === 'k') Weapons.airstrike();
     if (k === ']' && this.mode === 'levels') this.nextLevel();
     if (k === 't') { store.settings.telemetry = !store.settings.telemetry; saveStore();
@@ -11824,6 +11925,50 @@ const Game = {
       else { d.lowRange = !d.lowRange;
              UI.toast(d.lowRange ? 'LOW RANGE' : 'HIGH RANGE', d.lowRange ? 'ok' : null); }
     }
+  },
+
+  /**
+   * Y — turn the whole thing round on the spot.
+   *
+   * Not a handbrake turn and not a respawn: the body is rotated half a turn
+   * about world up, the momentum is rotated with it, and the camera swings
+   * round to match. You keep every bit of the speed you had, pointing the other
+   * way, so you can carry straight on down the road you just came up.
+   *
+   * The wheels have to be spun round too. They carry real angular momentum, and
+   * leaving them turning the old way means the tyre model spends the next
+   * second fighting the car it is attached to.
+   */
+  flipAround() {
+    if (!this.rig) return;
+    const v = this.rig.vehicle, b = v.body;
+    const half = new CANNON.Quaternion();
+    half.setFromAxisAngle(new CANNON.Vec3(0, 1, 0), PI);
+    const spun = half.mult(b.quaternion);
+    b.quaternion.set(spun.x, spun.y, spun.z, spun.w);
+    b.velocity.set(-b.velocity.x, b.velocity.y, -b.velocity.z);
+    b.angularVelocity.set(0, 0, 0);
+    for (const w of v.wheels) { w.angVel = -w.angVel; w.slip = 0; w.skid = 0; }
+    v.steerAngle = 0;
+    // a hitched trailer gets swung round the tow point rather than left behind,
+    // otherwise the constraint is suddenly a couple of car lengths out of true
+    const tr = this.trailer;
+    if (tr && tr.hitched) {
+      const tb = tr.vehicle.body;
+      const dx = tb.position.x - b.position.x, dz = tb.position.z - b.position.z;
+      tb.position.x = b.position.x - dx;
+      tb.position.z = b.position.z - dz;
+      const ts = half.mult(tb.quaternion);
+      tb.quaternion.set(ts.x, ts.y, ts.z, ts.w);
+      tb.velocity.set(-tb.velocity.x, tb.velocity.y, -tb.velocity.z);
+      tb.angularVelocity.set(0, 0, 0);
+    }
+    Cam.yaw += PI;
+    Cam.orbitYaw = 0; Cam.orbitPitch = 0;
+    Cam.crashT = 0;
+    Audio_.ui('ok');
+    Cam.addShake(0.18);
+    UI.toast('TURNED AROUND', 'ok');
   },
 
   /** F — five seconds of overboost, in any form. */
