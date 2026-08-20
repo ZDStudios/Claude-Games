@@ -20,6 +20,69 @@ canvas#gl{position:fixed;inset:0;width:100%;height:100%;display:block;z-index:1}
   --paper:#f2f5fa;
 }
 
+
+/* ================= multiplayer ================= */
+#mpMenu,#mpLobby,#mpOver{position:fixed;inset:0;z-index:7;display:flex;align-items:center;
+  justify-content:center;background:radial-gradient(circle at 50% 35%,#161b28,#080a10 70%)}
+#mpMenu.off,#mpLobby.off,#mpOver.off{display:none}
+.mpCard{width:min(680px,92vw);max-height:88vh;overflow:auto;padding:26px 28px;
+  background:var(--panel);border:1px solid var(--line);border-radius:18px;
+  backdrop-filter:blur(12px)}
+.mpCard h2{font-size:15px;letter-spacing:.24em;font-weight:900;color:var(--cyan);margin-bottom:4px}
+.mpCard h3{font-size:10px;letter-spacing:.24em;font-weight:800;opacity:.55;margin:18px 0 8px}
+.mpGrid{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+.mpField{display:flex;flex-direction:column;gap:4px}
+.mpField label{font-size:9px;letter-spacing:.2em;opacity:.55;font-weight:800}
+.mpIn{padding:10px 12px;border-radius:10px;border:1px solid var(--line);
+  background:rgba(255,255,255,.06);color:var(--paper);font-family:inherit;font-size:12.5px}
+.mpIn:focus{outline:2px solid var(--cyan);outline-offset:-1px}
+.mpBtn{padding:11px 18px;border-radius:11px;border:1px solid var(--line);cursor:pointer;
+  background:rgba(255,255,255,.07);color:var(--paper);font-family:inherit;font-size:11px;
+  font-weight:900;letter-spacing:.14em;transition:.12s}
+.mpBtn:hover{background:rgba(255,255,255,.16)}
+.mpBtn.go{background:linear-gradient(180deg,var(--acid),#9ed016);color:#131a04;border:none}
+.mpBtn.go:disabled{opacity:.35;cursor:not-allowed;background:rgba(255,255,255,.07);color:var(--paper)}
+.mpRowBtns{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}
+#mpRooms{max-height:190px;overflow:auto;display:flex;flex-direction:column;gap:6px}
+.mpRoom{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 12px;
+  border-radius:10px;border:1px solid var(--line);background:rgba(255,255,255,.04);cursor:pointer}
+.mpRoom:hover{background:rgba(61,224,255,.14);border-color:var(--cyan)}
+.mpRoomMeta{display:block;font-size:9.5px;opacity:.5;margin-top:2px}
+.mpCode{font-size:13px;font-weight:900;letter-spacing:.22em;color:var(--acid)}
+.mpEmpty{padding:16px;text-align:center;opacity:.45;font-size:11px}
+#mpStatus{margin-top:10px;font-size:10.5px;letter-spacing:.1em;min-height:14px;color:var(--cyan)}
+.mpCheck{display:flex;align-items:center;gap:7px;font-size:11px;opacity:.8}
+#mpPlayers{display:flex;flex-direction:column;gap:6px;max-height:200px;overflow:auto}
+.mpPlayer{display:flex;align-items:center;gap:9px;padding:9px 12px;border-radius:10px;
+  background:rgba(255,255,255,.05);font-size:12px}
+.mpDot{width:9px;height:9px;border-radius:50%;background:#5b6577;flex:0 0 auto}
+.mpDot.ready{background:var(--acid);box-shadow:0 0 8px var(--acid)}
+.mpTag{font-size:8px;letter-spacing:.16em;font-weight:900;padding:2px 6px;border-radius:5px;
+  background:rgba(255,255,255,.14)}
+.mpTag.you{background:var(--cyan);color:#06131a}
+.mpTag.out{background:var(--hot);color:#fff}
+.mpTag.safe{background:var(--acid);color:#131a04}
+.mpKick{margin-left:auto;padding:4px 9px;border-radius:7px;border:1px solid var(--hot);
+  background:transparent;color:var(--hot);font-family:inherit;font-size:8.5px;font-weight:900;
+  letter-spacing:.12em;cursor:pointer}
+#mpChat{height:132px;overflow:auto;padding:9px 11px;border-radius:10px;
+  background:rgba(0,0,0,.28);border:1px solid var(--line);font-size:11.5px;line-height:1.55}
+.cm{margin-bottom:2px}
+.cm.sys{opacity:.45;font-style:italic}
+.cm b{color:var(--cyan)}
+#mpHostBar{display:flex;gap:8px;margin-top:12px}
+#mpBoard{display:flex;flex-direction:column;gap:6px;margin:14px 0}
+.mpRow{display:flex;align-items:center;gap:10px;padding:10px 13px;border-radius:10px;
+  background:rgba(255,255,255,.05);font-size:12.5px}
+.mpRank{width:20px;opacity:.5;font-weight:900}
+.mpScore{margin-left:auto;font-weight:900;color:var(--acid)}
+/* in-match multiplayer HUD */
+#mpHud{position:absolute;left:16px;top:14px;display:none;gap:14px;align-items:center;
+  padding:9px 16px}
+#mpHud.on{display:flex}
+#mpRole{font-size:15px;font-weight:900;letter-spacing:.14em}
+#mpTally{font-size:15px;font-weight:900;color:var(--acid)}
+
 /* ================= chrome ================= */
 #hud{position:fixed;inset:0;z-index:4;pointer-events:none}
 .panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;
@@ -217,6 +280,11 @@ canvas#gl{position:fixed;inset:0;width:100%;height:100%;display:block;z-index:1}
     <div id="poseGrid"></div>
   </div>
 
+  <div id="mpHud" class="panel">
+    <div><span class="kicker" id="mpRound">ROUND 1</span><div id="mpRole">HIDING</div></div>
+    <div><span class="kicker">FOUND</span><div id="mpTally" class="mono">0 / 0</div></div>
+  </div>
+
   <div id="mountTip"></div>
 
   <div id="seekCard" class="panel">
@@ -306,6 +374,7 @@ canvas#gl{position:fixed;inset:0;width:100%;height:100%;display:block;z-index:1}
     <div class="btnRow">
       <button class="big" id="btnPlay">HIDE <small>best <span id="bestHide">0</span></small></button>
       <button class="big" id="btnSeek">SEEK <small>best <span id="bestSeek">0</span></small></button>
+      <button class="big" id="btnMulti">MULTIPLAYER <small>play with friends</small></button>
       <button class="big ghost" id="btnTutorial">HOW TO PLAY</button>
     </div>
     <div id="keys">
@@ -315,6 +384,86 @@ canvas#gl{position:fixed;inset:0;width:100%;height:100%;display:block;z-index:1}
       <div style="margin-top:9px;opacity:.75"><b>SEEK</b> — light them up with the torch and <b>CLICK</b> to call it. Three wrong calls and you are out.</div>
     </div>
     <div id="credits">Three.js renderer · procedural PBR textures · WebAudio synthesis · no external assets required</div>
+  </div>
+</div>
+
+
+<!-- ================= multiplayer: browse / create / join ================= -->
+<div class="screen off" id="mpMenu">
+  <div class="mpCard">
+    <h2>MULTIPLAYER</h2>
+    <div style="font-size:11px;opacity:.5;margin-bottom:4px">One seeker, everyone else hides. Roles rotate every round.</div>
+
+    <h3>YOU</h3>
+    <div class="mpGrid">
+      <div class="mpField"><label>NAME</label><input id="mpName" class="mpIn" maxlength="16" placeholder="your name"></div>
+      <div class="mpField"><label>SERVER</label><input id="mpUrl" class="mpIn" placeholder="https://…"></div>
+    </div>
+
+    <h3>PUBLIC ROOMS</h3>
+    <div id="mpRooms"><div class="mpEmpty">Press REFRESH to see who is playing.</div></div>
+    <div class="mpRowBtns">
+      <button class="mpBtn" id="mpRefresh">REFRESH</button>
+      <button class="mpBtn go" id="mpQuick">QUICK PLAY</button>
+    </div>
+
+    <h3>JOIN BY CODE</h3>
+    <div class="mpGrid">
+      <div class="mpField"><label>6-LETTER CODE</label><input id="mpJoinCode" class="mpIn mono" maxlength="8" placeholder="ABCDEF"></div>
+      <div class="mpField"><label>PASSWORD (IF ANY)</label><input id="mpPassword" class="mpIn" type="password" placeholder="optional"></div>
+    </div>
+    <div class="mpRowBtns"><button class="mpBtn" id="mpJoinBtn">JOIN ROOM</button></div>
+
+    <h3>CREATE A ROOM</h3>
+    <div class="mpGrid">
+      <div class="mpField"><label>ROOM NAME</label><input id="mpRoomName" class="mpIn" maxlength="24" placeholder="my mansion"></div>
+      <div class="mpField"><label>MAX PLAYERS</label><input id="mpMax" class="mpIn" type="number" min="2" max="12" value="8"></div>
+    </div>
+    <div class="mpRowBtns">
+      <label class="mpCheck"><input type="checkbox" id="mpPrivate"> Private — code only, hidden from the browser</label>
+    </div>
+    <div class="mpRowBtns">
+      <button class="mpBtn go" id="mpCreateBtn">CREATE ROOM</button>
+      <button class="mpBtn" id="mpBack">BACK</button>
+    </div>
+    <div id="mpStatus"></div>
+  </div>
+</div>
+
+<!-- ================= multiplayer: room lobby ================= -->
+<div class="screen off" id="mpLobby">
+  <div class="mpCard">
+    <h2>ROOM <span id="mpRoomCode" class="mpCode"></span></h2>
+    <div style="font-size:11px;opacity:.5" id="mpWaiting">Waiting for the host to start.</div>
+
+    <h3>PLAYERS <span id="mpCount" class="mono" style="opacity:.5"></span></h3>
+    <div id="mpPlayers"></div>
+
+    <h3>CHAT</h3>
+    <div id="mpChat"></div>
+    <div class="mpRowBtns" style="margin-top:8px">
+      <input id="mpChatIn" class="mpIn" style="flex:1" maxlength="200" placeholder="say something…">
+      <button class="mpBtn" id="mpChatSend">SEND</button>
+    </div>
+
+    <div id="mpHostBar"><button class="mpBtn go" id="mpStart">START MATCH</button></div>
+    <div class="mpRowBtns">
+      <button class="mpBtn" id="mpReady">READY</button>
+      <button class="mpBtn" id="mpLeave">LEAVE</button>
+    </div>
+  </div>
+</div>
+
+<!-- ================= multiplayer: round results ================= -->
+<div class="screen off" id="mpOver">
+  <div class="mpCard">
+    <h2>ROUND OVER</h2>
+    <div id="mpBoard"></div>
+    <div class="mpRowBtns">
+      <button class="mpBtn go" id="mpNext">NEXT ROUND</button>
+      <button class="mpBtn" id="mpToLobby">BACK TO ROOM</button>
+      <button class="mpBtn" id="mpQuit">LEAVE</button>
+    </div>
   </div>
 </div>
 
@@ -5050,6 +5199,1242 @@ THREE.GLTFLoader = GLTFLoader;
 })();
 </script>
 <script>
+/*!
+ * multiplayer-server client SDK v1.0.0
+ * MIT licensed. https://github.com/ZDStudios/multiplayer-server
+ *
+ *   <script src="https://your-server.onrender.com/client/multiplayer.js"><\/script>
+ *   <script>
+ *     const mp = new Multiplayer({ url: 'https://your-server.onrender.com', game: 'my-game' });
+ *     await mp.quickPlay({ playerName: 'Zayn' });
+ *     mp.on('event', (e) => console.log(e.type, e.data));
+ *     mp.send('move', { x: 10, y: 4 });
+ *   <\/script>
+ *
+ * The SDK picks the best transport automatically: WebSocket when the server
+ * supports it (Render, Fly, a VPS, localhost) and HTTP long polling when it
+ * does not (Vercel and other serverless hosts). Your game code is identical
+ * either way.
+ */
+(function (global) {
+  'use strict';
+
+  var VERSION = '1.0.0';
+
+  /* ---------------------------------------------------------- utilities */
+
+  function sleep(ms) {
+    return new Promise(function (resolve) {
+      setTimeout(resolve, ms);
+    });
+  }
+
+  function isObject(value) {
+    return value !== null && typeof value === 'object' && !Array.isArray(value);
+  }
+
+  /** Deep merge with `null` meaning "delete this key" (mirrors the server). */
+  function deepMerge(target, patch) {
+    if (!isObject(patch)) return patch;
+    var output = isObject(target) ? Object.assign({}, target) : {};
+    Object.keys(patch).forEach(function (key) {
+      var value = patch[key];
+      if (value === null) delete output[key];
+      else if (isObject(value)) output[key] = deepMerge(output[key], value);
+      else output[key] = value;
+    });
+    return output;
+  }
+
+  function trimSlash(value) {
+    return String(value || '').replace(/\/+$/, '');
+  }
+
+  /** An error that carries the server's machine readable code. */
+  function MultiplayerError(message, code, status, details) {
+    var error = new Error(message);
+    error.name = 'MultiplayerError';
+    error.code = code || 'error';
+    error.status = status || 0;
+    if (details) error.details = details;
+    return error;
+  }
+
+  /* ------------------------------------------------------------ emitter */
+
+  function Emitter() {
+    this._listeners = {};
+  }
+
+  Emitter.prototype.on = function (type, handler) {
+    (this._listeners[type] = this._listeners[type] || []).push(handler);
+    return this;
+  };
+
+  Emitter.prototype.once = function (type, handler) {
+    var self = this;
+    function wrapped() {
+      self.off(type, wrapped);
+      handler.apply(null, arguments);
+    }
+    return this.on(type, wrapped);
+  };
+
+  Emitter.prototype.off = function (type, handler) {
+    if (!this._listeners[type]) return this;
+    if (!handler) delete this._listeners[type];
+    else
+      this._listeners[type] = this._listeners[type].filter(function (entry) {
+        return entry !== handler;
+      });
+    return this;
+  };
+
+  Emitter.prototype.emit = function (type) {
+    var args = Array.prototype.slice.call(arguments, 1);
+    var handlers = (this._listeners[type] || []).slice();
+    // '*' receives every event as (type, ...args) for logging and debugging.
+    var wildcard = (this._listeners['*'] || []).slice();
+    handlers.forEach(function (handler) {
+      try {
+        handler.apply(null, args);
+      } catch (error) {
+        if (global.console) console.error('[multiplayer] listener for "' + type + '" threw:', error);
+      }
+    });
+    wildcard.forEach(function (handler) {
+      try {
+        handler.apply(null, [type].concat(args));
+      } catch (error) {
+        if (global.console) console.error('[multiplayer] wildcard listener threw:', error);
+      }
+    });
+    return this;
+  };
+
+  /* -------------------------------------------------------- main client */
+
+  /**
+   * @param {object} options
+   * @param {string} options.url        Base URL of your deployment.
+   * @param {string} [options.game]     Namespace so different games can share a server.
+   * @param {string} [options.playerName]
+   * @param {'auto'|'websocket'|'poll'} [options.transport='auto']
+   * @param {boolean} [options.autoReconnect=true]
+   * @param {boolean} [options.resume=true]  Restore the session after a page refresh.
+   * @param {string} [options.apiKey]   Only if the server sets API_KEY.
+   */
+  function Multiplayer(options) {
+    Emitter.call(this);
+    options = options || {};
+
+    this.version = VERSION;
+    this.url = trimSlash(options.url || (global.location ? global.location.origin : ''));
+    this.basePath = options.basePath === undefined ? '/api' : trimSlash(options.basePath);
+    this.game = options.game || 'default';
+    this.playerName = options.playerName || null;
+    this.transport = options.transport || 'auto';
+    this.apiKey = options.apiKey || null;
+    this.autoReconnect = options.autoReconnect !== false;
+    this.resumeEnabled = options.resume !== false;
+    this.heartbeatMs = options.heartbeatMs || 15000;
+    this.pollWaitMs = options.pollWaitMs || 25000;
+    this.debug = Boolean(options.debug);
+
+    // Live game state, safe to read straight from your render loop.
+    this.room = null;
+    this.players = [];
+    this.state = {};
+    this.me = null;
+    this.token = null;
+    this.status = 'disconnected';
+    this.connected = false;
+    this.latency = null;
+
+    this._seq = 0;
+    this._stateVersion = 0;
+    this._socket = null;
+    this._active = false;
+    this._polling = false;
+    this._pending = {};
+    this._messageId = 0;
+    this._serverConfig = null;
+    this._heartbeatTimer = null;
+    this._reconnectAttempt = 0;
+    this._storageKey = 'multiplayer:' + this.url + ':' + this.game;
+
+    // Persistent storage and leaderboards. Usable without joining a room.
+    this.data = new DataApi(this);
+    this.scores = new ScoresApi(this);
+
+    Multiplayer._instances.push(this);
+  }
+
+  // Every live client, so the page-unload hook can shut them all down.
+  Multiplayer._instances = [];
+
+  Multiplayer.prototype = Object.create(Emitter.prototype);
+  Multiplayer.prototype.constructor = Multiplayer;
+
+  Multiplayer.VERSION = VERSION;
+
+  /* ------------------------------------------------------------- helpers */
+
+  Multiplayer.prototype._log = function () {
+    if (this.debug && global.console) {
+      console.log.apply(console, ['[multiplayer]'].concat(Array.prototype.slice.call(arguments)));
+    }
+  };
+
+  Multiplayer.prototype._endpoint = function (path) {
+    return this.url + this.basePath + path;
+  };
+
+  Multiplayer.prototype._headers = function () {
+    var headers = { 'Content-Type': 'application/json' };
+    if (this.apiKey) headers['X-Api-Key'] = this.apiKey;
+    if (this.me && this.token) {
+      headers['X-Player-Id'] = this.me.id;
+      headers.Authorization = 'Bearer ' + this.token;
+    }
+    return headers;
+  };
+
+  Multiplayer.prototype._request = async function (method, path, body, init) {
+    var response;
+    try {
+      response = await fetch(this._endpoint(path), Object.assign({
+        method: method,
+        headers: this._headers(),
+        body: body === undefined ? undefined : JSON.stringify(body),
+      }, init || {}));
+    } catch (error) {
+      throw MultiplayerError('Cannot reach the server at ' + this.url + '. ' + error.message, 'network_error');
+    }
+
+    var payload = null;
+    var text = await response.text();
+    if (text) {
+      try {
+        payload = JSON.parse(text);
+      } catch (error) {
+        throw MultiplayerError('Server sent a non-JSON response.', 'bad_response', response.status);
+      }
+    }
+
+    if (!response.ok) {
+      var info = (payload && payload.error) || {};
+      throw MultiplayerError(info.message || 'Request failed.', info.code, response.status, info.details);
+    }
+    return payload;
+  };
+
+  /**
+   * Request against the persistent data API. Deliberately does not send the
+   * player's room credentials: `Authorization` there means "record owner",
+   * so the owner token travels in its own header instead.
+   */
+  Multiplayer.prototype._dataRequest = async function (method, path, body, token) {
+    var headers = { 'Content-Type': 'application/json' };
+    if (this.apiKey) headers['X-Api-Key'] = this.apiKey;
+    if (token) headers['X-Data-Token'] = token;
+
+    var response;
+    try {
+      response = await fetch(this._endpoint(path), {
+        method: method,
+        headers: headers,
+        body: body === undefined ? undefined : JSON.stringify(body),
+      });
+    } catch (error) {
+      throw MultiplayerError('Cannot reach the server at ' + this.url + '. ' + error.message, 'network_error');
+    }
+
+    var text = await response.text();
+    var payload = null;
+    if (text) {
+      try {
+        payload = JSON.parse(text);
+      } catch (error) {
+        throw MultiplayerError('Server sent a non-JSON response.', 'bad_response', response.status);
+      }
+    }
+    if (!response.ok) {
+      var info = (payload && payload.error) || {};
+      throw MultiplayerError(info.message || 'Request failed.', info.code, response.status, info.details);
+    }
+    return payload;
+  };
+
+  /** Fetch (and cache) the server's capabilities. */
+  Multiplayer.prototype.serverConfig = async function () {
+    if (!this._serverConfig) this._serverConfig = await this._request('GET', '/config');
+    return this._serverConfig;
+  };
+
+  /* ------------------------------------------------------ session storage */
+
+  Multiplayer.prototype._saveSession = function () {
+    if (!this.resumeEnabled || !global.sessionStorage || !this.room || !this.me) return;
+    try {
+      global.sessionStorage.setItem(
+        this._storageKey,
+        JSON.stringify({ roomId: this.room.id, playerId: this.me.id, token: this.token, at: Date.now() }),
+      );
+    } catch (error) {
+      /* storage disabled (private mode) — resuming is a nicety, not a must */
+    }
+  };
+
+  Multiplayer.prototype._clearSession = function () {
+    if (!global.sessionStorage) return;
+    try {
+      global.sessionStorage.removeItem(this._storageKey);
+    } catch (error) {
+      /* ignore */
+    }
+  };
+
+  Multiplayer.prototype._loadSession = function () {
+    if (!this.resumeEnabled || !global.sessionStorage) return null;
+    try {
+      var raw = global.sessionStorage.getItem(this._storageKey);
+      if (!raw) return null;
+      var saved = JSON.parse(raw);
+      // Sessions older than an hour are almost certainly dead server-side.
+      if (!saved || Date.now() - saved.at > 3600000) return null;
+      return saved;
+    } catch (error) {
+      return null;
+    }
+  };
+
+  /* --------------------------------------------------------------- lobby */
+
+  /** Browse open rooms. */
+  Multiplayer.prototype.listRooms = async function (query) {
+    query = query || {};
+    var params = new URLSearchParams();
+    params.set('game', query.game || this.game);
+    if (query.status) params.set('status', query.status);
+    if (query.search) params.set('search', query.search);
+    if (query.limit) params.set('limit', String(query.limit));
+    if (query.includeFull !== undefined) params.set('includeFull', String(query.includeFull));
+    var result = await this._request('GET', '/rooms?' + params.toString());
+    return result.rooms;
+  };
+
+  /** Create a room and become its host. */
+  Multiplayer.prototype.createRoom = async function (options) {
+    options = options || {};
+    var payload = {
+      name: options.name,
+      game: options.game || this.game,
+      maxPlayers: options.maxPlayers,
+      isPrivate: options.isPrivate,
+      password: options.password,
+      metadata: options.metadata,
+      state: options.state,
+      settings: options.settings,
+      playerName: options.playerName || this.playerName,
+      playerData: options.playerData,
+    };
+    var result = await this._request('POST', '/rooms', payload);
+    await this._adoptSession(result);
+    return this.room;
+  };
+
+  /** Join a room by 6-letter code or by id. */
+  Multiplayer.prototype.joinRoom = async function (options) {
+    options = options || {};
+    if (typeof options === 'string') options = { code: options };
+    var payload = {
+      code: options.code ? String(options.code).toUpperCase().trim() : undefined,
+      roomId: options.roomId,
+      password: options.password,
+      playerName: options.playerName || this.playerName,
+      playerData: options.playerData,
+    };
+    if (!payload.code && !payload.roomId) {
+      throw MultiplayerError('joinRoom needs a "code" or a "roomId".', 'bad_request', 400);
+    }
+    var path = payload.roomId ? '/rooms/' + encodeURIComponent(payload.roomId) + '/join' : '/rooms/join';
+    var result = await this._request('POST', path, payload);
+    await this._adoptSession(result);
+    return this.room;
+  };
+
+  /**
+   * One-call matchmaking: join the first open room for this game, or create
+   * one if there is nothing to join.
+   */
+  Multiplayer.prototype.quickPlay = async function (options) {
+    options = options || {};
+    var game = options.game || this.game;
+    var rooms = await this.listRooms({ game: game, status: 'lobby', includeFull: false, limit: 20 });
+    var open = rooms.filter(function (room) {
+      return !room.hasPassword && !room.locked && room.playerCount < room.maxPlayers;
+    });
+    for (var i = 0; i < open.length; i += 1) {
+      try {
+        return await this.joinRoom({ roomId: open[i].id, playerName: options.playerName });
+      } catch (error) {
+        // Somebody took the last seat between listing and joining; try the next.
+        if (error.code !== 'conflict' && error.code !== 'not_found') throw error;
+      }
+    }
+    if (options.create === false) return null;
+    return this.createRoom({
+      game: game,
+      name: options.name,
+      playerName: options.playerName,
+      maxPlayers: options.maxPlayers,
+      settings: options.settings,
+      state: options.state,
+    });
+  };
+
+  /** Reconnect to the room this browser tab was in before a refresh. */
+  Multiplayer.prototype.resume = async function () {
+    var saved = this._loadSession();
+    if (!saved) return null;
+    try {
+      var result = await this._request('POST', '/rooms/' + encodeURIComponent(saved.roomId) + '/join', {
+        playerId: saved.playerId,
+        token: saved.token,
+        playerName: this.playerName,
+      });
+      await this._adoptSession(result);
+      return this.room;
+    } catch (error) {
+      this._clearSession();
+      return null;
+    }
+  };
+
+  /* ------------------------------------------------------------- session */
+
+  Multiplayer.prototype._adoptSession = async function (result) {
+    this.room = result.room;
+    this.me = result.player;
+    this.token = result.token;
+    this.players = result.room.players;
+    this.state = result.room.state;
+    this._stateVersion = result.room.stateVersion;
+    this.status = result.room.status;
+    // The room snapshot already reflects every event up to `seq`, so start
+    // reading the log from there instead of replaying the room's history.
+    if (typeof result.seq === 'number') this._seq = Math.max(this._seq, result.seq);
+    this._saveSession();
+    this.emit('join', { room: this.room, player: this.me, reconnected: Boolean(result.reconnected) });
+    this.emit('room', this.room);
+    this.emit('players', this.players);
+    await this._startRealtime();
+    return this.room;
+  };
+
+  Multiplayer.prototype._startRealtime = async function () {
+    if (this._active) this._stopRealtime();
+    this._active = true;
+    var mode = this.transport;
+    if (mode === 'auto') {
+      var config = await this.serverConfig().catch(function () {
+        return { websocket: false };
+      });
+      mode = config.websocket && typeof global.WebSocket === 'function' ? 'websocket' : 'poll';
+      if (config.longPollMs) this.pollWaitMs = Math.min(this.pollWaitMs, config.longPollMs);
+      if (config.heartbeatIntervalMs) this.heartbeatMs = Math.min(this.heartbeatMs, config.heartbeatIntervalMs);
+    }
+    this.mode = mode;
+    this._log('transport:', mode);
+    if (mode === 'websocket') {
+      // Resolve only once the socket is attached, otherwise a game that acts
+      // straight after joinRoom() can miss the first events.
+      var attached = await this._openSocketAndWait();
+      if (!attached && this._active && this.room) {
+        this._log('websocket did not attach, using polling');
+        this.mode = 'poll';
+        this._startPolling();
+      }
+    } else {
+      this._startPolling();
+    }
+    this._startHeartbeat();
+  };
+
+  /** Open the socket and wait for the server to confirm the session. */
+  Multiplayer.prototype._openSocketAndWait = function () {
+    var self = this;
+    return new Promise(function (resolve) {
+      var settled = false;
+      var finish = function (value) {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        self._sessionReady = null;
+        resolve(value);
+      };
+      var timer = setTimeout(function () {
+        finish(false);
+      }, self.connectTimeoutMs || 8000);
+      self._sessionReady = finish;
+      self._openSocket();
+    });
+  };
+
+  Multiplayer.prototype._stopRealtime = function () {
+    this._active = false;
+    this._polling = false;
+    if (this._heartbeatTimer) clearInterval(this._heartbeatTimer);
+    this._heartbeatTimer = null;
+    if (this._socket) {
+      try {
+        this._socket.onclose = null;
+        this._socket.close();
+      } catch (error) {
+        /* ignore */
+      }
+      this._socket = null;
+    }
+    if (this.connected) {
+      this.connected = false;
+      this.emit('disconnect');
+    }
+  };
+
+  /* ----------------------------------------------------------- websocket */
+
+  Multiplayer.prototype._socketUrl = function () {
+    var base = this.url.replace(/^http/, 'ws');
+    return base + '/ws' + (this.apiKey ? '?apiKey=' + encodeURIComponent(this.apiKey) : '');
+  };
+
+  Multiplayer.prototype._openSocket = function () {
+    var self = this;
+    var socket;
+    try {
+      socket = new global.WebSocket(this._socketUrl());
+    } catch (error) {
+      this._log('websocket unavailable, falling back to polling');
+      if (this._sessionReady) this._sessionReady(false);
+      return;
+    }
+    this._socket = socket;
+
+    socket.onopen = function () {
+      self._reconnectAttempt = 0;
+      self
+        ._call({ t: 'attach', roomId: self.room.id, playerId: self.me.id, token: self.token, since: self._seq })
+        .catch(function (error) {
+          // Kicked, or the room died while we were connecting.
+          if (error.code === 'unauthorized') self._handleRoomClosed('kicked');
+          else if (error.code === 'not_found') self._handleRoomClosed('not_found');
+          else self.emit('error', error);
+          if (self._sessionReady) self._sessionReady(false);
+        });
+    };
+
+    socket.onmessage = function (message) {
+      var payload;
+      try {
+        payload = JSON.parse(message.data);
+      } catch (error) {
+        return;
+      }
+      self._handleSocketMessage(payload);
+    };
+
+    socket.onerror = function () {
+      self._log('websocket error');
+    };
+
+    socket.onclose = function () {
+      self._socket = null;
+      // A socket that closes before attaching means the transport is unusable.
+      if (self._sessionReady) self._sessionReady(false);
+      if (!self._active) return;
+      if (self.connected) {
+        self.connected = false;
+        self.emit('disconnect');
+      }
+      if (!self.autoReconnect) return;
+      self._reconnectAttempt += 1;
+      if (self._reconnectAttempt > 4) {
+        // The socket keeps failing (proxy, firewall, sleeping tab). Long
+        // polling works everywhere, so switch rather than give up.
+        self._log('websocket keeps dropping, switching to polling');
+        self.mode = 'poll';
+        self._startPolling();
+        return;
+      }
+      var delay = Math.min(1000 * Math.pow(2, self._reconnectAttempt - 1), 8000);
+      self.emit('reconnecting', { attempt: self._reconnectAttempt, delay: delay });
+      setTimeout(function () {
+        if (self._active) self._openSocket();
+      }, delay);
+    };
+  };
+
+  Multiplayer.prototype._send = function (message) {
+    if (!this._socket || this._socket.readyState !== 1) return false;
+    this._socket.send(JSON.stringify(message));
+    return true;
+  };
+
+  /** Send over the socket and wait for the matching reply. */
+  Multiplayer.prototype._call = function (message, timeoutMs) {
+    var self = this;
+    var id = ++this._messageId;
+    message.id = id;
+    return new Promise(function (resolve, reject) {
+      if (!self._send(message)) {
+        reject(MultiplayerError('Socket is not open.', 'not_connected'));
+        return;
+      }
+      var timer = setTimeout(function () {
+        delete self._pending[id];
+        reject(MultiplayerError('Server did not reply in time.', 'timeout'));
+      }, timeoutMs || 10000);
+      self._pending[id] = function (payload) {
+        clearTimeout(timer);
+        if (payload.t === 'error') reject(MultiplayerError(payload.message, payload.code, payload.status));
+        else resolve(payload);
+      };
+    });
+  };
+
+  Multiplayer.prototype._handleSocketMessage = function (payload) {
+    if (payload.re !== undefined && this._pending[payload.re]) {
+      var pending = this._pending[payload.re];
+      delete this._pending[payload.re];
+      pending(payload);
+      if (payload.t === 'error') return;
+    }
+
+    switch (payload.t) {
+      case 'welcome':
+        this._log('connected to', payload.server, payload.version);
+        break;
+      case 'session':
+        if (payload.room) this._applyRoom(payload.room);
+        if (payload.token) this.token = payload.token;
+        if (payload.player) this.me = payload.player;
+        if (typeof payload.seq === 'number') this._seq = Math.max(this._seq, payload.seq);
+        if (payload.events && payload.events.length) this._ingest(payload.events);
+        if (!this.connected) {
+          this.connected = true;
+          this.emit('connect', { transport: 'websocket' });
+        }
+        this._saveSession();
+        if (this._sessionReady) this._sessionReady(true);
+        break;
+      case 'events':
+        this._ingest(payload.events || []);
+        break;
+      case 'sync':
+        if (payload.room) this._applyRoom(payload.room);
+        this._ingest(payload.events || []);
+        break;
+      case 'room':
+        this._applyRoom(payload.room);
+        break;
+      case 'pong':
+        if (this._pingSentAt) this.latency = Date.now() - this._pingSentAt;
+        break;
+      case 'error':
+        this.emit('error', MultiplayerError(payload.message, payload.code, payload.status));
+        break;
+      default:
+        break;
+    }
+  };
+
+  /* ------------------------------------------------------------- polling */
+
+  Multiplayer.prototype._startPolling = function () {
+    if (this._polling || !this._active || !this.room) return;
+    this._polling = true;
+    if (!this.connected) {
+      this.connected = true;
+      this.emit('connect', { transport: 'poll' });
+    }
+    this._pollLoop();
+  };
+
+  Multiplayer.prototype._pollLoop = async function () {
+    var backoff = 500;
+    while (this._active && this._polling && this.room) {
+      try {
+        var params = new URLSearchParams({
+          since: String(this._seq),
+          wait: String(this.pollWaitMs),
+          playerId: this.me ? this.me.id : '',
+          token: this.token || '',
+        });
+        var result = await this._request(
+          'GET',
+          '/rooms/' + encodeURIComponent(this.room.id) + '/poll?' + params.toString(),
+        );
+        if (result.events && result.events.length) this._ingest(result.events);
+        if (typeof result.cursor === 'number') this._seq = Math.max(this._seq, result.cursor);
+        backoff = 500;
+        if (!this.connected) {
+          this.connected = true;
+          this.emit('connect', { transport: 'poll' });
+        }
+      } catch (error) {
+        if (error.code === 'not_found') {
+          // The room is gone: stop looping and tell the game.
+          this._handleRoomClosed('not_found');
+          return;
+        }
+        if (this.connected) {
+          this.connected = false;
+          this.emit('disconnect');
+        }
+        this.emit('error', error);
+        await sleep(backoff);
+        backoff = Math.min(backoff * 2, 10000);
+      }
+    }
+  };
+
+  /* ----------------------------------------------------------- heartbeat */
+
+  Multiplayer.prototype._startHeartbeat = function () {
+    var self = this;
+    if (this._heartbeatTimer) clearInterval(this._heartbeatTimer);
+    if (!this._active || !this.room) return;
+    this._heartbeatTimer = setInterval(function () {
+      if (!self._active || !self.room || !self.me) return;
+      if (self._socket && self._socket.readyState === 1) {
+        self._pingSentAt = Date.now();
+        self._send({ t: 'ping' });
+        return;
+      }
+      var started = Date.now();
+      self
+        ._request('POST', '/rooms/' + encodeURIComponent(self.room.id) + '/heartbeat', { since: self._seq })
+        .then(function (result) {
+          self.latency = Date.now() - started;
+          if (result.room) self._applyRoom(result.room);
+          if (result.events && result.events.length) self._ingest(result.events);
+          if (typeof result.cursor === 'number') self._seq = Math.max(self._seq, result.cursor);
+        })
+        .catch(function (error) {
+          if (error.code === 'not_found') self._handleRoomClosed('not_found');
+          else if (error.code === 'unauthorized') self._handleRoomClosed('kicked');
+        });
+    }, this.heartbeatMs);
+  };
+
+  /* --------------------------------------------------- state application */
+
+  Multiplayer.prototype._applyRoom = function (room) {
+    if (!room) return;
+    var previousStatus = this.status;
+    this.room = room;
+    this.players = room.players || [];
+    if (typeof room.stateVersion === 'number' && room.stateVersion >= this._stateVersion) {
+      this._stateVersion = room.stateVersion;
+      this.state = room.state;
+    }
+    if (this.me) {
+      var mine = this.players.filter(function (player) {
+        return player.id === this.me.id;
+      }, this)[0];
+      if (mine) this.me = mine;
+    }
+    this.status = room.status;
+    this.emit('room', room);
+    this.emit('players', this.players);
+    if (previousStatus !== room.status) this.emit('status', room.status, room);
+  };
+
+  Multiplayer.prototype._handleRoomClosed = function (reason) {
+    this._stopRealtime();
+    this._clearSession();
+    var room = this.room;
+    this.room = null;
+    this.players = [];
+    this.me = null;
+    this.token = null;
+    this.status = 'disconnected';
+    this.emit('roomClosed', { reason: reason, room: room });
+    this.emit('leave', { reason: reason });
+  };
+
+  /** Fold incoming server events into local state, then re-emit them. */
+  Multiplayer.prototype._ingest = function (events) {
+    for (var i = 0; i < events.length; i += 1) {
+      var event = events[i];
+      if (typeof event.seq === 'number') {
+        if (event.seq <= this._seq) continue; // already applied
+        this._seq = event.seq;
+      }
+
+      var data = event.data || {};
+      switch (event.type) {
+        case 'state_changed':
+          if (typeof data.version !== 'number' || data.version >= this._stateVersion) {
+            this.state = data.replaced || !data.patch ? data.state : deepMerge(this.state, data.patch);
+            if (typeof data.version === 'number') this._stateVersion = data.version;
+          }
+          this.emit('state', this.state, event);
+          break;
+
+        case 'player_joined':
+          this._upsertPlayer(data.player);
+          this.emit('playerJoined', data.player, event);
+          this.emit('players', this.players);
+          break;
+
+        case 'player_updated':
+          this._upsertPlayer(data.player);
+          if (this.me && data.player && data.player.id === this.me.id) this.me = data.player;
+          this.emit('playerUpdated', data.player, event);
+          this.emit('players', this.players);
+          break;
+
+        case 'player_left':
+        case 'player_kicked':
+          this._removePlayer(data.player ? data.player.id : event.playerId);
+          this.emit(event.type === 'player_kicked' ? 'playerKicked' : 'playerLeft', data.player, event);
+          this.emit('players', this.players);
+          if (this.me && data.player && data.player.id === this.me.id) {
+            this._handleRoomClosed(event.type === 'player_kicked' ? 'kicked' : 'left');
+            return;
+          }
+          break;
+
+        case 'host_changed':
+          if (this.room) this.room.hostId = data.hostId;
+          this.players = this.players.map(function (player) {
+            return Object.assign({}, player, { isHost: player.id === data.hostId });
+          });
+          if (this.me) this.me = Object.assign({}, this.me, { isHost: this.me.id === data.hostId });
+          this.emit('hostChanged', data.hostId, event);
+          this.emit('players', this.players);
+          break;
+
+        case 'game_started':
+        case 'game_ended':
+        case 'game_reset':
+          if (this.room) this.room.status = data.status;
+          this.status = data.status;
+          if (data.state !== undefined && typeof data.version === 'number' && data.version >= this._stateVersion) {
+            this.state = data.state;
+            this._stateVersion = data.version;
+          }
+          this.emit(
+            event.type === 'game_started' ? 'start' : event.type === 'game_ended' ? 'end' : 'reset',
+            event,
+          );
+          this.emit('status', this.status, this.room);
+          break;
+
+        case 'room_updated':
+          if (this.room && data.room) {
+            this.room = Object.assign({}, this.room, data.room, { players: this.players });
+          }
+          this.emit('room', this.room);
+          break;
+
+        case 'room_closed':
+          this.emit(event.type, event);
+          this._handleRoomClosed(data.reason || 'closed');
+          return;
+
+        default:
+          break;
+      }
+
+      // Every event is also emitted by name plus on the generic 'event' hook.
+      this.emit('event', event);
+      this.emit(event.type, event.data, event);
+    }
+  };
+
+  Multiplayer.prototype._upsertPlayer = function (player) {
+    if (!player) return;
+    var found = false;
+    this.players = this.players.map(function (entry) {
+      if (entry.id !== player.id) return entry;
+      found = true;
+      return player;
+    });
+    if (!found) this.players = this.players.concat([player]);
+    if (this.room) this.room.players = this.players;
+  };
+
+  Multiplayer.prototype._removePlayer = function (playerId) {
+    this.players = this.players.filter(function (entry) {
+      return entry.id !== playerId;
+    });
+    if (this.room) this.room.players = this.players;
+  };
+
+  /* -------------------------------------------------------------- actions */
+
+  Multiplayer.prototype._requireRoom = function () {
+    if (!this.room || !this.me) throw MultiplayerError('Join a room first.', 'no_room', 400);
+    return '/rooms/' + encodeURIComponent(this.room.id);
+  };
+
+  /** Broadcast a custom event to everyone (or to one player via `to`). */
+  Multiplayer.prototype.send = function (type, data, options) {
+    options = options || {};
+    var path = this._requireRoom();
+    var message = { type: type, data: data === undefined ? null : data, to: options.to || null };
+    if (this._socket && this._socket.readyState === 1) {
+      // Fire and forget: the lowest latency path for per-frame updates.
+      this._send({ t: 'event', type: message.type, data: message.data, to: message.to });
+      return Promise.resolve({ ok: true });
+    }
+    return this._request('POST', path + '/events', message);
+  };
+
+  /** Replace the shared state. */
+  Multiplayer.prototype.setState = function (state, options) {
+    options = options || {};
+    var path = this._requireRoom();
+    var body = { state: state, ifVersion: options.ifVersion };
+    if (this._socket && this._socket.readyState === 1) {
+      return this._call({ t: 'state', state: state, ifVersion: options.ifVersion });
+    }
+    return this._request('POST', path + '/state', body);
+  };
+
+  /** Merge a partial update into the shared state (`null` deletes a key). */
+  Multiplayer.prototype.patchState = function (patch, options) {
+    options = options || {};
+    var path = this._requireRoom();
+    if (this._socket && this._socket.readyState === 1) {
+      return this._call({ t: 'state', patch: patch, ifVersion: options.ifVersion });
+    }
+    return this._request('POST', path + '/state', { patch: patch, ifVersion: options.ifVersion });
+  };
+
+  /** Update your own player record (position, score, colour, ...). */
+  Multiplayer.prototype.setPlayerData = function (data, options) {
+    options = options || {};
+    var path = this._requireRoom();
+    var body = { data: data, merge: options.merge !== false };
+    if (this._socket && this._socket.readyState === 1) {
+      this._send({ t: 'player', data: data, merge: body.merge });
+      return Promise.resolve({ ok: true });
+    }
+    return this._request('POST', path + '/player', body);
+  };
+
+  Multiplayer.prototype.setName = function (name) {
+    var path = this._requireRoom();
+    this.playerName = name;
+    return this._request('POST', path + '/player', { name: name });
+  };
+
+  Multiplayer.prototype.setReady = function (ready) {
+    var path = this._requireRoom();
+    return this._request('POST', path + '/ready', { ready: ready === undefined ? true : ready });
+  };
+
+  Multiplayer.prototype.start = function (state) {
+    return this._request('POST', this._requireRoom() + '/start', { state: state });
+  };
+
+  Multiplayer.prototype.end = function (options) {
+    options = options || {};
+    return this._request('POST', this._requireRoom() + '/end', { state: options.state, reason: options.reason });
+  };
+
+  Multiplayer.prototype.reset = function (state) {
+    return this._request('POST', this._requireRoom() + '/reset', { state: state });
+  };
+
+  Multiplayer.prototype.updateRoom = function (patch) {
+    return this._request('POST', this._requireRoom() + '/settings', { patch: patch });
+  };
+
+  Multiplayer.prototype.kick = function (playerId, reason) {
+    return this._request('POST', this._requireRoom() + '/kick', { targetId: playerId, reason: reason });
+  };
+
+  Multiplayer.prototype.makeHost = function (playerId) {
+    return this._request('POST', this._requireRoom() + '/host', { targetId: playerId });
+  };
+
+  Multiplayer.prototype.closeRoom = async function (reason) {
+    var path = this._requireRoom();
+    var result = await this._request('POST', path + '/close', { reason: reason });
+    this._handleRoomClosed('closed');
+    return result;
+  };
+
+  /** Leave the current room and stop all network activity. */
+  Multiplayer.prototype.leave = async function () {
+    if (!this.room || !this.me) return { ok: true };
+    var path = '/rooms/' + encodeURIComponent(this.room.id) + '/leave';
+    try {
+      await this._request('POST', path, {});
+    } catch (error) {
+      /* leaving is best effort — the presence sweeper cleans up regardless */
+    }
+    this._handleRoomClosed('left');
+    return { ok: true };
+  };
+
+  /** Tear down without telling the server (used on page unload). */
+  Multiplayer.prototype.disconnect = function () {
+    this._stopRealtime();
+  };
+
+  /* ------------------------------------------------------------ shortcuts */
+
+  Object.defineProperty(Multiplayer.prototype, 'isHost', {
+    get: function () {
+      return Boolean(this.me && this.room && this.room.hostId === this.me.id);
+    },
+  });
+
+  Object.defineProperty(Multiplayer.prototype, 'code', {
+    get: function () {
+      return this.room ? this.room.code : null;
+    },
+  });
+
+  Object.defineProperty(Multiplayer.prototype, 'playerCount', {
+    get: function () {
+      return this.players.length;
+    },
+  });
+
+  /** Version of the shared state you currently hold — pass to `ifVersion`. */
+  Object.defineProperty(Multiplayer.prototype, 'stateVersion', {
+    get: function () {
+      return this._stateVersion;
+    },
+  });
+
+  /** Get another player's record by id. */
+  Multiplayer.prototype.player = function (playerId) {
+    return (
+      this.players.filter(function (entry) {
+        return entry.id === playerId;
+      })[0] || null
+    );
+  };
+
+  /** Everyone except you — handy for drawing opponents. */
+  Multiplayer.prototype.others = function () {
+    var myId = this.me ? this.me.id : null;
+    return this.players.filter(function (entry) {
+      return entry.id !== myId;
+    });
+  };
+
+  /**
+   * One-liner setup: connect, resume a refreshed session if there is one, and
+   * otherwise quick-play into a room.
+   *
+   *   const mp = await Multiplayer.connect({ url, game: 'snake', playerName: 'Zayn' });
+   */
+  Multiplayer.connect = async function (options) {
+    var client = new Multiplayer(options);
+    var resumed = await client.resume();
+    if (!resumed && (options || {}).autoJoin !== false) await client.quickPlay(options);
+    return client;
+  };
+
+  /* --------------------------------------------------- persistent data */
+
+  /**
+   * Storage that outlives rooms: player saves, unlocked abilities,
+   * progression, settings. Reached as `mp.data`.
+   *
+   * Owner tokens are remembered in localStorage, so a record this browser
+   * created stays writable by this browser and nobody else.
+   */
+  function DataApi(client) {
+    this.client = client;
+  }
+
+  DataApi.prototype._tokenKey = function (key) {
+    return 'multiplayer:data:' + this.client.url + ':' + this.client.game + ':' + key;
+  };
+
+  DataApi.prototype._rememberToken = function (key, token) {
+    if (!token || !global.localStorage) return;
+    try {
+      global.localStorage.setItem(this._tokenKey(key), token);
+    } catch (error) {
+      /* storage unavailable — the caller can still hold the token itself */
+    }
+  };
+
+  /** The owner token this browser holds for a record, if any. */
+  DataApi.prototype.token = function (key) {
+    if (!global.localStorage) return null;
+    try {
+      return global.localStorage.getItem(this._tokenKey(key));
+    } catch (error) {
+      return null;
+    }
+  };
+
+  DataApi.prototype._path = function (key) {
+    return '/data/' + encodeURIComponent(this.client.game) + (key ? '/' + encodeURIComponent(key) : '');
+  };
+
+  /** Read a value. Returns `null` when the key does not exist. */
+  DataApi.prototype.get = async function (key, options) {
+    var record = await this.getRecord(key, options);
+    return record ? record.value : null;
+  };
+
+  /** Read the full record (value plus version and timestamps). */
+  DataApi.prototype.getRecord = async function (key, options) {
+    options = options || {};
+    try {
+      var result = await this.client._dataRequest(
+        'GET',
+        this._path(key),
+        undefined,
+        options.token || this.token(key),
+      );
+      return result.record;
+    } catch (error) {
+      if (error.code === 'not_found') return null;
+      throw error;
+    }
+  };
+
+  /**
+   * Write a value.
+   * `{ lock: true }` claims the record for this browser: the server mints an
+   * owner token, which is stored locally and sent on every later write.
+   */
+  DataApi.prototype.set = async function (key, value, options) {
+    options = options || {};
+    var result = await this.client._dataRequest(
+      'POST',
+      this._path(key),
+      {
+        value: value,
+        lock: options.lock === true,
+        private: options.private,
+        ttlSeconds: options.ttlSeconds,
+        ifVersion: options.ifVersion,
+      },
+      options.token || this.token(key),
+    );
+    if (result.token) this._rememberToken(key, result.token);
+    return result.record;
+  };
+
+  /** Merge into an existing value. `null` deletes a key. */
+  DataApi.prototype.patch = async function (key, patch, options) {
+    options = options || {};
+    var result = await this.client._dataRequest(
+      'POST',
+      this._path(key),
+      { patch: patch, lock: options.lock === true, private: options.private, ifVersion: options.ifVersion },
+      options.token || this.token(key),
+    );
+    if (result.token) this._rememberToken(key, result.token);
+    return result.record;
+  };
+
+  DataApi.prototype.delete = async function (key, options) {
+    options = options || {};
+    await this.client._dataRequest('DELETE', this._path(key), {}, options.token || this.token(key));
+    if (global.localStorage) {
+      try {
+        global.localStorage.removeItem(this._tokenKey(key));
+      } catch (error) {
+        /* ignore */
+      }
+    }
+    return true;
+  };
+
+  /** List records, optionally filtered by key prefix. */
+  DataApi.prototype.list = async function (prefix, options) {
+    options = options || {};
+    var params = new URLSearchParams();
+    if (prefix) params.set('prefix', prefix);
+    if (options.limit) params.set('limit', String(options.limit));
+    if (options.offset) params.set('offset', String(options.offset));
+    var query = params.toString();
+    var result = await this.client._dataRequest('GET', this._path(null) + (query ? '?' + query : ''));
+    return result.records;
+  };
+
+  /**
+   * Save data owned by this browser — the pattern for player progress with no
+   * accounts and no login. Claims the record on first write.
+   */
+  DataApi.prototype.save = function (key, value) {
+    return this.set(key, value, { lock: true });
+  };
+
+  /** Merge into browser-owned save data. */
+  DataApi.prototype.update = function (key, patch) {
+    return this.patch(key, patch, { lock: true });
+  };
+
+  /* ---------------------------------------------------- leaderboards */
+
+  function ScoresApi(client) {
+    this.client = client;
+  }
+
+  ScoresApi.prototype._path = function (board) {
+    return '/scores/' + encodeURIComponent(this.client.game) + '/' + encodeURIComponent(board || 'global');
+  };
+
+  /**
+   * Submit a score. Only a player's best result is kept, so submitting after
+   * every run is fine.
+   */
+  ScoresApi.prototype.submit = function (score, options) {
+    options = options || {};
+    return this.client._dataRequest('POST', this._path(options.board), {
+      name: options.name || (this.client.me ? this.client.me.name : this.client.playerName) || 'Anonymous',
+      score: score,
+      playerId: options.playerId || (this.client.me ? this.client.me.id : null),
+      meta: options.meta || null,
+    });
+  };
+
+  /** Read the top scores, ranked. */
+  ScoresApi.prototype.top = async function (options) {
+    options = options || {};
+    var query = options.limit ? '?limit=' + Number(options.limit) : '';
+    var result = await this.client._dataRequest('GET', this._path(options.board) + query);
+    return result.scores;
+  };
+
+  /* -------------------------------------------------------------- exports */
+
+  Multiplayer.Emitter = Emitter;
+  Multiplayer.DataApi = DataApi;
+  Multiplayer.ScoresApi = ScoresApi;
+  Multiplayer.deepMerge = deepMerge;
+
+  global.Multiplayer = Multiplayer;
+  if (typeof module !== 'undefined' && module.exports) module.exports = Multiplayer;
+
+  // Best effort: tell the server we are gone when the tab closes.
+  if (global.addEventListener) {
+    global.addEventListener('pagehide', function () {
+      (Multiplayer._instances || []).forEach(function (client) {
+        client.disconnect();
+      });
+    });
+  }
+})(typeof globalThis !== 'undefined' ? globalThis : typeof window !== 'undefined' ? window : this);
+</script>
+<script>
 /* ==========================================================================
    CHAMELEON — The Art Collector's Mansion
    A camouflage hide-and-seek game. Single file, no external assets required.
@@ -7312,6 +8697,677 @@ function syncMenuBests(){
   if (s) s.textContent = loadBest('seek');
 }
 /* ==========================================================================
+   Section 9 — MULTIPLAYER
+   Built on the ZDStudios multiplayer-server SDK: rooms, join codes, presence,
+   a shared state blob and custom events.
+
+   AUTHORITY MODEL. The room is created with `stateWritable: 'host'`, so only
+   the host's client can write match state. Everything that decides the
+   outcome of a round — who is the seeker, when a phase ends, who has been
+   caught, what everyone scored — is computed by the host and published as
+   state. Other clients never write it and never report their own results.
+
+   A seeker who clicks on someone does not mark them found; it sends a `tag`
+   request naming a target, and the HOST checks the phase, the range and the
+   line of sight before it counts. A hider who edits their position is
+   checked against the fastest a figure can legally move and snapped back if
+   they exceed it.
+
+   What this cannot do: the client is JavaScript in a browser and anyone can
+   read or change it. This backend relays messages, it does not simulate the
+   game, so a player who rewrites their own client can still lie about things
+   only they can see — chiefly, a modified seeker can draw hiders through
+   walls. The mitigations here (host authority over outcomes, movement
+   validation, range-limited position relay) raise the cost a great deal and
+   remove every cheat that scores points directly, but honest multiplayer
+   ultimately needs a server that runs the simulation. That is a change to
+   the backend, not to this file.
+   ========================================================================== */
+const NET = {
+  mp: null, on: false, connected: false,
+  name: '', url: '', role: 'hider', seekerId: null,
+  peers: new Map(),          // playerId -> { rig, mat, tex, target, last }
+  lastSent: 0, lastPos: new Map(),
+  chat: [], tagCd: 0, caught: false,
+  hostTick: 0, warned: new Map()
+};
+const DEFAULT_SERVER = 'https://multiplayer-server-u84w.onrender.com';
+const NET_TICK = 1 / 14;               // position updates per second
+const MP_PREP = 40, MP_HUNT = 80;      // phase lengths, seconds
+const TAG_RANGE = 4.2;                 // how close a seeker must be to call it
+// Read lazily: SPRINT_SPD is declared in a later section of the bundle, so
+// touching it at module load would hit the temporal dead zone.
+const maxSpeed = () => SPRINT_SPD * 1.6;   // generous ceiling for lag, still finite
+
+/* ---------- small helpers ---------- */
+const netEl = id => document.getElementById(id);
+function netShow(id, on){ const e = netEl(id); if (e) e.classList.toggle('off', !on); }
+function netStatus(msg, bad){
+  const e = netEl('mpStatus');
+  if (!e) return;
+  e.textContent = msg || '';
+  e.style.color = bad ? 'var(--hot)' : 'var(--cyan)';
+}
+
+/* ==========================================================================
+   Connection
+   ========================================================================== */
+async function netConnect(){
+  if (NET.mp) return NET.mp;
+  const url = (netEl('mpUrl').value || DEFAULT_SERVER).trim().replace(/\/+$/, '');
+  NET.url = url;
+  try { localStorage.setItem('chameleon.server', url);
+        localStorage.setItem('chameleon.name', NET.name); } catch(e){}
+  if (typeof Multiplayer === 'undefined')
+    throw new Error('The multiplayer SDK did not load from ' + url);
+  NET.mp = new Multiplayer({
+    url, game: 'chameleon-mansion', playerName: NET.name,
+    transport: 'auto', autoReconnect: true, resume: false
+  });
+  wireNetEvents(NET.mp);
+  return NET.mp;
+}
+
+function wireNetEvents(mp){
+  mp.on('connect',      () => { NET.connected = true;  netStatus('connected'); });
+  mp.on('disconnect',   () => { NET.connected = false; netStatus('disconnected — retrying', true); });
+  mp.on('reconnecting', () => netStatus('reconnecting…'));
+  mp.on('error', e => netStatus((e && e.message) || 'network error', true));
+
+  mp.on('players', () => { renderLobbyPlayers(); syncPeers(); });
+  mp.on('playerLeft', p => { removePeer(p.id); netChat('sys', (p.name || 'A player') + ' left'); });
+  mp.on('playerJoined', p => netChat('sys', (p.name || 'A player') + ' joined'));
+  mp.on('hostChanged', () => { renderLobbyPlayers(); netChat('sys', 'The host changed'); });
+  mp.on('roomClosed', d => { netChat('sys', 'Room closed: ' + ((d && d.reason) || 'ended')); leaveToMenu(); });
+  mp.on('state',  s => onMatchState(s));
+  mp.on('status', () => renderLobbyPlayers());
+
+  mp.on('chat', (d, ev) => netChat(nameOf(ev.from), String(d.text || '').slice(0, 200)));
+  mp.on('skin', (d, ev) => applyPeerSkin(ev.from, d.png));
+  mp.on('tag',  (d, ev) => hostResolveTag(ev.from, d && d.target));
+  mp.on('caught', d => onCaught(d));
+  mp.on('rubber', d => {           // the host rejected a move; take its word
+    if (!d) return;
+    P.x = d.x; P.z = d.z; P.vx = P.vz = 0;
+    updatePlayerTransform();
+    toast('Connection correction');
+  });
+}
+const nameOf = id => {
+  const p = NET.mp && NET.mp.player(id);
+  return (p && p.name) || 'Someone';
+};
+
+/* ==========================================================================
+   Lobby: browse, create, join
+   ========================================================================== */
+async function netBrowse(){
+  netStatus('loading rooms…');
+  try {
+    await netConnect();
+    const rooms = await NET.mp.listRooms({ status: 'lobby', includeFull: true });
+    const list = netEl('mpRooms');
+    if (!rooms.length){
+      list.innerHTML = '<div class="mpEmpty">No public rooms open. Create one.</div>';
+      netStatus('no rooms');
+      return;
+    }
+    list.innerHTML = rooms.map(r => `
+      <div class="mpRoom" data-code="${r.code}">
+        <div class="mpRoomMain">
+          <b>${escapeHtml(r.name || 'Mansion')}</b>
+          <span class="mpRoomMeta">${r.playerCount}/${r.maxPlayers} players${r.hasPassword ? ' · locked' : ''}</span>
+        </div>
+        <span class="mpCode mono">${r.code}</span>
+      </div>`).join('');
+    [...list.children].forEach(el => {
+      if (!el.dataset.code) return;
+      el.onclick = () => { netEl('mpJoinCode').value = el.dataset.code; netJoin(); };
+    });
+    netStatus(rooms.length + ' room' + (rooms.length === 1 ? '' : 's'));
+  } catch(err){ netStatus(err.message, true); }
+}
+function escapeHtml(s){
+  return String(s).replace(/[&<>"']/g, c =>
+    ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
+}
+
+async function netCreate(){
+  if (!requireName()) return;
+  netStatus('creating…');
+  try {
+    await netConnect();
+    const priv = netEl('mpPrivate').checked;
+    const pass = netEl('mpPassword').value.trim();
+    await NET.mp.createRoom({
+      playerName: NET.name,
+      name: netEl('mpRoomName').value.trim() || (NET.name + "'s mansion"),
+      maxPlayers: clamp(parseInt(netEl('mpMax').value, 10) || 8, 2, 12),
+      isPrivate: priv,
+      password: pass || undefined,
+      // Only the host may write match state. This is the anti-cheat spine:
+      // no other client can publish who was caught or what anyone scored.
+      settings: { stateWritable: 'host' },
+      state: freshMatchState()
+    });
+    enterRoomLobby();
+  } catch(err){ netStatus(err.message, true); }
+}
+
+async function netJoin(){
+  if (!requireName()) return;
+  const code = netEl('mpJoinCode').value.trim().toUpperCase();
+  if (code.length < 4){ netStatus('Enter the 6-letter code', true); return; }
+  netStatus('joining ' + code + '…');
+  try {
+    await netConnect();
+    const pass = netEl('mpPassword').value.trim();
+    await NET.mp.joinRoom(pass ? { code, password: pass, playerName: NET.name }
+                                : { code, playerName: NET.name });
+    enterRoomLobby();
+  } catch(err){ netStatus(err.message, true); }
+}
+
+async function netQuick(){
+  if (!requireName()) return;
+  netStatus('finding a game…');
+  try {
+    await netConnect();
+    await NET.mp.quickPlay({
+      playerName: NET.name,
+      settings: { stateWritable: 'host' },
+      state: freshMatchState()
+    });
+    enterRoomLobby();
+  } catch(err){ netStatus(err.message, true); }
+}
+
+function requireName(){
+  NET.name = (netEl('mpName').value || '').trim().slice(0, 16);
+  if (!NET.name){ netStatus('Pick a name first', true); netEl('mpName').focus(); return false; }
+  // The room browser can connect before a name is typed, in which case the
+  // server has already handed out "Player 2" — say who we actually are.
+  if (NET.mp){ try { NET.mp.setName(NET.name); } catch(e){} }
+  return true;
+}
+
+function enterRoomLobby(){
+  NET.on = true;
+  netShow('mpMenu', false);
+  netShow('mpLobby', true);
+  netEl('mpRoomCode').textContent = NET.mp.code || '——————';
+  NET.chat.length = 0;
+  renderChat();
+  renderLobbyPlayers();
+  netChat('sys', 'Share the code ' + NET.mp.code + ' to invite people.');
+}
+
+function leaveToMenu(){
+  NET.on = false;
+  clearPeers();
+  if (NET.mp){ try { NET.mp.leave(); } catch(e){} NET.mp = null; }
+  netShow('mpLobby', false);
+  netShow('mpMenu', false);
+  netEl('menu').classList.remove('off');
+  netEl('mpHud').classList.remove('on');
+  GAME.phase = 'boot';
+  document.exitPointerLock();
+}
+
+/* ---------- lobby rendering ---------- */
+function renderLobbyPlayers(){
+  const mp = NET.mp;
+  if (!mp || !mp.room) return;
+  const host = mp.isHost;
+  netEl('mpHostBar').style.display = host ? 'flex' : 'none';
+  netEl('mpWaiting').textContent = host
+    ? 'You are the host. Start when everyone is ready.'
+    : 'Waiting for the host to start.';
+  const list = netEl('mpPlayers');
+  list.innerHTML = mp.players.map(p => `
+    <div class="mpPlayer">
+      <span class="mpDot${p.ready ? ' ready' : ''}"></span>
+      <b>${escapeHtml(p.name || 'Player')}</b>
+      ${p.id === mp.room.hostId ? '<span class="mpTag">HOST</span>' : ''}
+      ${p.id === mp.me.id ? '<span class="mpTag you">YOU</span>' : ''}
+      ${host && p.id !== mp.me.id ? `<button class="mpKick" data-id="${p.id}">KICK</button>` : ''}
+    </div>`).join('');
+  [...list.querySelectorAll('.mpKick')].forEach(b =>
+    b.onclick = () => mp.kick(b.dataset.id));
+  netEl('mpCount').textContent = mp.players.length + '/' + (mp.room.maxPlayers || 8);
+  const canStart = mp.players.length >= 2;
+  netEl('mpStart').disabled = !canStart;
+  netEl('mpStart').textContent = canStart ? 'START MATCH' : 'NEED 2+ PLAYERS';
+}
+
+function netChat(who, text){
+  NET.chat.push({ who, text });
+  if (NET.chat.length > 40) NET.chat.shift();
+  renderChat();
+}
+function renderChat(){
+  const box = netEl('mpChat');
+  if (!box) return;
+  box.innerHTML = NET.chat.map(c => c.who === 'sys'
+    ? `<div class="cm sys">${escapeHtml(c.text)}</div>`
+    : `<div class="cm"><b>${escapeHtml(c.who)}</b> ${escapeHtml(c.text)}</div>`).join('');
+  box.scrollTop = box.scrollHeight;
+}
+function sendChat(){
+  const i = netEl('mpChatIn');
+  const t = i.value.trim().slice(0, 200);
+  if (!t || !NET.mp) return;
+  NET.mp.send('chat', { text: t });
+  netChat(NET.name, t);
+  i.value = '';
+}
+
+/* ==========================================================================
+   Match state — written by the host only
+   ========================================================================== */
+function freshMatchState(){
+  return { round: 0, phase: 'lobby', ends: 0, seeker: null, found: {}, scores: {} };
+}
+function matchState(){ return (NET.mp && NET.mp.state) || freshMatchState(); }
+
+/* The host picks the seeker, rotating so everyone takes a turn. */
+function hostStartRound(nextRound){
+  const mp = NET.mp;
+  if (!mp || !mp.isHost) return;
+  const ids = mp.players.map(p => p.id);
+  const seeker = ids[(nextRound - 1) % ids.length];
+  const scores = Object.assign({}, matchState().scores || {});
+  mp.setState({
+    round: nextRound, phase: 'prep', ends: Date.now() + MP_PREP*1000,
+    seeker, found: {}, scores
+  });
+  if (mp.status !== 'playing') mp.start();
+}
+
+/* `foundNow` is passed in by the caller that just computed it. Re-reading it
+   off the shared state here would race the patch that carries it: the last
+   catch of a round ends the round immediately, and the state has not come
+   back yet, so the player who was just caught would be scored as a survivor
+   and the seeker paid for nothing. */
+function hostAdvance(foundNow){
+  const mp = NET.mp;
+  if (!mp || !mp.isHost) return;
+  const s = matchState();
+  if (s.phase === 'prep'){
+    mp.patchState({ phase: 'hunt', ends: Date.now() + MP_HUNT*1000 });
+  } else if (s.phase === 'hunt'){
+    // survivors bank points; the seeker is paid per catch
+    const scores = Object.assign({}, s.scores || {});
+    const found = foundNow || s.found || {};
+    for (const p of mp.players){
+      if (p.id === s.seeker) scores[p.id] = (scores[p.id] || 0) + Object.keys(found).length * 150;
+      else if (!found[p.id])  scores[p.id] = (scores[p.id] || 0) + 200;
+    }
+    mp.patchState({ phase: 'over', ends: 0, scores, found });
+  }
+}
+
+/* ---------- reacting to state ---------- */
+let lastPhase = '';
+function onMatchState(s){
+  if (!NET.on || !s) return;
+  NET.seekerId = s.seeker;
+  const me = NET.mp.me.id;
+  NET.role = (s.seeker === me) ? 'seeker' : 'hider';
+  NET.caught = !!(s.found && s.found[me]);
+
+  if (s.phase !== lastPhase){
+    lastPhase = s.phase;
+    if (s.phase === 'prep') beginNetPrep();
+    else if (s.phase === 'hunt') beginNetHunt();
+    else if (s.phase === 'over') beginNetOver();
+  }
+  renderNetHud();
+}
+
+function beginNetPrep(){
+  netShow('mpLobby', false);
+  netEl('menu').classList.add('off');
+  netEl('mpHud').classList.add('on');
+  GAME.mode = 'net'; GAME.over = false; GAME.phase = 'netprep';
+  NET.caught = false;
+  P.frozen = false; P.mount = null; P.y = 0; P.vx = P.vz = 0;
+  P.x = rnd(-6, 6); P.z = rnd(-6, 6); P.yaw = rnd(0, TAU);
+  setPose('stand');
+  netEl('phaseName').textContent = NET.role === 'seeker' ? 'YOU ARE THE SEEKER' : 'HIDE YOURSELF';
+  netEl('phaseJp').textContent = NET.role === 'seeker' ? 'かぞえる — counting' : 'じゅんび — paint · pose · hide';
+  if (NET.role === 'seeker'){
+    // the seeker waits it out where they cannot watch anyone hide
+    P.x = 0; P.z = 8.4; P.frozen = true;
+    netEl('studio').classList.remove('on');
+    netEl('poseCard').classList.remove('on');
+    netEl('matchCard').style.display = 'none';
+    SEEKGAME.torch.visible = false; SEEKGAME.cone.visible = false;
+    fillAll('#39435a');
+  } else {
+    netEl('studio').classList.add('on');
+    netEl('poseCard').classList.add('on');
+    netEl('matchCard').style.display = '';
+    GAME.studio = true;
+    fillAll('#f2f0eb');
+    setColor('#7d6a86'); renderPalette();
+    paintUndo.length = 0; syncUndo();
+  }
+  netEl('actions').style.display = NET.role === 'seeker' ? 'none' : '';
+  netEl('seekCard').classList.remove('on');
+  if (SEEK.mesh) SEEK.mesh.visible = false;
+  camYaw = P.yaw; camPitch = 0.18; camDist = 4.6; snapCamera();
+  SFX.phase();
+  toast(NET.role === 'seeker'
+    ? 'Eyes closed. They are painting themselves into the rooms.'
+    : 'Paint, pose, and pick your spot. The seeker is counting.');
+}
+
+function beginNetHunt(){
+  GAME.phase = 'nethunt';
+  GAME.studio = false;
+  netEl('studio').classList.remove('on');
+  netEl('poseCard').classList.remove('on');
+  netEl('phaseName').textContent = NET.role === 'seeker' ? 'HUNT' : 'DO NOT MOVE';
+  netEl('phaseJp').textContent = 'さがす';
+  if (NET.role === 'hider'){
+    // lock in the paint job and hand everyone a copy of it
+    broadcastSkin();
+    P.frozen = false;
+    netEl('matchCard').style.display = '';
+  } else {
+    P.frozen = false;
+    SEEKGAME.torch.visible = true; SEEKGAME.cone.visible = true;
+    netEl('matchCard').style.display = 'none';
+  }
+  snapCamera();
+  SFX.phase();
+  toast(NET.role === 'seeker' ? 'Go. Light them up and click to call it.'
+                              : 'Freeze. Let the light pass over you.');
+}
+
+function beginNetOver(){
+  GAME.phase = 'netover';
+  GAME.over = true;
+  SEEKGAME.torch.visible = false; SEEKGAME.cone.visible = false;
+  const s = matchState();
+  const rows = NET.mp.players
+    .map(p => ({ name: p.name || 'Player', score: (s.scores && s.scores[p.id]) || 0,
+                 seeker: p.id === s.seeker, caught: !!(s.found && s.found[p.id]) }))
+    .sort((a, b) => b.score - a.score);
+  netEl('mpBoard').innerHTML = rows.map((r, i) => `
+    <div class="mpRow">
+      <span class="mpRank">${i+1}</span>
+      <b>${escapeHtml(r.name)}</b>
+      ${r.seeker ? '<span class="mpTag">SEEKER</span>' : (r.caught ? '<span class="mpTag out">CAUGHT</span>' : '<span class="mpTag safe">SAFE</span>')}
+      <span class="mpScore mono">${r.score}</span>
+    </div>`).join('');
+  netEl('mpNext').style.display = NET.mp.isHost ? '' : 'none';
+  netShow('mpOver', true);
+  document.exitPointerLock();
+  SFX.phase();
+}
+
+/* ==========================================================================
+   Replication
+   ========================================================================== */
+function netSendPose(dt){
+  const mp = NET.mp;
+  if (!mp || !mp.room) return;
+  NET.lastSent += dt;
+  if (NET.lastSent < NET_TICK) return;
+  NET.lastSent = 0;
+  mp.setPlayerData({
+    x: +P.x.toFixed(2), z: +P.z.toFixed(2), y: +P.y.toFixed(2),
+    yaw: +P.yaw.toFixed(2), pose: P.pose, sp: +Math.hypot(P.vx, P.vz).toFixed(1),
+    spr: +P.sprint.toFixed(1), role: NET.role
+  }, { merge: true });
+}
+
+/* Everyone else gets a rig of their own, driven by the data on their record. */
+function syncPeers(){
+  const mp = NET.mp;
+  if (!mp || !mp.room) return;
+  const live = new Set();
+  for (const p of mp.others()){
+    live.add(p.id);
+    if (!NET.peers.has(p.id)) makePeer(p.id);
+  }
+  for (const id of [...NET.peers.keys()]) if (!live.has(id)) removePeer(id);
+}
+function makePeer(id){
+  const cv = document.createElement('canvas');
+  cv.width = cv.height = 64;
+  const cx = cv.getContext('2d');
+  cx.fillStyle = '#e9e7e2'; cx.fillRect(0, 0, 64, 64);
+  const tex = new THREE.CanvasTexture(cv);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  const mat = new THREE.MeshStandardMaterial({ map: tex, roughness: 0.66, metalness: 0.03 });
+  mat.userData.matName = 'peer';
+  const rig = makeRig(mat);
+  rig.root.visible = false;
+  scene.add(rig.root);
+  NET.peers.set(id, { rig, mat, tex, cv, target: null, pose: 'stand', shown: false });
+}
+function removePeer(id){
+  const pe = NET.peers.get(id);
+  if (!pe) return;
+  scene.remove(pe.rig.root);
+  pe.tex.dispose(); pe.mat.dispose();
+  NET.peers.delete(id);
+}
+function clearPeers(){ for (const id of [...NET.peers.keys()]) removePeer(id); }
+
+/* Send the finished paint job once, as a small PNG. A 64px copy is a couple
+   of kilobytes — small enough to go through the event channel, and nobody
+   can tell the difference on a body at across-the-room distance. */
+function broadcastSkin(){
+  if (!NET.mp) return;
+  const small = document.createElement('canvas');
+  small.width = small.height = 64;
+  small.getContext('2d').drawImage(paintCv, 0, 0, 64, 64);
+  try { NET.mp.send('skin', { png: small.toDataURL('image/png') }); } catch(e){}
+}
+function applyPeerSkin(id, png){
+  const pe = NET.peers.get(id);
+  if (!pe || !png || typeof png !== 'string' || !png.startsWith('data:image/png')) return;
+  const img = new Image();
+  img.onload = () => {
+    pe.cv.getContext('2d').drawImage(img, 0, 0, 64, 64);
+    pe.tex.needsUpdate = true;
+  };
+  img.src = png;
+}
+
+/* Peers are interpolated toward their last reported position rather than
+   snapped, so a 14 Hz feed still reads as someone walking. */
+function updatePeers(dt){
+  const mp = NET.mp;
+  if (!mp || !mp.room) return;
+  const s = matchState();
+  for (const p of mp.others()){
+    const pe = NET.peers.get(p.id);
+    if (!pe) continue;
+    const d = p.data || {};
+    if (d.x === undefined){ pe.rig.root.visible = false; continue; }
+
+    // During the hiding phase nobody may see anybody: the seeker is walled
+    // off and hiders must not watch each other pick spots.
+    const hideAll = s.phase === 'prep';
+    pe.rig.root.visible = !hideAll;
+    if (hideAll) continue;
+
+    const tx = d.x, tz = d.z, ty = d.y || 0;
+    const r = pe.rig.root;
+    if (!pe.shown){ r.position.set(tx, ty, tz); pe.shown = true; }
+    const k = 1 - Math.pow(0.0001, dt);
+    r.position.x += (tx - r.position.x) * k;
+    r.position.z += (tz - r.position.z) * k;
+    r.position.y += ((ty + POSES.stand.groundY) - r.position.y) * k;
+    let da = ((d.yaw - r.rotation.y + Math.PI*3) % TAU) - Math.PI;
+    r.rotation.y += da * Math.min(1, dt*10);
+
+    if (d.pose && d.pose !== pe.pose){ pe.pose = d.pose; }
+    if ((d.sp || 0) > 0.12) animateGait(pe.rig, dt, d.sp, d.spr || 0);
+    else settleRig(pe.rig, pe.pose, dt);
+
+    // caught players are lit up so everyone can see the score change
+    const caught = !!(s.found && s.found[p.id]);
+    if (caught !== pe.caught){
+      pe.caught = caught;
+      pe.mat.emissive = new THREE.Color(caught ? 0x2f7d3a : 0x000000);
+      pe.mat.emissiveIntensity = caught ? 0.7 : 0;
+      pe.mat.needsUpdate = true;
+    }
+  }
+}
+
+/* ==========================================================================
+   Tagging — requested by the seeker, decided by the host
+   ========================================================================== */
+function netTag(){
+  const mp = NET.mp, s = matchState();
+  if (!mp || NET.role !== 'seeker' || s.phase !== 'hunt' || NET.tagCd > 0) return;
+  NET.tagCd = 0.5;
+  // find which peer the torch is on
+  let best = null, bestD = TAG_RANGE;
+  const dir = new THREE.Vector3();
+  camera.getWorldDirection(dir);
+  const eye = new THREE.Vector3(P.x, FIG.chest + P.y + 0.12, P.z);
+  for (const p of mp.others()){
+    const pe = NET.peers.get(p.id);
+    if (!pe || !pe.rig.root.visible) continue;
+    if (s.found && s.found[p.id]) continue;
+    const to = new THREE.Vector3(pe.rig.root.position.x, FIG.chest, pe.rig.root.position.z).sub(eye);
+    const dist = to.length();
+    if (dist > TAG_RANGE) continue;
+    if (to.normalize().dot(dir) < 0.90) continue;      // must be in the beam
+    if (dist < bestD){ bestD = dist; best = p.id; }
+  }
+  if (!best){ SFX.nope(); toast('Nothing in the beam'); return; }
+  // Ask. The host decides whether it counts.
+  mp.send('tag', { target: best });
+  if (mp.isHost) hostResolveTag(mp.me.id, best);
+}
+
+/* Runs on every client but only does anything on the host's. */
+function hostResolveTag(fromId, targetId){
+  const mp = NET.mp;
+  if (!mp || !mp.isHost) return;
+  const s = matchState();
+  if (s.phase !== 'hunt') return;
+  if (fromId !== s.seeker) return;                     // only the seeker tags
+  if (!targetId || targetId === s.seeker) return;
+  if (s.found && s.found[targetId]) return;
+  const seeker = mp.player(fromId), target = mp.player(targetId);
+  if (!seeker || !target || !seeker.data || !target.data) return;
+  // Range check against the positions the host has on record, not against
+  // anything the caller sent: a forged tag from across the map fails here.
+  const d = Math.hypot((seeker.data.x||0) - (target.data.x||0),
+                       (seeker.data.z||0) - (target.data.z||0));
+  if (d > TAG_RANGE + 1.2) return;
+  const found = Object.assign({}, s.found || {});
+  found[targetId] = true;
+  mp.patchState({ found });
+  mp.send('caught', { id: targetId, by: fromId });
+  onCaught({ id: targetId, by: fromId });
+  // everyone caught? end the round early
+  const hiders = mp.players.filter(p => p.id !== s.seeker);
+  if (hiders.every(p => found[p.id])) hostAdvance(found);
+}
+
+function onCaught(d){
+  if (!d || !d.id) return;
+  const mine = NET.mp && d.id === NET.mp.me.id;
+  if (mine){
+    NET.caught = true;
+    P.frozen = false;
+    toast('You were found!');
+    burst(P.x, FIG.chest, P.z);
+    SFX.found();
+  } else {
+    const pe = NET.peers.get(d.id);
+    if (pe) burst(pe.rig.root.position.x, FIG.chest, pe.rig.root.position.z);
+    netChat('sys', nameOf(d.id) + ' was found');
+    SFX.drop();
+  }
+  renderNetHud();
+}
+
+/* ==========================================================================
+   Movement validation — the host polices everyone's position
+   ========================================================================== */
+function hostPolice(dt){
+  const mp = NET.mp;
+  if (!mp || !mp.isHost) return;
+  NET.hostTick += dt;
+  if (NET.hostTick < 0.5) return;
+  const step = NET.hostTick;
+  NET.hostTick = 0;
+  for (const p of mp.others()){
+    const d = p.data;
+    if (!d || d.x === undefined) continue;
+    const prev = NET.lastPos.get(p.id);
+    if (prev){
+      const moved = Math.hypot(d.x - prev.x, d.z - prev.z);
+      // A generous ceiling: sprint speed with a wide allowance for lag spikes
+      // and reconnects. Anything past it is not a slow connection.
+      if (moved > maxSpeed() * step + 3.0){
+        const n = (NET.warned.get(p.id) || 0) + 1;
+        NET.warned.set(p.id, n);
+        mp.send('rubber', { x: prev.x, z: prev.z }, { to: p.id });
+        if (n >= 6){ netChat('sys', (p.name||'A player') + ' was removed for impossible movement');
+                     mp.kick(p.id); NET.warned.delete(p.id); }
+        continue;                                   // do not accept the jump
+      }
+    }
+    NET.lastPos.set(p.id, { x: d.x, z: d.z });
+  }
+}
+
+/* ==========================================================================
+   Per-frame hook and HUD
+   ========================================================================== */
+function netFrame(dt){
+  if (!NET.on || !NET.mp || !NET.mp.room) return;
+  if (NET.tagCd > 0) NET.tagCd -= dt;
+  netSendPose(dt);
+  updatePeers(dt);
+  hostPolice(dt);
+  if (GAME.phase === 'nethunt' && NET.role === 'seeker') updateTorch();
+
+  // the host owns the clock
+  const s = matchState();
+  if (NET.mp.isHost && s.ends && Date.now() >= s.ends) hostAdvance();
+  renderNetClock(s);
+}
+
+function renderNetClock(s){
+  if (!s.ends) return;
+  const left = Math.max(0, (s.ends - Date.now()) / 1000);
+  const el = netEl('clock');
+  el.textContent = Math.floor(left/60) + ':' + String(Math.floor(left%60)).padStart(2, '0');
+  el.classList.toggle('warn', left < 20 && left >= 8);
+  el.classList.toggle('crit', left < 8);
+  const total = s.phase === 'prep' ? MP_PREP : MP_HUNT;
+  netEl('phaseBarF').style.width = (left/total*100) + '%';
+}
+
+function renderNetHud(){
+  const s = matchState();
+  const hud = netEl('mpHud');
+  if (!hud) return;
+  const mp = NET.mp;
+  if (!mp || !mp.room) return;
+  const hiders = mp.players.filter(p => p.id !== s.seeker);
+  const found = Object.keys(s.found || {}).length;
+  netEl('mpRole').textContent = NET.role === 'seeker' ? 'SEEKER' : (NET.caught ? 'CAUGHT' : 'HIDING');
+  netEl('mpRole').style.color = NET.role === 'seeker' ? 'var(--hot)'
+    : (NET.caught ? 'var(--amber)' : 'var(--acid)');
+  netEl('mpTally').textContent = found + ' / ' + hiders.length;
+  netEl('mpRound').textContent = 'ROUND ' + (s.round || 1);
+}
+/* ==========================================================================
    Section 7 — phases, input, HUD, main loop
    ========================================================================== */
 const GAME = { phase:'boot', t:0, len:0, score:0, hidden:0, studio:false, over:false, mode:'hide' };
@@ -7595,6 +9651,7 @@ function initInput(){
     if (k === 'e'){ spawnDecoy(); return; }
     if (k === 'r'){ toggleMount(); return; }
     if (k === 'f' && GAME.phase === 'prep'){ setPhase('hunt'); return; }
+    if (k === 'f' && GAME.phase === 'netprep'){ toast('The seeker sets the pace here'); return; }
     if (k === 'c'){ doEyedrop(); return; }
     if (k === 'z' && (e.ctrlKey || e.metaKey)){ e.preventDefault(); undoPaint(); return; }
     const n = parseInt(k, 10);
@@ -7610,7 +9667,9 @@ function initInput(){
     if (GAME.studio){ toggleStudio(); return; }
     if (!locked){ CV3.requestPointerLock(); return; }
     if (e.button !== 0) return;
-    if (GAME.phase === 'seek') tagUnderCrosshair(); else doEyedrop();
+    if (GAME.phase === 'seek') tagUnderCrosshair();
+    else if (GAME.phase === 'nethunt' && NET.role === 'seeker') netTag();
+    else doEyedrop();
   });
   document.addEventListener('pointerlockchange', () => { locked = document.pointerLockElement === CV3; });
   addEventListener('mousemove', e => {
@@ -7652,6 +9711,25 @@ function initInput(){
   $('btnDecoy').onclick = spawnDecoy;
   $('btnPlay').onclick = startRound;
   $('btnSeek').onclick = startSeek;
+  $('btnMulti').onclick = openMultiplayer;
+  $('mpBack').onclick    = () => { $('mpMenu').classList.add('off'); $('menu').classList.remove('off'); };
+  $('mpRefresh').onclick = netBrowse;
+  $('mpQuick').onclick   = netQuick;
+  $('mpJoinBtn').onclick = netJoin;
+  $('mpCreateBtn').onclick = netCreate;
+  $('mpChatSend').onclick = sendChat;
+  $('mpChatIn').onkeydown = e => { if (e.key === 'Enter'){ e.stopPropagation(); sendChat(); } };
+  $('mpReady').onclick = () => { if (!NET.mp) return;
+    const r = !NET.mp.me.ready; NET.mp.setReady(r);
+    $('mpReady').textContent = r ? 'NOT READY' : 'READY'; };
+  $('mpStart').onclick = () => { if (NET.mp && NET.mp.isHost) hostStartRound(1); };
+  $('mpLeave').onclick = leaveToMenu;
+  $('mpQuit').onclick  = leaveToMenu;
+  $('mpNext').onclick  = () => { if (NET.mp && NET.mp.isHost)
+    hostStartRound((matchState().round || 1) + 1); $('mpOver').classList.add('off'); };
+  $('mpToLobby').onclick = () => { $('mpOver').classList.add('off');
+    $('mpHud').classList.remove('on'); $('mpLobby').classList.remove('off');
+    GAME.phase = 'boot'; document.exitPointerLock(); };
   // Replay whichever mode was just played, rather than always the hiding one.
   $('btnAgain').onclick = () => { $('result').classList.add('off');
     (GAME.mode === 'seek' ? startSeek : startRound)(); };
@@ -7665,10 +9743,27 @@ function initInput(){
     : 'Eyedrop a wall (C) → paint yourself → pick a pose → press F and hold still.');
 }
 function toggleStudio(){
+  if (GAME.phase === 'netprep' && NET.role === 'hider'){
+    GAME.studio = !GAME.studio;
+    if (GAME.studio) document.exitPointerLock(); else CV3.requestPointerLock();
+    return;
+  }
   if (GAME.phase !== 'prep'){ toast('The studio is closed once the seeker is inside'); return; }
   GAME.studio = !GAME.studio;
   if (GAME.studio){ document.exitPointerLock(); $('studio').style.outline = '2px solid var(--cyan)'; }
   else { CV3.requestPointerLock(); $('studio').style.outline = 'none'; }
+}
+
+function openMultiplayer(){
+  initAudio(); if (AC && AC.state === 'suspended') AC.resume();
+  $('menu').classList.add('off');
+  $('mpMenu').classList.remove('off');
+  try {
+    $('mpName').value = localStorage.getItem('chameleon.name') || '';
+    $('mpUrl').value  = localStorage.getItem('chameleon.server') || DEFAULT_SERVER;
+  } catch(e){ $('mpUrl').value = DEFAULT_SERVER; }
+  if (typeof Multiplayer === 'undefined')
+    netStatus('SDK not loaded — check the server URL, then reload', true);
 }
 
 /* ---------- round control ---------- */
@@ -7711,28 +9806,32 @@ function frame(now){
   fpsAcc += dt; fpsN++;
   if (fpsAcc > 0.5){ $('fps').textContent = Math.round(fpsN/fpsAcc) + ' FPS'; fpsAcc = 0; fpsN = 0; }
 
-  const playing = GAME.phase === 'prep' || GAME.phase === 'hunt' || GAME.phase === 'seek';
+  const netPlaying = GAME.phase === 'netprep' || GAME.phase === 'nethunt';
+  const playing = GAME.phase === 'prep' || GAME.phase === 'hunt' || GAME.phase === 'seek' || netPlaying;
   if (playing && !GAME.over){
     GAME.t += dt;
     if (P.whistleCd > 0) P.whistleCd -= dt;
     movePlayer(dt);
     updateMount(dt);
-    if (GAME.phase === 'seek') updateTorch(); else updateSeeker(dt);
+    if (GAME.phase === 'seek') updateTorch();
+    else if (!netPlaying) updateSeeker(dt);
     if (GAME.phase === 'hunt') GAME.hidden += dt;
     // clock ticks
     const left = GAME.len - GAME.t;
     if (left < 11 && Math.floor(left) !== GAME._lastTick){ GAME._lastTick = Math.floor(left); SFX.tick(left < 6); }
-    if (GAME.t >= GAME.len){
+    // In multiplayer the host owns the clock, so nothing local ends a phase.
+    if (!netPlaying && GAME.t >= GAME.len){
       if (GAME.phase === 'prep') setPhase('hunt');
       else if (GAME.phase === 'seek') endSeek(false);
       else endRound(true);
     }
     // match is a few raycasts — 6 Hz is plenty
-    if (GAME.phase !== 'seek'){
+    if (GAME.phase !== 'seek' && !(netPlaying && NET.role === 'seeker')){
       matchT += dt;
       if (matchT > 0.16){ matchT = 0; matchVal = computeMatch(); bestMatch = Math.max(bestMatch, matchVal); }
     }
   }
+  netFrame(dt);
   followSun(P.x, P.z);
   updateCamera(dt);
   updateBursts(dt);
