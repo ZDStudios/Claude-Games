@@ -7766,7 +7766,7 @@ function initPlayer(){
   paintCv = document.getElementById('paintCv');
   paintCv.width = paintCv.height = PAINT_S;
   paintCtx = paintCv.getContext('2d', { willReadFrequently: true });
-  paintCtx.fillStyle = '#f2f0eb';
+  paintCtx.fillStyle = '#ffffff';
   paintCtx.fillRect(0, 0, PAINT_S, PAINT_S);
 
   paintTex = new THREE.CanvasTexture(paintCv);
@@ -8365,6 +8365,11 @@ const SFX = {
     else if (room === 'library') nz(0.09 + f*0.04,  520 - f*140, 1.1, v*0.9, 'lowpass');
     else                          nz(0.11 + f*0.04,  300 - f*70,  0.8, v*0.6, 'lowpass');
   },
+  pop(){
+    if (!AC) return;
+    nz(0.09, 1800, 1.4, 0.5, 'bandpass', 900);          // the paper burst
+    tone(180, 0.10, 0.20, 'square', 70);                 // the thump
+  },
   tick(urgent){ tone(urgent?1500:1050, 0.045, urgent?0.13:0.07, 'square'); },
   found(){
     nz(0.5, 900, 0.7, 0.5, 'lowpass', 120);
@@ -8624,6 +8629,7 @@ function startSeek(){
   placeHiders(6);
   SEEKGAME.torch.visible = true;
   SEEKGAME.cone.visible = true;
+  GUN.held = true;
   document.getElementById('seekCard').classList.add('on');
   document.getElementById('studio').classList.remove('on');
   document.getElementById('poseCard').classList.remove('on');
@@ -8637,7 +8643,7 @@ function startSeek(){
   camYaw = 0; camPitch = 0.16; camDist = 3.8; snapCamera();
   syncSeekHUD();
   SFX.phase();
-  toast('Six of them are painted into this house. Click one to call it.');
+  toast('Six of them are painted into this house. Fire confetti at anything suspicious — ammo is unlimited.');
   CV3.requestPointerLock();
 }
 
@@ -8647,6 +8653,7 @@ function endSeek(win){
   GAME.phase = 'over';
   SEEKGAME.torch.visible = false;
   SEEKGAME.cone.visible = false;
+  GUN.held = false;
   document.getElementById('seekCard').classList.remove('on');
   document.getElementById('actions').style.display = '';
   // reveal whatever got away
@@ -9037,26 +9044,29 @@ function beginNetPrep(){
   netEl('phaseName').textContent = NET.role === 'seeker' ? 'YOU ARE THE SEEKER' : 'HIDE YOURSELF';
   netEl('phaseJp').textContent = NET.role === 'seeker' ? 'かぞえる — counting' : 'じゅんび — paint · pose · hide';
   if (NET.role === 'seeker'){
-    // the seeker waits it out where they cannot watch anyone hide
-    P.x = 0; P.z = 8.4; P.frozen = true;
+    // A sealed room a long way from the map. Not a frozen camera and not a
+    // corner of the same hall — there is no angle from in here that shows
+    // anyone choosing a spot.
+    enterBooth();
     netEl('studio').classList.remove('on');
     netEl('poseCard').classList.remove('on');
     netEl('matchCard').style.display = 'none';
     SEEKGAME.torch.visible = false; SEEKGAME.cone.visible = false;
+    GUN.held = false;
     fillAll('#39435a');
   } else {
     netEl('studio').classList.add('on');
     netEl('poseCard').classList.add('on');
     netEl('matchCard').style.display = '';
     GAME.studio = true;
-    fillAll('#f2f0eb');
+    fillAll('#ffffff');            // a blank canvas, not an off-white one
     setColor('#7d6a86'); renderPalette();
     paintUndo.length = 0; syncUndo();
   }
   netEl('actions').style.display = NET.role === 'seeker' ? 'none' : '';
   netEl('seekCard').classList.remove('on');
   if (SEEK.mesh) SEEK.mesh.visible = false;
-  camYaw = P.yaw; camPitch = 0.18; camDist = 4.6; snapCamera();
+  if (NET.role !== 'seeker'){ camYaw = P.yaw; camPitch = 0.18; camDist = 4.6; snapCamera(); }
   SFX.phase();
   toast(NET.role === 'seeker'
     ? 'Eyes closed. They are painting themselves into the rooms.'
@@ -9076,13 +9086,15 @@ function beginNetHunt(){
     P.frozen = false;
     netEl('matchCard').style.display = '';
   } else {
+    leaveBooth(mapSpawn());
     P.frozen = false;
     SEEKGAME.torch.visible = true; SEEKGAME.cone.visible = true;
+    GUN.held = true;
     netEl('matchCard').style.display = 'none';
   }
   snapCamera();
   SFX.phase();
-  toast(NET.role === 'seeker' ? 'Go. Light them up and click to call it.'
+  toast(NET.role === 'seeker' ? 'Go. Fire confetti at anything that looks wrong — ammo is unlimited.'
                               : 'Freeze. Let the light pass over you.');
 }
 
@@ -9090,6 +9102,8 @@ function beginNetOver(){
   GAME.phase = 'netover';
   GAME.over = true;
   SEEKGAME.torch.visible = false; SEEKGAME.cone.visible = false;
+  GUN.held = false;
+  if (boothActive) leaveBooth(mapSpawn());
   const s = matchState();
   const rows = NET.mp.players
     .map(p => ({ name: p.name || 'Player', score: (s.scores && s.scores[p.id]) || 0,
@@ -9366,6 +9380,378 @@ function renderNetHud(){
     : (NET.caught ? 'var(--amber)' : 'var(--acid)');
   netEl('mpTally').textContent = found + ' / ' + hiders.length;
   netEl('mpRound').textContent = 'ROUND ' + (s.round || 1);
+}
+/* ==========================================================================
+   Section 10 — the confetti cannon, and the counting room
+   --------------------------------------------------------------------------
+   The seeker does not touch anyone. They carry a party cannon with unlimited
+   ammo and fire paper at whatever they suspect. A shell that hits a hider
+   bursts and gives them away; one that hits a statue just makes a mess. That
+   makes seeking an act of aim and nerve rather than a click on a name, and it
+   gives hiders a reason to stay perfectly still while a shot goes past.
+
+   Nothing here decides an outcome on its own. In multiplayer a hit only ever
+   asks the host to check the shot; the host owns whether it counted.
+   ========================================================================== */
+const GUN = {
+  mesh: null, muzzle: null, shots: [], cool: 0, held: false,
+  COOLDOWN: 0.34, SPEED: 26, LIFE: 1.5, RADIUS: 0.42
+};
+
+/* ---------- the cannon itself ---------- */
+function buildGun(){
+  const g = new THREE.Group();
+  const body = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.062, 0.082, 0.30, 14),
+    new THREE.MeshStandardMaterial({ color:0xff3d6e, roughness:0.42, metalness:0.15 }));
+  body.rotation.x = Math.PI/2; body.position.z = 0.12;
+  g.add(body);
+  const mouth = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.098, 0.070, 0.10, 14, 1, true),
+    new THREE.MeshStandardMaterial({ color:0xffc93d, roughness:0.4, side:THREE.DoubleSide }));
+  mouth.rotation.x = Math.PI/2; mouth.position.z = 0.30;
+  g.add(mouth);
+  const grip = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.036, 0.040, 0.14, 10),
+    new THREE.MeshStandardMaterial({ color:0x2c3138, roughness:0.7 }));
+  grip.position.set(0, -0.10, 0.04); grip.rotation.x = 0.25;
+  g.add(grip);
+  const band = new THREE.Mesh(new THREE.TorusGeometry(0.078, 0.014, 6, 16),
+    new THREE.MeshStandardMaterial({ color:0x3de0ff, emissive:0x1d6f86, emissiveIntensity:0.6 }));
+  band.position.z = 0.20;
+  g.add(band);
+
+  g.traverse(o => { if (o.isMesh){ o.castShadow = true; o.receiveShadow = true; } });
+  GUN.muzzle = new THREE.Object3D();
+  GUN.muzzle.position.z = 0.36;
+  g.add(GUN.muzzle);
+  g.visible = false;
+  GUN.mesh = g;
+  scene.add(g);
+}
+
+/* Held in the right hand while the seeker is hunting, and aimed down the
+   camera's line rather than the arm's, so the shot goes where you are looking. */
+const _gv = new THREE.Vector3(), _gp = new THREE.Vector3();
+function updateGun(dt){
+  if (GUN.cool > 0) GUN.cool -= dt;
+  const show = GUN.held;
+  if (GUN.mesh) GUN.mesh.visible = show;
+  if (!show) return;
+  camera.getWorldDirection(_gv);
+  // Sit it off the RIGHT shoulder, clear of the middle of the view. Screen
+  // right for a forward of (sin y, cos y) is (-cos y, sin y), i.e. (-f.z, f.x)
+  // — the other sign puts the cannon in the player's left hand.
+  const right = new THREE.Vector3(-_gv.z, 0, _gv.x).normalize();
+  _gp.set(P.x, FIG.chest + P.y + 0.10, P.z)
+     .addScaledVector(right, 0.30)
+     .addScaledVector(_gv, 0.30);
+  GUN.mesh.position.copy(_gp);
+  GUN.mesh.lookAt(_gp.clone().addScaledVector(_gv, 4));
+}
+
+/* ---------- firing ---------- */
+function canFire(){
+  if (GUN.cool > 0) return false;
+  if (!GUN.held) return false;
+  return GAME.phase === 'seek' || (GAME.phase === 'nethunt' && NET.role === 'seeker');
+}
+function fireConfetti(){
+  if (!canFire()) return;
+  GUN.cool = GUN.COOLDOWN;                       // ammo is unlimited; the barrel is not
+  // Re-place the cannon before reading the muzzle. A click can land in the
+  // same tick as a teleport or a sharp turn, and firing from last frame's
+  // barrel sends the shell somewhere the player never aimed.
+  updateGun(0);
+  GUN.mesh.updateMatrixWorld(true);
+  camera.getWorldDirection(_gv);
+  const o = new THREE.Vector3();
+  GUN.muzzle.getWorldPosition(o);
+  GUN.shots.push({
+    p: o.clone(), v: _gv.clone().multiplyScalar(GUN.SPEED), life: GUN.LIFE, dead: false
+  });
+  muzzlePuff(o, _gv);
+  SFX.pop();
+  // a little kick so firing has weight
+  camPitch = clamp(camPitch + 0.02, -0.5, 1.15);
+}
+
+/* Shells are simulated by hand: a short arc, then a sphere test against
+   whatever can be hit this round. */
+function updateShots(dt){
+  for (let i = GUN.shots.length - 1; i >= 0; i--){
+    const s = GUN.shots[i];
+    s.life -= dt;
+    if (s.life <= 0){ GUN.shots.splice(i, 1); continue; }
+    const step = s.v.clone().multiplyScalar(dt);
+    const next = s.p.clone().add(step);
+    s.v.y -= 7.0 * dt;                            // a lazy party-cannon arc
+
+    // did it reach something worth hitting?
+    const hit = shotTarget(s.p, next);
+    if (hit){
+      confettiBurst(hit.point, hit.colour);
+      onConfettiHit(hit);
+      GUN.shots.splice(i, 1);
+      continue;
+    }
+    // or hit the building
+    if (segmentHitsWorld(s.p, next)){
+      confettiBurst(next, 0xffffff);
+      GUN.shots.splice(i, 1);
+      continue;
+    }
+    s.p.copy(next);
+    // a ribbon of paper trailing the shell
+    if (Math.random() < 0.55) confettiTrail(s.p);
+  }
+}
+
+/* Candidate targets differ by mode: solo seeking hunts the generated hiders,
+   multiplayer hunts the other players' rigs. */
+function shotTarget(a, b){
+  const mid = a.clone().add(b).multiplyScalar(0.5);
+  const reach = a.distanceTo(b) * 0.5 + GUN.RADIUS;
+
+  if (GAME.phase === 'seek'){
+    for (const h of HIDERS){
+      if (h.found) continue;
+      const c = new THREE.Vector3(h.mesh.position.x, h.mesh.position.y + FIG.chest*0.8, h.mesh.position.z);
+      if (c.distanceTo(mid) < reach + 0.35)
+        return { kind:'hider', hider:h, point:c, colour:0xc6ff3d };
+    }
+    // a miss that lands on a statue is worth showing, so the seeker learns
+    for (const o of pickables){
+      if (!o.userData || !o.userData.statue) continue;
+      const c = o.position.clone(); c.y += FIG.chest*0.8;
+      if (c.distanceTo(mid) < reach + 0.3)
+        return { kind:'statue', point:c, colour:0xff3d6e };
+    }
+    return null;
+  }
+  if (GAME.phase === 'nethunt' && NET.on){
+    const st = matchState();
+    for (const p of NET.mp.others()){
+      const pe = NET.peers.get(p.id);
+      if (!pe || !pe.rig.root.visible) continue;
+      if (st.found && st.found[p.id]) continue;
+      const r = pe.rig.root.position;
+      const c = new THREE.Vector3(r.x, r.y + FIG.chest*0.8, r.z);
+      if (c.distanceTo(mid) < reach + 0.35)
+        return { kind:'peer', id:p.id, point:c, colour:0xc6ff3d };
+    }
+  }
+  return null;
+}
+
+/* Cheap world test: does the segment end up inside a collider? */
+function segmentHitsWorld(a, b){
+  if (b.y < 0.02) return true;
+  for (const c of colliders){
+    if (b.y > c.h) continue;
+    if (b.x > c.x0 - 0.05 && b.x < c.x1 + 0.05 &&
+        b.z > c.z0 - 0.05 && b.z < c.z1 + 0.05) return true;
+  }
+  return false;
+}
+
+function onConfettiHit(hit){
+  if (hit.kind === 'hider'){
+    hit.hider.found = true;
+    SEEKGAME.found++;
+    hit.hider.mesh.material.emissive = new THREE.Color(0x2f7d3a);
+    hit.hider.mesh.material.emissiveIntensity = 0.7;
+    hit.hider.mesh.material.needsUpdate = true;
+    SFX.found();
+    toast(`Got one — ${SEEKGAME.found} of ${SEEKGAME.total}`);
+    syncSeekHUD();
+    if (SEEKGAME.found >= SEEKGAME.total) endSeek(true);
+    return;
+  }
+  if (hit.kind === 'statue'){
+    // Confetti is free, so a miss costs time rather than a life. Only the
+    // solo mode keeps strikes, and only for hitting a real exhibit.
+    SEEKGAME.strikes++;
+    GAME.t += 4;
+    SFX.nope();
+    toast(`That is a real statue. Strike ${SEEKGAME.strikes} of ${MAX_STRIKES}`);
+    syncSeekHUD();
+    if (SEEKGAME.strikes >= MAX_STRIKES) endSeek(false);
+    return;
+  }
+  if (hit.kind === 'peer'){
+    // Ask the host. It re-checks range against the positions it holds.
+    if (NET.mp){
+      NET.mp.send('tag', { target: hit.id });
+      if (NET.mp.isHost) hostResolveTag(NET.mp.me.id, hit.id);
+    }
+  }
+}
+
+/* ---------- paper ---------- */
+let confMesh = null;
+const confetti = [];
+const CONF_MAX = 900;
+function initConfetti(){
+  const g = new THREE.PlaneGeometry(0.075, 0.115);
+  // No vertexColors here: three.js picks up instanceColor on its own, and
+  // asking for vertex colours makes it hunt for an attribute that does not
+  // exist, which renders every piece black.
+  confMesh = new THREE.InstancedMesh(g,
+    new THREE.MeshBasicMaterial({ side:THREE.DoubleSide, toneMapped:false }),
+    CONF_MAX);
+  confMesh.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(CONF_MAX*3), 3);
+  confMesh.count = 0;
+  confMesh.frustumCulled = false;
+  scene.add(confMesh);
+}
+const CONF_COLS = [0xff3d6e, 0xffc93d, 0x3de0ff, 0xc6ff3d, 0xffffff, 0xa96bff];
+function confettiBurst(at, tint){
+  for (let i = 0; i < 70; i++){
+    const a = Math.random()*TAU, e = Math.random()*Math.PI;
+    const sp = 1.6 + Math.random()*5.4;
+    confetti.push({
+      x:at.x, y:at.y, z:at.z,
+      vx:Math.sin(e)*Math.cos(a)*sp, vy:Math.cos(e)*sp*0.7 + 2.6, vz:Math.sin(e)*Math.sin(a)*sp,
+      spin: rnd(-9, 9), rot: Math.random()*TAU,
+      life: 1.1 + Math.random()*1.5, max: 2.6,
+      c: (i % 7 === 0 && tint !== undefined) ? tint : CONF_COLS[i % CONF_COLS.length]
+    });
+  }
+}
+function confettiTrail(at){
+  confetti.push({
+    x:at.x, y:at.y, z:at.z,
+    vx:rnd(-0.5,0.5), vy:rnd(-0.4,0.5), vz:rnd(-0.5,0.5),
+    spin: rnd(-6,6), rot: Math.random()*TAU,
+    life: 0.42, max: 0.42, c: CONF_COLS[(Math.random()*CONF_COLS.length)|0]
+  });
+}
+function muzzlePuff(at, dir){
+  for (let i = 0; i < 18; i++){
+    const sp = 2 + Math.random()*4;
+    confetti.push({
+      x:at.x, y:at.y, z:at.z,
+      vx:dir.x*sp + rnd(-1.4,1.4), vy:dir.y*sp + rnd(-0.6,1.6), vz:dir.z*sp + rnd(-1.4,1.4),
+      spin: rnd(-10,10), rot: Math.random()*TAU,
+      life: 0.5 + Math.random()*0.4, max: 0.9,
+      c: CONF_COLS[(Math.random()*CONF_COLS.length)|0]
+    });
+  }
+}
+const _cm = new THREE.Matrix4(), _cq = new THREE.Quaternion(),
+      _cv = new THREE.Vector3(), _cs = new THREE.Vector3(), _ce = new THREE.Euler(),
+      _cc = new THREE.Color();
+function updateConfetti(dt){
+  if (!confMesh) return;
+  for (let i = confetti.length - 1; i >= 0; i--){
+    const c = confetti[i];
+    c.life -= dt;
+    if (c.life <= 0){ confetti.splice(i, 1); continue; }
+    c.vy -= 9.0*dt;
+    c.vx *= 0.985; c.vz *= 0.985;          // paper does not carry
+    c.x += c.vx*dt; c.y += c.vy*dt; c.z += c.vz*dt;
+    c.rot += c.spin*dt;
+    if (c.y < 0.02){ c.y = 0.02; c.vy *= -0.28; c.vx *= 0.6; c.vz *= 0.6; }
+  }
+  if (confetti.length > CONF_MAX) confetti.splice(0, confetti.length - CONF_MAX);
+  let n = 0;
+  for (const c of confetti){
+    if (n >= CONF_MAX) break;
+    const s = clamp(c.life / c.max, 0, 1);
+    _ce.set(c.rot*0.7, c.rot, c.rot*0.4);
+    _cq.setFromEuler(_ce);
+    _cm.compose(_cv.set(c.x, c.y, c.z), _cq, _cs.set(1, 1, 1));
+    confMesh.setMatrixAt(n, _cm);
+    _cc.setHex(c.c);
+    confMesh.setColorAt(n, _cc);
+    n++;
+  }
+  confMesh.count = n;
+  confMesh.instanceMatrix.needsUpdate = true;
+  if (confMesh.instanceColor) confMesh.instanceColor.needsUpdate = true;
+}
+
+/* ==========================================================================
+   The counting room
+   A sealed box parked well away from the play space. The seeker spends the
+   whole hiding phase inside it, so there is no angle, no gap and no clipped
+   camera that lets them watch people choose a spot. It is a real room rather
+   than a frozen camera because being stuck somewhere for forty seconds
+   should at least look like somewhere.
+   ========================================================================== */
+const BOOTH = { x: 0, y: 0, z: -140, built: false, group: null };
+function buildBooth(){
+  if (BOOTH.built) return;
+  const g = new THREE.Group();
+  const W = 5, D = 5, H = 3.2, t = 0.3;
+  const wall = new THREE.MeshStandardMaterial({ color:0x2a3346, roughness:0.9 });
+  const add = (w,h,d, x,y,z) => {
+    const m = new THREE.Mesh(new THREE.BoxGeometry(w,h,d), wall);
+    m.position.set(x,y,z); m.receiveShadow = true; m.castShadow = true; g.add(m);
+  };
+  const floor = new THREE.Mesh(new THREE.PlaneGeometry(W, D),
+    new THREE.MeshStandardMaterial({ color:0x1b2231, roughness:0.95 }));
+  floor.rotation.x = -Math.PI/2; floor.receiveShadow = true; g.add(floor);
+  add(W, t, D, 0, H, 0);                                   // ceiling
+  add(W, H, t, 0, H/2, -D/2);
+  add(W, H, t, 0, H/2,  D/2);
+  add(t, H, D, -W/2, H/2, 0);
+  add(t, H, D,  W/2, H/2, 0);
+  // something to look at while you count
+  const clock = new THREE.Mesh(new THREE.CircleGeometry(0.62, 24),
+    new THREE.MeshStandardMaterial({ color:0xf2f0eb, emissive:0x3a4356, emissiveIntensity:0.4 }));
+  clock.position.set(0, 1.9, -D/2 + 0.17);
+  g.add(clock);
+  const lamp = new THREE.PointLight(0xffd9a0, 16, 12, 1.6);
+  lamp.position.set(0, H - 0.5, 0);
+  g.add(lamp);
+
+  g.position.set(BOOTH.x, BOOTH.y, BOOTH.z);
+  scene.add(g);
+  BOOTH.group = g;
+  BOOTH.built = true;
+}
+/* Being in the booth is a position, so it also needs its own walls to bump
+   into — the main map's collider list is nowhere near here. */
+function boothColliders(){
+  const W = 5, D = 5, t = 0.3, H = 3.2;
+  return [
+    { x0:BOOTH.x-W/2-t, z0:BOOTH.z-D/2-t, x1:BOOTH.x+W/2+t, z1:BOOTH.z-D/2+t, h:H },
+    { x0:BOOTH.x-W/2-t, z0:BOOTH.z+D/2-t, x1:BOOTH.x+W/2+t, z1:BOOTH.z+D/2+t, h:H },
+    { x0:BOOTH.x-W/2-t, z0:BOOTH.z-D/2-t, x1:BOOTH.x-W/2+t, z1:BOOTH.z+D/2+t, h:H },
+    { x0:BOOTH.x+W/2-t, z0:BOOTH.z-D/2-t, x1:BOOTH.x+W/2+t, z1:BOOTH.z+D/2+t, h:H }
+  ];
+}
+/* Where the seeker is dropped when the hunt starts. Once maps are selectable
+   this reads from the active map; for now it is the mansion's front door. */
+function mapSpawn(){
+  return (typeof ACTIVE_MAP !== 'undefined' && ACTIVE_MAP && ACTIVE_MAP.spawn)
+    ? ACTIVE_MAP.spawn
+    : { x: 0, z: 7.2 };
+}
+
+let boothActive = false;
+function enterBooth(){
+  buildBooth();
+  boothActive = true;
+  for (const c of boothColliders()) colliders.push(c);
+  P.x = BOOTH.x; P.z = BOOTH.z + 1.4; P.y = 0; P.yaw = Math.PI;
+  P.vx = P.vz = 0; P.mount = null;
+  camYaw = Math.PI; camPitch = 0.10; camDist = 3.4; snapCamera();
+}
+function leaveBooth(spawn){
+  if (!boothActive) return;
+  boothActive = false;
+  const booth = boothColliders();
+  for (const b of booth){
+    const i = colliders.findIndex(c => c.x0 === b.x0 && c.z0 === b.z0 && c.x1 === b.x1 && c.z1 === b.z1);
+    if (i >= 0) colliders.splice(i, 1);
+  }
+  P.x = spawn ? spawn.x : 0;
+  P.z = spawn ? spawn.z : 6;
+  P.y = 0; P.vx = P.vz = 0;
+  camDist = 4.2; snapCamera();
 }
 /* ==========================================================================
    Section 7 — phases, input, HUD, main loop
@@ -9667,8 +10053,8 @@ function initInput(){
     if (GAME.studio){ toggleStudio(); return; }
     if (!locked){ CV3.requestPointerLock(); return; }
     if (e.button !== 0) return;
-    if (GAME.phase === 'seek') tagUnderCrosshair();
-    else if (GAME.phase === 'nethunt' && NET.role === 'seeker') netTag();
+    if (GAME.phase === 'seek') fireConfetti();
+    else if (GAME.phase === 'nethunt' && NET.role === 'seeker') fireConfetti();
     else doEyedrop();
   });
   document.addEventListener('pointerlockchange', () => { locked = document.pointerLockElement === CV3; });
@@ -9774,7 +10160,7 @@ function startRound(){
   P.x = 0; P.z = 3.2; P.yaw = 0; P.decoys = 2; P.whistleCd = 0; P.frozen = false;
   P.vx = P.vz = 0;
   setPose('stand');
-  fillAll('#f2f0eb');
+  fillAll('#ffffff');            // blank white — the whole point is that you paint it
   paintUndo.length = 0; syncUndo();
   recents.length = 0; recents.push(...BASE_SWATCHES);
   // NOT the body's own colour — starting there paints invisibly
@@ -9832,6 +10218,9 @@ function frame(now){
     }
   }
   netFrame(dt);
+  updateGun(dt);
+  updateShots(dt);
+  updateConfetti(dt);
   followSun(P.x, P.z);
   updateCamera(dt);
   updateBursts(dt);
@@ -9881,6 +10270,8 @@ async function boot(){
   initWaves();
   initBurst();
   initTorch();
+  buildGun();
+  initConfetti();
   initInput();
   syncPoseUI(); syncActions();
   step(100, 'READY');
