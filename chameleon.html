@@ -5602,8 +5602,8 @@ const FIG = {
   waist:    0.880,
   chest:    1.055,
   shoulder: 1.175,
-  neck:     1.235,
-  headY:    1.372,
+  neck:     1.222,
+  headY:    1.348,
   headR:    0.205,  // ~4 heads to the full height: the whole gag in one number
   hipX:     0.088,  // half the pelvis width
   shX:      0.226,  // half the shoulder width
@@ -5716,30 +5716,37 @@ function buildRigGeo(){
   const add = (geo, boneName) => { parts.push(geo); owner.push(B[boneName]); };
 
   // Barrel torso — wide at the chest, pinched at the waist, so the silhouette
-  // is a rounded bean rather than a human ribcage.
-  add(segCapsule(J.pelvis, J.chest, 0.196, 0.168), 'spine');
-  add(ballAt(J.pelvis, 0.170, 0.86), 'pelvis');
-  add(ballAt([0, FIG.chest - 0.02, 0], 0.198, 0.82), 'chest');
-  add(segCapsule(J.chest, J.neck, 0.124, 0.178), 'chest');
-  // the shoulder girdle: one bar across, so the arms grow out of the body
-  add(segCapsule(J.shL, J.shR, 0.108), 'chest');
-  add(segCapsule([0, FIG.neck - 0.03, 0], [0, FIG.headY - FIG.headR*0.72, 0], 0.112), 'neck');
+  // is a rounded bean rather than a human ribcage. The printed figures in the
+  // reference are visibly SLAB-like: broad from the front, thin from the side.
+  // Only the body is flattened; the limbs stay round tubes, as they do there.
+  const slab = g => { g.scale(1, 1, 0.76); return g; };
+  add(slab(segCapsule(J.pelvis, J.chest, 0.196, 0.168)), 'spine');
+  add(slab(ballAt(J.pelvis, 0.170, 0.86)), 'pelvis');
+  add(slab(ballAt([0, FIG.chest - 0.02, 0], 0.198, 0.82)), 'chest');
+  add(slab(segCapsule(J.chest, J.neck, 0.124, 0.178)), 'chest');
+  // The shoulder girdle: one bar across, matched to the top of the upper arm
+  // so the arm grows out of the body instead of stepping off a wider ledge.
+  add(slab(segCapsule(J.shL, J.shR, 0.092)), 'chest');
+  // barely any neck — the head sits down on the shoulders, as in the reference
+  add(segCapsule([0, FIG.neck - 0.06, 0], [0, FIG.headY - FIG.headR*0.80, 0], 0.108), 'neck');
   add(ballAt(J.head, FIG.headR), 'head');
-  // Stubby limbs with fat joints. Every joint gets a ball wider than the limb
-  // either side of it, which is both the cartoon read and what guarantees the
-  // surface stays closed however far the joint bends.
+  // Stubby limbs. Each joint carries a ball, but sized to sit just INSIDE the
+  // limb radius either side of it, never proud of it — the printed figures in
+  // the reference have no knuckles or knobs anywhere, just smooth tapered
+  // tubes. The ball is there to keep the volume solid while the joint bends;
+  // the skinning is what makes it bend, so it never has to show.
   for (const k of ['L','R']){
-    add(ballAt(J['sh'+k], 0.086), 'uarm'+k);
+    add(ballAt(J['sh'+k], 0.078), 'uarm'+k);
     add(segCapsule(J['sh'+k], J['el'+k], 0.0700, 0.0790), 'uarm'+k);
-    add(ballAt(J['el'+k], 0.0670), 'farm'+k);
+    add(ballAt(J['el'+k], 0.0620), 'farm'+k);
     add(segCapsule(J['el'+k], J['wr'+k], 0.0605, 0.0650), 'farm'+k);
-    add(ballAt(J['wr'+k], 0.070, 1.10), 'farm'+k);      // mitten hands
+    add(ballAt(J['wr'+k], 0.0615, 1.06), 'farm'+k);      // mitten hands
 
     add(ballAt(J['hip'+k], 0.118), 'thigh'+k);
     add(segCapsule(J['hip'+k], J['knee'+k], 0.0940, 0.1130), 'thigh'+k);
-    add(ballAt(J['knee'+k], 0.0925), 'shin'+k);
+    add(ballAt(J['knee'+k], 0.0875), 'shin'+k);
     add(segCapsule(J['knee'+k], J['ank'+k], 0.0705, 0.0900), 'shin'+k);
-    add(ballAt(J['ank'+k], 0.0740), 'foot'+k);
+    add(ballAt(J['ank'+k], 0.0690), 'foot'+k);
     // little rounded boot
     const toe = J['toe'+k];
     add(segCapsule([J['ank'+k][0], J['ank'+k][1] - 0.012, 0.004],
@@ -5843,11 +5850,16 @@ function makeRig(material){
 
 /* ==========================================================================
    Poses — pure joint-angle data
-   shZ lifts the arm sideways, shX swings it forward, elX bends the elbow
-   (always negative: elbows only fold one way). Legs follow the same rule.
+
+   AXIS CONVENTION. The figure faces local +Z. A limb hangs down local -Y, and
+   a POSITIVE rotation about X carries its far end toward -Z, i.e. BACKWARD.
+   Poses are far easier to read written the other way round, so every angle
+   below is authored as "positive means forward" and applyPose negates it on
+   the way in. shZ lifts an arm sideways; elX and kneeX fold the joint (elbows
+   fold forward, knees fold backward — each only bends one way).
    ========================================================================== */
 function pose(o){ return Object.assign({
-  shZ:0.13, shX:0, elX:-0.10, shZ2:null, shX2:null, elX2:null,
+  shZ:0.13, shX:0, elX:0.10, shZ2:null, shX2:null, elX2:null,
   hipX:0, kneeX:0, hipX2:null, kneeX2:null, hipZ:0,
   spineX:0, spineZ:0, headX:0, rootRot:[0,0,0], pelvisY:0,
   groundY:0            // filled in by bakePoses: how far to lift the root so
@@ -5855,19 +5867,19 @@ function pose(o){ return Object.assign({
 }, o); }
 
 const POSES = {
-  stand:  pose({ label:'STAND',  jp:'たつ', shZ:0.135, elX:-0.15 }),
-  tpose:  pose({ label:'T-POSE', jp:'ティー', shZ:1.57, elX:-0.02 }),
-  cheer:  pose({ label:'CHEER',  jp:'ばんざい', shZ:2.48, elX:-0.22,
+  stand:  pose({ label:'STAND',  jp:'たつ', shZ:0.135, elX:0.15 }),
+  tpose:  pose({ label:'T-POSE', jp:'ティー', shZ:1.57, elX:0.02 }),
+  cheer:  pose({ label:'CHEER',  jp:'ばんざい', shZ:2.48, elX:0.22,
                  hipZ:0.13, spineX:-0.06 }),
-  wave:   pose({ label:'WAVE',   jp:'てをふる', shZ:2.62, elX:-0.62,
-                 shZ2:0.24, elX2:-0.36, spineZ:-0.05 }),
-  hold:   pose({ label:'HOLD',   jp:'かかえる', shZ:0.52, shX:1.02, elX:-1.06,
+  wave:   pose({ label:'WAVE',   jp:'てをふる', shZ:2.62, elX:0.62,
+                 shZ2:0.24, elX2:0.36, spineZ:-0.05 }),
+  hold:   pose({ label:'HOLD',   jp:'かかえる', shZ:0.52, shX:1.02, elX:1.06,
                  spineX:0.05 }),
-  crouch: pose({ label:'CROUCH', jp:'しゃがむ', shZ:0.20, shX:0.62, elX:-1.32,
+  crouch: pose({ label:'CROUCH', jp:'しゃがむ', shZ:0.20, shX:0.62, elX:1.32,
                  hipX:1.28, kneeX:-1.72, spineX:0.40, headX:-0.28, pelvisY:-0.235 }),
-  lean:   pose({ label:'LEAN',   jp:'よりかかる', shZ:0.24, shX:-0.16, elX:-0.20,
+  lean:   pose({ label:'LEAN',   jp:'よりかかる', shZ:0.24, shX:-0.16, elX:0.20,
                  shZ2:0.10, spineZ:0.10, rootRot:[0,0,0.22] }),
-  flat:   pose({ label:'FLOOR MAT', jp:'ねる', shZ:1.42, elX:-0.06,
+  flat:   pose({ label:'FLOOR MAT', jp:'ねる', shZ:1.42, elX:0.06,
                  rootRot:[-Math.PI/2,0,0] })
 };
 const POSE_KEYS = Object.keys(POSES);
@@ -5884,16 +5896,16 @@ function applyPose(rig, key, w){
     const sx = (i === 1 && p.shX2 !== null) ? p.shX2 : p.shX;
     const ex = (i === 1 && p.elX2 !== null) ? p.elX2 : p.elX;
     mix(a.sh.rotation, 'z', a.side * sz);
-    mix(a.sh.rotation, 'x', sx);
-    mix(a.el.rotation, 'x', ex);
+    mix(a.sh.rotation, 'x', -sx);
+    mix(a.el.rotation, 'x', -ex);
   });
   rig.legs.forEach((l, i) => {
     const hx = (i === 1 && p.hipX2 !== null) ? p.hipX2 : p.hipX;
     const kx = (i === 1 && p.kneeX2 !== null) ? p.kneeX2 : p.kneeX;
-    mix(l.hp.rotation, 'x', hx);
+    mix(l.hp.rotation, 'x', -hx);
     mix(l.hp.rotation, 'z', l.side * p.hipZ);
-    mix(l.kn.rotation, 'x', kx);
-    mix(l.ft.rotation, 'x', -(hx + kx) * 0.35);
+    mix(l.kn.rotation, 'x', -kx);
+    mix(l.ft.rotation, 'x', (hx + kx) * 0.35);
   });
   mix(rig.spine.rotation, 'x', p.spineX);
   mix(rig.spine.rotation, 'z', p.spineZ);
@@ -5932,24 +5944,30 @@ function animateGait(rig, dt, speed, sprintness){
   const squash = (0.055 + s*0.055) * drive;    // squash on landing, stretch in the air
 
   const ph = A.t;
+  // `swing` is +1 with the limb reaching fully FORWARD, -1 fully back. The
+  // engine's +X is backward, so each write is negated on the way out — the
+  // same convention the pose table is authored in.
   rig.legs.forEach((l, i) => {
-    const o = i === 0 ? 0 : Math.PI;
-    const th = ph + o;
-    l.hp.rotation.x = Math.sin(th) * hipA;
+    const th = ph + (i === 0 ? 0 : Math.PI);
+    const swing = Math.sin(th);
+    l.hp.rotation.x = -swing * hipA;
     l.hp.rotation.z = 0;
-    // Knees fold only backwards. The lift peaks a quarter-cycle after the
-    // thigh starts swinging forward, which is where the foot must clear.
-    const fold = Math.max(0, -Math.sin(th + 1.05));
-    l.kn.rotation.x = -(fold * kneeA + 0.06 * drive);
-    // Ankle rolls through the step: toe-off behind, dorsiflexed in front.
-    l.ft.rotation.x = -Math.sin(th) * 0.30 * drive + fold * 0.22 * drive;
+    // Knees fold backwards only, and hardest just after the foot leaves the
+    // ground behind — that is the moment the shin has to clear the floor. By
+    // the time the leg reaches forward the knee is straight again, ready to
+    // plant the heel.
+    const fold = Math.pow(Math.max(0, Math.sin(th + 1.90)), 1.3);
+    l.kn.rotation.x = fold * kneeA + 0.06 * drive;
+    // Ankle rolls through the step: toe-off behind, toe lifted in front.
+    l.ft.rotation.x = swing * 0.26 * drive - fold * 0.20 * drive;
   });
   rig.arms.forEach((a, i) => {
-    const o = i === 0 ? Math.PI : 0;                   // arms oppose the legs
-    const th = ph + o;
-    a.sh.rotation.x = Math.sin(th) * armA;
-    a.sh.rotation.z = a.side * (0.13 + s*0.07 + Math.max(0, Math.sin(th))*0.04);
-    // The elbow stays bent while sprinting and swings loose while walking.
+    const th = ph + (i === 0 ? Math.PI : 0);           // arms oppose the legs
+    const swing = Math.sin(th);
+    a.sh.rotation.x = -swing * armA;
+    a.sh.rotation.z = a.side * (0.13 + s*0.07 + Math.max(0, swing)*0.04);
+    // The elbow stays bent while sprinting and swings loose while walking,
+    // folding forward as the arm drives across the chest.
     a.el.rotation.x = -(elbowA * (0.55 + 0.45*Math.max(0, Math.sin(th + 0.6))) + 0.08);
   });
 
@@ -6374,7 +6392,10 @@ function updatePlayerTransform(){
   const rr = still ? po.rootRot : [0,0,0];
   const gy = still ? po.groundY : POSES.stand.groundY;
   P.mesh.position.set(P.x, P.y + gy, P.z);
-  P.mesh.rotation.set(rr[0], P.yaw + Math.PI + rr[1], rr[2]);
+  // The rig's own forward is local +Z — that is where the toes point and where
+  // the sprint lean tips. Adding PI here turned the whole figure around, so it
+  // moonwalked in every direction and every control read as inverted.
+  P.mesh.rotation.set(rr[0], P.yaw + rr[1], rr[2]);
 }
 
 /* ---------- painting ---------- */
@@ -6598,7 +6619,7 @@ function buildSeeker(){
   const cap = new THREE.Mesh(new THREE.CylinderGeometry(0.150, 0.176, 0.070, 18), capM);
   cap.position.y = 0.146; cap.castShadow = true; rig.head.add(cap);
   const peak = new THREE.Mesh(new THREE.CylinderGeometry(0.212, 0.212, 0.022, 18, 1, false, -0.9, 1.8), capM);
-  peak.position.set(0, 0.106, -0.055); rig.head.add(peak);
+  peak.position.set(0, 0.106, 0.055); rig.head.add(peak);
 
   const sashM = new THREE.MeshStandardMaterial({
     color:0xffc93d, emissive:0xff8a00, emissiveIntensity:0.55, roughness:0.5 });
@@ -6614,7 +6635,7 @@ function buildSeeker(){
   const lens = new THREE.Mesh(new THREE.CircleGeometry(0.058, 14),
     new THREE.MeshBasicMaterial({ color:0xfff3d0 }));
   lens.position.y = 0.060; lens.rotation.x = -Math.PI/2; lant.add(lens);
-  lant.rotation.x = -Math.PI/2;              // lens looks down local -Z
+  lant.rotation.x = Math.PI/2;               // lens looks down local +Z, the way he faces
   lant.position.set(0, -FIG.farm - 0.06, 0);
   rig.arms[1].el.add(lant);
 
@@ -6664,7 +6685,7 @@ function buildSeeker(){
 function placeSeekerBeam(){
   const fx = Math.sin(SEEK.yaw), fz = Math.cos(SEEK.yaw);
   SEEK.mesh.position.set(SEEK.x, 0, SEEK.z);
-  SEEK.mesh.rotation.y = SEEK.yaw + Math.PI;
+  SEEK.mesh.rotation.y = SEEK.yaw;
   SEEK.light.position.set(SEEK.x, 0.98, SEEK.z);
   SEEK.light.target.position.set(SEEK.x + fx*10, 0.45, SEEK.z + fz*10);
   SEEK.light.target.updateMatrixWorld();
@@ -6778,9 +6799,9 @@ function updateSeeker(dt){
     if (gait > 0.1) animateGait(SEEK.rig, dt, gait, SEEK.alert > 0 ? 0.45 : 0);
     else settleRig(SEEK.rig, 'stand', dt);
     const carry = SEEK.rig.arms[1];
-    carry.sh.rotation.x += (-0.62 - carry.sh.rotation.x) * Math.min(1, dt*12);
+    carry.sh.rotation.x += (0.62 - carry.sh.rotation.x) * Math.min(1, dt*12);
     carry.sh.rotation.z += (0.16 - carry.sh.rotation.z) * Math.min(1, dt*12);
-    carry.el.rotation.x += (-0.78 - carry.el.rotation.x) * Math.min(1, dt*12);
+    carry.el.rotation.x += (0.78 - carry.el.rotation.x) * Math.min(1, dt*12);
   }
   // sweep the torch side to side while walking, and settle when suspicious
   SEEK.scanT += dt;
