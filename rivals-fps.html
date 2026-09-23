@@ -223,7 +223,7 @@ input[type=range]::-moz-range-thumb{width:16px;height:16px;background:var(--gold
 #gren{display:flex;gap:6px;justify-content:flex-end;margin-top:8px;align-items:center;font:600 12px var(--disp);color:var(--mute)}
 #gren i{width:12px;height:12px;border-radius:50%;background:rgba(255,255,255,.16);display:block}
 #gren i.f{background:#b9e06a}
-#slots{position:absolute;left:50%;bottom:calc(24px + var(--safe-b));transform:translateX(-50%);display:flex;gap:6px}
+#slots{position:absolute;left:50%;bottom:calc(24px + var(--safe-b));transform:translateX(-50%);display:flex;gap:6px;flex-wrap:wrap;justify-content:center;max-width:94vw}
 .sl{background:rgba(9,11,22,.66);padding:7px 14px;font:600 13px var(--disp);color:var(--mute);display:flex;gap:8px;align-items:center;border-bottom:3px solid transparent;clip-path:polygon(8px 0,100% 0,calc(100% - 8px) 100%,0 100%)}
 .sl kbd{font:700 12px var(--num);color:var(--text);opacity:.6}
 .sl.on{background:rgba(255,255,255,.9);color:var(--ink)} .sl.on kbd{color:var(--ink)}
@@ -379,7 +379,7 @@ input[type=range]::-moz-range-thumb{width:16px;height:16px;background:var(--gold
       <kbd>Shift</kbd><span>Sprint</span>
       <kbd>Space</kbd><span>Jump. Low crates (amber) can be jumped onto.</span>
       <kbd>R</kbd><span>Reload</span>
-      <kbd>1 to 5</kbd><span>Pick a weapon you own. Scroll wheel and Q also work.</span>
+      <kbd>1 to 0</kbd><span>Pick a weapon you own, in shop order. Scroll wheel and Q also work.</span>
       <kbd>G</kbd><span>Throw a grenade</span>
       <kbd>V</kbd><span>Play your equipped emote</span>
       <kbd>Tab</kbd><span>Hold for scoreboard</span>
@@ -488,7 +488,7 @@ const DEFAULT_SAVE = {
   name: 'Player1', coins: 500,
   owned: ['av0', 'wp0', 'wp2', 'sk0', 'tr0'],
   eqp: { av: 'av0', wp: 'wp0', sk: 'sk0', tr: 'tr0', em: '' },
-  stats: { matches: 0, wins: 0, kills: 0 }
+  stats: { matches: 0, wins: 0, kills: 0, wpKills: {} }
 };
 const DEFAULT_SET = { sens: 1, fov: 80, vol: 0.7, diff: 1, quality: 'high', fps: 0, map: 'neon' };
 
@@ -496,6 +496,7 @@ function loadSave() {
   const s = Object.assign({}, DEFAULT_SAVE, Store.get('rivals3.save', {}));
   s.eqp = Object.assign({}, DEFAULT_SAVE.eqp, s.eqp || {});
   s.stats = Object.assign({}, DEFAULT_SAVE.stats, s.stats || {});
+  s.stats.wpKills = Object.assign({}, s.stats.wpKills || {});
   if (!Array.isArray(s.owned)) s.owned = DEFAULT_SAVE.owned.slice();
   DEFAULT_SAVE.owned.forEach(id => { if (s.owned.indexOf(id) < 0) s.owned.push(id); });
   return s;
@@ -531,13 +532,18 @@ function submitRecord(mapId, o) {
 
 /* ---------- weapons ---------- */
 const WEAPONS = {
-  wp0: { id: 'wp0', name: 'Pistol',  dmg: 28,  head: 2.0, rate: 0.30,  mag: 12, reload: 1.25, spread: 0.004, move: 0.012, auto: false, pellets: 1, range: 90,  speed: 1.0,  recoil: 0.020, zoom: 1.35, scope: false, prefer: 16 },
-  wp4: { id: 'wp4', name: 'SMG',     dmg: 13,  head: 1.7, rate: 0.072, mag: 32, reload: 1.6,  spread: 0.012, move: 0.022, auto: true,  pellets: 1, range: 60,  speed: 1.05, recoil: 0.011, zoom: 1.25, scope: false, prefer: 12 },
-  wp1: { id: 'wp1', name: 'Rifle',   dmg: 21,  head: 2.0, rate: 0.10,  mag: 30, reload: 2.0,  spread: 0.008, move: 0.024, auto: true,  pellets: 1, range: 100, speed: 1.0,  recoil: 0.016, zoom: 1.6,  scope: false, prefer: 22 },
-  wp3: { id: 'wp3', name: 'Shotgun', dmg: 11,  head: 1.5, rate: 0.85,  mag: 6,  reload: 2.3,  spread: 0.055, move: 0.075, auto: false, pellets: 8, range: 30,  speed: 0.95, recoil: 0.065, zoom: 1.15, scope: false, prefer: 8 },
-  wp2: { id: 'wp2', name: 'Sniper',  dmg: 100, head: 1.5, rate: 1.25,  mag: 5,  reload: 2.6,  spread: 0.05,  move: 0.09,  auto: false, pellets: 1, range: 220, speed: 0.85, recoil: 0.055, zoom: 4,  zooms: [4, 8], scope: true,  prefer: 34 }
+  wp0: { id: 'wp0', name: 'Pistol',   dmg: 28,  head: 2.0, rate: 0.30,  mag: 12, reload: 1.25, spread: 0.004, move: 0.012, auto: false, pellets: 1, range: 90,  speed: 1.0,  recoil: 0.020, zoom: 1.35, scope: false, prefer: 16 },
+  wp7: { id: 'wp7', name: 'Revolver', dmg: 55,  head: 2.1, rate: 0.5,   mag: 6,  reload: 2.0,  spread: 0.006, move: 0.016, auto: false, pellets: 1, range: 85,  speed: 1.0,  recoil: 0.05,  zoom: 1.5,  scope: false, prefer: 18 },
+  wp4: { id: 'wp4', name: 'SMG',      dmg: 13,  head: 1.7, rate: 0.072, mag: 32, reload: 1.6,  spread: 0.012, move: 0.022, auto: true,  pellets: 1, range: 60,  speed: 1.05, recoil: 0.011, zoom: 1.25, scope: false, prefer: 12 },
+  wp1: { id: 'wp1', name: 'Rifle',    dmg: 21,  head: 2.0, rate: 0.10,  mag: 30, reload: 2.0,  spread: 0.008, move: 0.024, auto: true,  pellets: 1, range: 100, speed: 1.0,  recoil: 0.016, zoom: 1.6,  scope: false, prefer: 22 },
+  wp8: { id: 'wp8', name: 'Burst',    dmg: 24,  head: 2.0, rate: 0.46,  mag: 24, reload: 1.9,  spread: 0.006, move: 0.02,  auto: false, pellets: 1, range: 110, speed: 1.0,  recoil: 0.02,  zoom: 1.7,  scope: false, prefer: 26, burst: 3, burstDelay: 0.045 },
+  wp6: { id: 'wp6', name: 'LMG',      dmg: 19,  head: 1.6, rate: 0.09,  mag: 75, reload: 3.4,  spread: 0.015, move: 0.018, auto: true,  pellets: 1, range: 90,  speed: 0.82, recoil: 0.013, zoom: 1.3,  scope: false, prefer: 20 },
+  wp3: { id: 'wp3', name: 'Shotgun',  dmg: 11,  head: 1.5, rate: 0.85,  mag: 6,  reload: 2.3,  spread: 0.055, move: 0.075, auto: false, pellets: 8, range: 30,  speed: 0.95, recoil: 0.065, zoom: 1.15, scope: false, prefer: 8  },
+  wp5: { id: 'wp5', name: 'DMR',      dmg: 46,  head: 2.2, rate: 0.32,  mag: 15, reload: 2.1,  spread: 0.009, move: 0.018, auto: false, pellets: 1, range: 170, speed: 0.95, recoil: 0.036, zoom: 2.4,  scope: false, prefer: 42 },
+  wp2: { id: 'wp2', name: 'Sniper',   dmg: 100, head: 1.5, rate: 1.25,  mag: 5,  reload: 2.6,  spread: 0.05,  move: 0.09,  auto: false, pellets: 1, range: 220, speed: 0.85, recoil: 0.055, zoom: 4,  zooms: [4, 8], scope: true,  prefer: 34 },
+  wp9: { id: 'wp9', name: 'Launcher', dmg: 40,  head: 1,   rate: 1.55,  mag: 2,  reload: 3.0,  spread: 0.02,  move: 0.05,  auto: false, pellets: 1, range: 130, speed: 0.8,  recoil: 0.09,  zoom: 1.2,  scope: false, prefer: 30, splash: { r: 6.5, dmg: 140 } }
 };
-const WEAPON_ORDER = ['wp0', 'wp4', 'wp1', 'wp3', 'wp2'];
+const WEAPON_ORDER = ['wp0', 'wp7', 'wp4', 'wp1', 'wp8', 'wp6', 'wp3', 'wp5', 'wp2', 'wp9'];
 function falloff(w, d) {
   if (w.pellets > 1) return 1 - clamp((d - 5) / 20, 0, 1) * 0.8;
   if (w.id === 'wp2') return 1;
@@ -570,11 +576,16 @@ const SHOP = {
     { id: 'sk3', name: 'Neon',     desc: 'Dark suit with a pulsing purple glow.', price: 450 }
   ],
   weapons: [
-    { id: 'wp0', name: 'Pistol',  desc: 'Accurate and reliable. Headshots hit hard.', price: 0 },
-    { id: 'wp4', name: 'SMG',     desc: 'Sprays fast at close range. Great on the move.', price: 250 },
-    { id: 'wp1', name: 'Rifle',   desc: 'Steady full-auto fire that works at any range.', price: 300 },
-    { id: 'wp3', name: 'Shotgun', desc: 'Eight pellets. Devastating up close, weak far away.', price: 400 },
-    { id: 'wp2', name: 'Sniper',  desc: 'One body shot kills. Right click or F to scope in, scroll to change zoom, hold Shift to steady your breath.', price: 500 }
+    { id: 'wp0', name: 'Pistol',   desc: 'Accurate and reliable. Headshots hit hard.', price: 0 },
+    { id: 'wp7', name: 'Revolver', desc: 'A single heavy round per trigger pull. Two solid hits and they\'re done.', price: 300 },
+    { id: 'wp4', name: 'SMG',      desc: 'Sprays fast at close range. Great on the move.', price: 250 },
+    { id: 'wp1', name: 'Rifle',    desc: 'Steady full-auto fire that works at any range.', price: 300 },
+    { id: 'wp8', name: 'Burst',    desc: 'Fires a tight 3-round burst per trigger pull. Precise and hard-hitting.', price: 350 },
+    { id: 'wp6', name: 'LMG',      desc: 'A massive 75-round belt. Slows you down but never stops shooting.', price: 450 },
+    { id: 'wp3', name: 'Shotgun',  desc: 'Eight pellets. Devastating up close, weak far away.', price: 400 },
+    { id: 'wp5', name: 'DMR',      desc: 'A hard-hitting semi-auto marksman rifle for the mid-to-long game.', price: 450 },
+    { id: 'wp2', name: 'Sniper',   desc: 'One body shot kills. Right click or F to scope in, scroll to change zoom, hold Shift to steady your breath.', price: 500 },
+    { id: 'wp9', name: 'Launcher', desc: 'Two rockets. Explodes on impact for splash damage \u2014 no direct hit needed. Mind the blast radius.', price: 700 }
   ],
   tracers: [
     { id: 'tr0', name: 'Amber',     desc: 'The classic warm streak.', price: 0 },
@@ -817,8 +828,8 @@ const Sfx = (function () {
   /* ---------- weapons ---------- */
   function shot(id, vol, pan) {
     if (!ctx || vol <= 0.02) return;
-    const v = vol * ({ wp0: 1.5, wp4: 1.6, wp1: 1.35 }[id] || 1), near = vol > 0.35, r = R(.94, 1.06);
-    const b = bus({ pan: pan, wet: (id === 'wp2' ? .5 : id === 'wp3' ? .42 : .3) + (1 - vol) * .4, lp: 900 + 15500 * Math.pow(vol, 1.5) });
+    const v = vol * ({ wp0: 1.5, wp7: 1.45, wp4: 1.6, wp1: 1.35, wp8: 1.35, wp6: 1.3, wp5: 1.3, wp9: 1.2 }[id] || 1), near = vol > 0.35, r = R(.94, 1.06);
+    const b = bus({ pan: pan, wet: (id === 'wp2' ? .5 : id === 'wp3' || id === 'wp9' ? .42 : id === 'wp6' || id === 'wp5' ? .36 : .3) + (1 - vol) * .4, lp: 900 + 15500 * Math.pow(vol, 1.5) });
     switch (id) {
       case 'wp0':
         noise({ bus: b, dur: .012, type: 'highpass', f0: 2500, gain: .7 * v });
@@ -854,6 +865,39 @@ const Sfx = (function () {
         tone({ bus: b, f0: 210, f1: 60, dur: .2, type: 'triangle', gain: .4 * v });
         if (near) { noise({ bus: b, dur: 1.7, type: 'lowpass', f0: 900, f1: 110, gain: .3 * v, delay: .06 }); noise({ bus: b, dur: 1.2, type: 'bandpass', f0: 400, f1: 200, q: .6, gain: .12 * v, delay: .22 }); }
         break;
+      case 'wp7':
+        noise({ bus: b, dur: .014, type: 'highpass', f0: 2000, gain: .95 * v });
+        noise({ bus: b, dur: .2, type: 'lowpass', f0: 4800 * r, f1: 400, gain: .7 * v });
+        tone({ bus: b, f0: 130 * r, f1: 42, dur: .2, type: 'sine', gain: .7 * v });
+        tone({ bus: b, f0: 260, f1: 70, dur: .1, type: 'triangle', gain: .28 * v });
+        if (near) noise({ bus: b, dur: .6, type: 'lowpass', f0: 1200, f1: 200, gain: .18 * v, delay: .03 });
+        break;
+      case 'wp8':
+        noise({ bus: b, dur: .012, type: 'highpass', f0: 2300, gain: .8 * v });
+        noise({ bus: b, dur: .13, type: 'lowpass', f0: 5300 * r, f1: 650, gain: .5 * v });
+        tone({ bus: b, f0: 165 * r, f1: 46, dur: .12, type: 'sawtooth', gain: .3 * v });
+        if (near) noise({ bus: b, dur: .4, type: 'lowpass', f0: 1300, f1: 220, gain: .12 * v, delay: .02 });
+        break;
+      case 'wp6':
+        noise({ bus: b, dur: .014, type: 'highpass', f0: 2000, gain: .85 * v });
+        noise({ bus: b, dur: .2, type: 'lowpass', f0: 5000 * r, f1: 600, gain: .6 * v });
+        tone({ bus: b, f0: 118 * r, f1: 38, dur: .18, type: 'sawtooth', gain: .38 * v });
+        tone({ bus: b, f0: 78, f1: 32, dur: .2, type: 'sine', gain: .5 * v });
+        if (near) noise({ bus: b, dur: .65, type: 'lowpass', f0: 1300, f1: 220, gain: .2 * v, delay: .03 });
+        break;
+      case 'wp5':
+        noise({ bus: b, dur: .012, type: 'highpass', f0: 3200, gain: .9 * v });
+        noise({ bus: b, dur: .3, type: 'lowpass', f0: 6200 * r, f1: 350, gain: .65 * v });
+        tone({ bus: b, f0: 104 * r, f1: 30, dur: .3, type: 'sine', gain: .75 * v });
+        tone({ bus: b, f0: 190, f1: 55, dur: .14, type: 'triangle', gain: .3 * v });
+        if (near) noise({ bus: b, dur: .9, type: 'lowpass', f0: 1100, f1: 160, gain: .22 * v, delay: .04 });
+        break;
+      case 'wp9':
+        noise({ bus: b, dur: .04, type: 'bandpass', f0: 900, f1: 2200, q: .8, gain: .45 * v, attack: .01 });
+        tone({ bus: b, f0: 95 * r, f1: 220, dur: .35, type: 'sawtooth', gain: .4 * v, attack: .02 });
+        noise({ bus: b, dur: .45, type: 'lowpass', f0: 1400, f1: 300, gain: .5 * v, attack: .03 });
+        tone({ bus: b, f0: 55, f1: 40, dur: .5, type: 'sine', gain: .5 * v, delay: .03 });
+        break;
     }
   }
   function bolt(delay) { if (!ctx) return; const b = bus({ wet: .18 }), d = delay || 0; mSlide(b, d, .3); mShell(b, d + .28, .3); mSlide(b, d + .38, .32); }
@@ -862,19 +906,25 @@ const Sfx = (function () {
     if (!ctx) return; dur = dur || 1.6; const b = bus({ wet: .14 });
     switch (id) {
       case 'wp0': mClick(b, .12, .3); mThunk(b, dur * .5, .4); mSlide(b, dur * .78, .32); break;
+      case 'wp7': for (let i = 0; i < 6; i++) mClick(b, .1 + i * .09, .18, 1.4); mSlide(b, dur * .8, .3); mThunk(b, dur - .15, .34); break;
       case 'wp4': mClick(b, .18, .3); mThunk(b, dur * .55, .4); mSlide(b, dur * .82, .32); break;
       case 'wp1': mClick(b, .22, .32); mThunk(b, dur * .5, .42); mSlide(b, dur * .8, .36); break;
+      case 'wp8': mClick(b, .2, .3); mThunk(b, dur * .5, .38); mSlide(b, dur * .78, .34); break;
+      case 'wp6': mClick(b, .16, .28); for (let i = 0; i < 3; i++) mShell(b, dur * .32 + i * .16, .2); mThunk(b, dur * .68, .46); mSlide(b, dur - .3, .38); break;
       case 'wp3': for (let i = 0; i < 4; i++) mShell(b, .3 + i * .34, .32); mSlide(b, dur - .5, .38); mSlide(b, dur - .3, .34); break;
+      case 'wp5': mClick(b, .22, .32); mThunk(b, dur * .5, .42); mSlide(b, dur * .8, .36); break;
       case 'wp2': mSlide(b, .25, .32); mThunk(b, dur * .52, .38); mShell(b, dur * .7, .28); mSlide(b, dur - .55, .36); break;
+      case 'wp9': mThunk(b, .15, .32); mSlide(b, dur * .45, .4); mThunk(b, dur * .72, .5); mClick(b, dur - .2, .3, .8); break;
       default: mThunk(b, dur * .5, .4);
     }
   }
+  function hammer() { if (!ctx) return; const b = bus({ wet: .1 }); mClick(b, 0, .22, 1.35); mClick(b, .05, .14, 1.1); }
   function empty() { const b = bus({}); mClick(b, 0, .28, .8); tone({ bus: b, f0: 300, f1: 200, dur: .04, type: 'triangle', gain: .12 }); }
   function swap(id) {
     if (!ctx) return; const b = bus({ wet: .1 });
     noise({ bus: b, dur: .1, type: 'bandpass', f0: 500, f1: 1400, q: 1.2, gain: .16, attack: .04 });
-    mClick(b, .08, .24, id === 'wp2' || id === 'wp3' ? .8 : 1);
-    if (id === 'wp2' || id === 'wp3') mThunk(b, .1, .2);
+    mClick(b, .08, .24, id === 'wp2' || id === 'wp3' || id === 'wp9' ? .8 : 1);
+    if (id === 'wp2' || id === 'wp3' || id === 'wp6' || id === 'wp9') mThunk(b, .1, .2);
   }
   function scopeIn() {
     if (!ctx) return; const b = bus({ wet: .12 });
@@ -984,7 +1034,7 @@ const Sfx = (function () {
     w.connect(f); f.connect(wg); wg.connect(g); w.start(); lfo.start();
   }
 
-  return { init, setVolume, toggleMute, spatial, shot, boom, reload, empty, swap, hit, kill, hurt, pickup, click, hover, beep, step, jump, land, stinger, spawn, grenPin, bounce, win, lose,
+  return { init, setVolume, toggleMute, spatial, shot, boom, reload, empty, swap, hammer, hit, kill, hurt, pickup, click, hover, beep, step, jump, land, stinger, spawn, grenPin, bounce, win, lose,
            scopeIn, scopeOut, zoomTick, bolt, pump, whiz, heart, ring, get on() { return !!ctx; } };
 })();
 
@@ -1492,6 +1542,31 @@ function makeGunMesh(id, accent) {
       C(.026, .24, 0, .085, -.14, dark); C(.032, .05, 0, .085, -.27, dark); C(.032, .05, 0, .085, 0, dark);
       B(.03, .03, .005, 0, .085, -.3, new THREE.MeshBasicMaterial({ color: 0x66e6ff })); B(.035, .12, .06, 0, -.1, -.1, dark, .1); B(.03, .015, .015, .04, .03, .02, light); B(.056, .008, .3, 0, .05, -.1, acc);
       muzzle = -.91; hand2 = [0, -.06, -.36]; break;
+    case 'wp7':
+      C(.032, .1, 0, .01, -.1, dark); B(.045, .05, .18, 0, .025, -.02, mid); B(.04, .11, .05, 0, -.075, .05, wood, .12);
+      B(.008, .014, .012, 0, .06, -.13, light); B(.046, .008, .09, 0, .05, -.05, acc); C(.013, .05, 0, .03, -.16, dark);
+      muzzle = -.19; hand2 = [-.03, -.09, .03]; break;
+    case 'wp8':
+      B(.058, .08, .3, 0, .015, -.1, mid); B(.05, .06, .22, 0, .01, -.36, dark); C(.013, .12, 0, .02, -.52, dark);
+      B(.033, .13, .06, 0, -.1, -.08, dark, .12); B(.04, .095, .045, 0, -.075, .04, dark, .18); B(.048, .08, .18, 0, 0, .16, mid);
+      B(.028, .03, .05, 0, .075, -.18, dark); B(.06, .008, .26, 0, .054, -.1, acc); B(.02, .05, .02, .045, .05, -.24, light);
+      muzzle = -.68; hand2 = [0, -.06, -.34]; break;
+    case 'wp6':
+      B(.075, .1, .42, 0, .02, -.12, mid); C(.024, .3, 0, .03, -.62, dark); B(.06, .09, .07, 0, -.13, -.1, dark, .1);
+      B(.05, .12, .05, 0, -.085, .06, dark, .22); B(.065, .1, .24, 0, -.005, .22, mid); B(.05, .04, .22, 0, -.08, .12, dark);
+      B(.02, .1, .16, .05, .09, -.05, dark, 0); B(.075, .01, .34, 0, .07, -.12, acc); C(.008, .3, .045, .1, -.05, dark);
+      muzzle = -.82; hand2 = [0, -.05, -.4]; break;
+    case 'wp5':
+      B(.058, .078, .36, 0, .012, -.12, mid); C(.013, .3, 0, .022, -.66, dark); B(.033, .14, .065, 0, -.105, -.1, dark, .12);
+      B(.038, .095, .045, 0, -.075, .04, dark, .2); B(.048, .09, .22, 0, -.005, .18, mid); C(.024, .1, 0, .085, -.2, dark);
+      B(.028, .03, .05, 0, .076, -.24, dark); B(.06, .008, .3, 0, .056, -.12, acc);
+      muzzle = -.83; hand2 = [0, -.06, -.38]; break;
+    case 'wp9':
+      C(.11, .62, 0, .0, -.08, mid); C(.13, .1, 0, .0, -.4, dark); C(.06, .1, 0, .0, .27, dark);
+      B(.05, .13, .06, 0, -.13, .1, dark, .1); B(.045, .1, .05, 0, -.1, .22, dark, .18);
+      B(.05, .05, .16, 0, .1, -.06, dark); B(.13, .01, .01, 0, .12, -.4, acc, 0);
+      C(.02, .05, .08, .1, -.06, light); C(.02, .05, -.08, .1, -.06, light);
+      muzzle = -.42; hand2 = [0, -.03, .12]; break;
     default: // pistol
       B(.045, .05, .2, 0, .03, -.08, mid); B(.04, .03, .16, 0, -.005, -.06, dark); B(.04, .11, .05, 0, -.075, .02, dark, .15); B(.008, .014, .012, 0, .06, -.16, light);
       B(.01, .012, .012, 0, .06, 0, light); B(.047, .008, .1, 0, .056, -.09, acc); C(.011, .05, 0, .03, -.19, dark);
@@ -1580,7 +1655,7 @@ function makeChar(avId, skId, team) {
   shield.position.y = .95; shield.visible = false; root.add(shield);
 
   const m = {
-    root: root, avId: avId, skId: skId, team: team, t: Math.random() * 10, walk: Math.random() * 6, flash: 0, deathSpin: rand(-.6, .6), gunId: null, float: ghost,
+    root: root, avId: avId, skId: skId, team: team, t: Math.random() * 10, walk: Math.random() * 6, flash: 0, flinch: 0, deathSpin: rand(-.6, .6), deathYaw: 0, deathType: 'body', gunId: null, float: ghost,
     parts: { body: body, legL: legL, legR: legR, head: head, aim: aim, armR: armR, armL: armL, holder: gunHolder, gun: null, flash: flash, shield: shield },
     mats: { body: mBody, trim: mTrim, skin: mSkin }, tag: null, neon: false
   };
@@ -1639,6 +1714,23 @@ function poseModel(m, mode, t, pitch) {
   else if (mode === 'defeat') { p.body.rotation.x = .12; p.head.rotation.x = .55; p.armR.rotation.set(.1, 0, -.1); p.armL.rotation.set(.1, 0, .1); }
 }
 
+/* mode: body | head | blast — called every frame while a fighter is down */
+function poseDeath(m, type, k) {
+  resetPose(m);
+  const p = m.parts;
+  if (p.gun) p.gun.visible = false;
+  if (type === 'blast') {
+    p.armR.rotation.set(.3 + k * .9, 0, -1.1 - k * .3); p.armL.rotation.set(.3 + k * .9, 0, 1.1 + k * .3);
+    p.legL.rotation.x = -.6 - k * .3; p.legR.rotation.x = .6 + k * .3; p.head.rotation.x = .35;
+  } else if (type === 'head') {
+    p.head.rotation.x = -.7 * (1 - k) + .5 * k;
+    p.armR.rotation.set(.15, 0, -.15); p.armL.rotation.set(.15, 0, .15);
+    p.legL.rotation.x = .1; p.legR.rotation.x = -.1;
+  } else {
+    p.body.rotation.x = .05; p.head.rotation.x = .5; p.armR.rotation.set(.1, 0, -.1); p.armL.rotation.set(.1, 0, .1);
+  }
+}
+
 /* per-frame model update for an in-match fighter */
 function animateModel(m, st, dt) {
   const r = m.root; m.t += dt;
@@ -1653,15 +1745,25 @@ function animateModel(m, st, dt) {
   });
   p.shield.visible = st.prot > 0 && st.alive;
   if (!st.alive) {
-    const k = Math.min(1, st.deadT / .55), e = 1 - (1 - k) * (1 - k);
-    r.rotation.set(e * 1.5, st.yaw + m.deathSpin * e, 0);
+    const type = m.deathType || 'body', dur = type === 'head' ? .32 : type === 'blast' ? .72 : .55;
+    const k = Math.min(1, st.deadT / dur), e = 1 - (1 - k) * (1 - k);
+    const spin = type === 'blast' ? m.deathSpin * 2.6 : type === 'head' ? m.deathSpin * .15 : m.deathSpin;
+    const tip = type === 'head' ? 1.3 : type === 'blast' ? 1.75 : 1.5;
+    r.rotation.set(e * tip, lerp(st.yaw, m.deathYaw, Math.min(1, k * 3)) + spin * e, 0);
+    const hop = type === 'blast' ? Math.sin(Math.min(1, k * 1.4) * Math.PI) * .32 : 0;
+    r.position.y += hop;
     if (st.deadT > 2.4) { r.position.y -= (st.deadT - 2.4) * .8; }
-    poseModel(m, 'defeat', m.t);
+    poseDeath(m, type, k);
     return;
   }
   r.rotation.set(0, st.yaw, 0);
   m.walk += dt * st.speed * 1.9;
   poseModel(m, 'aim', m.t, st.pitch);
+  if (m.flinch > 0) {
+    const fe = m.flinch;
+    p.body.rotation.x -= fe * .16; p.head.rotation.x -= fe * .12; p.armR.rotation.x -= fe * .14; p.armL.rotation.x -= fe * .14;
+    m.flinch = Math.max(0, m.flinch - dt * 6.5);
+  }
   const amp = Math.min(1, st.speed / 5) * .85;
   if (!m.float) {
     p.legL.rotation.x = Math.sin(m.walk) * amp; p.legR.rotation.x = -Math.sin(m.walk) * amp;
@@ -1823,7 +1925,7 @@ function spawnPos(team) {
   }
   return best || { x: team === 'red' ? -sp.x0 : sp.x0, z: 0 };
 }
-const BOT_WEAPONS = ['wp1', 'wp1', 'wp1', 'wp4', 'wp4', 'wp3', 'wp2', 'wp0'];
+const BOT_WEAPONS = ['wp1', 'wp1', 'wp1', 'wp4', 'wp4', 'wp3', 'wp2', 'wp0', 'wp7', 'wp8', 'wp8', 'wp6', 'wp5', 'wp5', 'wp9'];
 function respawn(f) {
   const s = spawnPos(f.team);
   f.x = s.x; f.z = s.z; f.y = 0; f.vx = f.vz = f.vy = 0; f.speed = 0; f.onGround = true;
@@ -1832,7 +1934,7 @@ function respawn(f) {
   if (!f.isPlayer) { f.wp = pick(BOT_WEAPONS); const a = f.ai; a.target = null; a.vis = false; a.lastSeen = null; a.path = null; a.loseT = 99; a.nadeCd = rand(10, 24); a.burstN = 0; }
   WEAPON_ORDER.forEach(id => { f.ammo[id] = WEAPONS[id].mag; });
   f.model.setGun(f.wp); f.model.root.visible = !f.isPlayer; f.model.flash = 0;
-  if (f.isPlayer) { setViewmodel(f.wp, f.team); P.recoil = P.recoilYaw = P.bloom = 0; P.eyeY = 0; if (!M.attract) Sfx.spawn(); }
+  if (f.isPlayer) { setViewmodel(f.wp, f.team); P.recoil = P.recoilYaw = P.bloom = 0; P.eyeY = 0; P.burstLeft = 0; if (!M.attract) Sfx.spawn(); }
 }
 
 /* ---------------- physics ---------------- */
@@ -1888,9 +1990,20 @@ function castRay(ox, oy, oz, dx, dy, dz, range, shooter) {
 function lineClear(ax, ay, az, bx, by, bz) {
   const dx = bx - ax, dy = by - ay, dz = bz - az, len = Math.hypot(dx, dy, dz) || 1;
   const t = rayWorld(ax, ay, az, dx / len, dy / len, dz / len, len);
-  return t < 0 || t > len - 0.25;
+  return t < 0.12 || t > len - 0.25;
 }
 function tracerHex(f) { return f.isPlayer ? (TRACER_HEX[f.tracer] || 0xffcf5a) : TEAM[f.team].hex; }
+function splashDamage(x, y, z, R, dmg0, owner, selfMult) {
+  for (let i = 0; i < FIGHTERS.length; i++) {
+    const f = FIGHTERS[i]; if (!f.alive) continue;
+    if (f.team === owner.team && f !== owner) continue;
+    const cy = f.y + 1.0, d = Math.hypot(f.x - x, cy - y, f.z - z);
+    if (d >= R) continue;
+    if (!lineClear(x, y + .2, z, f.x, cy, f.z)) continue;
+    let dmg = dmg0 * (1 - d / R); if (f === owner) dmg *= (selfMult === undefined ? 0.6 : selfMult);
+    if (dmg >= 4) applyDamage(f, dmg, owner, false, f.x, cy + .4, f.z, owner._splashWp || 'gren');
+  }
+}
 function fireShot(f, dx, dy, dz, spread) {
   const w = WEAPONS[f.wp], ox = f.x, oy = f.y + (f.isPlayer ? EYE : 1.6), oz = f.z;
   const fx = -Math.sin(f.yaw), fz = -Math.cos(f.yaw), rx = Math.cos(f.yaw), rz = -Math.sin(f.yaw);
@@ -1908,7 +2021,14 @@ function fireShot(f, dx, dy, dz, spread) {
         if (Math.hypot(cx, cy, cz) < 2.2) { P.whizT = 0.12; Sfx.whiz(clamp(-(cx * Math.cos(P.yaw) - cz * Math.sin(P.yaw)) / 1.5, -1, 1)); }
       }
     }
-    if (h.f) {
+    if (w.splash) {
+      if (h.f) hitAny = true;
+      const nx2 = h.wall ? ex + h.nx * 0.15 : ex, ny2 = h.wall ? ey + h.ny * 0.15 : ey, nz2 = h.wall ? ez + h.nz * 0.15 : ez;
+      FX.explosion(nx2, ny2, nz2);
+      if (!M.attract) { const sp = Sfx.spatial(nx2, nz2); Sfx.boom(Math.max(.4, sp.vol), sp.pan); }
+      f._splashWp = f.wp; splashDamage(nx2, ny2, nz2, w.splash.r, w.splash.dmg, f, 0.5); f._splashWp = null;
+      if (P && P.alive) { const dd = Math.hypot(P.x - nx2, P.z - nz2); if (dd < w.splash.r * 2.2) P.shake = Math.min(1.2, (P.shake || 0) + (1 - dd / (w.splash.r * 2.2)) * 0.8); }
+    } else if (h.f) {
       hitAny = true;
       FX.sparks(ex, ey, ez, -d[0], 0.3, -d[2], h.head ? 0xffe066 : TEAM[h.f.team].hex, h.head ? 6 : 3, 3);
       applyDamage(h.f, w.dmg * falloff(w, h.t) * (h.head ? w.head : 1), f, h.head, ex, ey, ez, f.wp);
@@ -1923,7 +2043,7 @@ function fireShot(f, dx, dy, dz, spread) {
 }
 function applyDamage(t, dmg, att, head, px, py, pz, cause) {
   if (!t.alive || t.spawnProt > 0) return;
-  dmg = Math.max(1, Math.round(dmg)); t.hp -= dmg; t.regenT = 5; t.model.flash = 1;
+  dmg = Math.max(1, Math.round(dmg)); t.hp -= dmg; t.regenT = 5; t.model.flash = 1; if (t.hp > 0) t.model.flinch = 1;
   if (att && att.isPlayer && att !== t) { att.dmgDealt += dmg; UI.hitmarker(t.hp <= 0 ? 'kl' : head ? 'hs' : ''); UI.dmgNumber(px, py, pz, dmg, head); Sfx.hit(head); }
   if (t.isPlayer) { UI.hurt(att, dmg); Sfx.hurt(); t.shake = Math.min(1, (t.shake || 0) + dmg / 60); }
   else if (att && att !== t) botAlert(t, att);
@@ -1931,9 +2051,15 @@ function applyDamage(t, dmg, att, head, px, py, pz, cause) {
 }
 function killFighter(v, k, head, cause) {
   if (!v.alive) return;
-  v.alive = false; v.hp = 0; v.deaths++; v.streak = 0; v.deadT = 0; v.respawnT = v.isPlayer ? 3.2 : 3.6; v.killer = k; v.model.flashT = 0;
+  v.alive = false; v.hp = 0; v.deaths++; v.streak = 0; v.deadT = 0; v.respawnT = v.isPlayer ? 3.2 : 3.6; v.killer = k; v.model.flashT = 0; v.model.flinch = 0;
+  const blast = cause === 'gren' || cause === 'wp9';
+  v.model.deathType = head ? 'head' : (blast ? 'blast' : 'body');
+  v.model.deathYaw = (k && k !== v) ? Math.atan2(-(v.x - k.x), -(v.z - k.z)) : v.yaw;
   const suicide = !k || k === v;
-  if (!suicide) { k.kills++; k.streak++; k.bestStreak = Math.max(k.bestStreak, k.streak); if (head) k.heads++; M.score[k.team]++; }
+  if (!suicide) {
+    k.kills++; k.streak++; k.bestStreak = Math.max(k.bestStreak, k.streak); if (head) k.heads++; M.score[k.team]++;
+    if (k.isPlayer && cause && cause !== 'gren') SAVE.stats.wpKills[cause] = (SAVE.stats.wpKills[cause] || 0) + 1;
+  }
   if (!M.attract) UI.feed(k, v, cause, head);
   if (!suicide && k.isPlayer) onPlayerKill(v, head);
   if (v.isPlayer) onPlayerDeath(k, cause);
@@ -1995,16 +2121,7 @@ function updateGrenades(dt) {
 function explode(g) {
   FX.explosion(g.x, g.y, g.z);
   const sp = Sfx.spatial(g.x, g.z); if (!M.attract) Sfx.boom(Math.max(.3, sp.vol), sp.pan);
-  const R = 7.5;
-  for (let i = 0; i < FIGHTERS.length; i++) {
-    const f = FIGHTERS[i]; if (!f.alive) continue;
-    if (f.team === g.owner.team && f !== g.owner) continue;
-    const cy = f.y + 1.0, d = Math.hypot(f.x - g.x, cy - g.y, f.z - g.z);
-    if (d >= R) continue;
-    if (!lineClear(g.x, g.y + .2, g.z, f.x, cy, f.z)) continue;
-    let dmg = 130 * (1 - d / R); if (f === g.owner) dmg *= 0.6;
-    if (dmg >= 4) applyDamage(f, dmg, g.owner, false, f.x, cy + .4, f.z, 'gren');
-  }
+  splashDamage(g.x, g.y, g.z, 7.5, 130, g.owner, 0.6);
   if (P && P.alive) { const d = Math.hypot(P.x - g.x, P.z - g.z); if (d < 20) P.shake = Math.min(1.2, (P.shake || 0) + (1 - d / 20) * 0.9); }
 }
 
@@ -2046,7 +2163,7 @@ function updatePickups(dt) {
    Player — input, movement, weapons, camera, viewmodel
    ================================================================ */
 function initPlayerState(p) {
-  Object.assign(p, { recoil: 0, recoilYaw: 0, bloom: 0, shake: 0, trigger: false, swapT: 0, lastWp: 'wp0', owned: [], eyeY: 0, bobT: 0, sprinting: false, nadeCd: 0, nemesis: 0, emoteCd: 0, emptyClick: 0, zoomIdx: 0, breath: 1, breathLock: false, holding: false, swayYaw: 0, swayPitch: 0, wasScoped: false, rangeT: 0, whizT: 0, heartT: 0 });
+  Object.assign(p, { recoil: 0, recoilYaw: 0, bloom: 0, shake: 0, trigger: false, swapT: 0, lastWp: 'wp0', owned: [], eyeY: 0, bobT: 0, sprinting: false, nadeCd: 0, nemesis: 0, emoteCd: 0, emptyClick: 0, zoomIdx: 0, breath: 1, breathLock: false, holding: false, swayYaw: 0, swayPitch: 0, wasScoped: false, rangeT: 0, whizT: 0, heartT: 0, burstLeft: 0 });
   p.owned = WEAPON_ORDER.filter(id => SAVE.owned.indexOf(id) >= 0);
   p.wp = p.owned.indexOf(SAVE.eqp.wp) >= 0 ? SAVE.eqp.wp : 'wp0'; p.lastWp = p.wp;
 }
@@ -2064,7 +2181,7 @@ function playerLook(dx, dy) {
 }
 function switchWeapon(id) {
   if (!P || !P.alive || id === P.wp || P.owned.indexOf(id) < 0 || M.phase !== 'play') return;
-  P.lastWp = P.wp; P.wp = id; P.swapT = 0.32; P.reloadT = 0; P.trigger = false;
+  P.lastWp = P.wp; P.wp = id; P.swapT = 0.32; P.reloadT = 0; P.trigger = false; P.burstLeft = 0;
   setViewmodel(id, P.team); P.model.setGun(id); Sfx.swap(id); UI.hudWeapons();
   if (WEAPONS[id].scope && scopeHints < 2) { scopeHints++; UI.toast('Right click or F to scope. Scroll to zoom, hold Shift to steady your breath.'); }
 }
@@ -2092,7 +2209,7 @@ function playerFire() {
   fireShot(p, d[0], d[1], d[2], sp);
   p.recoil += w.recoil * rand(0.8, 1.25) * (1 - VM.ads * .35); p.recoilYaw += rand(-.5, .5) * w.recoil * .6; p.bloom = Math.min(0.03, p.bloom + w.recoil * 0.12);
   VM.kick = 1; p.shake = Math.min(1, p.shake + w.recoil * 3);
-  if (p.wp === 'wp2') Sfx.bolt(0.5); else if (p.wp === 'wp3') Sfx.pump(0.42);
+  if (p.wp === 'wp2') Sfx.bolt(0.5); else if (p.wp === 'wp3') Sfx.pump(0.42); else if (p.wp === 'wp7') Sfx.hammer();
   if (p.ammo[p.wp] <= 0) startReload(p);
   UI.hudAmmo();
 }
@@ -2127,8 +2244,12 @@ function updatePlayer(dt) {
   if (p.reloadT > 0) { p.reloadT -= dt; if (p.reloadT <= 0) { p.ammo[p.wp] = w.mag; UI.hudAmmo(); } }
   if (!INPUT.fire) p.trigger = false;
   p.recoil = damp(p.recoil, 0, 7, dt); p.recoilYaw = damp(p.recoilYaw, 0, 7, dt); p.bloom = damp(p.bloom, 0, 5, dt);
-  if (canAct && INPUT.fire && p.fireCd <= 0 && p.reloadT <= 0 && p.swapT <= 0 && !p.sprinting && (w.auto || !p.trigger)) {
-    if (p.ammo[p.wp] > 0) playerFire();
+  if (canAct && INPUT.fire && p.fireCd <= 0 && p.reloadT <= 0 && p.swapT <= 0 && !p.sprinting && (w.auto || w.burst || !p.trigger)) {
+    if (p.ammo[p.wp] > 0) {
+      if (w.burst && p.burstLeft <= 0) p.burstLeft = w.burst;
+      playerFire();
+      if (w.burst) { p.burstLeft--; p.fireCd = p.burstLeft > 0 ? w.burstDelay : w.rate; }
+    }
     else if (p.emptyClick <= 0) { Sfx.empty(); p.emptyClick = .3; startReload(p); UI.hudAmmo(); }
   }
   p.emptyClick -= dt; p.whizT -= dt;
@@ -2279,6 +2400,9 @@ function botShoot(b, t, d, dist) {
   if (w.auto) {
     b.fireCd = w.rate * 1.15; a.burstN--;
     if (a.burstN <= 0) { a.burstCd = rand(0.25, 0.65) / d.burst; a.burstN = Math.round(rand(4, 9) * d.burst); }
+  } else if (w.burst) {
+    a.burstN = (a.burstN > 0 ? a.burstN : w.burst) - 1;
+    b.fireCd = a.burstN > 0 ? w.burstDelay : w.rate * rand(1.1, 1.5);
   } else b.fireCd = w.rate * rand(1.15, 1.7);
   if (b.ammo[b.wp] <= 0) startReload(b);
 }
@@ -2512,7 +2636,7 @@ const UI = (function () {
   let last = {}, hitTimer = 0, cdTimer = 0, boardOn = false, boardT = 0, annTimer = 0, toastTimer = 0, mmCtx = null;
   const teamCss = t => t ? TEAM[t].css : '#ffffff';
   const fmtClock = s => { s = Math.max(0, Math.ceil(s)); return Math.floor(s / 60) + ':' + ('0' + (s % 60)).slice(-2); };
-  const WNAME = { wp0: 'PISTOL', wp4: 'SMG', wp1: 'RIFLE', wp3: 'SHOTGUN', wp2: 'SNIPER', gren: 'GRENADE' };
+  const WNAME = { wp0: 'PISTOL', wp7: 'REVOLVER', wp4: 'SMG', wp1: 'RIFLE', wp8: 'BURST', wp6: 'LMG', wp3: 'SHOTGUN', wp5: 'DMR', wp2: 'SNIPER', wp9: 'LAUNCHER', gren: 'GRENADE' };
 
   function q(id) { return el[id] || (el[id] = $(id)); }
   function setText(id, v) { if (last[id] !== v) { last[id] = v; q(id).textContent = v; } }
@@ -2544,7 +2668,7 @@ const UI = (function () {
   }
   function buildSlots() {
     const box = q('slots'); box.innerHTML = '';
-    WEAPON_ORDER.forEach((id, i) => { if (P && P.owned.indexOf(id) < 0) return; const d = document.createElement('div'); d.className = 'sl'; d.dataset.w = id; d.innerHTML = '<kbd>' + (i + 1) + '</kbd>' + WEAPONS[id].name; box.appendChild(d); });
+    WEAPON_ORDER.forEach((id, i) => { if (P && P.owned.indexOf(id) < 0) return; const d = document.createElement('div'); d.className = 'sl'; d.dataset.w = id; d.innerHTML = '<kbd>' + ((i + 1) % 10) + '</kbd>' + WEAPONS[id].name; box.appendChild(d); });
   }
   function hudWeapons() { Array.prototype.forEach.call(q('slots').children, d => d.classList.toggle('on', P && d.dataset.w === P.wp)); last.wname = null; }
   function hudAmmo() { last.am = null; }
@@ -2843,11 +2967,12 @@ const Shop = (function () {
   }
   function select(it) {
     sel = it; init(); build(tab, it); t = 0;
-    $('pvName').textContent = it.name; $('pvDesc').textContent = it.desc;
+    $('pvName').textContent = it.name;
+    $('pvDesc').textContent = it.desc + (tab === 'weapons' && SAVE.stats.wpKills[it.id] ? '  \u00b7  ' + SAVE.stats.wpKills[it.id] + ' kills with this weapon' : '');
     const bars = $('pvBars'); bars.innerHTML = '';
     if (tab === 'weapons') {
-      const w = WEAPONS[it.id];
-      [['Damage', Math.min(100, w.dmg * w.pellets)], ['Fire rate', Math.min(100, (1 / w.rate) / 14 * 100)], ['Range', Math.min(100, w.range / 220 * 100)], ['Mobility', clamp((w.speed - 0.8) / 0.3 * 100, 8, 100)]]
+      const w = WEAPONS[it.id], power = w.splash ? Math.max(w.dmg, w.splash.dmg * 0.6) : w.dmg * w.pellets;
+      [['Damage', Math.min(100, power)], ['Fire rate', Math.min(100, (1 / w.rate) / 14 * 100)], ['Range', Math.min(100, w.range / 220 * 100)], ['Mobility', clamp((w.speed - 0.8) / 0.3 * 100, 8, 100)]]
         .forEach(r => { const d = document.createElement('div'); d.className = 'bar'; d.innerHTML = '<span>' + r[0] + '</span><i><b style="width:' + Math.round(r[1]) + '%"></b></i>'; bars.appendChild(d); });
     }
     const owned = SAVE.owned.indexOf(it.id) >= 0, eqd = SAVE.eqp[SHOP_KEY[tab]] === it.id, act = $('pvAct'); act.innerHTML = '';
@@ -2973,7 +3098,8 @@ const Shop = (function () {
     if (e.code === 'Escape' && M.noLock) { if (M.paused) resume(); else pause(); return; }
     if (e.code === 'KeyM') { const m = Sfx.toggleMute(); if (inMatch()) UI.toast(m ? 'Muted' : 'Sound on'); }
     if (!inMatch() || M.paused || !P.alive) return;
-    if (/^Digit[1-5]$/.test(e.code)) switchWeapon(WEAPON_ORDER[+e.code.slice(5) - 1]);
+    if (/^Digit[1-9]$/.test(e.code)) switchWeapon(WEAPON_ORDER[+e.code.slice(5) - 1]);
+    else if (e.code === 'Digit0') switchWeapon(WEAPON_ORDER[9]);
     else if (e.code === 'KeyR' && P.swapT <= 0) { startReload(P); UI.hudAmmo(); }
     else if (e.code === 'KeyG') playerGrenade();
     else if (e.code === 'KeyV') playerEmote();
