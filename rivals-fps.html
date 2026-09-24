@@ -2270,9 +2270,7 @@ function findAimbotTarget(p) {
   let best = null, bd = 1e9;
   for (let i = 0; i < FIGHTERS.length; i++) {
     const f = FIGHTERS[i]; if (!f.alive || f.team === p.team || f === p) continue;
-    const d = Math.hypot(f.x - p.x, f.z - p.z); if (d >= bd) continue;
-    if (!lineClear(p.x, p.y + EYE, p.z, f.x, f.y + 1.55, f.z)) continue;
-    bd = d; best = f;
+    const d = Math.hypot(f.x - p.x, f.z - p.z); if (d < bd) { bd = d; best = f; }
   }
   return best;
 }
