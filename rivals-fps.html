@@ -237,6 +237,8 @@ input[type=range]::-moz-range-thumb{width:16px;height:16px;background:var(--gold
 @keyframes dnup{0%{opacity:0;transform:translate(-50%,0) scale(.7)}15%{opacity:1;transform:translate(-50%,-6px) scale(1)}100%{opacity:0;transform:translate(-50%,-46px)}}
 #toast{position:absolute;left:50%;top:calc(76px + var(--safe-t));transform:translateX(-50%);font:600 15px var(--disp);background:rgba(9,11,22,.85);padding:8px 18px;border:1px solid var(--line2);opacity:0;transition:opacity .2s;white-space:nowrap}
 #toast.on{opacity:1}
+#aimbotTag{position:absolute;left:50%;top:calc(112px + var(--safe-t));transform:translateX(-50%);font:800 12px var(--disp);letter-spacing:.12em;color:#ff3b30;background:rgba(20,4,4,.55);border:1px solid rgba(255,59,48,.55);padding:4px 12px;animation:aimbotPulse 1s ease-in-out infinite}
+@keyframes aimbotPulse{0%,100%{opacity:.65}50%{opacity:1}}
 #prompt{position:absolute;left:50%;top:60%;transform:translateX(-50%);font:600 14px var(--disp);color:var(--gold);opacity:0;text-shadow:0 2px 8px #000}
 #prompt.on{opacity:1}
 
@@ -428,6 +430,7 @@ input[type=range]::-moz-range-thumb{width:16px;height:16px;background:var(--gold
     <div id="gren"></div></div>
   <div id="slots"></div>
   <div id="toast"></div>
+  <div id="aimbotTag" class="hidden">AIMBOT</div>
 </div>
 
 <div id="countdown" class="ov hidden"><div id="cdnum"></div><div id="cdsub"></div></div>
@@ -2210,7 +2213,7 @@ function updatePickups(dt) {
    Player — input, movement, weapons, camera, viewmodel
    ================================================================ */
 function initPlayerState(p) {
-  Object.assign(p, { recoil: 0, recoilYaw: 0, bloom: 0, shake: 0, trigger: false, swapT: 0, lastWp: 'wp0', owned: [], eyeY: 0, bobT: 0, sprinting: false, nadeCd: 0, nemesis: 0, emoteCd: 0, emptyClick: 0, zoomIdx: 0, breath: 1, breathLock: false, holding: false, swayYaw: 0, swayPitch: 0, wasScoped: false, rangeT: 0, whizT: 0, heartT: 0, burstLeft: 0, camPunch: 0, camPunchYaw: 0, fovPunch: 0, landDip: 0, killZoomT: 0, ammoWarned: false, vy0: 0 });
+  Object.assign(p, { recoil: 0, recoilYaw: 0, bloom: 0, shake: 0, trigger: false, swapT: 0, lastWp: 'wp0', owned: [], eyeY: 0, bobT: 0, sprinting: false, nadeCd: 0, nemesis: 0, emoteCd: 0, emptyClick: 0, zoomIdx: 0, breath: 1, breathLock: false, holding: false, swayYaw: 0, swayPitch: 0, wasScoped: false, rangeT: 0, whizT: 0, heartT: 0, burstLeft: 0, camPunch: 0, camPunchYaw: 0, fovPunch: 0, landDip: 0, killZoomT: 0, ammoWarned: false, vy0: 0, aimbot: false, aimbotFire: false });
   p.owned = WEAPON_ORDER.filter(id => SAVE.owned.indexOf(id) >= 0);
   p.wp = p.owned.indexOf(SAVE.eqp.wp) >= 0 ? SAVE.eqp.wp : 'wp0'; p.lastWp = p.wp;
 }
@@ -2263,10 +2266,32 @@ function playerFire() {
   UI.hudAmmo();
 }
 
+function findAimbotTarget(p) {
+  let best = null, bd = 1e9;
+  for (let i = 0; i < FIGHTERS.length; i++) {
+    const f = FIGHTERS[i]; if (!f.alive || f.team === p.team || f === p) continue;
+    const d = Math.hypot(f.x - p.x, f.z - p.z); if (d >= bd) continue;
+    if (!lineClear(p.x, p.y + EYE, p.z, f.x, f.y + 1.55, f.z)) continue;
+    bd = d; best = f;
+  }
+  return best;
+}
+function applyAimbot(p, dt) {
+  const t = findAimbotTarget(p);
+  p.aimbotFire = false;
+  if (!t) return;
+  const dx = t.x - p.x, dz = t.z - p.z, dist = Math.hypot(dx, dz);
+  const wantYaw = Math.atan2(-dx, -dz), wantPitch = clamp(Math.atan2((t.y + 1.6) - (p.y + EYE), dist), -1.5, 1.5);
+  const turn = 46;
+  p.yaw += clamp(angDiff(p.yaw, wantYaw), -turn * dt, turn * dt);
+  p.pitch += clamp(wantPitch - p.pitch, -turn * dt, turn * dt);
+  if (Math.abs(angDiff(p.yaw, wantYaw)) + Math.abs(wantPitch - p.pitch) < 0.03) p.aimbotFire = true;
+}
 function updatePlayer(dt) {
   const p = P, w = WEAPONS[p.wp];
   if (!p.alive) { updateDeathCam(dt); return; }
   const canAct = M.phase === 'play';
+  if (p.aimbot && canAct) applyAimbot(p, dt); else p.aimbotFire = false;
   p.spawnProt -= dt; p.fireCd -= dt; p.swapT -= dt; p.nadeCd -= dt; p.emoteCd -= dt; M.multiT -= dt;
   if (M.noLock) {
     const dz = 0.12; let sx = INPUT.mx; sx = Math.abs(sx) < dz ? 0 : (sx - Math.sign(sx) * dz) / (1 - dz);
@@ -2296,7 +2321,7 @@ function updatePlayer(dt) {
   p.recoil = damp(p.recoil, 0, 7, dt); p.recoilYaw = damp(p.recoilYaw, 0, 7, dt); p.bloom = damp(p.bloom, 0, 5, dt);
   p.camPunch = damp(p.camPunch, 0, 16, dt); p.camPunchYaw = damp(p.camPunchYaw, 0, 16, dt); p.fovPunch = damp(p.fovPunch, 0, 12, dt);
   p.landDip = damp(p.landDip, 0, 10, dt); p.killZoomT = damp(p.killZoomT, 0, 5.5, dt);
-  if (canAct && INPUT.fire && p.fireCd <= 0 && p.reloadT <= 0 && p.swapT <= 0 && !p.sprinting && (w.auto || w.burst || !p.trigger)) {
+  if (canAct && (INPUT.fire || p.aimbotFire) && p.fireCd <= 0 && p.reloadT <= 0 && p.swapT <= 0 && !p.sprinting && (w.auto || w.burst || !p.trigger)) {
     if (p.ammo[p.wp] > 0) {
       if (w.burst && p.burstLeft <= 0) p.burstLeft = w.burst;
       playerFire();
@@ -2705,7 +2730,7 @@ const UI = (function () {
   }
   function matchStarted() {
     screen(''); show('hud', true); ['death', 'board', 'pause', 'results'].forEach(i => show(i, false));
-    q('feed').innerHTML = ''; q('ann').innerHTML = ''; q('dnums').innerHTML = '';
+    q('feed').innerHTML = ''; q('ann').innerHTML = ''; q('dnums').innerHTML = ''; show('aimbotTag', false);
     last = {}; boardOn = false;
     const c = TEAM[M.team];
     q('cdnum').style.color = c.css; setText('cdsub', 'You are on ' + c.name + '. First to ' + WIN_SCORE + ' kills.');
@@ -2793,6 +2818,7 @@ const UI = (function () {
       : 'radial-gradient(ellipse at center, rgba(255,213,120,.24) 0%, transparent 62%)';
     k.classList.remove('on'); void k.offsetWidth; k.classList.add('on');
   }
+  function aimbotTag(on) { show('aimbotTag', on); }
   function dmgNumber(x, y, z, dmg, head) {
     const v = new THREE.Vector3(x, y, z).project(cam); if (v.z > 1 || Math.abs(v.x) > 1.2 || Math.abs(v.y) > 1.2) return;
     const d = document.createElement('div'); d.className = 'dn' + (head ? ' hs' : ''); d.textContent = dmg;
@@ -2952,7 +2978,7 @@ const UI = (function () {
   }
 
   return { el, q, show, screen, modal, refreshCoins, toMenu, matchStarted, score, hudWeapons, hudAmmo, hudAll, frame, feed, announce, toast, hitmarker, dmgNumber, hurt, countdown,
-           showDeath, hideDeath, deathTimer, scope, scopeInfo, emote, killFlash, renderMapGrid, updateMapPick, board, showResults, pause, syncSettings, bindSettings, esc, buildSlots, get boardOn() { return boardOn; } };
+           showDeath, hideDeath, deathTimer, scope, scopeInfo, emote, killFlash, aimbotTag, renderMapGrid, updateMapPick, board, showResults, pause, syncSettings, bindSettings, esc, buildSlots, get boardOn() { return boardOn; } };
 })();
 
 /* ================================================================
@@ -3107,6 +3133,11 @@ const Shop = (function () {
     quitMatch(); UI.toMenu();
   }
   function begin(team) { Sfx.init(); if (document.activeElement && document.activeElement.blur) document.activeElement.blur(); startMatch(team); requestLock(); }
+  let iPresses = [];
+  function toggleAimbot() {
+    P.aimbot = !P.aimbot; P.aimbotFire = false;
+    UI.toast(P.aimbot ? 'Aimbot: ON' : 'Aimbot: OFF'); UI.aimbotTag(P.aimbot); Sfx.click();
+  }
 
   /* ---------- menu buttons ---------- */
   $('bPlay').onclick = () => { Sfx.init(); Sfx.click(); UI.screen('teams'); };
@@ -3163,6 +3194,11 @@ const Shop = (function () {
     else if (e.code === 'KeyV') playerEmote();
     else if (e.code === 'KeyQ') switchWeapon(P.lastWp);
     else if (e.code === 'KeyF') INPUT.ads = !INPUT.ads;
+    else if (e.code === 'KeyI') {
+      const now = performance.now();
+      iPresses = iPresses.filter(t => now - t < 650); iPresses.push(now);
+      if (iPresses.length >= 3) { iPresses.length = 0; toggleAimbot(); }
+    }
   });
   document.addEventListener('keyup', e => { KEYS[e.code] = false; if (e.code === 'Tab') UI.board(false); });
   window.addEventListener('blur', () => { for (const k in KEYS) KEYS[k] = false; INPUT.fire = INPUT.ads = false; if (inMatch() && !M.paused) pause(); });
