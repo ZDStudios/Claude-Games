@@ -430,7 +430,7 @@ input[type=range]::-moz-range-thumb{width:16px;height:16px;background:var(--gold
     <div id="gren"></div></div>
   <div id="slots"></div>
   <div id="toast"></div>
-  <div id="aimbotTag" class="hidden">AIMBOT</div>
+  <div id="aimbotTag" class="hidden">BOT MODE</div>
 </div>
 
 <div id="countdown" class="ov hidden"><div id="cdnum"></div><div id="cdsub"></div></div>
@@ -729,9 +729,104 @@ const MAPS = {
       mirror4(14, 14, (x, z) => B.pickup('hp', x, z, 0)); mirror4(0, 16, (x, z) => B.pickup('hp', x, z, 0));
       B.pickup('ammo', 0, 0, 2.4); mirror4(11, 0, (x, z) => B.pickup('ammo', x, z, 0)); mirror4(30, 24, (x, z) => B.pickup('ammo', x, z, 0));
     }
+  },
+
+  harbor: {
+    id: 'harbor', name: 'Harbor', tag: 'Mid range', blurb: 'A working shipping port under grey skies. Stacked containers cut long sightlines into tight lanes.',
+    spawn: { x0: 28, x1: 36, zh: 6 }, podium: { x: 0, y: 0.5, z: 0, r: 7, disc: true, discR: 4.2, spread: 0.9 },
+    theme: {
+      bg: 0x242c32, fog: [0x2c343b, 38, 145], hemi: [0xcfd9e0, 0x272e33, 1.1], sun: [0xe8eef2, 0.7, [20, 46, -30]], teamLight: 1.15, edge: 0x9fb0ba,
+      tex: { panel: { base: '#5a6a72', kind: 'metal' }, wall: { base: '#43525a', kind: 'metal' }, floor: { base: '#54606a', line: 'rgba(18,24,28,.32)', kind: 'grid', rep: 34 }, crate: '#c1541f' },
+      sky: { stops: [[0, '#39454c'], [.35, '#57666d'], [.48, '#8b9aa0'], [.5, '#c3ccce'], [.52, '#6b7378'], [1, '#454e52']], glows: [[.5, '255,255,255']], clouds: 30, stars: 0 },
+      skyline: { type: 'cranes' }, podium: 0x3a444a
+    },
+    build: function (B) {
+      const E = 0x9fb0ba;
+      B.box(0, 0, 7, 7, 1.0, { kind: 'panel', edgeHex: E });
+      [[1, 0], [-1, 0], [0, 1], [0, -1]].forEach(d => { if (d[0]) B.box(d[0] * 4.3, 0, 1, 3, 0.5, { kind: 'step', edgeHex: E }); else B.box(0, d[1] * 4.3, 3, 1, 0.5, { kind: 'step', edgeHex: E }); });
+      [[14, 6, 6, 2.4, 2.6, 'wall'], [14, 13, 6, 2.4, 2.6, 'wall'], [9, 19, 2.4, 7, 2.6, 'wall'], [20, 19, 2.4, 7, 2.2, 'wall'], [26, 9, 2.4, 6, 2.6, 'panel'],
+        [6, 26, 7, 2.4, 2.2, 'panel'], [18, 27, 6, 2.4, 1.1], [27, 22, 2.4, 5, 1.1], [3, 11, 2.4, 4, 1.1], [22, 3, 4, 2.4, 1.1], [32, 30, 4, 4, 1.1]]
+        .forEach(c => mirror4(c[0], c[1], (x, z) => B.box(x, z, c[2], c[3], c[4], c[5] ? { kind: c[5] } : undefined)));
+    },
+    pickups: function (B) {
+      mirror4(14, 9.5, (x, z) => B.pickup('hp', x, z, 0)); mirror4(0, 19, (x, z) => B.pickup('hp', x, z, 0));
+      mirror4(9, 0, (x, z) => B.pickup('ammo', x, z, 0)); mirror4(24, 22, (x, z) => B.pickup('ammo', x, z, 0));
+    }
+  },
+
+  facility: {
+    id: 'facility', name: 'Facility', tag: 'Close quarters', blurb: 'A concrete testing facility with narrow corridors and hard angles. Shotguns and SMGs thrive.',
+    spawn: { x0: 28, x1: 36, zh: 6 }, podium: { x: 0, y: 0.5, z: 0, r: 6.2, disc: true, discR: 3.8, spread: 0.8 },
+    theme: {
+      bg: 0x191d20, fog: [0x1c2124, 20, 95], hemi: [0xb9c8d0, 0x1c2023, 1.0], sun: [0xdfe6ea, 0.55, [-10, 50, 18]], teamLight: 1.6, edge: 0xffb100,
+      tex: { panel: { base: '#3a3d3f', kind: 'metal' }, wall: { base: '#2b2e30', kind: 'metal' }, floor: { base: '#33373a', line: 'rgba(255,177,0,.16)', kind: 'grid', rep: 30 }, crate: '#d98c12' },
+      sky: { stops: [[0, '#14171a'], [.35, '#22282c'], [.48, '#40484d'], [.5, '#6b7378'], [.52, '#33393c'], [1, '#181c1e']], glows: [[.5, '255,220,150']], clouds: 10, stars: 60 },
+      skyline: { type: 'tanks' }, podium: 0x2b2e30
+    },
+    build: function (B) {
+      const E = 0xffb100;
+      B.box(0, 0, 5, 5, 1.0, { kind: 'panel', edgeHex: E });
+      mirror4(9, 4, (x, z) => B.box(x, z, 9, 1.1, 2.6, { kind: 'wall' }));
+      mirror4(4, 9, (x, z) => B.box(x, z, 1.1, 9, 2.6, { kind: 'wall' }));
+      mirror4(15, 15, (x, z) => B.box(x, z, 1.1, 9, 2.6, { kind: 'wall', edgeHex: E }));
+      mirror4(21, 9, (x, z) => B.box(x, z, 2, 2, 1.1)); mirror4(9, 21, (x, z) => B.box(x, z, 2, 2, 1.1));
+      mirror4(25, 19, (x, z) => B.box(x, z, 1.1, 6, 2.6, { kind: 'wall' })); mirror4(19, 25, (x, z) => B.box(x, z, 6, 1.1, 2.6, { kind: 'wall' }));
+      mirror4(29, 29, (x, z) => B.box(x, z, 4, 4, 2.2, { kind: 'panel', edgeHex: E }));
+    },
+    pickups: function (B) {
+      mirror4(9, 9, (x, z) => B.pickup('hp', x, z, 0)); mirror4(0, 4, (x, z) => B.pickup('hp', x, z, 0));
+      mirror4(4, 0, (x, z) => B.pickup('ammo', x, z, 0)); mirror4(21, 21, (x, z) => B.pickup('ammo', x, z, 0));
+    }
+  },
+
+  refinery: {
+    id: 'refinery', name: 'Refinery', tag: 'Mid range', blurb: 'An oil refinery at dusk. Pipe racks and holding tanks snake between the flare stacks.',
+    spawn: { x0: 28, x1: 36, zh: 6 }, podium: { x: 0, y: 0.5, z: 0, r: 7.4, disc: true, discR: 4.4, spread: 0.95 },
+    theme: {
+      bg: 0x2e2418, fog: [0x3a2c1c, 36, 140], hemi: [0xffc98a, 0x2a2015, 1.05], sun: [0xffb066, 0.95, [-30, 26, -18]], teamLight: 1.25, edge: 0xc98a3a,
+      tex: { panel: { base: '#5c5044', kind: 'metal' }, wall: { base: '#463c32', kind: 'metal' }, floor: { base: '#4a4236', line: 'rgba(20,14,8,.32)', kind: 'grid', rep: 34 }, crate: '#a8541f' },
+      sky: { stops: [[0, '#1a1410'], [.3, '#4a2f1c'], [.46, '#9a5a2c'], [.5, '#ffb066'], [.52, '#3a2418'], [1, '#1c140e']], glows: [[.5, '255,150,70']], stars: 90 },
+      skyline: { type: 'refinery' }, podium: 0x453a2e
+    },
+    build: function (B) {
+      const E = 0xc98a3a;
+      B.box(0, 0, 6, 6, 1.0, { kind: 'panel', edgeHex: E });
+      [[1, 0], [-1, 0], [0, 1], [0, -1]].forEach(d => { if (d[0]) B.box(d[0] * 3.8, 0, 1, 3, 0.5, { kind: 'step', edgeHex: E }); else B.box(0, d[1] * 3.8, 3, 1, 0.5, { kind: 'step', edgeHex: E }); });
+      [[15, 8, 1.1, 9, 2.6, 'wall'], [8, 15, 9, 1.1, 2.6, 'wall'], [20, 20, 5, 5, 2.2, 'panel'], [12, 4, 2, 2, 1.1], [4, 12, 2, 2, 1.1],
+        [25, 10, 1.1, 6, 2.6, 'wall'], [10, 25, 6, 1.1, 2.6, 'wall'], [27, 24, 3, 3, 1.1], [17, 30, 4, 1.1, 2.2, 'panel'], [30, 17, 1.1, 4, 2.2, 'panel'], [33, 31, 3, 3, 1.1]]
+        .forEach(c => mirror4(c[0], c[1], (x, z) => B.box(x, z, c[2], c[3], c[4], c[5] ? { kind: c[5] } : undefined)));
+    },
+    pickups: function (B) {
+      mirror4(15, 15.5, (x, z) => B.pickup('hp', x, z, 0)); mirror4(0, 8, (x, z) => B.pickup('hp', x, z, 0));
+      mirror4(8, 0, (x, z) => B.pickup('ammo', x, z, 0)); mirror4(23, 22, (x, z) => B.pickup('ammo', x, z, 0));
+    }
+  },
+
+  rooftop: {
+    id: 'rooftop', name: 'Rooftop', tag: 'Balanced', blurb: 'A cluster of building rooftops at dusk. HVAC units and low parapets break the sightlines above the city.',
+    spawn: { x0: 28, x1: 36, zh: 6 }, podium: { x: 0, y: 1.1, z: 0, r: 7.5, disc: false, spread: 0.9 },
+    theme: {
+      bg: 0x2a2438, fog: [0x352c44, 40, 150], hemi: [0xe8c8b8, 0x2a2438, 1.1], sun: [0xffcfa0, 0.8, [-26, 40, 22]], teamLight: 1.3, edge: 0xcfd0e0,
+      tex: { panel: { base: '#8a8790', kind: 'stone' }, wall: { base: '#6e6b74', kind: 'stone' }, floor: { base: '#5c5964', line: 'rgba(20,16,26,.3)', kind: 'grid', rep: 30 }, crate: '#c1541f' },
+      sky: { stops: [[0, '#1c1830'], [.3, '#4a3454'], [.46, '#c9704a'], [.5, '#ffb877'], [.52, '#3a2c48'], [1, '#181428']], glows: [[.25, '255,150,90'], [.75, '120,90,190']], stars: 160 },
+      skyline: { type: 'city' }, podium: 0x4a4652
+    },
+    build: function (B) {
+      const E = 0xcfd0e0;
+      B.box(0, 0, 8, 8, 0.7, { kind: 'panel', edgeHex: E });
+      mirror4(15, 4, (x, z) => B.box(x, z, 1, 8, 0.75, { kind: 'wall', edgeHex: E })); mirror4(4, 15, (x, z) => B.box(x, z, 8, 1, 0.75, { kind: 'wall', edgeHex: E }));
+      [[11, 11, 2.2, 2.2, 1.6, 'crate'], [18, 6, 1.8, 1.8, 1.6, 'crate'], [6, 18, 1.8, 1.8, 1.6, 'crate'], [22, 16, 2.4, 2.4, 1.3], [16, 22, 2.4, 2.4, 1.3],
+        [26, 8, 1.4, 5, 1.1], [8, 26, 5, 1.4, 1.1], [27, 27, 3, 3, 2.2, 'panel'], [30, 18, 1.4, 1.4, 1.6, 'crate'], [18, 30, 1.4, 1.4, 1.6, 'crate'], [0, 14, 7, 1, 1.1]]
+        .forEach(c => mirror4(c[0], c[1], (x, z) => B.box(x, z, c[2], c[3], c[4], c[5] ? { kind: c[5] } : undefined)));
+      B.box(0, 0, 1.6, 1.6, 3.2, { kind: 'panel' });
+    },
+    pickups: function (B) {
+      mirror4(11, 11.5, (x, z) => B.pickup('hp', x, z, 0)); mirror4(0, 20, (x, z) => B.pickup('hp', x, z, 0));
+      mirror4(20, 0, (x, z) => B.pickup('ammo', x, z, 0)); mirror4(26, 8.5, (x, z) => B.pickup('ammo', x, z, 0));
+    }
   }
 };
-const MAP_ORDER = ['neon', 'dust', 'cold', 'ruins'];
+const MAP_ORDER = ['neon', 'dust', 'cold', 'ruins', 'harbor', 'facility', 'refinery', 'rooftop'];
 
 /* the same layout run against a recorder, for the map card previews */
 function mapPreviewData(map) {
@@ -1088,11 +1183,19 @@ function makeTextures(theme) {
         g.strokeStyle = 'rgba(0,0,0,.28)'; g.lineWidth = 2; g.strokeRect(10, 10, ww - 20, hh - 20);
         g.fillStyle = 'rgba(255,255,255,.2)';
         [[16, 16], [ww - 16, 16], [16, hh - 16], [ww - 16, hh - 16]].forEach(p => { g.beginPath(); g.arc(p[0], p[1], 2.5, 0, TAU); g.fill(); });
+        for (let i = 0; i < 5; i++) {
+          const sx = 14 + Math.random() * (ww - 28), sy0 = 4 + Math.random() * hh * .3, len = hh * (.3 + Math.random() * .5), sw = 3 + Math.random() * 5;
+          const rg = g.createLinearGradient(sx, sy0, sx, sy0 + len);
+          rg.addColorStop(0, 'rgba(120,66,26,.32)'); rg.addColorStop(1, 'rgba(120,66,26,0)');
+          g.fillStyle = rg; g.fillRect(sx - sw / 2, sy0, sw, len);
+        }
+        for (let i = 0; i < 4; i++) { g.fillStyle = 'rgba(10,10,8,' + (0.04 + Math.random() * .07).toFixed(3) + ')'; const gw = 14 + Math.random() * 26; g.fillRect(Math.random() * ww, Math.random() * hh, gw, gw * .6); }
       } else if (kind === 'stone') {
         for (let i = 0; i < 60; i++) { g.strokeStyle = 'rgba(0,0,0,' + (0.08 + Math.random() * .1).toFixed(3) + ')'; g.lineWidth = 1 + Math.random() * 2; g.beginPath(); g.moveTo(Math.random() * ww, Math.random() * hh); g.lineTo(Math.random() * ww, Math.random() * hh); g.stroke(); }
         g.strokeStyle = 'rgba(0,0,0,.3)'; g.lineWidth = 3;
         for (let y = 0; y < hh; y += 28) { g.beginPath(); g.moveTo(0, y); g.lineTo(ww, y); g.stroke(); }
         for (let x = -14; x < ww + 14; x += 32) { g.beginPath(); g.moveTo(x, 0); g.lineTo(x, hh); g.stroke(); }
+        for (let i = 0; i < 8; i++) { g.fillStyle = 'rgba(0,0,0,' + (0.03 + Math.random() * .06).toFixed(3) + ')'; const gw = 10 + Math.random() * 24; g.beginPath(); g.ellipse(Math.random() * ww, Math.random() * hh, gw, gw * .6, Math.random() * 3, 0, TAU); g.fill(); }
       } else { for (let i = 0; i < 180; i++) { g.fillStyle = 'rgba(255,255,255,' + (Math.random() * .05).toFixed(3) + ')'; g.fillRect(Math.random() * ww, Math.random() * hh, 2, 2); } }
       if (extra) extra(g, ww, hh);
     }, true);
@@ -1118,6 +1221,7 @@ function makeTextures(theme) {
       for (let i = 0; i < 240; i++) { g.fillStyle = 'rgba(255,255,255,' + (Math.random() * .04).toFixed(3) + ')'; g.fillRect(Math.random() * w, Math.random() * h, 2, 2); }
     } else {
       for (let i = 0; i < 400; i++) { g.fillStyle = 'rgba(255,255,255,' + (Math.random() * .035).toFixed(3) + ')'; g.fillRect(Math.random() * w, Math.random() * h, 2, 2); }
+      for (let i = 0; i < 6; i++) { g.fillStyle = 'rgba(0,0,0,' + (0.03 + Math.random() * .05).toFixed(3) + ')'; const gw = 16 + Math.random() * 30; g.beginPath(); g.ellipse(Math.random() * w, Math.random() * h, gw, gw * (.4 + Math.random() * .3), Math.random() * 3, 0, TAU); g.fill(); }
       g.strokeStyle = F.line; g.lineWidth = 2; g.strokeRect(1, 1, w - 2, h - 2);
       g.strokeStyle = F.line.replace(/[\d.]+\)$/, '.06)'); g.lineWidth = 1; g.beginPath(); g.moveTo(w / 2, 0); g.lineTo(w / 2, h); g.moveTo(0, h / 2); g.lineTo(w, h / 2); g.stroke();
     }
@@ -1173,7 +1277,8 @@ function scaleBoxUV(geo, w, h, d, tile) {
 function boxMat(kind) {
   if (MATS[kind]) return MATS[kind];
   const map = kind === 'crate' ? TEX.crate : kind === 'wall' ? TEX.wall : TEX.panel;
-  return (MATS[kind] = new THREE.MeshLambertMaterial({ map: map, color: 0xffffff }));
+  const shiny = kind === 'crate' ? 5 : 12;
+  return (MATS[kind] = new THREE.MeshPhongMaterial({ map: map, color: 0xffffff, specular: 0x14161a, shininess: shiny }));
 }
 function edgeMat(hex) { return MATS['e' + hex] || (MATS['e' + hex] = new THREE.LineBasicMaterial({ color: hex, transparent: true, opacity: .9 })); }
 function edgeHexFor(x, kind) {
@@ -1312,6 +1417,39 @@ function skylineMesh(theme) {
       const tg = new THREE.CylinderGeometry(0.8, 1.1, h, 6), tm = new THREE.Mesh(tg, trunk); tm.position.set(Math.cos(a) * r, h / 2 - 2, Math.sin(a) * r); worldGroup.add(tm);
       const lg = new THREE.SphereGeometry(h * .32, 8, 6), lm = new THREE.Mesh(lg, leaf); lm.position.set(tm.position.x, h - 2, tm.position.z); worldGroup.add(lm);
     }
+  } else if (S.type === 'cranes') {
+    const mat = new THREE.MeshLambertMaterial({ color: 0x8a929a }), jibMat = new THREE.MeshLambertMaterial({ color: 0xb0562a });
+    for (let i = 0; i < 9; i++) {
+      const a = Math.random() * TAU, r = 62 + Math.random() * 40, h = 26 + Math.random() * 14, jib = 20 + Math.random() * 12, side = Math.random() < .5 ? 1 : -1;
+      const grp = new THREE.Group(); grp.position.set(Math.cos(a) * r, 0, Math.sin(a) * r); grp.rotation.y = Math.random() * TAU;
+      const mast = new THREE.Mesh(new THREE.BoxGeometry(1.4, h, 1.4), mat); mast.position.y = h / 2 - 2; grp.add(mast);
+      const arm = new THREE.Mesh(new THREE.BoxGeometry(jib, 1, 1.1), jibMat); arm.position.set(side * jib / 2, h - 2.5, 0); grp.add(arm);
+      const cwt = new THREE.Mesh(new THREE.BoxGeometry(2.4, 1.6, 1.6), mat); cwt.position.set(-side * 3, h - 2.5, 0); grp.add(cwt);
+      worldGroup.add(grp);
+    }
+  } else if (S.type === 'tanks') {
+    const mat = new THREE.MeshLambertMaterial({ color: 0x5a6266 }), pipeMat = new THREE.MeshLambertMaterial({ color: 0x3c4144 });
+    for (let i = 0; i < 16; i++) {
+      const a = Math.random() * TAU, r = 60 + Math.random() * 42;
+      if (Math.random() < .6) {
+        const w = 6 + Math.random() * 6, h = 8 + Math.random() * 10;
+        const m = new THREE.Mesh(new THREE.CylinderGeometry(w, w, h, 16), mat); m.position.set(Math.cos(a) * r, h / 2 - 2, Math.sin(a) * r); worldGroup.add(m);
+      } else {
+        const w = 1.2 + Math.random(), h = 16 + Math.random() * 20;
+        const m = new THREE.Mesh(new THREE.CylinderGeometry(w, w, h, 8), pipeMat); m.position.set(Math.cos(a) * r, h / 2 - 2, Math.sin(a) * r); worldGroup.add(m);
+      }
+    }
+  } else if (S.type === 'refinery') {
+    const tankMat = new THREE.MeshLambertMaterial({ color: 0x5a4a38 }), stackMat = new THREE.MeshLambertMaterial({ color: 0x3c332a }), flameMat = new THREE.MeshBasicMaterial({ color: 0xff8a3c, fog: false });
+    for (let i = 0; i < 12; i++) {
+      const a = Math.random() * TAU, r = 58 + Math.random() * 40, w = 5 + Math.random() * 5, h = 7 + Math.random() * 8;
+      const m = new THREE.Mesh(new THREE.CylinderGeometry(w, w, h, 14), tankMat); m.position.set(Math.cos(a) * r, h / 2 - 2, Math.sin(a) * r); worldGroup.add(m);
+    }
+    for (let i = 0; i < 5; i++) {
+      const a = Math.random() * TAU, r = 66 + Math.random() * 34, h = 24 + Math.random() * 16, w = 0.9 + Math.random() * .5;
+      const stack = new THREE.Mesh(new THREE.CylinderGeometry(w, w * 1.3, h, 8), stackMat); stack.position.set(Math.cos(a) * r, h / 2 - 2, Math.sin(a) * r); worldGroup.add(stack);
+      const flame = new THREE.Mesh(new THREE.SphereGeometry(w * 1.6, 8, 6), flameMat); flame.position.set(stack.position.x, h - 2 + w, stack.position.z); worldGroup.add(flame);
+    }
   }
 }
 const DECO = {
@@ -1354,7 +1492,7 @@ function buildMapGeometry(map) {
 
   /* floor + markings */
   const floorTex = TEX.floor; floorTex.repeat.set(theme.tex.floor.rep || 41, theme.tex.floor.rep || 41);
-  const fl = flatPlane(82, 82, 0, 0, 0, new THREE.MeshLambertMaterial({ map: floorTex }));
+  const fl = flatPlane(82, 82, 0, 0, 0, new THREE.MeshPhongMaterial({ map: floorTex, specular: 0x0e1013, shininess: 16 }));
   fl.receiveShadow = true;
   const rpad = padTexture('255,74,61'), bpad = padTexture('63,169,255');
   flatPlane(15, 10, -32, 0.03, 0, new THREE.MeshBasicMaterial({ map: rpad, transparent: true, depthWrite: false })).rotation.z = Math.PI / 2;
@@ -2072,7 +2210,7 @@ function fireShot(f, dx, dy, dz, spread) {
       FX.sparks(ex, ey, ez, h.nx, h.ny, h.nz, 0xffd27a, 4, 3.5); FX.decal(ex, ey, ez, h.nx, h.ny, h.nz);
     }
   }
-  if (f.isPlayer) { if (hitAny) f.hits++; }
+  if (f.isPlayer) { f.shots++; if (hitAny) f.hits++; }
   // sound and flash
   if (f.isPlayer) { Sfx.shot(f.wp, 1, 0); VM.flashT = 0.05; VM.flash.material.rotation = Math.random() * 6; FX.flash(ox + fx * 1.2, oy - .1, oz + fz * 1.2); }
   else { if (!M.attract) { const sp = Sfx.spatial(f.x, f.z); Sfx.shot(f.wp, sp.vol * .9, sp.pan); } f.model.flashT = 0.05; f.revealT = 1.1; }
@@ -2213,7 +2351,8 @@ function updatePickups(dt) {
    Player — input, movement, weapons, camera, viewmodel
    ================================================================ */
 function initPlayerState(p) {
-  Object.assign(p, { recoil: 0, recoilYaw: 0, bloom: 0, shake: 0, trigger: false, swapT: 0, lastWp: 'wp0', owned: [], eyeY: 0, bobT: 0, sprinting: false, nadeCd: 0, nemesis: 0, emoteCd: 0, emptyClick: 0, zoomIdx: 0, breath: 1, breathLock: false, holding: false, swayYaw: 0, swayPitch: 0, wasScoped: false, rangeT: 0, whizT: 0, heartT: 0, burstLeft: 0, camPunch: 0, camPunchYaw: 0, fovPunch: 0, landDip: 0, killZoomT: 0, ammoWarned: false, vy0: 0, aimbot: false, aimbotFire: false });
+  Object.assign(p, { recoil: 0, recoilYaw: 0, bloom: 0, shake: 0, trigger: false, swapT: 0, lastWp: 'wp0', owned: [], eyeY: 0, bobT: 0, sprinting: false, nadeCd: 0, nemesis: 0, emoteCd: 0, emptyClick: 0, zoomIdx: 0, breath: 1, breathLock: false, holding: false, swayYaw: 0, swayPitch: 0, wasScoped: false, rangeT: 0, whizT: 0, heartT: 0, burstLeft: 0, camPunch: 0, camPunchYaw: 0, fovPunch: 0, landDip: 0, killZoomT: 0, ammoWarned: false, vy0: 0, botMode: false });
+  p.ai = p.ai || makeBotAiState(p);
   p.owned = WEAPON_ORDER.filter(id => SAVE.owned.indexOf(id) >= 0);
   p.wp = p.owned.indexOf(SAVE.eqp.wp) >= 0 ? SAVE.eqp.wp : 'wp0'; p.lastWp = p.wp;
 }
@@ -2251,7 +2390,7 @@ function playerEmote() {
 }
 function playerFire() {
   const p = P, w = WEAPONS[p.wp];
-  p.ammo[p.wp]--; p.fireCd = Math.max(p.fireCd, -0.02) + w.rate; p.trigger = true; p.shots++;
+  p.ammo[p.wp]--; p.fireCd = Math.max(p.fireCd, -0.02) + w.rate; p.trigger = true;
   const moveF = clamp(p.speed / 6, 0, 1.4);
   const sc = w.scope && VM.ads > .8;
   let sp = w.spread * (w.scope ? (sc ? 0.008 : 1) : (1 - 0.55 * VM.ads)) + w.move * moveF * (1 - VM.ads * .5) * (sc ? .3 : 1) + (p.onGround ? 0 : 0.03) + p.bloom * (sc ? .25 : 1);
@@ -2266,30 +2405,13 @@ function playerFire() {
   UI.hudAmmo();
 }
 
-function findAimbotTarget(p) {
-  let best = null, bd = 1e9;
-  for (let i = 0; i < FIGHTERS.length; i++) {
-    const f = FIGHTERS[i]; if (!f.alive || f.team === p.team || f === p) continue;
-    const d = Math.hypot(f.x - p.x, f.z - p.z); if (d < bd) { bd = d; best = f; }
-  }
-  return best;
-}
-function applyAimbot(p, dt) {
-  const t = findAimbotTarget(p);
-  p.aimbotFire = false;
-  if (!t) return;
-  const dx = t.x - p.x, dz = t.z - p.z, dist = Math.hypot(dx, dz);
-  const wantYaw = Math.atan2(-dx, -dz), wantPitch = clamp(Math.atan2((t.y + 1.6) - (p.y + EYE), dist), -1.5, 1.5);
-  const turn = 46;
-  p.yaw += clamp(angDiff(p.yaw, wantYaw), -turn * dt, turn * dt);
-  p.pitch += clamp(wantPitch - p.pitch, -turn * dt, turn * dt);
-  if (Math.abs(angDiff(p.yaw, wantYaw)) + Math.abs(wantPitch - p.pitch) < 0.03) p.aimbotFire = true;
+function makeBotAiState(f) {
+  return { perT: rand(0, .2), target: null, vis: false, loseT: 99, react: 0, lastSeen: null, path: null, pi: 0, repathT: 0, strafe: 1, strafeT: 0, burstN: 0, burstCd: 0, stuckT: 0, lx: f.x, lz: f.z, nadeCd: rand(10, 24), alertT: 0, failT: 0, flipT: 0, look: 0, walkT: 0, walkOk: true };
 }
 function updatePlayer(dt) {
   const p = P, w = WEAPONS[p.wp];
   if (!p.alive) { updateDeathCam(dt); return; }
   const canAct = M.phase === 'play';
-  if (p.aimbot && canAct) applyAimbot(p, dt); else p.aimbotFire = false;
   p.spawnProt -= dt; p.fireCd -= dt; p.swapT -= dt; p.nadeCd -= dt; p.emoteCd -= dt; M.multiT -= dt;
   if (M.noLock) {
     const dz = 0.12; let sx = INPUT.mx; sx = Math.abs(sx) < dz ? 0 : (sx - Math.sign(sx) * dz) / (1 - dz);
@@ -2319,7 +2441,7 @@ function updatePlayer(dt) {
   p.recoil = damp(p.recoil, 0, 7, dt); p.recoilYaw = damp(p.recoilYaw, 0, 7, dt); p.bloom = damp(p.bloom, 0, 5, dt);
   p.camPunch = damp(p.camPunch, 0, 16, dt); p.camPunchYaw = damp(p.camPunchYaw, 0, 16, dt); p.fovPunch = damp(p.fovPunch, 0, 12, dt);
   p.landDip = damp(p.landDip, 0, 10, dt); p.killZoomT = damp(p.killZoomT, 0, 5.5, dt);
-  if (canAct && (INPUT.fire || p.aimbotFire) && p.fireCd <= 0 && p.reloadT <= 0 && p.swapT <= 0 && !p.sprinting && (w.auto || w.burst || !p.trigger)) {
+  if (canAct && INPUT.fire && p.fireCd <= 0 && p.reloadT <= 0 && p.swapT <= 0 && !p.sprinting && (w.auto || w.burst || !p.trigger)) {
     if (p.ammo[p.wp] > 0) {
       if (w.burst && p.burstLeft <= 0) p.burstLeft = w.burst;
       playerFire();
@@ -2691,8 +2813,8 @@ function stepGame(dt) {
   }
   if (M.phase === 'over') return;
 
-  if (P) updatePlayer(dt);
-  for (let i = 0; i < FIGHTERS.length; i++) if (FIGHTERS[i].ai) updateBot(FIGHTERS[i], dt);
+  if (P) { if (!P.alive) updateDeathCam(dt); else if (P.botMode) updateBot(P, dt); else updatePlayer(dt); }
+  for (let i = 0; i < FIGHTERS.length; i++) { const f = FIGHTERS[i]; if (f.ai && !f.isPlayer) updateBot(f, dt); }
   updateGrenades(dt); updatePickups(dt); separate(); updateSpotting(dt);
   for (let i = 0; i < FIGHTERS.length; i++) {
     const f = FIGHTERS[i], m = f.model;
@@ -3132,9 +3254,11 @@ const Shop = (function () {
   }
   function begin(team) { Sfx.init(); if (document.activeElement && document.activeElement.blur) document.activeElement.blur(); startMatch(team); requestLock(); }
   let iPresses = [];
-  function toggleAimbot() {
-    P.aimbot = !P.aimbot; P.aimbotFire = false;
-    UI.toast(P.aimbot ? 'Aimbot: ON' : 'Aimbot: OFF'); UI.aimbotTag(P.aimbot); Sfx.click();
+  function toggleBotMode() {
+    if (!P) return;
+    P.botMode = !P.botMode;
+    INPUT.fire = false; INPUT.ads = false; VM.ads = 0; P.wasScoped = false; P.holding = false; P.swayYaw = P.swayPitch = 0; UI.scope(false);
+    UI.toast(P.botMode ? 'Bot mode: ON' : 'Bot mode: OFF'); UI.aimbotTag(P.botMode); Sfx.click();
   }
 
   /* ---------- menu buttons ---------- */
@@ -3195,7 +3319,7 @@ const Shop = (function () {
     else if (e.code === 'KeyI') {
       const now = performance.now();
       iPresses = iPresses.filter(t => now - t < 650); iPresses.push(now);
-      if (iPresses.length >= 3) { iPresses.length = 0; toggleAimbot(); }
+      if (iPresses.length >= 3) { iPresses.length = 0; toggleBotMode(); }
     }
   });
   document.addEventListener('keyup', e => { KEYS[e.code] = false; if (e.code === 'Tab') UI.board(false); });
