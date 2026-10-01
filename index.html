@@ -132,6 +132,21 @@
     gap:7px;
   }
   .stat-pill strong{ font-family:var(--font-display); font-size:1rem; color:var(--accent-teal); }
+  .device-note{
+    margin:22px auto 0;
+    max-width:560px;
+    background:var(--panel);
+    color:var(--ink);
+    border:3px solid var(--ink);
+    box-shadow:var(--shadow-hard-sm);
+    border-radius:14px;
+    padding:10px 18px;
+    font-weight:800;
+    font-size:0.9rem;
+    line-height:1.5;
+  }
+  .device-note span{ display:block; }
+  .device-note .pc{ color:#0E8F7E; }
 
   /* FILTER BAR */
   #filterBar{
@@ -359,6 +374,10 @@
       <div class="stat-pill">🎮 <strong id="gameCount">0</strong> games live</div>
       <div class="stat-pill">⚡ 100% browser-based</div>
     </div>
+    <p class="device-note">
+      <span class="pc">🖥️ Every game supports PC (keyboard &amp; mouse).</span>
+      <span>📱 Most games may or may not work on mobile.</span>
+    </p>
   </header>
 
   <div id="filterBar" hidden>
