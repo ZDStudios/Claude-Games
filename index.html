@@ -276,6 +276,26 @@
     color:#6b6480;
   }
 
+  .author-tag{
+    display:inline-flex; align-items:center; gap:6px; align-self:flex-start;
+    margin-top:12px; padding:4px 11px;
+    font-size:0.72rem; font-weight:900; letter-spacing:0.06em; text-transform:uppercase;
+    background:var(--accent-teal); color:var(--ink);
+    border:2.5px solid var(--ink); border-radius:999px;
+  }
+  .section-head{
+    display:flex; align-items:center; justify-content:center; flex-wrap:wrap; gap:10px 16px;
+    margin:56px 0 26px; text-align:center;
+  }
+  .section-head h2{
+    font-family:var(--font-display); font-weight:400; font-size:clamp(1.6rem,4.5vw,2.4rem);
+    letter-spacing:0.02em; color:var(--panel);
+    -webkit-text-stroke:2px var(--ink); text-shadow:3px 3px 0 var(--ink);
+  }
+  .section-head .sub{
+    font-weight:800; font-size:0.85rem; padding:6px 14px;
+    background:var(--panel); border:3px solid var(--ink); border-radius:999px; box-shadow:var(--shadow-hard-sm);
+  }
   .play-btn{
     font-family:var(--font-display);
     font-size:0.92rem;
@@ -391,7 +411,18 @@
       <p>Scanning the arcade for games…</p>
     </div>
 
+    <div class="section-head" id="mainHead" hidden>
+      <h2>ZD Studios Games</h2>
+    </div>
     <div class="grid" id="grid" hidden></div>
+
+    <section id="piggotSection" hidden>
+      <div class="section-head">
+        <h2>Piggot&#8217;s Games</h2>
+        <span class="sub">&#9733; Made by our friend Piggot</span>
+      </div>
+      <div class="grid" id="piggotGrid"></div>
+    </section>
   </main>
 
   <footer>
@@ -558,13 +589,15 @@
       title: "John Pork: Escape", tagline: "John Pork Is Calling",
       desc: "You wake up in John Pork's house. Find the keys, dodge him, hide, set traps and get out the front door \u2014 before you run out of chances.",
       emoji: "\ud83d\udc37", genre: "3D / Horror",
-      tagBg: "#B91C1C", artBg: "linear-gradient(135deg,#FCA5A5,#7F1D1D)"
+      tagBg: "#B91C1C", artBg: "linear-gradient(135deg,#FCA5A5,#7F1D1D)",
+      author: "Piggot"
     },
     "mow-rush.html": {
       title: "Mow Rush", tagline: "Just One More Lawn",
       desc: "Drive a red mower across ever-trickier lawns, cut every blade of grass to hit 100%, and chase the clock \u2014 just one more lawn.",
       emoji: "\ud83c\udf31", genre: "3D / Arcade",
-      tagBg: "#65A30D", artBg: "linear-gradient(135deg,#D9F99D,#4D7C0F)"
+      tagBg: "#65A30D", artBg: "linear-gradient(135deg,#D9F99D,#4D7C0F)",
+      author: "Piggot"
     }
   };
 
@@ -623,6 +656,7 @@
             <span class="genre-tag" style="background:${game.tagBg}; color:#FFFDF7;">${escapeHtml(game.genre)}</span>
           </div>
           <p class="desc">${escapeHtml(game.desc)}</p>
+          ${game.author ? `<div class="author-tag">\u2605 Made by ${escapeHtml(game.author)}</div>` : ""}
           <div class="card-foot">
             <span class="meta-bits">${escapeHtml(game.tagline)}</span>
             <a class="play-btn" href="${game.url}" target="_blank" rel="noopener">\u25b6 PLAY</a>
@@ -637,11 +671,18 @@
     const shown = ALL_GAMES.filter(g => {
       if (activeGenre !== "All" && g.genre !== activeGenre) return false;
       if (!q) return true;
-      return (g.title + " " + g.genre + " " + g.tagline + " " + g.desc).toLowerCase().includes(q);
+      return (g.title + " " + g.genre + " " + g.tagline + " " + g.desc + " " + (g.author || "")).toLowerCase().includes(q);
     });
-    grid.innerHTML = shown.length
-      ? shown.map(cardHtml).join("")
-      : `<div class="empty-card">Nothing matches that \u2014 try a different search. \ud83d\udd0d</div>`;
+    // Friends' games live in their own section; everything else is the main library.
+    const mine   = shown.filter(g => !g.author);
+    const piggot = shown.filter(g => g.author === "Piggot");
+    grid.innerHTML = mine.length
+      ? mine.map(cardHtml).join("")
+      : (shown.length ? "" : `<div class="empty-card">Nothing matches that \u2014 try a different search. \ud83d\udd0d</div>`);
+    grid.hidden = !grid.innerHTML;
+    document.getElementById("piggotSection").hidden = !piggot.length;
+    document.getElementById("piggotGrid").innerHTML = piggot.map(cardHtml).join("");
+    document.getElementById("mainHead").hidden = !(mine.length && piggot.length);
   }
 
   function buildChips(){

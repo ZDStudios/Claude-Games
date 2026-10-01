@@ -110,6 +110,9 @@ kbd{font-family:var(--font);font-size:11px;background:rgba(255,255,255,.12);bord
   background:repeating-linear-gradient(90deg,#c9ff5c 0 22px,#8fd62a 22px 44px);-webkit-background-clip:text;background-clip:text;color:transparent;
   filter:drop-shadow(0 5px 0 #2b4a10) drop-shadow(0 14px 22px rgba(0,0,0,.6))}
 .logo span{display:block;font-size:.42em;letter-spacing:10px;background:none;color:#fff;-webkit-text-fill-color:#fff;filter:none}
+.madeby{margin-top:18px;text-align:center;font-weight:800;font-size:14px;letter-spacing:4px;text-transform:uppercase;opacity:.92;text-shadow:0 2px 8px rgba(0,0,0,.5)}
+.madeby b{color:#b8ff3c}
+.hubL .madeby{text-align:left;margin-top:8px;font-size:12px;letter-spacing:3px}
 .pressany{margin-top:36px;font-weight:900;font-size:18px;letter-spacing:2px;animation:pulse 1.4s infinite}
 #scr-hub{align-items:stretch}
 .hubL{width:min(390px,92vw);margin:16px;padding:20px;display:flex;flex-direction:column;gap:12px;overflow-y:auto}
@@ -262,6 +265,7 @@ kbd{font-family:var(--font);font-size:11px;background:rgba(255,255,255,.12);bord
   <div class="screen" id="scr-splash">
     <div class="logo">MOW RUSH<span>JUST ONE MORE LAWN</span></div>
     <div class="pressany">PRESS ANY KEY / CLICK TO START</div>
+    <div class="madeby">Made by <b>Piggot</b></div>
   </div>
   <div class="screen" id="scr-hub"></div>
   <div class="screen center" id="scr-upgrades"></div>
@@ -2396,7 +2400,7 @@ function renderHub() {
   const n = S.lawns + 1, sea = has('seasons') ? SEASONS[S.season] : null, ms = mowerStats(S.cur.mower), sf = clamp(Math.sqrt(ms.width / 0.72), 1, 1.8);
   const W = Math.round(Math.min(64, (12 + Math.min(S.lawns, 40) * 1.1) * sf)), D = Math.round(Math.min(46, (9 + Math.min(S.lawns, 40) * 0.8) * sf));
   const F = id => FEATURES.find(f => f.id === id), lockBtn = f => `<button class="btn" disabled>🔒 ${f.name} <small>· lawn ${f.at}</small></button>`, nq = claimable(), mw = MOWERS[S.cur.mower];
-  let h = `<div class="hubL panel"><div class="logo">MOW RUSH<span>JUST ONE MORE LAWN</span></div>
+  let h = `<div class="hubL panel"><div class="logo">MOW RUSH<span>JUST ONE MORE LAWN</span></div><div class="madeby">Made by <b>Piggot</b></div>
     <div class="lawnInfo">LAWN ${n} · ${W}×${D} m${sea ? ' · ' + sea.icon + ' ' + sea.name : ''} · ${mw.icon} ${mw.name}</div>
     <button class="btn primary" data-act="play" data-autofocus>▶ MOW LAWN ${n}</button>`;
   if (has('seasons')) h += `<div class="lbl">Season</div><div class="seasonRow">${SEASON_ORDER.map(k => `<button class="btn ${S.season === k ? 'sel' : ''}" data-act="season" data-arg="${k}"><i>${SEASONS[k].icon}</i>${SEASONS[k].name}</button>`).join('')}</div>

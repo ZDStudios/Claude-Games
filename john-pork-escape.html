@@ -69,6 +69,8 @@
   .screen h1 { font-family: Impact, "Arial Black", sans-serif; font-weight: 400; font-size: clamp(56px, 11vw, 120px); line-height: .9; margin: 0; letter-spacing: .04em; color: #d01818; text-shadow: 0 0 30px rgba(200,0,0,.5), 3px 3px 0 #300; animation: jitter 3s infinite; }
   @keyframes jitter { 0%,92%,100% { transform: none } 93% { transform: translate(2px,-1px) skewX(2deg) } 95% { transform: translate(-3px,1px) } 97% { transform: translate(1px,2px) skewX(-2deg) } }
   .tag { font-style: italic; color: #b8b0a2; margin: 10px 0 18px; font-size: 18px; }
+  .madeby { margin: -8px 0 14px; font: 700 12px "Segoe UI", system-ui, sans-serif; letter-spacing: .28em; text-transform: uppercase; color: #8a8478; }
+  .madeby b { color: #e8e2d6; }
   #titlePortrait { width: 170px; height: 170px; border-radius: 50%; object-fit: cover; background: radial-gradient(#3a0a0a, #0a0000); border: 2px solid #3a0a0a; box-shadow: 0 0 40px rgba(200,0,0,.35); filter: contrast(1.1) saturate(.9); }
   .btnrow { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; }
   button { font: 600 16px "Segoe UI", system-ui, sans-serif; letter-spacing: .12em; text-transform: uppercase; color: var(--ink); background: rgba(20,0,0,.6); border: 1px solid #6a1010; padding: 12px 26px; cursor: pointer; transition: all .15s; }
@@ -170,6 +172,7 @@
   <img id="titlePortrait" alt="">
   <h1>JOHN PORK</h1>
   <div class="tag">is calling. Don't pick up. Get out of his house.</div>
+  <div class="madeby">A game by <b>Piggot</b></div>
   <div id="loading">LOADING…</div>
   <div id="diffs" class="btnrow hidden">
     <button data-diff="easy">Easy<small>4 chances · slower</small></button>
