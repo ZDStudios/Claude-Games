@@ -57,6 +57,17 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--gold);outline-o
 .field label{font:600 13px var(--disp);color:var(--mute)}
 #name{width:100%;height:44px;background:rgba(255,255,255,.07);border:1px solid var(--line);border-radius:4px;color:var(--text);padding:0 14px;font:600 16px var(--disp)}
 #name:focus{border-color:var(--gold);outline:none}
+#lobby{align-items:center;padding:0 8vw}
+#lobby .col{width:min(430px,88vw);display:flex;flex-direction:column;gap:14px;align-items:flex-start}
+#lobby h2{font:700 clamp(40px,7vw,72px)/.95 var(--disp);font-style:italic;letter-spacing:-.03em}
+#lbCode{flex:1;min-width:0;height:36px;background:rgba(255,255,255,.07);border:1px solid var(--line);border-radius:4px;color:var(--text);padding:0 12px;font:700 15px var(--disp);letter-spacing:.18em;text-transform:uppercase}
+#lbCode:focus{border-color:var(--gold);outline:none}
+#lbStatus{font:600 14px/1.4 var(--disp);color:var(--mute);max-width:40ch}
+#lbRoomCode{font:700 34px var(--num);letter-spacing:.16em;color:var(--gold)}
+#lbPlayers{width:100%;display:flex;flex-direction:column;gap:4px}
+#lbPlayers .pr{display:flex;justify-content:space-between;gap:10px;padding:8px 12px;background:rgba(255,255,255,.07);border-left:3px solid var(--line);border-radius:3px;font:600 14px var(--disp)}
+#lbPlayers .pr small{color:var(--mute);font-weight:500}
+#lbPlayers .pr.r{border-left-color:var(--red)}#lbPlayers .pr.b{border-left-color:var(--blue)}
 .stack{display:flex;flex-direction:column;gap:8px;margin-top:8px}
 .stack .row{display:flex;gap:8px}
 #coinchip{position:fixed;top:calc(16px + var(--safe-t));right:20px;z-index:25;background:rgba(9,11,22,.72);border:1px solid var(--line);padding:8px 16px;border-radius:4px;font:700 17px var(--num);letter-spacing:.02em;color:var(--gold)}
@@ -310,6 +321,7 @@ input[type=range]::-moz-range-thumb{width:16px;height:16px;background:var(--gold
       <button class="mapPick" id="bMap"><span id="mapPickName">Neon Yard</span><small id="mapPickTag">Balanced</small></button></div>
     <div class="stack">
       <button class="btn primary" id="bPlay">Play</button>
+      <button class="btn" id="bOnline">Play online</button>
       <div class="row"><button class="btn sm" id="bShop">Shop</button><button class="btn sm" id="bSet">Settings</button><button class="btn sm" id="bKeys">Controls</button></div>
     </div>
     <p id="lockwarn" class="hidden"></p>
@@ -333,6 +345,26 @@ input[type=range]::-moz-range-thumb{width:16px;height:16px;background:var(--gold
   <button class="half blue" id="tBlue"><h2>GLACIER</h2><p>Hold your angles and win the long fights.</p><span class="go">Join Glacier</span></button>
   <div class="hd">Pick a side</div>
   <button class="btn sm back" id="tBack">Back</button>
+</section>
+
+<!-- ONLINE LOBBY -->
+<section id="lobby" class="screen scrim hidden">
+  <div class="col">
+    <h2>ONLINE</h2>
+    <p id="lbStatus">Connecting...</p>
+    <div id="lbEntry" class="stack hidden" style="width:100%">
+      <button class="btn primary" id="lbQuick">Quick play</button>
+      <button class="btn" id="lbCreate">Create room</button>
+      <div class="row"><input id="lbCode" maxlength="6" placeholder="ROOM CODE" autocomplete="off" spellcheck="false"><button class="btn sm" id="lbJoin">Join</button></div>
+    </div>
+    <div id="lbRoom" class="stack hidden" style="width:100%">
+      <div class="field"><label>Room code (share it)</label><b id="lbRoomCode"></b></div>
+      <div id="lbPlayers"></div>
+      <button class="btn primary" id="lbStart">Start match</button>
+      <p id="lbHint" class="tag"></p>
+    </div>
+    <button class="btn sm" id="lbBack">Back</button>
+  </div>
 </section>
 
 <!-- SHOP -->
@@ -461,6 +493,7 @@ input[type=range]::-moz-range-thumb{width:16px;height:16px;background:var(--gold
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://mp.zdstudios.network/sdk.js"></script>
 <script>
 'use strict';
 /* ================================================================
@@ -2181,12 +2214,12 @@ function fireShot(f, dx, dy, dz, spread) {
   const w = WEAPONS[f.wp], ox = f.x, oy = f.y + (f.isPlayer ? EYE : 1.6), oz = f.z;
   const fx = -Math.sin(f.yaw), fz = -Math.cos(f.yaw), rx = Math.cos(f.yaw), rz = -Math.sin(f.yaw);
   const vx = ox + fx * .65 + rx * .2, vy = oy - .17, vz = oz + fz * .65 + rz * .2;
-  let hitAny = false, hex = tracerHex(f);
+  let hitAny = false, hex = tracerHex(f); const ends = [];
   for (let p = 0; p < w.pellets; p++) {
     const d = perturb(dx, dy, dz, spread);
     const h = castRay(ox, oy, oz, d[0], d[1], d[2], w.range, f);
     const ex = ox + d[0] * h.t, ey = oy + d[1] * h.t, ez = oz + d[2] * h.t;
-    FX.tracer(vx, vy, vz, ex, ey, ez, hex);
+    FX.tracer(vx, vy, vz, ex, ey, ez, hex); if (f.isPlayer && M.online) ends.push([+ex.toFixed(2), +ey.toFixed(2), +ez.toFixed(2)]);
     if (!f.isPlayer && !M.attract && P && P.alive && P.team !== f.team && h.f !== P && P.whizT <= 0) {   // bullets cracking past your head
       const px = P.x - ox, py = P.y + 1.6 - oy, pz = P.z - oz, proj = px * d[0] + py * d[1] + pz * d[2];
       if (proj > 4 && proj < h.t + 3) {
@@ -2210,7 +2243,7 @@ function fireShot(f, dx, dy, dz, spread) {
       FX.sparks(ex, ey, ez, h.nx, h.ny, h.nz, 0xffd27a, 4, 3.5); FX.decal(ex, ey, ez, h.nx, h.ny, h.nz);
     }
   }
-  if (f.isPlayer) { f.shots++; if (hitAny) f.hits++; }
+  if (f.isPlayer) { f.shots++; if (hitAny) f.hits++; if (M.online) NET.sendShot(f, ends); }
   // sound and flash
   if (f.isPlayer) { Sfx.shot(f.wp, 1, 0); VM.flashT = 0.05; VM.flash.material.rotation = Math.random() * 6; FX.flash(ox + fx * 1.2, oy - .1, oz + fz * 1.2); }
   else { if (!M.attract) { const sp = Sfx.spatial(f.x, f.z); Sfx.shot(f.wp, sp.vol * .9, sp.pan); } f.model.flashT = 0.05; f.revealT = 1.1; }
@@ -2218,7 +2251,15 @@ function fireShot(f, dx, dy, dz, spread) {
 }
 function applyDamage(t, dmg, att, head, px, py, pz, cause) {
   if (!t.alive || t.spawnProt > 0) return;
-  dmg = Math.max(1, Math.round(dmg)); t.hp -= dmg; t.regenT = 5; t.model.flash = 1; if (t.hp > 0) t.model.flinch = 1;
+  dmg = Math.max(1, Math.round(dmg));
+  if (t.isRemote) {   // remote players take damage on their own client; the shooter just reports bullet hits
+    if (att && att.isPlayer) {
+      UI.hitmarker(head ? 'hs' : ''); UI.dmgNumber(px, py, pz, dmg, head); Sfx.hit(head); att.dmgDealt += dmg;
+      if (cause !== 'gren' && !(WEAPONS[cause] && WEAPONS[cause].splash)) NET.sendHit(t, dmg, head, cause);
+    }
+    return;
+  }
+  t.hp -= dmg; t.regenT = 5; t.model.flash = 1; if (t.hp > 0) t.model.flinch = 1;
   if (att && att.isPlayer && att !== t) { att.dmgDealt += dmg; UI.hitmarker(t.hp <= 0 ? 'kl' : head ? 'hs' : ''); UI.dmgNumber(px, py, pz, dmg, head); Sfx.hit(head); }
   if (t.isPlayer) { UI.hurt(att, dmg); Sfx.hurt(); t.shake = Math.min(1, (t.shake || 0) + dmg / 60); }
   else if (att && att !== t) botAlert(t, att);
@@ -2227,6 +2268,7 @@ function applyDamage(t, dmg, att, head, px, py, pz, cause) {
 let hitstopT = 0;
 function killFighter(v, k, head, cause) {
   if (!v.alive) return;
+  if (M.online && v.isPlayer) NET.sendKill(k, head, cause);
   v.alive = false; v.hp = 0; v.deaths++; v.streak = 0; v.deadT = 0; v.respawnT = v.isPlayer ? 3.2 : 3.6; v.killer = k; v.model.flashT = 0; v.model.flinch = 0;
   const blast = cause === 'gren' || cause === 'wp9';
   v.model.deathType = head ? 'head' : (blast ? 'blast' : 'body');
@@ -2380,7 +2422,7 @@ function cycleWeapon(dir) {
 function playerGrenade() {
   if (!P || !P.alive || M.phase !== 'play' || P.gren <= 0 || P.nadeCd > 0) return;
   const d = aimDir(P.yaw + P.recoilYaw, P.pitch + P.recoil + 0.16);
-  throwGrenade(P, d[0], d[1], d[2], 16); P.gren--; P.nadeCd = 0.9; Sfx.grenPin(); UI.hudAmmo(true);
+  throwGrenade(P, d[0], d[1], d[2], 16); if (M.online) NET.sendGren(d, 16); P.gren--; P.nadeCd = 0.9; Sfx.grenPin(); UI.hudAmmo(true);
 }
 function playerEmote() {
   if (!P || !P.alive || M.phase !== 'play' || P.emoteCd > 0) return;
@@ -2714,7 +2756,7 @@ function switchMap(id) {
 }
 function startAttract() {
   clearMatch(); resetPickups();
-  M.attract = true; M.phase = 'menu'; M.paused = false; M.score.red = M.score.blue = 0; M.diff = DIFFS[1]; M.t = 0;
+  M.attract = true; M.online = false; M.phase = 'menu'; M.paused = false; M.score.red = M.score.blue = 0; M.diff = DIFFS[1]; M.t = 0;
   const names = botNames(); makeBots('red', 4, names); makeBots('blue', 4, names);
   FIGHTERS.forEach(f => f.model.setTag(null));
 }
@@ -2769,7 +2811,7 @@ function endMatch(winner) {
     outcome: outcome, team: M.team, score: M.score, mapName: CUR_MAP.name,
     stats: { kills: P.kills, deaths: P.deaths, acc: cs, heads: P.heads, streak: P.bestStreak },
     earn: [['Kills (' + M.earn.kills + ')', kc], ['Headshots (' + M.earn.heads + ')', hc], [outcome === 'win' ? 'Victory bonus' : outcome === 'draw' ? 'Draw bonus' : 'Participation', rc]],
-    total: total, diff: M.diff.name, records: RECORDS[SET.map], broke: broke
+    total: total, diff: M.diff.name, online: M.online, records: RECORDS[SET.map], broke: broke
   });
 }
 
@@ -2788,7 +2830,7 @@ function updateSpotting(dt) {
 
 function stepGame(dt) {
   dt = Math.min(dt, 0.05);
-  if (M.paused) return;
+  if (M.paused && !M.online) return;
   M.t += dt; PATH_BUDGET = 2;
   if (M.phase === 'menu' && M.shopOpen) return;
   if (orbGroup) orbGroup.rotation.y += dt * 0.6;
@@ -2798,11 +2840,12 @@ function stepGame(dt) {
     FX.update(dt); updateCamera(dt); updateViewmodel(dt); return;
   }
   if (M.phase === 'countdown') {
-    M.cd -= dt; const n = Math.ceil(M.cd);
+    if (M.online) M.cd = (M.startAt - mp.serverTime()) / 1000; else M.cd -= dt;
+    const n = Math.ceil(M.cd);
     if (n !== M.lastN && n > 0) { M.lastN = n; UI.countdown(String(n)); Sfx.beep(false); }
     if (M.cd <= 0) { M.phase = 'play'; UI.countdown('GO'); Sfx.beep(true); }
   } else if (M.phase === 'play') {
-    M.clock -= dt;
+    if (M.online) M.clock = (M.endsAt - mp.serverTime()) / 1000; else M.clock -= dt;
     const sec = Math.ceil(M.clock);
     if (M.clock <= 10 && sec !== M.lastBeep && sec > 0 && !M.sudden) { M.lastBeep = sec; Sfx.beep(false); }
     if (M.clock <= 0 && !M.sudden) {
@@ -2815,6 +2858,7 @@ function stepGame(dt) {
 
   if (P) { if (!P.alive) updateDeathCam(dt); else if (P.botMode) updateBot(P, dt); else updatePlayer(dt); }
   for (let i = 0; i < FIGHTERS.length; i++) { const f = FIGHTERS[i]; if (f.ai && !f.isPlayer) updateBot(f, dt); }
+  if (M.online) NET.frame(dt);
   updateGrenades(dt); updatePickups(dt); separate(); updateSpotting(dt);
   for (let i = 0; i < FIGHTERS.length; i++) {
     const f = FIGHTERS[i], m = f.model;
@@ -2840,7 +2884,7 @@ const UI = (function () {
   function show(id, on) { q(id).classList.toggle('hidden', !on); }
 
   /* ---------- screens ---------- */
-  function screen(name) { ['menu', 'teams', 'shop', 'maps'].forEach(s => show(s, s === name)); show('coinchip', name === 'menu'); refreshCoins(); }
+  function screen(name) { ['menu', 'teams', 'shop', 'maps', 'lobby'].forEach(s => show(s, s === name)); show('coinchip', name === 'menu'); refreshCoins(); }
   function refreshCoins() { setText('coinval', String(SAVE.coins)); setText('shopCoins', String(SAVE.coins)); }
   function modal(id, on) { show(id, on); }
 
@@ -3023,7 +3067,7 @@ const UI = (function () {
     const t = q('rTitle'); t.textContent = r.outcome === 'win' ? 'VICTORY' : r.outcome === 'draw' ? 'DRAW' : 'DEFEAT';
     t.style.color = r.outcome === 'win' ? TEAM[r.team].css : r.outcome === 'draw' ? '#eef1fa' : '#95a0c4';
     const oth = other(r.team);
-    q('rSub').textContent = TEAM[r.team].name + ' ' + r.score[r.team] + ' to ' + r.score[oth] + ' ' + TEAM[oth].name + ' \u00b7 ' + r.diff + ' bots \u00b7 ' + r.mapName;
+    q('rSub').textContent = TEAM[r.team].name + ' ' + r.score[r.team] + ' to ' + r.score[oth] + ' ' + TEAM[oth].name + ' · ' + (r.online ? 'Online' : r.diff + ' bots') + ' · ' + r.mapName;
     q('rK').textContent = r.stats.kills; q('rD').textContent = r.stats.deaths; q('rA').textContent = r.stats.acc + '%'; q('rH').textContent = r.stats.heads; q('rS').textContent = r.stats.streak;
     q('rSc').textContent = r.score.red + '-' + r.score.blue;
     q('rEarn').innerHTML = r.earn.map(e => '<div><span>' + esc(e[0]) + '</span><span>+' + e[1] + '</span></div>').join('') + '<div class="tot"><span>Coins earned</span><span><span class="coin"></span>' + r.total + '</span></div>';
@@ -3208,6 +3252,204 @@ const Shop = (function () {
 })();
 
 /* ================================================================
+   Online — multiplayer via the ZD Studios server.
+   Sync pattern: client-authoritative. Each client owns its own player (position streamed with setPlayer at 20 Hz),
+   shooters report bullet hits to the victim, the victim applies damage and broadcasts its death, and every client
+   tallies score from those kill events. Room state only carries the match descriptor (teams, map, server-time clock).
+   ================================================================ */
+const MP_CFG = { url: 'https://mp.zdstudios.network', key: 'pk_S5QSUylQmzVfjdaVVH9C591T' };
+let mp = null;
+const NET = (function () {
+  let wired = false, curId = null, sendT = 0, lastSent = '', leaving = false;
+  const num = v => typeof v === 'number' && isFinite(v);
+  const r2 = v => Math.round(v * 100) / 100;
+  const rem = id => { for (let i = 0; i < FIGHTERS.length; i++) if (FIGHTERS[i].isRemote && FIGHTERS[i].netId === id) return FIGHTERS[i]; return null; };
+  const status = t => { $('lbStatus').textContent = t; };
+  const view = v => { UI.show('lbEntry', v === 'entry'); UI.show('lbRoom', v === 'room'); };
+  const lobbyOpen = () => !$('lobby').classList.contains('hidden');
+  const errText = e => (e && (e.message || e.code)) || 'unknown error';
+
+  function refresh() {
+    if (!mp || !lobbyOpen()) return;
+    if (!mp.connected) { view(''); return; }
+    if (!mp.room) { view('entry'); status('Connected as ' + mp.name + '. Quick play, or create / join a private room.'); return; }
+    view('room'); $('lbRoomCode').textContent = mp.room.id;
+    const box = $('lbPlayers'); box.innerHTML = '';
+    mp.playerList.slice().sort((a, b) => a.joined - b.joined).forEach(p => {
+      const d = document.createElement('div'); d.className = 'pr';
+      const n = document.createElement('span'); n.textContent = p.name + (p.id === mp.playerId ? ' (you)' : '');
+      const s = document.createElement('small'); s.textContent = (p.id === mp.room.host ? 'Host' : '') + (p.connected ? '' : ' reconnecting');
+      d.appendChild(n); d.appendChild(s); box.appendChild(d);
+    });
+    const n = mp.playerList.length, st = $('lbStart');
+    st.classList.toggle('hidden', !mp.isHost); st.disabled = n < 2;
+    status(n + ' / ' + (mp.room.maxPlayers || 8) + ' players');
+    $('lbHint').textContent = mp.isHost ? (n < 2 ? 'Share the code. You need at least 2 players.' : 'Teams are split automatically. Map: ' + MAPS[SET.map].name + '.') : 'Waiting for the host to start...';
+  }
+
+  function wire() {
+    if (wired) return; wired = true;
+    mp.on('joined', () => { mp.setPlayer({ av: SAVE.eqp.av, sk: SAVE.eqp.sk, tr: SAVE.eqp.tr }); refresh(); });
+    ['playerJoined', 'roomUpdated', 'host', 'playerConnection', 'connected', 'reconnected'].forEach(e => mp.on(e, refresh));
+    mp.on('playerLeft', p => { if (M.online) removeRemote(p); refresh(); });
+    mp.on('disconnected', () => { if (lobbyOpen()) { status('Disconnected from server.'); view(''); } else if (M.online) UI.toast('Connection lost. Reconnecting...'); });
+    mp.on('reconnecting', () => { if (lobbyOpen()) status('Reconnecting...'); });
+    mp.on('error', e => { if (e && e.code !== 'rate_limited') UI.toast('Network: ' + errText(e)); });
+    mp.on('left', (room, reason) => {
+      if (leaving) return;
+      if (M.online) { abort('You were removed from the room (' + reason + ').'); return; }
+      refresh();
+    });
+    mp.on('state:match', onMatch);
+
+    mp.onMessage('shot', (d, from) => {
+      const f = rem(from); if (!M.online || !f || !f.alive || !d || !WEAPONS[d.w] || !Array.isArray(d.e)) return;
+      const w = WEAPONS[d.w], ox = f.x, oy = f.y + 1.6, oz = f.z, fx = -Math.sin(f.yaw), fz = -Math.cos(f.yaw), rx = Math.cos(f.yaw), rz = -Math.sin(f.yaw);
+      const vx = ox + fx * .65 + rx * .2, vy = oy - .17, vz = oz + fz * .65 + rz * .2, hex = tracerHex(f);
+      d.e.slice(0, 16).forEach(e => {
+        if (!Array.isArray(e) || !num(e[0]) || !num(e[1]) || !num(e[2])) return;
+        FX.tracer(vx, vy, vz, e[0], e[1], e[2], hex);
+        if (w.splash) {
+          FX.explosion(e[0], e[1], e[2]); const sp = Sfx.spatial(e[0], e[2]); Sfx.boom(Math.max(.4, sp.vol), sp.pan);
+          f._splashWp = d.w; splashDamage(e[0], e[1], e[2], w.splash.r, w.splash.dmg, f, 0.5); f._splashWp = null;
+          if (P && P.alive) { const dd = Math.hypot(P.x - e[0], P.z - e[2]); if (dd < w.splash.r * 2.2) P.shake = Math.min(1.2, (P.shake || 0) + (1 - dd / (w.splash.r * 2.2)) * 0.8); }
+        } else if (!w.pellets || w.pellets === 1) FX.sparks(e[0], e[1], e[2], -fx, 0.3, -fz, 0xffd27a, 3, 3);
+      });
+      const sp = Sfx.spatial(f.x, f.z); Sfx.shot(d.w, sp.vol * .9, sp.pan); f.model.flashT = 0.05; f.revealT = 1.1;
+      FX.smoke(ox + fx * 1.2, oy - .08, oz + fz * 1.2, fx * .5, fz * .5);
+    });
+    mp.onMessage('hit', (d, from) => {
+      const att = rem(from); if (!M.online || !att || !P || !P.alive || M.phase !== 'play' || !d || !num(d.d)) return;
+      applyDamage(P, clamp(d.d, 1, 250), att, !!d.h, P.x, P.y + 1.4, P.z, WEAPONS[d.c] ? d.c : 'wp0');
+    });
+    mp.onMessage('kill', (d, from) => {
+      const v = rem(from); if (!M.online || !v || !v.alive || !d) return;
+      const k = d.k === mp.playerId ? P : (d.k ? rem(d.k) : null);
+      killFighter(v, k, !!d.h, WEAPONS[d.c] || d.c === 'gren' ? d.c : 'wp0');
+    });
+    mp.onMessage('gren', (d, from) => {
+      const f = rem(from); if (!M.online || !f || !f.alive || !d || !Array.isArray(d.d) || !d.d.every(num)) return;
+      throwGrenade(f, d.d[0], d.d[1], d.d[2], 16);
+    });
+  }
+
+  function open() {
+    UI.screen('lobby'); view('');
+    if (typeof Multiplayer === 'undefined') { status('The multiplayer SDK could not be loaded. Check your connection.'); return; }
+    if (!mp) { mp = new Multiplayer({ url: MP_CFG.url, key: MP_CFG.key, name: SAVE.name, identity: 'tab' }); wire(); }
+    if (mp.connected) { if (mp.name !== SAVE.name) mp.setName(SAVE.name).catch(() => {}); refresh(); return; }
+    status('Connecting...');
+    mp.connect().then(() => { if (mp.name !== SAVE.name) mp.setName(SAVE.name).catch(() => {}); refresh(); })
+      .catch(e => { status('Could not connect: ' + errText(e)); view(''); });
+  }
+  const opts = () => ({ maxPlayers: 8, meta: { game: 'rivals' }, playerData: { av: SAVE.eqp.av, sk: SAVE.eqp.sk, tr: SAVE.eqp.tr } });
+  const guard = p => { view(''); status('Working...'); return p.catch(e => { status(errText(e)); view('entry'); }).then(refresh); };
+  function quick() { if (mp && mp.connected) guard(mp.quickJoin('rivals', opts())); }
+  function create() { if (mp && mp.connected) guard(mp.create(opts())); }
+  function joinCode(c) { c = String(c || '').trim().toUpperCase(); if (!c || !mp || !mp.connected) return; guard(mp.join(c, Object.assign(opts(), { mustExist: true }))); }
+
+  function start() {
+    if (!mp || !mp.isHost || mp.playerList.length < 2) return;
+    const ps = mp.playerList.filter(p => p.connected).sort((a, b) => a.joined - b.joined), teams = {};
+    const first = Math.random() < .5 ? 'red' : 'blue';
+    ps.forEach((p, i) => { teams[p.id] = i % 2 ? other(first) : first; });
+    const startAt = Math.round(mp.serverTime()) + 4000;
+    $('lbStart').disabled = true;
+    mp.updateRoom({ locked: true }).catch(() => {}).then(() => mp.setState('match', { id: startAt, startAt: startAt, endsAt: startAt + MATCH_SECS * 1000, map: SET.map, teams: teams }))
+      .catch(e => { UI.toast('Could not start: ' + errText(e)); refresh(); });
+  }
+
+  function onMatch(m) {
+    if (!m || m.id === curId || !m.teams || !m.teams[mp.playerId] || !MAPS[m.map]) return;
+    curId = m.id;
+    Sfx.init();
+    if (CUR_MAP !== MAPS[m.map]) { loadMap(m.map); buildPickups(); }
+    startOnlineMatch(m);
+  }
+
+  function startOnlineMatch(m) {
+    clearMatch(); resetPickups();
+    M.attract = false; M.online = true; M.team = m.teams[mp.playerId]; M.phase = 'countdown'; M.startAt = m.startAt; M.endsAt = m.endsAt;
+    M.cd = (m.startAt - mp.serverTime()) / 1000; M.lastN = -1; M.clock = MATCH_SECS; M.sudden = false; M.paused = false; M.lastBeep = -1;
+    M.score.red = M.score.blue = 0; M.winner = null; M.earn = { kills: 0, heads: 0 }; M.multi = 0; M.multiT = 0; M.diff = DIFFS[1]; M.t = 0; M.firstBlood = false; M.matchPointCalled = false; hitstopT = 0;
+    ['results', 'settings', 'keys', 'pause'].forEach(i => UI.show(i, false));
+    P = makeFighter({ name: SAVE.name, team: M.team, isPlayer: true, av: SAVE.eqp.av, sk: SAVE.eqp.sk, tracer: SAVE.eqp.tr });
+    P.netId = mp.playerId; initPlayerState(P); P.diff = M.diff; respawn(P);
+    Object.keys(m.teams).forEach(id => {
+      if (id === mp.playerId) return;
+      const pl = mp.players.get(id); if (!pl) return;
+      const d = pl.data || {};
+      const f = makeFighter({ name: String(pl.name || 'Player').slice(0, 16), team: m.teams[id], av: AV[d.av] ? d.av : Object.keys(AV)[0], sk: /^sk\d$/.test(d.sk) ? d.sk : 'sk0', tracer: /^tr\d$/.test(d.tr) ? d.tr : 'tr0' });
+      f.ai = null; f.isRemote = true; f.netId = id; f.alive = false; f.deadT = 9; f.model.root.visible = false;
+    });
+    FIGHTERS.forEach(f => { f.diff = M.diff; if (!f.isPlayer && f.team === M.team) f.model.setTag(f.name); });
+    P.model.setGun(P.wp);
+    INPUT.fire = false; INPUT.ads = false; VM.ads = 0; lastSent = ''; sendT = 0;
+    UI.matchStarted(); $('rAgain').textContent = 'Back to lobby';
+    $('cdsub').textContent = 'You are on ' + TEAM[M.team].name + '. First to ' + WIN_SCORE + ' kills. Click the game to capture the mouse.';
+  }
+
+  function removeRemote(p) {
+    const f = rem(p.id); if (!f) return;
+    scene.remove(f.model.root); disposeModel(f.model); FIGHTERS.splice(FIGHTERS.indexOf(f), 1);
+    UI.toast(p.name + ' left the match');
+    if (M.phase === 'play' && !FIGHTERS.some(x => x.team !== M.team)) endMatch(M.team);
+  }
+
+  /* per-frame: interpolate remote players, stream mine at 20 Hz */
+  function frame(dt) {
+    for (let i = 0; i < FIGHTERS.length; i++) {
+      const f = FIGHTERS[i]; if (!f.isRemote) continue;
+      const pl = mp.players.get(f.netId), d = pl && pl.data;
+      if (!d || !num(d.x) || !num(d.z)) continue;
+      f.spawnProt = Math.max(0, f.spawnProt - dt);
+      if (!f.alive) {
+        f.deadT += dt;
+        if (d.al && f.deadT > 0.6) {
+          f.alive = true; f.hp = 100; f.spawnProt = 2.2; f.x = d.x; f.y = d.y || 0; f.z = d.z; f.yaw = d.yaw || 0; f.pitch = d.p || 0; f.deadT = 0; f.speed = 0;
+          if (WEAPONS[d.wp]) f.wp = d.wp; f.model.setGun(f.wp); f.model.flash = 0; f.model.flinch = 0;
+        }
+        continue;
+      }
+      const k = 1 - Math.exp(-16 * dt), ox = f.x, oz = f.z;
+      if (Math.hypot(d.x - f.x, d.z - f.z) > 8) { f.x = d.x; f.z = d.z; } else { f.x += (d.x - f.x) * k; f.z += (d.z - f.z) * k; }
+      f.y += ((d.y || 0) - f.y) * k; f.yaw += angDiff(f.yaw, d.yaw || 0) * k; f.pitch += ((d.p || 0) - f.pitch) * k;
+      f.speed += (Math.hypot(f.x - ox, f.z - oz) / Math.max(dt, 1e-3) - f.speed) * Math.min(1, dt * 10);
+      f.onGround = d.og !== 0;
+      if (d.wp !== f.wp && WEAPONS[d.wp]) { f.wp = d.wp; f.model.setGun(f.wp); }
+    }
+    sendT -= dt;
+    if (sendT <= 0 && P && mp && mp.connected && mp.room) {
+      sendT = 0.05;
+      const o = { x: r2(P.x), y: r2(P.y), z: r2(P.z), yaw: Math.round(P.yaw * 1000) / 1000, p: Math.round(P.pitch * 1000) / 1000, og: P.onGround ? 1 : 0, wp: P.wp, al: P.alive ? 1 : 0 };
+      const s = JSON.stringify(o);
+      if (s !== lastSent) { lastSent = s; mp.setPlayer(o); }
+    }
+  }
+
+  const sendHit = (t, dmg, head, cause) => { if (mp && mp.connected) mp.send('hit', { d: dmg, h: head ? 1 : 0, c: cause }, t.netId); };
+  const sendKill = (k, head, cause) => { if (mp && mp.connected) mp.send('kill', { k: k && k !== P ? k.netId : null, h: head ? 1 : 0, c: cause }); };
+  const sendShot = (f, ends) => { if (mp && mp.connected) mp.send('shot', { w: f.wp, e: ends }); };
+  const sendGren = (d, speed) => { if (mp && mp.connected) mp.send('gren', { d: [r2(d[0]), r2(d[1]), r2(d[2])], s: speed }); };
+
+  function restoreMap() { if (CUR_MAP !== MAPS[SET.map]) { loadMap(SET.map); buildPickups(); startAttract(); } }
+  function leaveRoom() {
+    leaving = true; curId = null; M.online = false; $('rAgain').textContent = 'Play again';
+    const p = mp && mp.room ? mp.leave() : null;
+    (p ? p.catch(() => {}) : Promise.resolve()).then(() => { leaving = false; });
+    restoreMap();
+  }
+  function abort(msg) { M.online = false; $('rAgain').textContent = 'Play again'; restoreMap(); quitMatch(); UI.toMenu(); UI.toast(msg); }
+  function backToLobby() {
+    M.online = false; $('rAgain').textContent = 'Play again';
+    quitMatch(); UI.toMenu(); UI.screen('lobby');
+    if (mp && mp.isHost && mp.room) { mp.deleteState('match').catch(() => {}); mp.updateRoom({ locked: false }).catch(() => {}); }
+    refresh();
+  }
+  return { open, quick, create, joinCode, start, frame, sendHit, sendKill, sendShot, sendGren, leaveRoom, backToLobby };
+})();
+
+/* ================================================================
    Main — input wiring, pointer lock, boot, loop
    ================================================================ */
 (function () {
@@ -3243,19 +3485,20 @@ const Shop = (function () {
 
   function pause() {
     if (!inMatch() || M.paused) return;
-    M.paused = true; INPUT.fire = false; INPUT.ads = false; UI.board(false); UI.pause(true);
+    M.paused = true; INPUT.fire = false; INPUT.ads = false; if (M.online) for (const k in KEYS) KEYS[k] = false; UI.board(false); UI.pause(true);
     if (locked() && document.exitPointerLock) document.exitPointerLock();
   }
   function resume() { UI.pause(false); M.paused = false; requestLock(); }
   function leaveMatch() {
     M.paused = false; ['pause', 'settings', 'keys'].forEach(i => UI.show(i, false));
     if (document.exitPointerLock) document.exitPointerLock();
+    if (M.online) NET.leaveRoom();
     quitMatch(); UI.toMenu();
   }
   function begin(team) { Sfx.init(); if (document.activeElement && document.activeElement.blur) document.activeElement.blur(); startMatch(team); requestLock(); }
   let iPresses = [];
   function toggleBotMode() {
-    if (!P) return;
+    if (!P || M.online) return;
     P.botMode = !P.botMode;
     INPUT.fire = false; INPUT.ads = false; VM.ads = 0; P.wasScoped = false; P.holding = false; P.swayYaw = P.swayPitch = 0; UI.scope(false);
     UI.toast(P.botMode ? 'Bot mode: ON' : 'Bot mode: OFF'); UI.aimbotTag(P.botMode); Sfx.click();
@@ -3279,8 +3522,15 @@ const Shop = (function () {
   $('pSet').onclick = () => { UI.syncSettings(); UI.modal('settings', true); };
   $('pKeys').onclick = () => UI.modal('keys', true);
   $('pQuit').onclick = leaveMatch;
-  $('rAgain').onclick = () => begin(M.team);
-  $('rMenu').onclick = () => { Sfx.click(); quitMatch(); UI.toMenu(); };
+  $('rAgain').onclick = () => { if (M.online) { Sfx.click(); NET.backToLobby(); } else begin(M.team); };
+  $('rMenu').onclick = () => { Sfx.click(); if (M.online) NET.leaveRoom(); quitMatch(); UI.toMenu(); };
+  $('bOnline').onclick = () => { Sfx.init(); Sfx.click(); NET.open(); };
+  $('lbBack').onclick = () => { Sfx.click(); NET.leaveRoom(); UI.screen('menu'); };
+  $('lbQuick').onclick = () => { Sfx.click(); NET.quick(); };
+  $('lbCreate').onclick = () => { Sfx.click(); NET.create(); };
+  $('lbJoin').onclick = () => { Sfx.click(); NET.joinCode($('lbCode').value); };
+  $('lbCode').addEventListener('keydown', e => { if (e.key === 'Enter') $('lbJoin').click(); });
+  $('lbStart').onclick = () => { Sfx.click(); NET.start(); };
 
   document.addEventListener('pointerdown', () => Sfx.init());
   document.addEventListener('mouseover', e => { const t = e.target; if (t && t.closest && t.closest('.btn,.it,.tab,.seg button,.half')) Sfx.hover(); });
