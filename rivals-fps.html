@@ -493,7 +493,6 @@ input[type=range]::-moz-range-thumb{width:16px;height:16px;background:var(--gold
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-<script src="https://mp.zdstudios.network/sdk.js"></script>
 <script>
 'use strict';
 /* ================================================================
@@ -3333,9 +3332,29 @@ const NET = (function () {
     });
   }
 
+  // The SDK is loaded on demand (not at page load) so a slow or sleeping server can be retried,
+  // and so we can try both places the server may serve it from.
+  let sdkP = null;
+  function loadSdk() {
+    if (typeof Multiplayer !== 'undefined') return Promise.resolve();
+    if (sdkP) return sdkP;
+    const urls = [MP_CFG.url + '/sdk.js', MP_CFG.url + '/client/multiplayer.js'], fails = [];
+    const tryOne = i => new Promise((res, rej) => {
+      const s = document.createElement('script'); s.src = urls[i] + '?t=' + Date.now(); s.async = true;
+      s.onload = () => typeof Multiplayer !== 'undefined' ? res() : rej(new Error('loaded but defined no Multiplayer'));
+      s.onerror = () => { s.remove(); rej(new Error('could not fetch ' + urls[i])); };
+      document.head.appendChild(s);
+    }).catch(e => { fails.push(e.message); if (i + 1 < urls.length) return tryOne(i + 1); throw new Error(fails.join('; ')); });
+    sdkP = tryOne(0).catch(e => { sdkP = null; throw e; });
+    return sdkP;
+  }
+
   function open() {
     UI.screen('lobby'); view('');
-    if (typeof Multiplayer === 'undefined') { status('The multiplayer SDK could not be loaded. Check your connection.'); return; }
+    status('Loading multiplayer...');
+    loadSdk().then(connectNow).catch(e => status('The multiplayer SDK could not be loaded (' + errText(e) + '). The server may be asleep or offline - wait a few seconds and press Back, then Online again.'));
+  }
+  function connectNow() {
     if (!mp) { mp = new Multiplayer({ url: MP_CFG.url, key: MP_CFG.key, name: SAVE.name, identity: 'tab' }); wire(); }
     if (mp.connected) { if (mp.name !== SAVE.name) mp.setName(SAVE.name).catch(() => {}); refresh(); return; }
     status('Connecting...');
