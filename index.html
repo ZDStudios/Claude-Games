@@ -375,10 +375,47 @@
     .wrap{ padding: 38px 16px 60px; }
     h1.title{ -webkit-text-stroke: 2px var(--ink); text-shadow: 4px 4px 0 var(--ink); }
   }
+
+  /* ===== HALLOWEEN THEME (delete this block to go back to the normal look) ===== */
+  :root{
+    --bg-1:#2A0A45; --bg-2:#120420;
+    --ink:#0E0618; --panel:#FFF1DC; --panel-edge:#0E0618;
+    --accent-pink:#FF7A00; --accent-teal:#7CFF4F; --accent-blue:#B14CFF; --accent-purple:#8B2FD9;
+    --shadow-hard: 6px 6px 0 #FF7A00;
+    --shadow-hard-sm: 3px 3px 0 #FF7A00;
+  }
+  body{
+    background:
+      radial-gradient(circle at 50% -10%, rgba(255,122,0,0.35), transparent 45%),
+      radial-gradient(circle at 85% 90%, rgba(124,255,79,0.12), transparent 40%),
+      linear-gradient(180deg, var(--bg-1), var(--bg-2));
+    background-attachment:fixed;
+  }
+  .shape{display:none;}
+  .spook{position:fixed; z-index:0; pointer-events:none; font-size:44px; opacity:.22; animation:floatY 8s ease-in-out infinite; filter:drop-shadow(0 0 10px #FF7A00);}
+  .spook.a{top:10%; left:5%;} .spook.b{top:18%; right:6%; animation-delay:-2s; font-size:56px;}
+  .spook.c{top:60%; left:3%; animation-delay:-4s; font-size:52px;} .spook.d{top:72%; right:5%; animation-delay:-1s;}
+  .spook.e{top:40%; left:92%; animation-delay:-5s; font-size:36px;}
+  .web{position:fixed; top:0; z-index:0; pointer-events:none; font-size:120px; line-height:1; opacity:.25; color:#fff;}
+  .web.l{left:0;} .web.r{right:0; transform:scaleX(-1);}
+  h1.title{color:#FF8A1F !important; -webkit-text-stroke:2px var(--ink); text-shadow:4px 4px 0 #6B1FB1, 0 0 30px rgba(255,122,0,.55);}
+  .badge{background:#7CFF4F !important; color:var(--ink) !important;}
+  .section-head h2{color:#FF8A1F; -webkit-text-stroke:0; text-shadow:3px 3px 0 #6B1FB1, 0 0 22px rgba(255,122,0,.5);}
+  .device-note, .subtitle{background:var(--panel);}
+  .stat-pill{background:#6B1FB1; border-color:var(--ink);}
+  .card{box-shadow:6px 6px 0 #FF7A00;}
+  .card:hover{box-shadow:9px 9px 0 #7CFF4F; }
+  .play-btn{background:#FF7A00 !important; color:var(--ink) !important; box-shadow:3px 3px 0 #6B1FB1 !important;}
+  footer, footer a, footer p{color:#FFD9A8 !important;}
+  .candle{display:inline-block; animation:flick 1.4s ease-in-out infinite;}
+  @keyframes flick{0%,100%{opacity:1; transform:scale(1)} 50%{opacity:.75; transform:scale(1.15)}}
+  @media (prefers-reduced-motion: reduce){ .spook,.candle{animation:none !important;} }
 </style>
 </head>
 <body>
 
+<div class="spook a">🎃</div><div class="spook b">👻</div><div class="spook c">🦇</div><div class="spook d">🎃</div><div class="spook e">🕷️</div>
+<div class="web l">🕸️</div><div class="web r">🕸️</div>
 <div class="shape s1"></div>
 <div class="shape s2 circle"></div>
 <div class="shape s3"></div>
@@ -387,9 +424,9 @@
 <div class="wrap">
 
   <header class="hero">
-    <span class="badge">★ No installs · No accounts · Just play ★</span>
-    <h1 class="title">ZD STUDIOS<br>GAME LIBRARY</h1>
-    <p class="subtitle">A growing arcade of browser games — built scrappy, played instantly.</p>
+    <span class="badge">🎃 No installs · No accounts · Just play 🎃</span>
+    <h1 class="title">ZD STUDIOS<br>HALLOWEEN ARCADE</h1>
+    <p class="subtitle">A haunted arcade of browser games — play if you dare. 🦇</p>
     <div class="stat-row" id="statRow" hidden>
       <div class="stat-pill">🎮 <strong id="gameCount">0</strong> games live</div>
       <div class="stat-pill">⚡ 100% browser-based</div>
