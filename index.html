@@ -410,6 +410,26 @@
   .candle{display:inline-block; animation:flick 1.4s ease-in-out infinite;}
   @keyframes flick{0%,100%{opacity:1; transform:scale(1)} 50%{opacity:.75; transform:scale(1.15)}}
   @media (prefers-reduced-motion: reduce){ .spook,.candle{animation:none !important;} }
+
+  /* ===== GAME IDEA BOX ===== */
+  .idea-fab{position:fixed; right:18px; bottom:18px; z-index:50; cursor:pointer; font-family:var(--font-display); font-size:1rem; letter-spacing:.02em;
+    background:#7CFF4F; color:var(--ink); border:3px solid var(--ink); border-radius:999px; padding:12px 18px; box-shadow:4px 4px 0 #6B1FB1;}
+  .idea-fab:hover{transform:translate(-1px,-1px); box-shadow:6px 6px 0 #6B1FB1;}
+  .idea-modal{position:fixed; inset:0; z-index:100; display:none; align-items:center; justify-content:center; padding:16px; background:rgba(8,2,16,.78);}
+  .idea-modal.open{display:flex;}
+  .idea-box{width:100%; max-width:480px; background:var(--panel); color:var(--ink); border:4px solid var(--ink); border-radius:22px; box-shadow:8px 8px 0 #FF7A00; padding:22px; max-height:92vh; overflow:auto;}
+  .idea-box h3{font-family:var(--font-display); font-size:1.5rem; font-weight:400; margin-bottom:6px;}
+  .idea-box p{font-weight:700; font-size:.9rem; margin-bottom:12px;}
+  .idea-box input,.idea-box textarea{width:100%; font:inherit; font-weight:700; padding:10px 12px; margin-bottom:10px; background:#fff; color:var(--ink); border:3px solid var(--ink); border-radius:12px;}
+  .idea-box textarea{min-height:130px; resize:vertical;}
+  .idea-row{display:flex; gap:10px; justify-content:flex-end; align-items:center; flex-wrap:wrap;}
+  .idea-row button{cursor:pointer; font:inherit; font-weight:900; padding:10px 18px; border:3px solid var(--ink); border-radius:12px; background:#fff; color:var(--ink);}
+  .idea-row button.go{background:#FF7A00; box-shadow:3px 3px 0 #6B1FB1;}
+  .idea-row button:disabled{opacity:.5; cursor:default;}
+  .idea-msg{flex:1; font-weight:800; font-size:.85rem; min-width:120px;}
+  .idea-msg.ok{color:#0E8F3E;} .idea-msg.err{color:#C0182B;}
+  .idea-count{font-size:.75rem; font-weight:800; opacity:.6; text-align:right; margin:-6px 2px 8px;}
+  .hp{position:absolute; left:-9999px; width:1px; height:1px; opacity:0;}
 </style>
 </head>
 <body>
@@ -420,6 +440,24 @@
 <div class="shape s2 circle"></div>
 <div class="shape s3"></div>
 <div class="shape s4 circle"></div>
+
+
+<button class="idea-fab" id="ideaBtn" type="button">💡 Got a game idea?</button>
+<div class="idea-modal" id="ideaModal" role="dialog" aria-modal="true" aria-labelledby="ideaTitle">
+  <form class="idea-box" id="ideaForm" autocomplete="off">
+    <h3 id="ideaTitle">💡 Got a game idea?</h3>
+    <p>Tell us what game you&#8217;d love to see in the arcade and hit send!</p>
+    <input id="ideaName" maxlength="40" placeholder="Your name (optional)">
+    <textarea id="ideaText" maxlength="1000" placeholder="Describe your game idea&#8230;" required></textarea>
+    <div class="idea-count"><span id="ideaN">0</span> / 1000</div>
+    <input class="hp" id="ideaHp" tabindex="-1" aria-hidden="true" placeholder="Leave empty">
+    <div class="idea-row">
+      <span class="idea-msg" id="ideaMsg" role="status"></span>
+      <button type="button" id="ideaCancel">Close</button>
+      <button type="submit" class="go" id="ideaSend">Send</button>
+    </div>
+  </form>
+</div>
 
 <div class="wrap">
 
@@ -796,6 +834,42 @@
   }
 
   loadGames();
+})();
+
+// ===== Game idea box =====
+// Set this to your server's URL (it receives a JSON POST: {idea, name, page, time}).
+const IDEA_URL = "";
+(function(){
+  const $ = id => document.getElementById(id);
+  const modal=$("ideaModal"), form=$("ideaForm"), txt=$("ideaText"), msg=$("ideaMsg"), send=$("ideaSend");
+  const say=(t,c)=>{ msg.textContent=t; msg.className="idea-msg "+(c||""); };
+  const open=()=>{ modal.classList.add("open"); say(""); setTimeout(()=>txt.focus(),30); };
+  const close=()=>modal.classList.remove("open");
+  $("ideaBtn").onclick=open; $("ideaCancel").onclick=close;
+  modal.addEventListener("click",e=>{ if(e.target===modal) close(); });
+  document.addEventListener("keydown",e=>{ if(e.key==="Escape") close(); });
+  txt.addEventListener("input",()=>{ $("ideaN").textContent=txt.value.length; });
+  form.addEventListener("submit",async e=>{
+    e.preventDefault();
+    const idea=txt.value.trim();
+    if(idea.length<5){ say("Tell us a bit more!","err"); return; }
+    if($("ideaHp").value){ say("Sent!","ok"); return; }            // bot trap
+    if(!IDEA_URL){ say("Ideas aren\u2019t switched on yet \u2014 check back soon!","err"); return; }
+    let last=0; try{ last=+localStorage.getItem("ideaLast")||0; }catch(_){}
+    if(Date.now()-last<30000){ say("Slow down \u2014 try again in a few seconds.","err"); return; }
+    send.disabled=true; say("Sending\u2026");
+    try{
+      const ctl=new AbortController(), t=setTimeout(()=>ctl.abort(),15000);
+      const r=await fetch(IDEA_URL,{method:"POST",headers:{"Content-Type":"application/json"},signal:ctl.signal,
+        body:JSON.stringify({idea,name:$("ideaName").value.trim().slice(0,40),page:location.href,time:new Date().toISOString()})});
+      clearTimeout(t);
+      if(!r.ok) throw new Error("HTTP "+r.status);
+      try{ localStorage.setItem("ideaLast",String(Date.now())); }catch(_){}
+      txt.value=""; $("ideaN").textContent="0"; say("Thanks! Your idea was sent \ud83c\udf83","ok");
+      setTimeout(close,1800);
+    }catch(err){ say("Couldn\u2019t send \u2014 please try again later.","err"); }
+    send.disabled=false;
+  });
 })();
 </script>
 
