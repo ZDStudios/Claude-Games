@@ -276,6 +276,15 @@
     color:#6b6480;
   }
 
+  .mp-row{ display:flex; flex-wrap:wrap; gap:6px; margin-top:10px; }
+  .mp-badge{
+    display:inline-flex; align-items:center; gap:5px; padding:3px 10px;
+    font-size:0.7rem; font-weight:900; letter-spacing:0.05em; text-transform:uppercase;
+    border:2.5px solid var(--ink); border-radius:999px; background:var(--panel); color:var(--ink);
+  }
+  .mp-badge.online{ background:#7DD3FC; }
+  .mp-badge.local{ background:#FDE68A; }
+  .mp-badge.none{ background:#E5E1EE; color:#6b6480; }
   .author-tag{
     display:inline-flex; align-items:center; gap:6px; align-self:flex-start;
     margin-top:12px; padding:4px 11px;
@@ -472,6 +481,7 @@
     <p class="device-note">
       <span class="pc">🖥️ Every game supports PC (keyboard &amp; mouse).</span>
       <span>📱 Most games may or may not work on mobile.</span>
+      <span>🌐 Online = play with friends over the internet &nbsp;·&nbsp; 🎮 Local = share one screen or keyboard</span>
     </p>
   </header>
 
@@ -719,6 +729,23 @@
   let activeGenre = "All";
   let query = "";
 
+  // Multiplayer support per game file: online / local. Anything not listed is single-player.
+  const MULTIPLAYER = {
+    "hyperkick.html":   { online: true, local: true },
+    "rivals-fps.html":  { online: true },
+    "haul-hard.html":   { online: true },
+    "matchday.html":    { local: true },
+    "poke-clash.html":  { local: true }
+  };
+  function mpBadges(game){
+    const m = MULTIPLAYER[game.file] || {};
+    const b = [];
+    if (m.online) b.push('<span class="mp-badge online">\ud83c\udf10 Online multiplayer</span>');
+    if (m.local)  b.push('<span class="mp-badge local">\ud83c\udfae Local multiplayer</span>');
+    if (!b.length) b.push('<span class="mp-badge none">\ud83d\udc64 Single player</span>');
+    return '<div class="mp-row">' + b.join("") + '</div>';
+  }
+
   function cardHtml(game){
     return `
       <article class="card">
@@ -731,6 +758,7 @@
             <span class="genre-tag" style="background:${game.tagBg}; color:#FFFDF7;">${escapeHtml(game.genre)}</span>
           </div>
           <p class="desc">${escapeHtml(game.desc)}</p>
+          ${mpBadges(game)}
           ${game.author ? `<div class="author-tag">\u2605 Made by ${escapeHtml(game.author)}</div>` : ""}
           <div class="card-foot">
             <span class="meta-bits">${escapeHtml(game.tagline)}</span>
