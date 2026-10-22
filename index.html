@@ -447,8 +447,8 @@
   <form class="idea-box" id="ideaForm" autocomplete="off">
     <h3 id="ideaTitle">💡 Got a game idea?</h3>
     <p>Tell us what game you&#8217;d love to see in the arcade and hit send!</p>
-    <input id="ideaName" maxlength="40" placeholder="Your name (optional)">
-    <textarea id="ideaText" maxlength="1000" placeholder="Describe your game idea&#8230;" required></textarea>
+    <input id="ideaTopic" maxlength="80" placeholder="Game idea title (e.g. Pumpkin Racer)" required>
+    <textarea id="ideaText" maxlength="1000" placeholder="Describe your game idea&#8230; (and your name if you want credit)" required></textarea>
     <div class="idea-count"><span id="ideaN">0</span> / 1000</div>
     <input class="hp" id="ideaHp" tabindex="-1" aria-hidden="true" placeholder="Leave empty">
     <div class="idea-row">
@@ -837,8 +837,9 @@
 })();
 
 // ===== Game idea box =====
-// Set this to your server's URL (it receives a JSON POST: {idea, name, page, time}).
-const IDEA_URL = "";
+// Posts {topic, description, source} to the ZD Studios feedback server.
+const IDEA_URL = "https://feedback.zdstudios.network/api/feedback";
+const IDEA_KEY = "fb-copper-nutmeg-iris-4360";   // send-only key (cannot read anything)
 (function(){
   const $ = id => document.getElementById(id);
   const modal=$("ideaModal"), form=$("ideaForm"), txt=$("ideaText"), msg=$("ideaMsg"), send=$("ideaSend");
@@ -860,12 +861,12 @@ const IDEA_URL = "";
     send.disabled=true; say("Sending\u2026");
     try{
       const ctl=new AbortController(), t=setTimeout(()=>ctl.abort(),15000);
-      const r=await fetch(IDEA_URL,{method:"POST",headers:{"Content-Type":"application/json"},signal:ctl.signal,
-        body:JSON.stringify({idea,name:$("ideaName").value.trim().slice(0,40),page:location.href,time:new Date().toISOString()})});
+      const r=await fetch(IDEA_URL,{method:"POST",headers:{"Content-Type":"application/json","X-API-Key":IDEA_KEY},signal:ctl.signal,
+        body:JSON.stringify({topic:$("ideaTopic").value.trim().slice(0,80)||"Game idea",description:idea,source:"game-library"})});
       clearTimeout(t);
       if(!r.ok) throw new Error("HTTP "+r.status);
       try{ localStorage.setItem("ideaLast",String(Date.now())); }catch(_){}
-      txt.value=""; $("ideaN").textContent="0"; say("Thanks! Your idea was sent \ud83c\udf83","ok");
+      txt.value=""; $("ideaTopic").value=""; $("ideaN").textContent="0"; say("Thanks! Your idea was sent \ud83c\udf83","ok");
       setTimeout(close,1800);
     }catch(err){ say("Couldn\u2019t send \u2014 please try again later.","err"); }
     send.disabled=false;
