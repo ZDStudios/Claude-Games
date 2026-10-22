@@ -231,8 +231,15 @@ input[type=range]::-moz-range-thumb{width:14px;height:14px;border-radius:50%;bac
   padding:9px 11px;border-radius:9px;background:var(--crust);color:var(--text);
   border:1px solid var(--s1);outline:none}
 .txt:focus{border-color:var(--sapphire)}
-.mpRecent{display:flex;flex-wrap:wrap;gap:7px;margin-top:12px}
-.mpRecent button{padding:5px 10px;font-size:10px;font-weight:400;letter-spacing:.08em}
+.mpCodeBox{margin-top:16px;padding:10px 14px;border-radius:9px;background:var(--crust);border:1px solid var(--s1);
+  font-size:11px;letter-spacing:.12em;color:var(--ov1)}
+.mpCodeBox b{color:var(--yellow);font-size:22px;letter-spacing:.2em;margin-left:10px;user-select:all}
+.mpPlayers{margin-top:12px;display:flex;flex-direction:column;gap:5px}
+.mpPl{display:flex;align-items:center;gap:10px;padding:7px 11px;border-radius:8px;background:var(--crust);
+  font-size:12px;letter-spacing:.06em;color:var(--text)}
+.mpPl i{width:10px;height:10px;border-radius:50%;flex:none}
+.mpPl span{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mpPl small{color:var(--teal);font-weight:700;letter-spacing:.1em}
 .mpStatus{margin-top:14px;min-height:19px;font-size:11px;letter-spacing:.1em;color:var(--ov1)}
 .mpStatus.ok{color:var(--green)}
 .mpStatus.bad{color:var(--red)}
@@ -464,33 +471,41 @@ input[type=range]::-moz-range-thumb{width:14px;height:14px;border-radius:50%;bac
     </div>
 
     <div class="setRow">
-      <div class="lbl">Server address<small>what the host's window printed — 192.168.x.x:8787</small></div>
-      <input id="mpAddr" class="txt" type="text" spellcheck="false" placeholder="192.168.1.20:8787">
-    </div>
-    <div class="setRow">
       <div class="lbl">Your name<small>shown above your truck</small></div>
       <input id="mpName" class="txt" type="text" spellcheck="false" maxlength="16" placeholder="DRIVER">
     </div>
 
-    <div id="mpRecent" class="mpRecent"></div>
     <div id="mpStatus" class="mpStatus"></div>
 
-    <div style="display:flex;gap:10px;margin-top:16px">
-      <button class="primary" id="mpConnect" style="flex:1">CONNECT</button>
-      <button class="ghost" id="mpDisconnect">DISCONNECT</button>
+    <div id="mpEntry" class="hide">
+      <div style="display:flex;gap:10px;margin-top:16px">
+        <button class="primary" id="mpQuick" style="flex:1">QUICK PLAY</button>
+        <button class="ghost" id="mpCreate" style="flex:1">CREATE PRIVATE ROOM</button>
+      </div>
+      <div class="setRow" style="margin-top:14px">
+        <div class="lbl">Room code<small>from a friend who created a room</small></div>
+        <div style="display:flex;gap:8px">
+          <input id="mpCode" class="txt" type="text" spellcheck="false" maxlength="12" placeholder="ABCD" style="width:130px;text-transform:uppercase">
+          <button class="ghost" id="mpJoin">JOIN</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="mpRoom" class="hide">
+      <div class="mpCodeBox">ROOM CODE <b id="mpRoomCode">----</b></div>
+      <div id="mpPlayers" class="mpPlayers"></div>
+      <div id="mpHint" class="mpHelp" style="margin-top:12px;padding-top:0;border:0"></div>
+      <div style="display:flex;gap:10px;margin-top:16px">
+        <button class="primary hide" id="mpStart" style="flex:1">START DRIVING</button>
+        <button class="ghost" id="mpLeave">LEAVE ROOM</button>
+      </div>
     </div>
 
     <div class="mpHelp">
-      <b>Drop point</b> — you start wherever you last picked on the OPEN WORLD screen,
-      nudged clear of the other players.<br><br>
-      <b>Hosting</b> — put <code>server.js</code> next to <code>index.html</code> and run
-      <code>node server.js</code>. It prints a <code>http://…</code> address for everyone
-      on your network and a <code>host:port</code> to paste in the box above.<br><br>
-      <b>If you loaded this page from GitHub Pages</b> it is served over <b>https</b>, and a
-      browser will not let an https page talk to a plain socket on a home network. Two ways
-      round it: open the <code>http://…</code> address the server printed instead of the
-      GitHub one — that copy can connect to anything — or host over https behind a tunnel.
-      Connecting to <code>localhost</code> works from either page.
+      <b>How it works</b> — everyone in a room drives the same open-world map under the same
+      sky. The host presses START DRIVING; anybody who joins later drops straight into the
+      running world. Wreckage is shared: if someone flattens a tower, it falls for everybody.
+      Press <b>ENTER</b> in the world to chat.
     </div>
   </div>
 </div>
@@ -6061,7 +6076,6 @@ const Weapons = {
  * kinematic collider so you can crash into them.
  * ========================================================================= */
 
-const NET_PORT_DEFAULT = 8787;
 const NET_SEND_HZ = 20;
 const NET_INTERP = 0.12;      // seconds of deliberate lag, to interpolate across
 
@@ -6273,112 +6287,60 @@ class RemoteRig {
   dispose() { this.disposeVisual(); }
 }
 
+/* ==========================================================================
+   ONLINE MULTIPLAYER — ZD Studios multiplayer server (https://mp.zdstudios.network)
+   Rooms, not dedicated servers: one player creates a room (or quick-plays into one),
+   the room host presses START and everybody drives the same open-world map. Each
+   player simulates their own truck and streams its transform to the room; everyone
+   else plays it back interpolated. Building damage is replicated as the blast that
+   caused it, and every client keeps that log so a late joiner (or a new host after
+   a migration) can replay it.
+   ========================================================================== */
+const NETCFG = { url: 'https://mp.zdstudios.network', key: 'pk_ZetmTwcIRP95u-hzlTbl3FRH',
+                  game: 'haul-hard', max: 8 };
+const NET_COLOURS = [0x89b4fa, 0xf38ba8, 0xa6e3a1, 0xf9e2af, 0xcba6f7, 0xfab387, 0x94e2d5, 0xf5c2e7];
+
 const Net = {
-  ws: null, id: null, colour: 0, status: 'offline', statusText: '',
-  serverName: '', maxPlayers: 0, addr: '', ping: 0,
-  players: new Map(),            // id -> RemoteRig
-  info: new Map(),               // id -> {name, truck, trailer, colour}
-  world: null,
-  sendAcc: 0, pingAcc: 0, pingAt: 0, chatOpen: false, _wantWorld: false,
+  mp: null, wired: false, sdkP: null, started: false, leaving: false,
+  id: null, colour: 0, statusText: '', ping: 0,
+  players: new Map(),            // playerId -> RemoteRig
+  carveLog: [],
+  replaying: false, sendAcc: 0, worldAcc: 0, chatOpen: false, _reqT: 0,
 
-  get online() { return this.status === 'online'; },
+  get online() { return !!(this.started && this.mp && this.mp.connected && this.mp.room); },
+  get roomCode() { return this.mp && this.mp.room ? this.mp.room.id : ''; },
 
-  /* ------------------------------------------------------------ address */
-  /** Accept 1.2.3.4, host:port, http://host:port, ws://host:port — all of it. */
-  parseAddr(raw) {
-    let a = String(raw || '').trim();
-    if (!a) return null;
-    let scheme = 'ws://';
-    if (/^(wss|https):\/\//i.test(a)) scheme = 'wss://';
-    a = a.replace(/^[a-z]+:\/\//i, '').replace(/\/+$/, '');
-    if (!a) return null;
-    const host = a.replace(/:\d+$/, '');
-    if (!/:\d+$/.test(a)) a += ':' + NET_PORT_DEFAULT;
-    return { url: scheme + a, host, hostPort: a, scheme };
+  /* ------------------------------------------------------------- helpers */
+  num(v) { return typeof v === 'number' && isFinite(v); },
+  vec(a, n, lim) {
+    if (!Array.isArray(a) || a.length < n) return null;
+    const o = [];
+    for (let i = 0; i < n; i++) { const v = a[i]; if (!this.num(v) || Math.abs(v) > lim) return null; o.push(v); }
+    return o;
   },
-
-  isLocal(host) {
-    return host === 'localhost' || host === '127.0.0.1' || host === '::1' || host === '[::1]';
-  },
+  errText(e) { return (e && (e.message || e.code)) || 'unknown error'; },
 
   setStatus(kind, text) {
-    this.status = kind === 'online' ? 'online' : (kind === 'busy' ? 'connecting' : 'offline');
     this.statusText = text;
     const el = $('mpStatus');
     if (el) { el.textContent = text; el.className = 'mpStatus ' + (kind === 'online' ? 'ok' :
                                                     kind === 'bad' ? 'bad' : kind === 'busy' ? 'busy' : ''); }
   },
-
-  /* ------------------------------------------------------------- connect */
-  connect(raw) {
-    const a = this.parseAddr(raw);
-    if (!a) { this.setStatus('bad', 'ENTER AN ADDRESS FIRST'); return; }
-    // A page served over https may not open a plain socket to a private
-    // address — the browser blocks it as mixed content, and there is no way
-    // round that from inside the page. Say so instead of failing silently.
-    if (location.protocol === 'https:' && a.scheme === 'ws://' && !this.isLocal(a.host)) {
-      this.setStatus('bad', 'THIS PAGE IS HTTPS — OPEN http://' + a.hostPort + ' INSTEAD');
-      return;
-    }
-    this.disconnect(true);
-    this.addr = a.hostPort;
-    this.setStatus('busy', 'CONNECTING TO ' + a.hostPort + '…');
-    let ws;
-    try { ws = new WebSocket(a.url); } catch (e) {
-      this.setStatus('bad', 'BAD ADDRESS: ' + a.hostPort); return;
-    }
-    this.ws = ws;
-    const timeout = setTimeout(() => {
-      if (this.status === 'connecting') { try { ws.close(); } catch (e) {}
-        this.setStatus('bad', 'NO ANSWER FROM ' + a.hostPort + ' — IS THE SERVER RUNNING?'); }
-    }, 8000);
-
-    ws.onopen = () => {
-      clearTimeout(timeout);
-      this.setStatus('busy', 'HANDSHAKING…');
-      this.send({ t: 'join', name: this.myName(), truck: store.truck, trailer: store.trailer });
-      // Heartbeat on a timer, not on the render loop. Browsers throttle rAF to
-      // nothing in a background tab, so a player who alt-tabs for a moment
-      // would otherwise stop sending and get dropped for going quiet.
-      clearInterval(this._beat);
-      this._beat = setInterval(() => {
-        if (!this.ws || this.ws.readyState !== 1) return;
-        this.send({ t: 'ping', c: performance.now() });
-      }, 1500);
-    };
-    ws.onmessage = (e) => { let m; try { m = JSON.parse(e.data); } catch (err) { return; } this.onMsg(m); };
-    ws.onerror = () => {
-      clearTimeout(timeout);
-      if (this.status !== 'online') {
-        this.setStatus('bad', 'COULD NOT REACH ' + a.hostPort +
-          (location.protocol === 'https:' ? ' — TRY THE http:// PAGE' : ''));
-      }
-    };
-    ws.onclose = () => {
-      clearTimeout(timeout);
-      const was = this.status === 'online';
-      this.teardown();
-      if (was) { UI.toast('DISCONNECTED FROM SERVER', 'bad'); this.setStatus('', 'DISCONNECTED'); }
-    };
+  view(v) {
+    $('mpEntry').classList.toggle('hide', v !== 'entry');
+    $('mpRoom').classList.toggle('hide', v !== 'room');
   },
+  lobbyOpen() { return UI.current === 'multi'; },
 
-  disconnect(quiet) {
-    if (this.ws) { const w = this.ws; this.ws = null; try { w.close(); } catch (e) {} }
-    this.teardown();
-    if (!quiet) { this.setStatus('', 'OFFLINE'); UI.toast('LEFT THE SERVER'); }
+  roster() {
+    const mp = this.mp;
+    if (!mp || !mp.room) return [];
+    return mp.playerList.filter(p => p.connected).sort((a, b) => a.joined - b.joined);
   },
-
-  teardown() {
-    clearInterval(this._beat); this._beat = null;
-    for (const r of this.players.values()) r.dispose();
-    this.players.clear();
-    this.info.clear();
-    this.id = null;
-    this.status = 'offline';
-    Weapons.clearGhosts();
-    const el = $('netPanel'); if (el) el.classList.add('hide');
+  colourFor(id) {
+    const i = this.roster().findIndex(p => p.id === id);
+    return NET_COLOURS[(i < 0 ? 0 : i) % NET_COLOURS.length];
   },
-
   myName() {
     const el = $('mpName');
     let n = (el && el.value) || store.playerName || '';
@@ -6388,118 +6350,257 @@ const Net = {
     return n;
   },
 
-  send(o) {
-    if (!this.ws || this.ws.readyState !== 1) return;
-    try { this.ws.send(JSON.stringify(o)); } catch (e) {}
+  /* ----------------------------------------------------------- SDK + lobby */
+  loadSdk() {
+    if (typeof Multiplayer !== 'undefined') return Promise.resolve();
+    if (this.sdkP) return this.sdkP;
+    const urls = [NETCFG.url + '/sdk.js', NETCFG.url + '/client/multiplayer.js'], fails = [];
+    const tryOne = (i) => new Promise((res, rej) => {
+      const s = document.createElement('script'); s.src = urls[i] + '?t=' + Date.now(); s.async = true;
+      s.onload = () => (typeof Multiplayer !== 'undefined' ? res() : rej(new Error('loaded but defined no Multiplayer')));
+      s.onerror = () => { s.remove(); rej(new Error('could not fetch ' + urls[i])); };
+      document.head.appendChild(s);
+    }).catch((e) => { fails.push(e.message); if (i + 1 < urls.length) return tryOne(i + 1); throw new Error(fails.join('; ')); });
+    this.sdkP = tryOne(0).catch((e) => { this.sdkP = null; throw e; });
+    return this.sdkP;
   },
 
-  /* ------------------------------------------------------------ messages */
-  onMsg(m) {
-    switch (m.t) {
-      case 'hello':
-        this.serverName = m.server || 'SERVER';
-        this.maxPlayers = m.max || 0;
-        break;
-      case 'full':
-        this.setStatus('bad', 'SERVER IS FULL (' + m.max + ' PLAYERS)');
-        break;
-      case 'welcome': {
-        this.id = m.id;
-        this.colour = m.colour;
-        this.world = m.world;
-        for (const p of (m.players || [])) this.addPlayer(p);
-        this.setStatus('online', 'CONNECTED TO ' + this.serverName + ' — ' + this.addr);
-        rememberServer(this.addr);
-        // everybody drives the same map, under the same sky
-        Game.startWorld(m.world.seed, true);
-        Sky.set(m.world.hour, 0.12);
-        Game.weatherTarget = m.world.weather || 0;
-        // Replay every carve the server has on record so a late joiner sees
-        // the same holes and the same ruins as everyone already driving round.
-        Net.replaying = true;
-        for (const c of (m.world.carves || [])) {
-          const b = World.city[c.i];
-          if (b && !b.dead) carveBuilding(b, V3(c.p[0], c.p[1], c.p[2]), c.r, c.pw);
-        }
-        Net.replaying = false;
-        // the replay spawned a whole demolition's worth of loose rubble; drop it
-        // straight to settled rather than simulating an hour of collapses
-        for (const r of World.rubble) settleRubble(r);
-        UI.center('CONNECTED', this.serverName, 2600);
-        Audio_.chime(2);
-        this.chatSay(null, 'joined ' + this.serverName);
-        break;
-      }
-      case 'join':
-        this.addPlayer(m.player);
-        this.chatSay(null, m.player.name + ' joined');
-        break;
-      case 'leave': {
-        const r = this.players.get(m.id);
-        if (r) { this.chatSay(null, r.name + ' left'); r.dispose(); }
-        this.players.delete(m.id); this.info.delete(m.id);
-        break;
-      }
-      case 'rig': {
-        const r = this.players.get(m.id);
-        if (r && (r.truck !== m.truck || r.trailer !== m.trailer)) r.setTruck(m.truck, m.trailer);
-        break;
-      }
-      case 'snap': {
-        const now = performance.now() / 1000;
-        for (const [id, s] of m.s) {
-          if (id === this.id) continue;
-          const r = this.players.get(id);
-          if (r) r.push(s, now);
-        }
-        break;
-      }
-      case 'world':
-        if (m.hour != null) Sky.hour = m.hour;
-        if (m.weather != null) Game.weatherTarget = m.weather;
-        break;
-      case 'chat':
-        this.chatSay(m.name, m.text, this.info.get(m.id) && this.info.get(m.id).colour);
-        break;
-      case 'shoot':
-        Weapons.spawnGhost(m.id, m.p, m.d, m.v, m.k);
-        break;
-      case 'boom':
-        Weapons.killGhost(m.id);
-        // fromNet: the shooter already told everyone, so do not echo the carve
-        Weapons.blast(V3(m.p[0], m.p[1], m.p[2]), m.pw || 1, true);
-        break;
-      case 'carve': {
-        const b = World.city && World.city[m.i];
-        if (b && !b.dead) carveBuilding(b, V3(m.p[0], m.p[1], m.p[2]), m.r, m.pw);
-        break;
-      }
-      case 'pong':
-        this.ping = Math.round(performance.now() - m.c);
-        break;
+  /** Called every time the Multiplayer screen opens. */
+  open() {
+    if (this.started) { this.refresh(); return; }
+    this.view(''); this.setStatus('busy', 'LOADING MULTIPLAYER…');
+    this.loadSdk().then(() => this.connectNow()).catch((e) => {
+      this.setStatus('bad', 'THE MULTIPLAYER SDK COULD NOT BE LOADED (' + this.errText(e) +
+        '). THE SERVER MAY BE ASLEEP — WAIT A FEW SECONDS, PRESS BACK, THEN MULTIPLAYER AGAIN.');
+    });
+  },
+  connectNow() {
+    if (!this.mp) { this.mp = new Multiplayer({ url: NETCFG.url, key: NETCFG.key, name: this.myName(), identity: 'tab' }); this.wire(); }
+    if (this.mp.connected) { this.refresh(); return; }
+    this.setStatus('busy', 'CONNECTING…');
+    this.mp.connect().then(() => this.refresh())
+      .catch((e) => { this.setStatus('bad', 'COULD NOT CONNECT: ' + this.errText(e)); this.view(''); });
+  },
+  roomOpts() { return { maxPlayers: NETCFG.max, meta: { game: 'haul-hard' }, playerData: { truck: store.truck, trailer: store.trailer } }; },
+  guard(p) {
+    this.view(''); this.setStatus('busy', 'WORKING…');
+    return p.catch((e) => { this.setStatus('bad', this.errText(e).toUpperCase()); this.view('entry'); }).then(() => this.refresh());
+  },
+  ready() { if (!this.mp || !this.mp.connected) return false; this.mp.setName(this.myName()).catch(() => {}); return true; },
+  quick() { if (this.ready()) this.guard(this.mp.quickJoin(NETCFG.game, this.roomOpts())); },
+  create() { if (this.ready()) this.guard(this.mp.create(this.roomOpts())); },
+  joinCode() {
+    const c = String($('mpCode').value || '').trim().toUpperCase();
+    if (!c) { this.setStatus('bad', 'ENTER A ROOM CODE FIRST'); return; }
+    if (this.ready()) this.guard(this.mp.join(c, Object.assign(this.roomOpts(), { mustExist: true })));
+  },
+  leaveRoom(quiet) {
+    const was = this.started;
+    this.leaving = true;
+    const p = this.mp && this.mp.room ? this.mp.leave() : null;
+    Promise.resolve(p).catch(() => {}).then(() => { this.leaving = false; this.refresh(); });
+    this.teardown();
+    if (!quiet && was) UI.toast('LEFT THE ROOM');
+    if (this.lobbyOpen()) this.refresh();
+  },
+  disconnect(quiet) { this.leaveRoom(quiet); },
+
+  refresh() {
+    const mp = this.mp;
+    if (!this.lobbyOpen()) return;
+    if (!mp || !mp.connected) { this.view(''); return; }
+    if (!mp.room) { this.view('entry'); this.setStatus('', 'CONNECTED. QUICK PLAY, OR CREATE / JOIN A PRIVATE ROOM.'); $('mpSub').textContent = 'same map, same weather, everyone\'s trucks'; return; }
+    this.view('room');
+    $('mpRoomCode').textContent = mp.room.id;
+    $('mpSub').textContent = 'room ' + mp.room.id;
+    const box = $('mpPlayers'); box.innerHTML = '';
+    for (const p of this.roster()) {
+      const d = document.createElement('div'); d.className = 'mpPl';
+      const dot = document.createElement('i'); dot.style.background = '#' + this.colourFor(p.id).toString(16).padStart(6, '0');
+      const n = document.createElement('span'); n.textContent = p.name + (p.id === mp.playerId ? ' (you)' : '');
+      const h = document.createElement('small'); h.textContent = p.id === mp.room.host ? 'HOST' : '';
+      d.appendChild(dot); d.appendChild(n); d.appendChild(h); box.appendChild(d);
     }
+    $('mpStart').classList.toggle('hide', !mp.isHost);
+    this.setStatus('online', this.roster().length + ' / ' + NETCFG.max + ' DRIVERS IN THE ROOM');
+    $('mpHint').textContent = mp.isHost
+      ? 'Share the room code, then press START DRIVING. Everyone shares the map, the weather and the wreckage. You can start alone — friends can join afterwards.'
+      : 'Waiting for the host to start…';
   },
 
-  addPlayer(info) {
-    if (!info || info.id === this.id) return;
-    this.info.set(info.id, info);
-    const old = this.players.get(info.id);
-    if (old) old.dispose();
-    this.players.set(info.id, new RemoteRig(info));
+  wire() {
+    if (this.wired) return; this.wired = true;
+    const mp = this.mp, self = this;
+    mp.on('joined', () => { mp.setPlayer({ truck: store.truck, trailer: store.trailer }); self.refresh(); self.requestWorld(); });
+    ['roomUpdated', 'host', 'playerConnection', 'connected', 'reconnected'].forEach(e => mp.on(e, () => { self.refresh(); self.requestWorld(); }));
+    mp.on('playerJoined', (p) => { self.refresh(); if (self.online && p && p.name) self.chatSay(null, p.name + ' joined'); });
+    mp.on('playerLeft', (p) => {
+      self.refresh();
+      if (!p) return;
+      const r = self.players.get(p.id);
+      if (r) { r.dispose(); self.players.delete(p.id); Weapons.killGhost(p.id); }
+      if (self.online) self.chatSay(null, (p.name || 'a driver') + ' left');
+    });
+    mp.on('disconnected', () => {
+      if (self.started) UI.toast('CONNECTION LOST — RECONNECTING…', 'bad');
+      else if (self.lobbyOpen()) { self.setStatus('bad', 'DISCONNECTED FROM SERVER'); self.view(''); }
+    });
+    mp.on('reconnecting', () => { if (!self.started && self.lobbyOpen()) self.setStatus('busy', 'RECONNECTING…'); });
+    mp.on('error', (e) => { if (e && e.code !== 'rate_limited') UI.toast('NETWORK: ' + String(self.errText(e)).slice(0, 60).toUpperCase(), 'bad'); });
+    mp.on('left', () => { if (self.leaving) return; if (self.started) { self.teardown(); UI.toast('YOU WERE REMOVED FROM THE ROOM', 'bad'); } self.refresh(); });
+
+    mp.onMessage('world', (d, from) => self.onWorld(d, from));
+    mp.onMessage('req', (d, from) => self.onReq(from));
+    mp.onMessage('tw', (d, from) => self.onTime(d, from));
+    mp.onMessage('st', (d, from) => self.onState(d, from));
+    mp.onMessage('shoot', (d, from) => self.onShoot(d, from));
+    mp.onMessage('boom', (d, from) => self.onBoom(d, from));
+    mp.onMessage('carve', (d, from) => self.onCarve(d, from));
+    mp.onMessage('chat', (d, from) => self.onChat(d, from));
   },
 
-  /* --------------------------------------------------------------- tick */
+  /* ------------------------------------------------------ starting / joining */
+  /** Host presses START: pick a seed, build the world, tell the room. */
+  start() {
+    const mp = this.mp;
+    if (!mp || !mp.room || !mp.isHost || this.started) return;
+    const w = { seed: (Math.random() * 1e9) | 0, hour: 9, weather: 0 };
+    this.enterWorld(w);
+    mp.send('world', w);
+  },
+  /** A guest in the lobby asks the host for the running world (once, then until answered). */
+  requestWorld() {
+    const mp = this.mp;
+    if (!mp || !mp.room || this.started || mp.isHost) return;
+    const now = performance.now();
+    if (now - this._reqT < 1500) return;
+    this._reqT = now;
+    mp.send('req', {}, mp.room.host);
+  },
+  onReq(from) {
+    const mp = this.mp;
+    if (!this.started || !mp || !mp.isHost || !from || from === mp.playerId) return;
+    mp.send('world', { seed: World.seed, hour: Sky.hour, weather: Game.weatherTarget || 0, carves: this.carveLog }, from);
+  },
+  onWorld(d, from) {
+    const mp = this.mp;
+    if (this.started || !mp || !mp.room || !d || from !== mp.room.host || from === mp.playerId) return;
+    if (!this.num(d.seed)) return;
+    this.enterWorld({ seed: d.seed | 0, hour: this.num(d.hour) ? d.hour : 9, weather: this.num(d.weather) ? d.weather : 0,
+                      carves: Array.isArray(d.carves) ? d.carves.slice(0, 4000) : [] });
+  },
+  enterWorld(w) {
+    const mp = this.mp;
+    this.started = true;
+    this.carveLog = [];
+    this.sendAcc = this.worldAcc = 0;
+    // fan the drop points out by join order so nobody lands on top of anybody
+    this.id = Math.max(0, this.roster().findIndex(p => p.id === mp.playerId)) + 1;
+    this.colour = this.colourFor(mp.playerId);
+    Game.startWorld(w.seed, true);
+    Sky.set(w.hour, 0.12);
+    Game.weatherTarget = w.weather || 0;
+    // Replay every carve on record so a late joiner sees the same holes and ruins.
+    this.replaying = true;
+    for (const c of (w.carves || [])) this.applyCarve(c, true);
+    this.replaying = false;
+    // the replay spawned a whole demolition's worth of loose rubble; settle it
+    for (const r of World.rubble) settleRubble(r);
+    UI.center('CONNECTED', 'ROOM ' + this.roomCode, 2600);
+    Audio_.chime(2);
+    this.chatSay(null, 'joined room ' + this.roomCode);
+  },
+
+  teardown() {
+    for (const r of this.players.values()) r.dispose();
+    this.players.clear();
+    this.carveLog = [];
+    this.started = false;
+    this.id = null;
+    Weapons.clearGhosts();
+    const el = $('netPanel'); if (el) el.classList.add('hide');
+  },
+
+  /* ------------------------------------------------------------ inbound */
+  onTime(d, from) {
+    const mp = this.mp;
+    if (!this.online || !d || from !== mp.room.host || from === mp.playerId) return;
+    if (this.num(d.h)) Sky.hour = ((d.h % 24) + 24) % 24;
+    if (this.num(d.w)) Game.weatherTarget = Math.max(0, Math.min(1, d.w));
+  },
+  onState(d, from) {
+    const mp = this.mp;
+    if (!this.online || !d || !from || from === mp.playerId) return;
+    const s = d.s; if (!s || typeof s !== 'object') return;
+    const p = this.vec(s.p, 3, 1e5), q = this.vec(s.q, 4, 2), v = this.vec(s.v, 3, 1e4);
+    if (!p || !q || !v || !Array.isArray(s.w) || s.w.length > 16) return;
+    const w = [];
+    for (const x of s.w) { const t = this.vec(x, 3, 1e4); if (!t) return; w.push(t); }
+    const n = (x) => (this.num(x) ? x : 0);
+    const clean = { p, q, v, w, f: n(s.f), b: n(s.b), g: n(s.g), d: n(s.d), l: s.l ? 1 : 0, k: s.k ? 1 : 0 };
+    let r = this.players.get(from);
+    const truck = TRUCKS[d.tk] ? d.tk : 'pickup', trailer = (typeof d.tr === 'string' && TRAILERS[d.tr]) ? d.tr : 'none';
+    const pl = mp.players.get(from);
+    const name = String((pl && pl.name) || 'DRIVER').replace(/[^\x20-\x7e]/g, '').slice(0, 16) || 'DRIVER';
+    if (!r) {
+      r = new RemoteRig({ id: from, name, colour: this.colourFor(from), truck, trailer });
+      this.players.set(from, r);
+    } else {
+      if (r.truck !== truck || r.trailer !== trailer) r.setTruck(truck, trailer);
+      if (name !== r.name) r.rename(name);
+    }
+    r.push(clean, performance.now() / 1000);
+  },
+  onShoot(d, from) {
+    if (!this.online || !d || from === this.mp.playerId) return;
+    const p = this.vec(d.p, 3, 1e5), dir = this.vec(d.d, 3, 10);
+    if (!p || !dir || !this.num(d.v) || !this.num(d.k)) return;
+    Weapons.spawnGhost(from, p, dir, Math.min(Math.abs(d.v), 600), Math.min(Math.abs(d.k), 6));
+  },
+  onBoom(d, from) {
+    if (!this.online || !d || from === this.mp.playerId) return;
+    const p = this.vec(d.p, 3, 1e5);
+    if (!p) return;
+    Weapons.killGhost(from);
+    // fromNet: the shooter already told everyone, so do not echo the carve
+    Weapons.blast(V3(p[0], p[1], p[2]), this.num(d.pw) ? Math.max(0.1, Math.min(d.pw, 8)) : 1, true);
+  },
+  applyCarve(c, force) {
+    if (!c || !Number.isInteger(c.i) || !World.city) return;
+    const p = this.vec(c.p, 3, 1e5);
+    if (!p || !this.num(c.r) || !this.num(c.pw)) return;
+    const b = World.city[c.i];
+    if (b && !b.dead) carveBuilding(b, V3(p[0], p[1], p[2]), Math.min(Math.abs(c.r), 60), Math.min(Math.abs(c.pw), 8));
+    this.carveLog.push({ i: c.i, p, r: c.r, pw: c.pw });
+    if (this.carveLog.length > 4000) this.carveLog.shift();
+  },
+  onCarve(d, from) {
+    if (!this.online || !d || from === this.mp.playerId) return;
+    const prev = this.replaying; this.replaying = true;     // apply, never echo
+    this.applyCarve(d);
+    this.replaying = prev;
+  },
+  onChat(d, from) {
+    if (!this.online || !d || typeof d.text !== 'string' || from === this.mp.playerId) return;
+    const pl = this.mp.players.get(from);
+    this.chatSay(String((pl && pl.name) || 'DRIVER').slice(0, 16), d.text.slice(0, 140), this.colourFor(from));
+  },
+
+  /* ----------------------------------------------------------- outbound */
+  send(type, data) {
+    if (!this.mp || !this.mp.connected || !this.mp.room) return;
+    try { this.mp.send(type, data); } catch (e) {}
+  },
   update(dt) {
     if (!this.online) return;
-    // outbound: our own transform, twenty times a second
     this.sendAcc += dt;
-    if (this.sendAcc >= 1 / NET_SEND_HZ) {
-      this.sendAcc = 0;
-      this.sendState();
+    if (this.sendAcc >= 1 / NET_SEND_HZ) { this.sendAcc = 0; this.sendState(); }
+    // the host keeps the room's clock and weather honest
+    this.worldAcc += dt;
+    if (this.worldAcc > 4) {
+      this.worldAcc = 0;
+      if (this.mp.isHost) this.send('tw', { h: Math.round(Sky.hour * 100) / 100, w: Game.weatherTarget || 0 });
     }
-    this.pingAcc += dt;
-    if (this.pingAcc > 2) { this.pingAcc = 0; this.send({ t: 'ping', c: performance.now() }); }
-    // inbound: play everyone else back, deliberately a little in the past
     const renderT = performance.now() / 1000 - NET_INTERP;
     for (const r of this.players.values()) r.update(dt, renderT);
     this.drawPanel();
@@ -6519,36 +6620,35 @@ const Net = {
       d: r3(rig.damage), l: rig.lightsOn ? 1 : 0,
       k: (Game.ctrl.brake > 0.15 || Game.ctrl.handbrake > 0.15) ? 1 : 0,
     };
-    this.send({ t: 'state', s });
+    this.send('st', { s, tk: store.truck, tr: store.trailer });
   },
 
-  /** Tell the server we swapped rigs in the garage. */
+  /** Truck swaps ride along in every state packet; keep the lobby record current too. */
   sendRig() {
-    if (this.online) this.send({ t: 'rig', truck: store.truck, trailer: store.trailer });
+    if (this.online) { try { this.mp.setPlayer({ truck: store.truck, trailer: store.trailer }); } catch (e) {} }
   },
-
   sendShoot(pos, dir, speed, scale) {
     if (!this.online) return;
     const r2 = (x) => Math.round(x * 100) / 100;
-    this.send({ t: 'shoot', p: [r2(pos.x), r2(pos.y), r2(pos.z)],
-                d: [r2(dir.x), r2(dir.y), r2(dir.z)], v: Math.round(speed), k: r2(scale || 1) });
+    this.send('shoot', { p: [r2(pos.x), r2(pos.y), r2(pos.z)],
+                         d: [r2(dir.x), r2(dir.y), r2(dir.z)], v: Math.round(speed), k: r2(scale || 1) });
   },
   sendBoom(p, power) {
     if (!this.online) return;
     const r2 = (x) => Math.round(x * 100) / 100;
-    this.send({ t: 'boom', p: [r2(p.x), r2(p.y), r2(p.z)], pw: power });
+    this.send('boom', { p: [r2(p.x), r2(p.y), r2(p.z)], pw: power });
   },
   /**
    * Damage to the skyline is replicated as the carve that caused it, not as
-   * "this building is gone". Hit points are local, so two people chipping at
-   * the same tower would otherwise disagree about when it fell — replaying the
-   * blast itself keeps every client's rubble identical.
+   * "this building is gone". Replaying the blast keeps every client's rubble identical.
    */
   sendCarve(index, p, radius, power) {
     if (!this.online || this.replaying || index == null) return;
     const r2 = (x) => Math.round(x * 100) / 100;
-    this.send({ t: 'carve', i: index, p: [r2(p.x), r2(p.y), r2(p.z)],
-                r: r2(radius), pw: r2(power) });
+    const c = { i: index, p: [r2(p.x), r2(p.y), r2(p.z)], r: r2(radius), pw: r2(power) };
+    this.carveLog.push(c);
+    if (this.carveLog.length > 4000) this.carveLog.shift();
+    this.send('carve', c);
   },
 
   /* --------------------------------------------------------------- chat */
@@ -6577,7 +6677,11 @@ const Net = {
   },
   closeChat(send) {
     const el = $('chatInput');
-    if (send && el.value.trim()) this.send({ t: 'chat', text: el.value.trim().slice(0, 140) });
+    const text = el.value.trim().slice(0, 140);
+    if (send && text) {
+      this.send('chat', { text });
+      this.chatSay(this.myName(), text, this.colour);
+    }
     el.value = '';
     el.classList.add('hide');
     el.blur();
@@ -6590,9 +6694,9 @@ const Net = {
     if (!el) return;
     el.classList.remove('hide');
     const rows = [];
-    rows.push('<div class="nHdr">' + esc(this.serverName) + '</div>');
-    rows.push('<div class="nRow nMe"><i>' + esc(store.playerName || 'YOU') +
-              '</i><b>' + this.ping + ' ms</b></div>');
+    rows.push('<div class="nHdr">ROOM ' + esc(this.roomCode) + '</div>');
+    rows.push('<div class="nRow nMe"><i style="color:#' + (this.colour >>> 0).toString(16).padStart(6, '0') + '">' +
+              esc(store.playerName || 'YOU') + '</i><b>you</b></div>');
     for (const r of this.players.values()) {
       const d = Game.rig ? Math.round(r.group.position.distanceTo(Game.rig.vehicle.pos)) : 0;
       rows.push('<div class="nRow"><i style="color:#' +
@@ -6609,36 +6713,6 @@ const Net = {
 function esc(s) {
   return String(s).replace(/[&<>"']/g, c =>
     ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-}
-
-/** Remember the last few servers so you do not retype an IP every session. */
-function rememberServer(addr) {
-  if (!addr) return;
-  let list = store.servers || [];
-  list = [addr].concat(list.filter(a => a !== addr)).slice(0, 5);
-  store.servers = list; saveStore();
-  buildRecentServers();
-}
-function buildRecentServers() {
-  const box = $('mpRecent');
-  if (!box) return;
-  const list = store.servers || [];
-  box.innerHTML = '';
-  // if this page came off the server itself, offer it as one click
-  if (location.protocol.startsWith('http') && location.host && !list.includes(location.host)) {
-    const b = document.createElement('button');
-    b.className = 'ghost';
-    b.textContent = '⚡ THIS SERVER (' + location.host + ')';
-    b.onclick = () => { $('mpAddr').value = location.host; Net.connect(location.host); };
-    box.appendChild(b);
-  }
-  for (const a of list) {
-    const b = document.createElement('button');
-    b.className = 'ghost';
-    b.textContent = a;
-    b.onclick = () => { $('mpAddr').value = a; Net.connect(a); };
-    box.appendChild(b);
-  }
 }
 
 /* ===========================================================================
@@ -10756,8 +10830,8 @@ const Input = {
         if (ae.id === 'chatInput') {
           if (e.key === 'Enter') { Net.closeChat(true); e.preventDefault(); }
           else if (e.key === 'Escape') { Net.closeChat(false); e.preventDefault(); }
-        } else if (e.key === 'Enter' && ae.id === 'mpAddr') {
-          Net.connect($('mpAddr').value); e.preventDefault();
+        } else if (e.key === 'Enter' && ae.id === 'mpCode') {
+          Net.joinCode(); e.preventDefault();
         }
         return;
       }
@@ -11183,34 +11257,21 @@ const UI = {
 
   /* -------------------------------------------------------- multiplayer */
   buildMultiplayer() {
-    const addr = $('mpAddr'), name = $('mpName');
-    if (!addr._wired) {
-      addr._wired = true;
-      $('mpConnect').addEventListener('click', () => { Audio_.ui(); Net.connect(addr.value); });
-      $('mpDisconnect').addEventListener('click', () => { Audio_.ui(); Net.disconnect(); });
+    const name = $('mpName');
+    if (!name._wired) {
+      name._wired = true;
+      $('mpQuick').addEventListener('click', () => { Audio_.ui(); Net.quick(); });
+      $('mpCreate').addEventListener('click', () => { Audio_.ui(); Net.create(); });
+      $('mpJoin').addEventListener('click', () => { Audio_.ui(); Net.joinCode(); });
+      $('mpStart').addEventListener('click', () => { Audio_.ui('ok'); Net.start(); });
+      $('mpLeave').addEventListener('click', () => { Audio_.ui(); Net.leaveRoom(true); Net.open(); });
       name.addEventListener('change', () => {
         store.playerName = name.value.slice(0, 16); saveStore();
-        if (Net.online) Net.send({ t: 'join', name: Net.myName(),
-                                   truck: store.truck, trailer: store.trailer });
+        if (Net.mp && Net.mp.connected) Net.mp.setName(Net.myName()).catch(() => {});
       });
     }
     name.value = store.playerName || '';
-    if (!addr.value) {
-      // if this page came off a server, that server is the obvious default
-      addr.value = (store.servers && store.servers[0]) ||
-        (location.protocol.startsWith('http') && location.host ? location.host : '');
-    }
-    buildRecentServers();
-    $('mpSub').textContent = Net.online
-      ? 'connected to ' + Net.serverName
-      : 'same map, same weather, everyone\'s trucks';
-    if (!Net.statusText) {
-      Net.setStatus('', location.protocol === 'https:'
-        ? 'THIS PAGE IS HTTPS — LAN ADDRESSES WILL BE BLOCKED, SEE BELOW'
-        : 'OFFLINE');
-    } else {
-      Net.setStatus(Net.online ? 'online' : '', Net.statusText);
-    }
+    Net.open();
   },
 
   /* ------------------------------------------------------------- settings */
@@ -11622,6 +11683,7 @@ const Game = {
   /* ---------------------------------------------------------- navigation */
   go(where) {
     Input.clearPressed();
+    if ((where === 'menu' || where === 'levels') && Net.mp && Net.mp.room) Net.leaveRoom(true);
     if (where === 'menu') {
       this.mode = 'menu'; this.paused = false;
       this.buildShowroom();
