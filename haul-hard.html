@@ -7369,24 +7369,54 @@ class RemoteRig {
     scene.add(this.tag);
   }
 
-  push(s, t) {
+  /**
+   * Snapshots are stamped with the sender's clock (`ts`, ms) and played back on
+   * that clock, so uneven packet arrival never reaches the screen. The offset
+   * between the clocks comes from the fastest recent packets, and the playback
+   * delay adapts to the measured jitter.
+   */
+  push(s, arrival, ts) {
+    const r = arrival * 1000, t = (typeof ts === 'number' && isFinite(ts)) ? ts : r;
+    const prev = this.buf[this.buf.length - 1];
+    if (prev && t <= prev.t) return;                    // late or duplicate
+    const v = r - t;
+    this.offS = this.offS || [];
+    this.offS.push({ r, v });
+    while (this.offS.length > 1 && r - this.offS[0].r > 5000) this.offS.shift();
+    let mn = Infinity; for (const o of this.offS) if (o.v < mn) mn = o.v;
+    this.off = mn;
+    this.jit = (this.jit == null ? 0 : this.jit * 0.9) + (v - mn) * 0.1;
+    if (prev) this.ival = this.ival == null ? t - prev.t : this.ival * 0.9 + (t - prev.t) * 0.1;
+    const want = clamp((this.ival || 50) * 1.6 + this.jit * 2 + 15, 70, 260);
+    this.delay = this.delay == null ? want : this.delay + (want - this.delay) * 0.08;
     this.buf.push({ t, s });
-    if (this.buf.length > 24) this.buf.shift();
+    if (this.buf.length > 40) this.buf.shift();
   }
 
-  /** Play the buffer back at `renderT`, which trails real time by NET_INTERP. */
-  update(dt, renderT) {
+  /** Play the buffer back slightly in the past, on the sender's clock. */
+  update(dt) {
     const buf = this.buf;
     if (!buf.length) return;
-    while (buf.length > 2 && buf[1].t <= renderT) buf.shift();
-    const a = buf[0];
-    const b = (buf.length > 1) ? buf[1] : a;
-    let f = 0;
-    if (b !== a && b.t > a.t) f = clamp01((renderT - a.t) / (b.t - a.t));
+    const tt = performance.now() - (this.off || 0) - (this.delay || 120);
+    const last = buf[buf.length - 1];
+    let a, b, ext = 0;
+    if (tt >= last.t) { a = b = last; ext = Math.min((tt - last.t) / 1000, 0.3); }   // ran dry: carry on at last velocity
+    else {
+      while (buf.length > 2 && buf[1].t <= tt) buf.shift();
+      a = buf[0]; b = (buf.length > 1) ? buf[1] : a;
+    }
+    const f = (b !== a && b.t > a.t) ? clamp01((tt - a.t) / (b.t - a.t)) : 0;
+    const span = (b.t - a.t) / 1000;
     const A = a.s, B = b.s;
     const L = (i, arr) => lerp(A[arr][i], B[arr][i], f);
 
-    this.group.position.set(L(0, 'p'), L(1, 'p'), L(2, 'p'));
+    // cubic Hermite through both samples' positions AND velocities: a curve, not a polyline
+    const f2 = f * f, f3 = f2 * f;
+    const h00 = 2 * f3 - 3 * f2 + 1, h10 = f3 - 2 * f2 + f, h01 = -2 * f3 + 3 * f2, h11 = f3 - f2;
+    const near = (b !== a) && Math.hypot(A.p[0] - B.p[0], A.p[1] - B.p[1], A.p[2] - B.p[2]) < 40;
+    const H = (k) => near ? h00 * A.p[k] + h10 * span * A.v[k] + h01 * B.p[k] + h11 * span * B.v[k]
+                          : B.p[k];
+    this.group.position.set(H(0) + B.v[0] * ext, H(1) + B.v[1] * ext, H(2) + B.v[2] * ext);
     tmpQ.set(A.q[0], A.q[1], A.q[2], A.q[3]);
     const qb = new THREE.Quaternion(B.q[0], B.q[1], B.q[2], B.q[3]);
     tmpQ.slerp(qb, f);
@@ -7731,7 +7761,7 @@ const Net = {
       if (r.truck !== truck || r.trailer !== trailer) r.setTruck(truck, trailer);
       if (name !== r.name) r.rename(name);
     }
-    r.push(clean, performance.now() / 1000);
+    r.push(clean, performance.now() / 1000, d.ts);
   },
   onShoot(d, from) {
     if (!this.online || !d || from === this.mp.playerId) return;
@@ -7783,8 +7813,7 @@ const Net = {
       this.worldAcc = 0;
       if (this.mp.isHost) this.send('tw', { h: Math.round(Sky.hour * 100) / 100, w: Game.weatherTarget || 0 });
     }
-    const renderT = performance.now() / 1000 - NET_INTERP;
-    for (const r of this.players.values()) r.update(dt, renderT);
+    for (const r of this.players.values()) r.update(dt);
     this.drawPanel();
   },
 
@@ -7802,7 +7831,7 @@ const Net = {
       d: r3(rig.damage), l: rig.lightsOn ? 1 : 0,
       k: (Game.ctrl.brake > 0.15 || Game.ctrl.handbrake > 0.15) ? 1 : 0,
     };
-    this.send('st', { s, tk: store.truck, tr: store.trailer });
+    this.send('st', { s, tk: store.truck, tr: store.trailer, ts: Math.round(performance.now() * 10) / 10 });
   },
 
   /** Truck swaps ride along in every state packet; keep the lobby record current too. */
