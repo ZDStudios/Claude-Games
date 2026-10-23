@@ -3259,7 +3259,7 @@ const Shop = (function () {
 const MP_CFG = { url: 'https://mp.zdstudios.network', key: 'pk_S5QSUylQmzVfjdaVVH9C591T' };
 let mp = null;
 const NET = (function () {
-  let wired = false, curId = null, sendT = 0, lastSent = '', leaving = false;
+  let wired = false, curId = null, sendT = 0, lastSent = '', lastSentAt = 0, leaving = false;
   const num = v => typeof v === 'number' && isFinite(v);
   const r2 = v => Math.round(v * 100) / 100;
   const rem = id => { for (let i = 0; i < FIGHTERS.length; i++) if (FIGHTERS[i].isRemote && FIGHTERS[i].netId === id) return FIGHTERS[i]; return null; };
@@ -3422,17 +3422,45 @@ const NET = (function () {
       const pl = mp.players.get(f.netId), d = pl && pl.data;
       if (!d || !num(d.x) || !num(d.z)) continue;
       f.spawnProt = Math.max(0, f.spawnProt - dt);
+      if (num(d.t)) {
+        const nb = f.nb || (f.nb = []), lt = nb.length ? nb[nb.length - 1].t : -1;
+        if (d.t > lt) {
+          const nowS = mp.serverTime(), lat = nowS - d.t;
+          f.nlat = f.nlat == null ? lat : f.nlat * 0.9 + lat * 0.1;
+          f.njit = (f.njit == null ? 0 : f.njit * 0.9) + Math.abs(lat - f.nlat) * 0.1;
+          if (nb.length) f.nival = f.nival == null ? d.t - lt : f.nival * 0.9 + (d.t - lt) * 0.1;
+          const want = clamp((f.nival || 50) * 1.6 + f.njit * 2 + 15, 70, 220);
+          f.ndelay = f.ndelay == null ? want : f.ndelay + (want - f.ndelay) * 0.08;
+          nb.push({ t: d.t, x: d.x, y: d.y || 0, z: d.z, yaw: d.yaw || 0, p: d.p || 0 }); if (nb.length > 30) nb.shift();
+        }
+      }
       if (!f.alive) {
         f.deadT += dt;
         if (d.al && f.deadT > 0.6) {
-          f.alive = true; f.hp = 100; f.spawnProt = 2.2; f.x = d.x; f.y = d.y || 0; f.z = d.z; f.yaw = d.yaw || 0; f.pitch = d.p || 0; f.deadT = 0; f.speed = 0;
+          f.alive = true; f.nb = num(d.t) ? [{ t: d.t, x: d.x, y: d.y || 0, z: d.z, yaw: d.yaw || 0, p: d.p || 0 }] : null; f.hp = 100; f.spawnProt = 2.2; f.x = d.x; f.y = d.y || 0; f.z = d.z; f.yaw = d.yaw || 0; f.pitch = d.p || 0; f.deadT = 0; f.speed = 0;
           if (WEAPONS[d.wp]) f.wp = d.wp; f.model.setGun(f.wp); f.model.flash = 0; f.model.flinch = 0;
         }
         continue;
       }
       const k = 1 - Math.exp(-16 * dt), ox = f.x, oz = f.z;
-      if (Math.hypot(d.x - f.x, d.z - f.z) > 8) { f.x = d.x; f.z = d.z; } else { f.x += (d.x - f.x) * k; f.z += (d.z - f.z) * k; }
-      f.y += ((d.y || 0) - f.y) * k; f.yaw += angDiff(f.yaw, d.yaw || 0) * k; f.pitch += ((d.p || 0) - f.pitch) * k;
+      const nb = f.nb;
+      if (nb && nb.length) {
+        /* Played back on the sender's synchronised clock, a little in the past, between two real samples —
+           instead of chasing the latest packet. Gaps are bridged by carrying on at the last velocity. */
+        const now = mp.serverTime(), tt = now - f.ndelay, last = nb[nb.length - 1];
+        let a, b, ext = 0;
+        if (tt >= last.t) { a = b = last; ext = Math.min((tt - last.t) / 1000, 0.1); }
+        else { while (nb.length > 2 && nb[1].t <= tt) nb.shift(); a = nb[0]; b = nb.length > 1 ? nb[1] : a; }
+        const u = b !== a && b.t > a.t ? clamp((tt - a.t) / (b.t - a.t), 0, 1) : 0;
+        let vx = 0, vz = 0;
+        if (ext && nb.length > 1) { const p0 = nb[nb.length - 2], dtv = (last.t - p0.t) / 1000; if (dtv > 0.005 && dtv < 0.3) { vx = (last.x - p0.x) / dtv; vz = (last.z - p0.z) / dtv; } }
+        if (Math.hypot(b.x - a.x, b.z - a.z) > 8) { f.x = b.x; f.z = b.z; }
+        else { f.x = lerp(a.x, b.x, u) + vx * ext; f.z = lerp(a.z, b.z, u) + vz * ext; }
+        f.y = lerp(a.y, b.y, u); f.yaw = a.yaw + angDiff(a.yaw, b.yaw) * u; f.pitch = lerp(a.p, b.p, u);
+      } else {
+        if (Math.hypot(d.x - f.x, d.z - f.z) > 8) { f.x = d.x; f.z = d.z; } else { f.x += (d.x - f.x) * k; f.z += (d.z - f.z) * k; }
+        f.y += ((d.y || 0) - f.y) * k; f.yaw += angDiff(f.yaw, d.yaw || 0) * k; f.pitch += ((d.p || 0) - f.pitch) * k;
+      }
       f.speed += (Math.hypot(f.x - ox, f.z - oz) / Math.max(dt, 1e-3) - f.speed) * Math.min(1, dt * 10);
       f.onGround = d.og !== 0;
       if (d.wp !== f.wp && WEAPONS[d.wp]) { f.wp = d.wp; f.model.setGun(f.wp); }
@@ -3442,7 +3470,10 @@ const NET = (function () {
       sendT = 0.05;
       const o = { x: r2(P.x), y: r2(P.y), z: r2(P.z), yaw: Math.round(P.yaw * 1000) / 1000, p: Math.round(P.pitch * 1000) / 1000, og: P.onGround ? 1 : 0, wp: P.wp, al: P.alive ? 1 : 0 };
       const s = JSON.stringify(o);
-      if (s !== lastSent) { lastSent = s; mp.setPlayer(o); }
+      /* every sample carries the synchronised server time so receivers can play it back on the sender's clock;
+         identical samples are still re-sent at 4 Hz so a stopped player reads as stopped, not as lag */
+      const nowS = performance.now();
+      if (s !== lastSent || nowS - lastSentAt > 250) { lastSent = s; lastSentAt = nowS; o.t = Math.round(mp.serverTime()); mp.setPlayer(o); }
     }
   }
 
