@@ -914,12 +914,13 @@ function makeRNG(seed) {
   return r;
 }
 
-/* Catppuccin Mocha, as numbers for three.js */
+/* The UI palette as numbers for three.js. The greys are neutral here (the UI
+ * keeps its own blue-tinted ones in CSS) so concrete and steel read as such. */
 const C = {
-  base: 0x1e1e2e, mantle: 0x181825, crust: 0x11111b,
-  s0: 0x313244, s1: 0x45475a, s2: 0x585b70,
-  ov0: 0x6c7086, ov1: 0x7f849c, ov2: 0x9399b2,
-  sub0: 0xa6adc8, sub1: 0xbac2de, text: 0xcdd6f4,
+  base: 0x1d1e20, mantle: 0x18191b, crust: 0x11111b,
+  s0: 0x323336, s1: 0x47484b, s2: 0x5c5e61,
+  ov0: 0x707275, ov1: 0x85878a, ov2: 0x9a9c9f,
+  sub0: 0xadafb2, sub1: 0xc0c2c5, text: 0xd4d6d8,
   lavender: 0xb4befe, blue: 0x89b4fa, sapphire: 0x74c7ec, sky: 0x89dceb,
   teal: 0x94e2d5, green: 0xa6e3a1, yellow: 0xf9e2af, peach: 0xfab387,
   maroon: 0xeba0ac, red: 0xf38ba8, mauve: 0xcba6f7, pink: 0xf5c2e7,
@@ -973,7 +974,7 @@ try {
     Object.assign(store, d);
     store.settings = Object.assign({
       quality: 'auto', shadows: true, volume: 0.75, power: 1, mouseLook: true,
-      abs: true, tc: true, esc: false, noFlip: false, noDamage: false, warhead: 1,
+      abs: true, tc: true, esc: false, noFlip: false, noDamage: false, solidScenery: false, warhead: 1,
       autoBoat: false, roughness: 0.35,
       missiles: true, tyreModel: true, telemetry: false,
       gearbox: 'auto', units: 'kmh',
@@ -1299,14 +1300,14 @@ renderer.setPixelRatio(1);
 renderer.setSize(innerWidth, innerHeight, false);
 renderer.outputEncoding = THREE.sRGBEncoding;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 1.06;
+renderer.toneMappingExposure = 1.1;
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.shadowMap.autoUpdate = true;
 
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(62, innerWidth / innerHeight, 0.3, 2600);
-scene.fog = new THREE.Fog(0x1e1e2e, 90, 700);
+scene.fog = new THREE.Fog(0x1d1e20, 90, 700);
 
 /* ------------------------------------------------------------ quality ---- */
 const Quality = {
@@ -1356,10 +1357,11 @@ scene.add(sun.target);
 const skyUniforms = {
   topColor: { value: new THREE.Color(0x2a3f6b) },
   midColor: { value: new THREE.Color(0x89b4fa) },
-  botColor: { value: new THREE.Color(0x1e1e2e) },
+  botColor: { value: new THREE.Color(0x1d1e20) },
   sunDir: { value: new THREE.Vector3(0.4, 0.6, 0.3) },
   sunColor: { value: new THREE.Color(0xffe9c4) },
   haze: { value: 0.35 },
+  sunBoost: { value: 26.0 },
 };
 const skyMesh = new THREE.Mesh(
   new THREE.SphereGeometry(1600, 28, 18),
@@ -1367,25 +1369,84 @@ const skyMesh = new THREE.Mesh(
     uniforms: skyUniforms, side: THREE.BackSide, depthWrite: false, fog: false,
     vertexShader: `varying vec3 vP; void main(){ vP = position; gl_Position = projectionMatrix*modelViewMatrix*vec4(position,1.0); }`,
     fragmentShader: `
-      uniform vec3 topColor,midColor,botColor,sunColor,sunDir; uniform float haze;
+      uniform vec3 topColor,midColor,botColor,sunColor,sunDir; uniform float haze, sunBoost;
       varying vec3 vP;
       void main(){
         vec3 d = normalize(vP);
         float h = d.y;
-        vec3 c = mix(botColor, midColor, smoothstep(-0.18, 0.22, h));
-        c = mix(c, topColor, smoothstep(0.12, 0.85, h));
+        // Rayleigh-ish: deep at the zenith, pale and hazy over a broad band at
+        // the horizon, and a soft ground haze below it. No banding — that was
+        // there for the low-poly look and is exactly what is being removed.
+        vec3 c = mix(midColor, topColor, pow(clamp(h, 0.0, 1.0), 0.48));
+        c = mix(c, botColor, smoothstep(0.10, -0.06, h));
+        c = mix(c, botColor * 0.82, smoothstep(-0.02, -0.40, h));
         float s = max(dot(d, normalize(sunDir)), 0.0);
-        c += sunColor * pow(s, 220.0) * 2.6;                 // sun disc
-        c += sunColor * pow(s, 6.0) * 0.30 * haze;           // glow
-        c += sunColor * pow(s, 1.6) * 0.055 * haze;          // wide scatter
-        // subtle banding for the chunky low-poly look
-        c = floor(c * 46.0) / 46.0;
+        // a hard HDR disc, a tight Mie halo and a broad forward-scatter glow —
+        // the disc is what makes the sun read as a light source rather than a
+        // pale blob, and it is what the reflections on the cars pick up
+        c += sunColor * pow(s, 2400.0) * sunBoost;
+        c += sunColor * pow(s, 180.0) * 0.55;
+        c += sunColor * pow(s, 9.0) * 0.30 * haze;
+        c += sunColor * pow(s, 2.0) * 0.06 * haze;
         gl_FragColor = vec4(c, 1.0);
+        #include <tonemapping_fragment>
+        #include <encodings_fragment>
       }`,
   })
 );
 skyMesh.frustumCulled = false;
 scene.add(skyMesh);
+
+/* ------------------------------------------------------- environment map --
+ * Image-based lighting from the sky itself. Every MeshStandardMaterial picks
+ * it up through scene.environment, so paint, glass, chrome and wet tarmac all
+ * reflect the actual sky above them — and the diffuse half of it is a far more
+ * convincing bounce light than a flat ambient term ever was. This, more than
+ * any single model, is what makes a car look like a car.
+ *
+ * It is rebuilt only when the sky has moved on enough to notice, because a
+ * PMREM bake costs a handful of milliseconds.
+ */
+const Env = {
+  pmrem: null, scene: null, rt: null,
+  lastHour: -99, lastOver: -1, lastT: -1e9,
+  init() {
+    this.pmrem = new THREE.PMREMGenerator(renderer);
+    this.pmrem.compileEquirectangularShader();
+    this.scene = new THREE.Scene();
+    // the same sky, sharing every colour uniform, but with a gentler sun disc —
+    // a full-strength HDR sun in the reflections would sparkle on every edge
+    const u = Object.assign({}, skyUniforms, { sunBoost: { value: 3.5 } });
+    const m = new THREE.ShaderMaterial({
+      uniforms: u, side: THREE.BackSide, depthWrite: false,
+      vertexShader: skyMesh.material.vertexShader,
+      fragmentShader: skyMesh.material.fragmentShader,
+    });
+    this.envSky = new THREE.Mesh(new THREE.SphereGeometry(100, 40, 20), m);
+    this.scene.add(this.envSky);
+    // and an earth below it, so what a door panel reflects low down is ground
+    // rather than more sky
+    this.groundMat = new THREE.MeshBasicMaterial({ color: 0x2e3324, side: THREE.DoubleSide });
+    const g = new THREE.Mesh(new THREE.CircleGeometry(95, 32), this.groundMat);
+    g.rotation.x = -PI / 2; g.position.y = -6;
+    this.scene.add(g);
+  },
+  update(hour, over) {
+    if (!this.pmrem) return;
+    const now = performance.now();
+    let dh = Math.abs(hour - this.lastHour); if (dh > 12) dh = 24 - dh;
+    if (dh < 0.2 && Math.abs(over - this.lastOver) < 0.05) return;
+    if (now - this.lastT < 1200 && this.lastHour > -50) return;
+    this.lastHour = hour; this.lastOver = over; this.lastT = now;
+    // the ground in the reflections darkens with the light
+    const lum = clamp01(sun.intensity / 3.5);
+    this.groundMat.color.setHex(0x3a4230).convertSRGBToLinear().multiplyScalar(0.25 + lum * 0.9);
+    const old = this.rt;
+    this.rt = this.pmrem.fromScene(this.scene, 0, 0.1, 300);
+    scene.environment = this.rt.texture;
+    if (old) old.dispose();
+  },
+};
 
 /* ------------------------------------------------- procedural textures --- */
 function canvasTex(w, h, draw, opts = {}) {
@@ -1520,19 +1581,76 @@ function xform(g, pos, rot, scl) {
   g.applyMatrix4(m);
   return g;
 }
+/**
+ * Every colour in this file is written as an sRGB hex code, because that is how
+ * colours are chosen. The renderer, though, lights in linear space and encodes
+ * to sRGB on the way out — so feeding the hex straight in encoded it twice,
+ * which is why the whole world used to come out pale, flat and pastel no matter
+ * what colour anything was given. Convert once, here, where they all pass.
+ */
 function paint(g, hex) {
-  const c = new THREE.Color(hex);
+  const c = new THREE.Color(hex).convertSRGBToLinear();
   const n = g.attributes.position.count;
   const arr = new Float32Array(n * 3);
   for (let i = 0; i < n; i++) { arr[i * 3] = c.r; arr[i * 3 + 1] = c.g; arr[i * 3 + 2] = c.b; }
   g.setAttribute('color', new THREE.BufferAttribute(arr, 3));
   return g;
 }
+/**
+ * Edge rounding for boxes, switched on only while a vehicle is being built.
+ * A real panel never meets the next one at a knife edge — there is always a
+ * radius on it, and that radius is what catches a highlight and tells the eye
+ * the thing is pressed steel rather than a block of wood. So while BOX_ROUND is
+ * non-zero, boxG hands back a box with rounded edges instead of a sharp one.
+ * The city and everything else keep their sharp boxes, and their speed.
+ */
+let BOX_ROUND = 0;
+
+/**
+ * A box with rounded edges, built the way three's own RoundedBoxGeometry does
+ * it: subdivide, squeeze the segments so the outer ones span exactly the radius
+ * and the middle one spans the flat, then push every edge vertex out onto the
+ * arc. `n` is segments per rounded edge — 1 gives a chamfer, 2 a proper radius.
+ */
+function roundBoxGeo(sx, sy, sz, r, n) {
+  const seg = n * 2 + 1;
+  const half = [sx / 2, sy / 2, sz / 2];
+  r = Math.max(0.001, Math.min(r, half[0] - 1e-3, half[1] - 1e-3, half[2] - 1e-3));
+  const g = new THREE.BoxGeometry(1, 1, 1, seg, seg, seg);
+  const pos = g.attributes.position, nor = g.attributes.normal;
+  const c = [0, 0, 0], inner = [0, 0, 0];
+  for (let i = 0; i < pos.count; i++) {
+    const src = [pos.getX(i), pos.getY(i), pos.getZ(i)];
+    for (let a = 0; a < 3; a++) {
+      const k = Math.round((src[a] + 0.5) * seg);           // 0 .. seg
+      const h = half[a];
+      if (k <= n) c[a] = -h + r * (k / n);
+      else if (k >= seg - n) c[a] = h - r * ((seg - k) / n);
+      else c[a] = 0;                                        // never hit: seg = 2n+1
+      inner[a] = Math.max(-h + r, Math.min(h - r, c[a]));
+    }
+    const dx = c[0] - inner[0], dy = c[1] - inner[1], dz = c[2] - inner[2];
+    const dl = Math.hypot(dx, dy, dz);
+    if (dl > 1e-6) {
+      pos.setXYZ(i, inner[0] + dx / dl * r, inner[1] + dy / dl * r, inner[2] + dz / dl * r);
+      nor.setXYZ(i, dx / dl, dy / dl, dz / dl);
+    } else {
+      pos.setXYZ(i, c[0], c[1], c[2]);
+    }
+  }
+  return toNonIndexed(g);
+}
+
 /** coloured box primitive ready for merging */
 let _unitBoxG = null;
 function boxG(sx, sy, sz, hex, pos, rot, seg) {
   let g;
-  if (seg && seg > 1) {
+  if (BOX_ROUND > 0 && Math.min(sx, sy, sz) > 0.02) {
+    // the big body panels get a true radius, trim and detail a small chamfer
+    const big = seg && seg > 1;
+    const md = Math.min(sx, sy, sz);
+    g = roundBoxGeo(sx, sy, sz, Math.min(BOX_ROUND * (big ? 1 : 0.6), md * (big ? 0.24 : 0.3)), big ? 2 : 1);
+  } else if (seg && seg > 1) {
     g = toNonIndexed(new THREE.BoxGeometry(sx, sy, sz, seg, seg, seg));
   } else {
     // Cloning a cached unit cube and scaling its vertices is several times
@@ -1547,6 +1665,7 @@ function boxG(sx, sy, sz, hex, pos, rot, seg) {
   paint(g, hex); xform(g, pos, rot);
   return g;
 }
+
 function cylG(rt, rb, h, seg, hex, pos, rot) {
   const g = toNonIndexed(new THREE.CylinderGeometry(rt, rb, h, seg, 1));
   paint(g, hex); xform(g, pos, rot);
@@ -1682,10 +1801,13 @@ function arcBoxes(radius, a0, a1, segs, bw, bt, hex, centre) {
 
 const VC = { vertexColors: true };
 
-/* Flat-shaded, vertex-coloured standard material — the workhorse look. */
+/* Vertex-coloured standard material — the workhorse. Smooth-shaded: boxes
+ * keep their crisp faces because their normals are per-face already, while
+ * anything round (rocks, trunks, tanks, tyres) finally stops looking faceted.
+ * The low-poly flat shading was the single biggest reason it looked blocky. */
 function vcMat(opts = {}) {
   return new THREE.MeshStandardMaterial(Object.assign({
-    vertexColors: true, flatShading: true, roughness: 0.85, metalness: 0.06,
+    vertexColors: true, flatShading: false, roughness: 0.85, metalness: 0.06,
   }, opts));
 }
 
@@ -1735,14 +1857,14 @@ const NOS_DRAG = 0.62;         // and it slips a little cleaner too
 
 const BOOST_TIME = 5.0;        // seconds of full thrust
 const BOOST_COOL = 14.0;       // seconds to recharge once it runs out
-const BOOST_ACCEL = 9.0;       // m/s^2 of pure thrust — a shade under 1 g
+const BOOST_ACCEL = 22.5;       // m/s^2 of pure thrust — a shade under 1 g
 /* Top speed is where thrust and drag balance, and drag goes as the square of
  * speed — so a quarter of the drag is exactly twice the top speed, no more and
  * no less. The thrust is what gets you there in a hurry; the drag figure is
  * what sets the ceiling. Left at 17.5 the two compounded and the boost was
  * worth nearly four times the speed, which is not what was asked for and is
  * not controllable either. */
-const BOOST_TORQUE = 1.7;      // and the engine leans on the wheels this much harder
+const BOOST_TORQUE = 2.6;      // and the engine leans on the wheels this much harder
 
 const GROUP = { WORLD: 1, VEHICLE: 2, CARGO: 4, DEBRIS: 8, TRIGGER: 16, TERRAIN: 32 };
 /** Wheel rays only care about built geometry — never cargo, debris, or the
@@ -1786,18 +1908,18 @@ contactPair(PMAT.slick, PMAT.cargo, 0.05, 0.02);
  *  soft     : how much rolling drag the surface adds
  *  wetMul   : extra grip loss once the surface is wet                       */
 const SURF = {
-  road:   { grip: 1.00, rollNoise: 0.30, dust: 0x585b70, soft: 0.006, wetMul: 0.74, name: 'ASPHALT' },
+  road:   { grip: 1.00, rollNoise: 0.30, dust: 0x5c5e61, soft: 0.006, wetMul: 0.74, name: 'ASPHALT' },
   dirt:   { grip: 0.80, rollNoise: 0.85, dust: 0x8a6b4a, soft: 0.020, wetMul: 0.80, name: 'DIRT'    },
   grass:  { grip: 0.72, rollNoise: 0.55, dust: 0x5f7d4a, soft: 0.030, wetMul: 0.78, name: 'GRASS'   },
   sand:   { grip: 0.60, rollNoise: 0.95, dust: 0xc2ac7a, soft: 0.060, wetMul: 0.95, name: 'SAND'    },
   gravel: { grip: 0.68, rollNoise: 1.00, dust: 0x8d8a86, soft: 0.038, wetMul: 0.88, name: 'GRAVEL'  },
-  metal:  { grip: 0.92, rollNoise: 0.42, dust: 0x9399b2, soft: 0.004, wetMul: 0.66, name: 'STEEL'   },
+  metal:  { grip: 0.92, rollNoise: 0.42, dust: 0x9a9c9f, soft: 0.004, wetMul: 0.66, name: 'STEEL'   },
   wood:   { grip: 0.86, rollNoise: 0.60, dust: 0xa07b52, soft: 0.010, wetMul: 0.70, name: 'WOOD'    },
   ice:    { grip: 0.22, rollNoise: 0.14, dust: 0xbcd8f0, soft: 0.002, wetMul: 0.85, name: 'ICE'     },
   mud:    { grip: 0.46, rollNoise: 0.75, dust: 0x4c3a28, soft: 0.085, wetMul: 1.00, name: 'MUD'     },
   water:  { grip: 0.30, rollNoise: 0.50, dust: 0x6fa8c8, soft: 0.140, wetMul: 1.00, name: 'WATER'   },
   snow:   { grip: 0.40, rollNoise: 0.30, dust: 0xe8f1fa, soft: 0.055, wetMul: 1.00, name: 'SNOW'    },
-  rubber: { grip: 1.30, rollNoise: 0.20, dust: 0x585b70, soft: 0.008, wetMul: 0.85, name: 'GRIP'    },
+  rubber: { grip: 1.30, rollNoise: 0.20, dust: 0x5c5e61, soft: 0.008, wetMul: 0.85, name: 'GRIP'    },
 };
 const surfaceOf = (body) => (body && body.surface && SURF[body.surface]) || SURF.road;
 
@@ -2734,7 +2856,7 @@ class Vehicle {
       // speed is set by where thrust and drag balance, so quartering the drag
       // is what actually doubles the number on the dial rather than just
       // getting you to the old one sooner.
-      const boostDrag = (this.boostT > 0 ? 0.25 : 1) * (this.nosOn ? NOS_DRAG : 1);
+      const boostDrag = (this.boostT > 0 ? 0.04 : 1) * (this.nosOn ? NOS_DRAG : 1);
       const F = 0.5 * 1.2 * this.spec.aero.cd * (1 + ab * 0.55) * cheatDrag() *
                 this.spec.aero.area * sp2 * boostDrag;
       vset(cvA, -v.x / spd * F, -v.y / spd * F, -v.z / spd * F);
@@ -2795,6 +2917,7 @@ class Vehicle {
     this.overboost(dt);
     this.flight(dt, ctrl);
     this.buoyancy(dt, ctrl);
+    if (store.settings.solidScenery) Destruct.collideBody(this.body);
     this.stability(dt);
     // the gyro would fight every aerobatic manoeuvre, so it stands down in flight
     if (this.morph < 0.3) this.antiFlip(dt, ctrl, grounded);
@@ -3067,7 +3190,7 @@ const TRUCKS = {
   pickup: {
     id: 'pickup', name: 'RIDGEBACK 250', klass: 'PICKUP',
     desc: 'Light, revvy, forgiving. The one you learn on.',
-    paint: 0xfab387, trim: 0x45475a, mass: 1980,
+    paint: 0xa9471a, trim: 0x2d2e33, mass: 1980,          // copper orange metallic
     // Split hull: a low box between the axles plus raised nose/tail blocks.
     // That chamfered underside is what lets it drop into a tight transition
     // without burying its bumper in the tarmac.
@@ -3099,7 +3222,7 @@ const TRUCKS = {
   monster: {
     id: 'monster', name: 'GRAVEDIGGER XL', klass: 'MONSTER',
     desc: 'Two feet of travel and no self-preservation instinct.',
-    paint: 0xcba6f7, trim: 0x313244, mass: 2750,
+    paint: 0x5a2a8a, trim: 0x26272c, mass: 2750,          // candy purple
     colliders: [
       { s: [2.05, 0.70, 3.20], p: [0, 0.10, 0] },
       { s: [1.92, 0.60, 0.75], p: [0, 0.32, 1.90] },
@@ -3131,7 +3254,7 @@ const TRUCKS = {
   semi: {
     id: 'semi', name: 'LONGHAUL 18', klass: 'SEMI TRACTOR',
     desc: 'Torque for days, brakes for none. Built to tow.',
-    paint: 0x89b4fa, trim: 0x1e1e2e, mass: 7600,
+    paint: 0x1d4f8f, trim: 0x1c1d21, mass: 7600,          // fleet blue
     colliders: [
       { s: [2.45, 0.95, 4.60], p: [0, 0.28, -0.2] },
       { s: [2.30, 0.80, 1.00], p: [0, 0.48, 2.55] },
@@ -3166,7 +3289,7 @@ const TRUCKS = {
   dump: {
     id: 'dump', name: 'QUARRY KING 8x4', klass: 'DUMP TRUCK',
     desc: 'Twelve tonnes of top-heavy. Corner like you mean it.',
-    paint: 0xf9e2af, trim: 0x45475a, mass: 12500,
+    paint: 0xe0a414, trim: 0x2d2e33, mass: 12500,         // construction yellow
     colliders: [
       { s: [2.60, 1.00, 5.60], p: [0, 0.10, 0] },
       { s: [2.42, 0.85, 1.10], p: [0, 0.38, 3.20] },
@@ -3202,7 +3325,7 @@ const TRUCKS = {
   rally: {
     id: 'rally', name: 'DUSTDEVIL RS', klass: 'RALLY',
     desc: 'A tenth of the weight and twice the revs. Steers with the throttle.',
-    paint: 0xa6e3a1, trim: 0x11111b, mass: 1180,
+    paint: 0x1d5e33, trim: 0x111215, mass: 1180,          // rally green
     colliders: [
       { s: [1.78, 0.58, 2.40], p: [0, 0.14, 0] },
       { s: [1.66, 0.46, 0.80], p: [0, 0.28, 1.62] },
@@ -3240,7 +3363,7 @@ const TRUCKS = {
   hyper: {
     id: 'hyper', name: 'AURORA GT-9', klass: 'HYPERCAR',
     desc: 'Carbon tub, active aero, eight-speed twin clutch. Nothing else here comes close.',
-    paint: 0xf38ba8, trim: 0x181825, mass: 1420,
+    paint: 0xb3131c, trim: 0x15161a, mass: 1420,          // rosso
     colliders: [
       { s: [1.72, 0.42, 3.30], p: [0, -0.02, 0] },
       { s: [1.36, 0.32, 0.90], p: [0, 0.02, 1.94] },
@@ -3288,7 +3411,7 @@ const TRUCKS = {
   muscle: {
     id: 'muscle', name: 'DOMINION 427', klass: 'MUSCLE',
     desc: 'Seven litres, two driven wheels and no electronics worth the name. Sideways is the default.',
-    paint: 0xeba0ac, trim: 0x1c1c28, mass: 1690,
+    paint: 0x1f4c9e, trim: 0x16171c, mass: 1690,          // grabber blue
     colliders: [
       { s: [1.86, 0.46, 3.70], p: [0, 0.02, 0] },
       { s: [1.62, 0.34, 0.95], p: [0, 0.06, 2.18] },
@@ -3330,7 +3453,7 @@ const TRUCKS = {
   titan: {
     id: 'titan', name: 'TITAN 8x8', klass: 'HEAVY HAULER',
     desc: 'Eight driven wheels and half a metre of travel. Slow. Unstoppable.',
-    paint: 0x74c7ec, trim: 0x313244, mass: 11000,
+    paint: 0x56603b, trim: 0x2a2c26, mass: 11000,         // olive drab
     colliders: [
       { s: [2.62, 0.95, 6.20], p: [0, 0.16, 0] },
       { s: [2.44, 0.85, 1.10], p: [0, 0.45, 3.65] },
@@ -3414,6 +3537,239 @@ function makeSpec(id, tuneOverride) {
 
 /* ------------------------------------------------------- bodywork meshes */
 
+/* ---------------------------------------------------------------- wheels ---
+ * A tyre used to be a cylinder with lug blocks glued round it, which from any
+ * angle but dead side-on read as a black drum — the single most toy-like thing
+ * on every vehicle. These are turned on a lathe instead: a real tyre profile
+ * with rounded shoulders and sidewalls, a tread pattern laid around the crown,
+ * and a proper rim behind it. One material does the lot, with the shader
+ * telling rubber from metal by how bright the vertex colour is (see wheelMat).
+ *
+ * Every wheel is built with its face toward +X. Left-hand wheels are mirrored
+ * when they are placed, so the rim faces outward on both sides of the car —
+ * which, for the record, it never did before: the left wheels had their spokes
+ * on the inside.
+ */
+
+/** A profile spun round the axle (X). Points are [radius, axial offset]. */
+function latheG(profile, seg, hex, pos) {
+  const g = toNonIndexed(new THREE.LatheGeometry(
+    profile.map(p => new THREE.Vector2(Math.max(p[0], 1e-4), p[1])), seg));
+  // lathe spins about Y; lay it on its side so the axle is X
+  g.rotateZ(PI / 2);
+  paint(g, hex);
+  if (pos) xform(g, pos);
+  return g;
+}
+
+/**
+ * The tyre. `style`: 'road' fine and directional, 'sport' broad shoulder blocks,
+ * 'mud' deep chevrons, 'rib' the straight ribs a steer axle wears.
+ */
+function tyreGeo(R, W, style) {
+  const parts = [];
+  const hw = W * 0.5, bead = R * 0.62;
+  const sh = style === 'mud' ? 0.86 : 0.93;
+  parts.push(latheG([
+    [bead, -hw * 0.90], [R * 0.76, -hw * 1.00], [R * 0.93, -hw * 0.97],
+    [R * 0.99, -hw * sh], [R, -hw * 0.6], [R, hw * 0.6],
+    [R * 0.99, hw * sh], [R * 0.93, hw * 0.97], [R * 0.76, hw * 1.00], [bead, hw * 0.90],
+  ], 28, 0x18181d));
+  const n = style === 'mud' ? 16 : style === 'rib' ? 34 : 26;
+  const tread = 0x0e0e12;
+  for (let i = 0; i < n; i++) {
+    const a = i / n * TAU;
+    const cy = Math.cos(a) * R * 0.995, cz = Math.sin(a) * R * 0.995;
+    if (style === 'mud') {
+      for (const s of [-1, 1]) {
+        parts.push(boxG(W * 0.42, R * 0.085, R * 0.21, tread, [s * W * 0.27, cy, cz], [a, 0, s * 0.42]));
+      }
+      parts.push(boxG(W * 0.30, R * 0.06, R * 0.10, tread, [0, cy * 0.998, cz * 0.998], [a, 0, 0]));
+    } else if (style === 'rib') {
+      parts.push(boxG(W * 0.84, R * 0.022, R * 0.10, tread, [0, cy, cz], [a, 0, 0]));
+    } else if (style === 'sport') {
+      for (const s of [-1, 1]) {
+        parts.push(boxG(W * 0.30, R * 0.028, R * 0.15, tread, [s * W * 0.28, cy, cz], [a, 0, s * 0.10]));
+      }
+    } else {
+      parts.push(boxG(W * 0.56, R * 0.026, R * 0.12, tread, [0, cy, cz], [a, 0, 0.18]));
+    }
+  }
+  // sidewall lettering: a ring of small raised marks catches the light
+  for (let i = 0; i < 22; i++) {
+    const a = i / 22 * TAU;
+    parts.push(boxG(R * 0.012, R * 0.03, R * 0.06, 0x2c2c33,
+      [hw * 1.0, Math.cos(a) * R * 0.86, Math.sin(a) * R * 0.86], [a, 0, 0]));
+  }
+  return parts;
+}
+
+/** A rim barrel with flanges — the bit the tyre sits on. */
+function barrelGeo(R, W, hex, depth) {
+  const d = depth == null ? 0.3 : depth;
+  return mergeGeoms([
+    latheG([
+      [R * 0.58, -W * 0.48], [R * 0.66, -W * 0.52], [R * 0.66, -W * 0.45], [R * 0.6, -W * 0.40],
+      [R * 0.6, W * 0.40], [R * 0.66, W * 0.45], [R * 0.66, W * 0.52], [R * 0.58, W * 0.48],
+    ], 24, hex),
+    // and the face of the dish behind the spokes, so you never see through
+    latheG([[R * 0.02, W * (d - 0.05)], [R * 0.6, W * (d - 0.2)]], 24, 0x1c1d22),
+  ]);
+}
+
+/** A drilled brake disc and its hub, sitting inboard of the spokes. */
+function discGeo(R, W) {
+  const parts = [latheG([[R * 0.30, -W * 0.06], [R * 0.70, -W * 0.06], [R * 0.70, W * 0.06],
+                         [R * 0.30, W * 0.06]], 22, 0x5c5c66, [-W * 0.12, 0, 0])];
+  for (let i = 0; i < 12; i++) {
+    const a = i / 12 * TAU;
+    parts.push(cylG(R * 0.035, R * 0.035, W * 0.14, 5, 0x111116,
+      [-W * 0.12, Math.cos(a) * R * 0.52, Math.sin(a) * R * 0.52], [0, 0, PI / 2]));
+  }
+  return parts;
+}
+
+/** Ten-spoke forged alloy — the hypercar. */
+function wheelForged(R, W, rim) {
+  const p = tyreGeo(R, W, 'sport');
+  p.push(barrelGeo(R, W, 0x2a2c34, 0.34));
+  for (let i = 0; i < 10; i++) {
+    const a = i / 10 * TAU;
+    p.push(boxG(W * 0.16, R * 0.62, R * 0.09, rim,
+      [W * 0.30, Math.cos(a) * R * 0.33, Math.sin(a) * R * 0.33], [a, 0.18, 0]));
+  }
+  p.push(cylG(R * 0.16, R * 0.18, W * 0.14, 14, rim, [W * 0.34, 0, 0], [0, 0, PI / 2]));
+  p.push(cylG(R * 0.07, R * 0.07, W * 0.2, 6, 0xd8a657, [W * 0.42, 0, 0], [0, 0, PI / 2]));
+  p.push(...discGeo(R, W));
+  return mergeGeoms(p);
+}
+
+/** Five twin-spoke motorsport wheel — rally and muscle. */
+function wheelFive(R, W, rim) {
+  const p = tyreGeo(R, W, 'sport');
+  p.push(barrelGeo(R, W, 0x2c2e36, 0.3));
+  for (let i = 0; i < 5; i++) {
+    const a = i / 5 * TAU;
+    for (const off of [-0.13, 0.13]) {
+      p.push(boxG(W * 0.15, R * 0.56, R * 0.085, rim,
+        [W * 0.27, Math.cos(a + off) * R * 0.32, Math.sin(a + off) * R * 0.32], [a + off, 0, 0]));
+    }
+  }
+  for (let i = 0; i < 5; i++) {
+    const a = (i + 0.5) / 5 * TAU;
+    p.push(cylG(R * 0.026, R * 0.026, W * 0.08, 6, 0xd7dbe4,
+      [W * 0.36, Math.cos(a) * R * 0.13, Math.sin(a) * R * 0.13], [0, 0, PI / 2]));
+  }
+  p.push(cylG(R * 0.14, R * 0.15, W * 0.12, 12, rim, [W * 0.32, 0, 0], [0, 0, PI / 2]));
+  p.push(...discGeo(R, W));
+  return mergeGeoms(p);
+}
+
+/** Beadlock steel wheel on a mud-terrain tyre — pickup, monster, titan. */
+function wheelBeadlock(R, W, rim) {
+  const p = tyreGeo(R, W, 'mud');
+  p.push(barrelGeo(R, W, rim, 0.28));
+  // a dished centre with round vent holes punched through it
+  p.push(latheG([[R * 0.17, W * 0.30], [R * 0.52, W * 0.30], [R * 0.58, W * 0.40]], 22, rim));
+  for (let i = 0; i < 6; i++) {
+    const a = i / 6 * TAU;
+    p.push(cylG(R * 0.085, R * 0.085, W * 0.06, 10, 0x15151a,
+      [W * 0.31, Math.cos(a) * R * 0.34, Math.sin(a) * R * 0.34], [0, 0, PI / 2]));
+  }
+  // the beadlock ring and its bolts
+  p.push(latheG([[R * 0.59, W * 0.47], [R * 0.67, W * 0.47], [R * 0.67, W * 0.52], [R * 0.59, W * 0.52]], 24, 0x5f6170));
+  for (let i = 0; i < 16; i++) {
+    const a = i / 16 * TAU;
+    p.push(cylG(R * 0.022, R * 0.022, W * 0.06, 6, 0xc3c8d2,
+      [W * 0.53, Math.cos(a) * R * 0.63, Math.sin(a) * R * 0.63], [0, 0, PI / 2]));
+  }
+  p.push(cylG(R * 0.15, R * 0.16, W * 0.14, 12, 0x8a8f9c, [W * 0.34, 0, 0], [0, 0, PI / 2]));
+  for (let i = 0; i < 6; i++) {
+    const a = i / 6 * TAU;
+    p.push(cylG(R * 0.024, R * 0.024, W * 0.1, 6, 0xc9ced8,
+      [W * 0.38, Math.cos(a) * R * 0.1, Math.sin(a) * R * 0.1], [0, 0, PI / 2]));
+  }
+  p.push(...discGeo(R, W * 0.9));
+  return mergeGeoms(p);
+}
+
+/** Ten-stud commercial wheel. `dual` puts a twin tyre inboard of it. */
+function wheelCommercial(R, W, rim, dual, steer) {
+  const p = tyreGeo(R, W, steer ? 'rib' : 'road');
+  if (dual) {
+    for (const g of tyreGeo(R, W * 0.96, 'road')) p.push(xform(g, [-W * 1.05, 0, 0]));
+    p.push(xform(barrelGeo(R, W * 0.96, rim, 0.3), [-W * 1.05, 0, 0]));
+  }
+  p.push(barrelGeo(R, W, rim, 0.26));
+  p.push(latheG([[R * 0.18, W * 0.27], [R * 0.54, W * 0.22], [R * 0.6, W * 0.40]], 22, rim));
+  for (let i = 0; i < 5; i++) {
+    const a = i / 5 * TAU + 0.3;
+    p.push(cylG(R * 0.1, R * 0.1, W * 0.06, 10, 0x15151a,
+      [W * 0.25, Math.cos(a) * R * 0.37, Math.sin(a) * R * 0.37], [0, 0, PI / 2]));
+  }
+  for (let i = 0; i < 10; i++) {
+    const a = i / 10 * TAU;
+    p.push(cylG(R * 0.03, R * 0.03, W * 0.12, 6, 0xd2d7e0,
+      [W * 0.31, Math.cos(a) * R * 0.155, Math.sin(a) * R * 0.155], [0, 0, PI / 2]));
+  }
+  // polished hub cap
+  p.push(latheG([[R * 0.01, W * 0.36], [R * 0.1, W * 0.35], [R * 0.13, W * 0.27]], 16, 0xd4d8e2));
+  return mergeGeoms(p);
+}
+
+/**
+ * Which wheel a vehicle wears, front and rear. The rear can differ: heavy
+ * trucks run singles on the steer axle and duals behind it.
+ */
+function wheelSet(spec) {
+  const wd = spec.wheelDef, R = wd.radius, W = wd.width;
+  const rimC = (spec.rig && spec.rig.rim) || null;
+  let front, rear;
+  switch (spec.id) {
+    case 'hyper': front = rear = wheelForged(R, W, rimC || 0xa4aab8); break;
+    case 'muscle': front = rear = wheelFive(R, W, rimC || 0xc8ccd6); break;
+    case 'rally': front = rear = wheelFive(R, W, rimC || 0xe8e4dc); break;
+    case 'semi':
+    case 'dump':
+      front = wheelCommercial(R, W, rimC || 0xc9ccd4, false, true);
+      rear = wheelCommercial(R, W, rimC || 0xc9ccd4, true, false);
+      break;
+    case 'titan': front = rear = wheelBeadlock(R, W, rimC || 0x5b6247); break;
+    case 'monster': front = rear = wheelBeadlock(R, W, rimC || 0x9aa0ab); break;
+    default: front = rear = wheelBeadlock(R, W, rimC || 0xb7bcc6);
+  }
+  return { front, rear };
+}
+
+/**
+ * One material for tyre and rim alike. Rubber and metal are told apart by the
+ * brightness of the vertex colour: near-black reads as rough rubber, anything
+ * lighter as metal, getting glossier the brighter it is. Saves a second mesh
+ * and a second draw call on every wheel.
+ */
+function wheelMat() {
+  const m = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.8, metalness: 0.0 });
+  m.onBeforeCompile = (sh) => {
+    sh.fragmentShader = sh.fragmentShader
+      .replace('#include <roughnessmap_fragment>',
+        'float wLum = dot(vColor.rgb, vec3(0.3, 0.59, 0.11));\n' +
+        'float wMet = smoothstep(0.02, 0.18, wLum);\n' +
+        'float roughnessFactor = mix(0.86, 0.26, wMet);')
+      .replace('#include <metalnessmap_fragment>', 'float metalnessFactor = wMet * 0.9;');
+  };
+  return m;
+}
+
+/** A wheel mesh for one wheel definition, mirrored if it sits on the left. */
+function makeWheelMesh(set, w, mat) {
+  const rear = (w.axle || 0) > 0 && !w.steer;
+  const m = new THREE.Mesh(rear ? set.rear : set.front, mat);
+  m.castShadow = true;
+  m.userData.side = w.x < 0 ? -1 : 1;
+  m.scale.x = m.userData.side;
+  return m;
+}
+
 /**
  * Forged multi-spoke alloy with a real (drilled, spinning) brake disc behind
  * it. Only the hypercar wears these — the trucks keep their chunky steelies.
@@ -3464,7 +3820,7 @@ function alloyWheel(radius, width, rimColor, tyreColor) {
       [-W * 0.32, Math.cos(a) * R * 0.53, Math.sin(a) * R * 0.53], [0, 0, PI / 2]));
   }
   // bell
-  parts.push(cylG(R * 0.26, R * 0.26, W * 0.24, 10, 0x6c7086, [-W * 0.20, 0, 0], [0, 0, PI / 2]));
+  parts.push(cylG(R * 0.26, R * 0.26, W * 0.24, 10, 0x707275, [-W * 0.20, 0, 0], [0, 0, PI / 2]));
   return mergeGeoms(parts);
 }
 
@@ -3476,14 +3832,14 @@ function wheelGeometry(radius, width, hubColor, tyreColor) {
   // hub face detail so the spin is readable
   for (let i = 0; i < 5; i++) {
     const a = i / 5 * TAU;
-    parts.push(boxG(width * 1.12, radius * 0.13, radius * 0.72, 0x9399b2,
+    parts.push(boxG(width * 1.12, radius * 0.13, radius * 0.72, 0x9a9c9f,
       [0, Math.sin(a) * radius * 0.3, Math.cos(a) * radius * 0.3], [a, 0, 0]));
   }
   // tread lugs
   const lugs = 10;
   for (let i = 0; i < lugs; i++) {
     const a = i / lugs * TAU;
-    parts.push(boxG(width * 1.08, radius * 0.14, radius * 0.42, 0x1e1e2e,
+    parts.push(boxG(width * 1.08, radius * 0.14, radius * 0.42, 0x1d1e20,
       [0, Math.sin(a) * radius * 0.97, Math.cos(a) * radius * 0.97], [a, 0, 0]));
   }
   return mergeGeoms(parts);
@@ -3601,7 +3957,7 @@ function buildHyperBody(paint, trim) {
 function buildMuscleBody(paint, trim) {
   const body = [];
   const chrome = 0xc6ccd8, dark = 0x0e0e15, glass = 0x16232f, black = 0x14141c;
-  const stripe = 0x1e1e2e;
+  const stripe = 0x1d1e20;
 
   /* ---- lofted tub ------------------------------------------------------
    * The arch tucks are the same trick as the hypercar: over each axle the
@@ -3711,14 +4067,752 @@ function buildHyperWing(paint, trim) {
   return m;
 }
 
+/* --------------------------------------------------------- body helpers ---
+ * Tools for the rebuilt bodies. A vehicle used to be a stack of boxes; these
+ * let it be pressed steel instead — lofted shells for the big curved panels,
+ * pipes for the tube work, and everything else as rounded boxes (BOX_ROUND is
+ * on while a vehicle is built, so plain boxG calls come out with radii).
+ */
+
+/** A lofted shell from superellipse sections {z, w, t, b, y, pt, pb}. */
+function shellG(secs, hex, n) {
+  return loftGeo(secs.map(s => ({
+    z: s.z,
+    pts: seRing(n || 18, s.w, s.t, s.b == null ? s.t : s.b, s.y || 0,
+                s.pt == null ? 4 : s.pt, s.pb == null ? (s.pt == null ? 4 : s.pt) : s.pb),
+  })), hex);
+}
+
+/** A cylinder between two points — bars, stalks, pipes, cage tubes. */
+const _pUp = new THREE.Vector3(0, 1, 0), _pDir = new THREE.Vector3();
+function pipeG(a, b, r, hex, seg) {
+  const dx = b[0] - a[0], dy = b[1] - a[1], dz = b[2] - a[2];
+  const len = Math.hypot(dx, dy, dz) || 1e-4;
+  const g = toNonIndexed(new THREE.CylinderGeometry(r, r, len, seg || 8, 1));
+  paint(g, hex);
+  const q = new THREE.Quaternion().setFromUnitVectors(_pUp, _pDir.set(dx / len, dy / len, dz / len));
+  g.applyMatrix4(new THREE.Matrix4().compose(
+    new THREE.Vector3((a[0] + b[0]) / 2, (a[1] + b[1]) / 2, (a[2] + b[2]) / 2), q, new THREE.Vector3(1, 1, 1)));
+  return g;
+}
+
+const BC = {      // body colours shared by the rebuilt vehicles
+  glass: 0x18242f, dark: 0x0e0f12, black: 0x16171a, chrome: 0xc8ccd4, steel: 0x7d8189,
+  rubber: 0x141417, plate: 0xdcdde2, plateText: 0x2a2c33, amber: 0xf2a33a, seat: 0x2b2c31,
+};
+
+/** Door mirrors on stalks. */
+function mirrorPair(out, x, y, z, w, h, arm, hex) {
+  for (const sx of [-1, 1]) {
+    out.push(pipeG([sx * x, y, z], [sx * (x + arm), y + h * 0.1, z - 0.02], 0.02, BC.black, 6));
+    out.push(boxG(0.05, h, w, hex, [sx * (x + arm), y + h * 0.1, z - 0.02], [0, sx * 0.25, 0]));
+    out.push(boxG(0.012, h * 0.8, w * 0.82, 0x3a4a5a, [sx * (x + arm + 0.028), y + h * 0.1, z - 0.02], [0, sx * 0.25, 0]));
+  }
+}
+
+/** Number plates, front and back. */
+function plates(out, fz, fy, rz, ry, s) {
+  const w = 0.46 * (s || 1), h = 0.13 * (s || 1);
+  if (fz != null) { out.push(boxG(w, h, 0.02, BC.plate, [0, fy, fz])); out.push(boxG(w * 0.84, h * 0.42, 0.024, BC.plateText, [0, fy, fz + 0.004])); }
+  if (rz != null) { out.push(boxG(w, h, 0.02, BC.plate, [0, ry, rz])); out.push(boxG(w * 0.84, h * 0.42, 0.024, BC.plateText, [0, ry, rz - 0.004])); }
+}
+
+/** Seats and a dash, seen through the glass. */
+function cabin(out, x, y, z, s, dashY, dashZ, dashW) {
+  for (const sx of [-1, 1]) {
+    out.push(boxG(0.42 * s, 0.1 * s, 0.46 * s, BC.seat, [sx * x, y, z]));
+    out.push(boxG(0.42 * s, 0.54 * s, 0.11 * s, BC.seat, [sx * x, y + 0.27 * s, z - 0.22 * s], [-0.14, 0, 0]));
+    out.push(boxG(0.26 * s, 0.16 * s, 0.1 * s, 0x3a3b42, [sx * x, y + 0.6 * s, z - 0.27 * s]));
+  }
+  out.push(boxG(dashW, 0.16 * s, 0.32 * s, BC.black, [0, dashY, dashZ], [0.25, 0, 0]));
+  // the wheel itself
+  out.push(xform(paint(toNonIndexed(new THREE.TorusGeometry(0.17 * s, 0.022 * s, 6, 18)), BC.black),
+    [-x, dashY + 0.1 * s, dashZ - 0.24 * s], [-0.45, 0, 0]));
+}
+
+/* ------------------------------------------------------- RIDGEBACK 250 ---
+ * A full-size pickup: lofted lower body with the arches tucked in over the
+ * axles, a cab whose glass is a lofted greenhouse with roof, pillars and door
+ * skin laid over it, a proper load bed with ribbed floor and capped walls,
+ * a chrome-barred grille and a sports bar over the cab. Fits inside the same
+ * colliders the box version had.
+ */
+function bodyPickup(paint, trim) {
+  const soft = [], hard = [], panels = [], heads = [], tails = [];
+  const H = (...g) => hard.push(...g);
+
+  // ---- lofted lower body: the bonnet drops below the beltline so the panel
+  // that sits on it stands proud, and the floor tucks hard over both axles
+  soft.push(shellG([
+    { z: -2.58, w: 0.88, t: 0.28, b: 0.24, y: 0.10, pt: 8.0, pb: 7.0 },
+    { z: -2.40, w: 0.92, t: 0.30, b: 0.28, y: 0.10, pt: 9.0, pb: 8.0 },
+    { z: -1.62, w: 0.95, t: 0.31, b: 0.20, y: 0.09, pt: 9.0, pb: 2.2 },
+    { z: -0.95, w: 0.92, t: 0.31, b: 0.30, y: 0.09, pt: 9.0, pb: 9.0 },
+    { z: -0.10, w: 0.915, t: 0.31, b: 0.31, y: 0.09, pt: 9.0, pb: 10.0 },
+    { z: 0.86, w: 0.92, t: 0.31, b: 0.31, y: 0.09, pt: 9.0, pb: 10.0 },
+    { z: 1.16, w: 0.93, t: 0.27, b: 0.29, y: 0.09, pt: 9.0, pb: 7.0 },
+    { z: 1.58, w: 0.95, t: 0.20, b: 0.20, y: 0.09, pt: 9.0, pb: 2.2 },
+    { z: 2.24, w: 0.92, t: 0.18, b: 0.27, y: 0.08, pt: 7.0, pb: 6.0 },
+    { z: 2.52, w: 0.86, t: 0.16, b: 0.23, y: 0.08, pt: 6.0, pb: 5.0 },
+  ], paint, 20));
+  // cab door skin, a second shell riding on the beltline
+  soft.push(shellG([
+    { z: -0.66, w: 0.90, t: 0.14, y: 0.53, pt: 10 }, { z: -0.30, w: 0.912, t: 0.14, y: 0.53, pt: 12 },
+    { z: 0.60, w: 0.912, t: 0.14, y: 0.53, pt: 12 }, { z: 1.10, w: 0.905, t: 0.14, y: 0.53, pt: 11 },
+    { z: 1.42, w: 0.875, t: 0.13, y: 0.52, pt: 9 },
+  ], paint, 18));
+  // the greenhouse — glass, with the roof and pillars laid over it
+  soft.push(shellG([
+    { z: -0.64, w: 0.86, t: 0.42, b: 0.0, y: 0.66, pt: 7.0, pb: 10 },
+    { z: -0.30, w: 0.875, t: 0.43, b: 0.0, y: 0.66, pt: 8.0, pb: 10 },
+    { z: 0.45, w: 0.875, t: 0.43, b: 0.0, y: 0.66, pt: 8.0, pb: 10 },
+    { z: 0.92, w: 0.865, t: 0.39, b: 0.0, y: 0.66, pt: 8.0, pb: 10 },
+    { z: 1.42, w: 0.85, t: 0.10, b: 0.0, y: 0.66, pt: 8.0, pb: 10 },
+  ], BC.glass, 18));
+  // roof skin
+  soft.push(shellG([
+    { z: -0.66, w: 0.80, t: 0.03, y: 1.065, pt: 8 },
+    { z: -0.30, w: 0.82, t: 0.03, y: 1.075, pt: 8 },
+    { z: 0.45, w: 0.82, t: 0.03, y: 1.075, pt: 8 },
+    { z: 0.92, w: 0.80, t: 0.03, y: 1.035, pt: 8 },
+  ], paint, 14));
+
+  for (const sx of [-1, 1]) {
+    H(boxG(0.05, 0.53, 0.08, paint, [sx * 0.85, 0.89, 1.18], [-0.94, 0, 0]));             // A-pillar
+    H(boxG(0.05, 0.38, 0.08, paint, [sx * 0.88, 0.86, 0.42]));                            // B-pillar
+    H(boxG(0.05, 0.38, 0.12, paint, [sx * 0.865, 0.86, -0.58]));                          // C-pillar
+    H(boxG(0.1, 0.03, 0.035, BC.chrome, [sx * 0.912, 0.665, 0.62]));                      // handles
+    H(boxG(0.1, 0.03, 0.035, BC.chrome, [sx * 0.912, 0.665, -0.28]));
+    for (const dz of [1.32, 0.40, -0.62]) H(boxG(0.012, 0.30, 0.012, 0x2a2b30, [sx * 0.926, 0.53, dz])); // door edges
+    H(boxG(0.22, 0.08, 1.26, paint, [sx * 0.80, 0.335, 1.86]));                           // fender tops
+    // flared arches round both wheels
+    H(...arcBoxes(0.53, -1.38, 1.38, 9, 0.10, 0.06, trim, [sx * 0.94, -0.06, 1.58]));
+    H(...arcBoxes(0.55, -1.38, 1.38, 9, 0.10, 0.06, trim, [sx * 0.94, -0.06, -1.62]));
+    H(boxG(0.24, 0.06, 1.30, BC.black, [sx * 0.92, -0.25, -0.10]));                       // side step
+    for (const bz of [-0.6, 0.4]) H(boxG(0.16, 0.08, 0.06, BC.black, [sx * 0.82, -0.21, bz]));
+    // front lamp clusters: dark housing, lens, amber indicator
+    H(boxG(0.36, 0.22, 0.07, BC.dark, [sx * 0.66, 0.20, 2.52]));
+    heads.push(boxG(0.28, 0.14, 0.04, 0xffffff, [sx * 0.66, 0.22, 2.56]));
+    H(boxG(0.30, 0.05, 0.04, BC.amber, [sx * 0.66, 0.10, 2.555]));
+    // rear lamps: tall clusters in the bed corners
+    H(boxG(0.17, 0.36, 0.08, BC.dark, [sx * 0.81, 0.42, -2.58]));
+    tails.push(boxG(0.13, 0.17, 0.04, 0xffffff, [sx * 0.81, 0.50, -2.62]));
+    H(boxG(0.13, 0.07, 0.04, BC.amber, [sx * 0.81, 0.37, -2.62]));
+    H(boxG(0.13, 0.06, 0.04, 0xe6e8ee, [sx * 0.81, 0.29, -2.62]));
+  }
+  H(boxG(0.80, 0.05, 0.03, BC.dark, [0, 0.98, 1.32], [0.62, 0, 0]));                      // screen surround
+
+  // ---- front end: grille, bumper, skid plate, tow hooks
+  H(boxG(1.04, 0.26, 0.05, BC.dark, [0, 0.16, 2.52]));
+  for (let i = 0; i < 4; i++) H(boxG(1.0, 0.035, 0.06, BC.chrome, [0, 0.07 + i * 0.065, 2.545]));
+  H(boxG(1.12, 0.05, 0.06, BC.chrome, [0, 0.30, 2.545]));
+  H(boxG(0.18, 0.06, 0.03, BC.chrome, [0, 0.19, 2.575]));                                 // badge
+  H(boxG(1.88, 0.06, 0.32, BC.chrome, [0, -0.01, 2.57]));
+  H(boxG(1.30, 0.10, 0.24, 0x2b2c30, [0, -0.20, 2.50], [0.34, 0, 0]));                    // skid plate
+  for (const sx of [-1, 1]) H(pipeG([sx * 0.52, -0.14, 2.62], [sx * 0.52, 0.02, 2.67], 0.03, 0xd9534f, 6));
+
+  // ---- the bed: ribbed floor, capped walls, wheel humps, tailgate
+  H(boxG(1.62, 0.05, 1.94, 0x2c2d33, [0, 0.36, -1.55]));
+  for (let i = -4; i <= 4; i++) H(boxG(0.05, 0.03, 1.90, 0x3b3c43, [i * 0.18, 0.39, -1.55]));
+  for (const sx of [-1, 1]) {
+    H(boxG(0.10, 0.30, 1.94, paint, [sx * 0.875, 0.52, -1.55]));
+    H(boxG(0.13, 0.035, 1.96, 0x2a2b30, [sx * 0.875, 0.675, -1.55]));                     // bed rail cap
+    H(boxG(0.08, 0.17, 0.54, 0x3b3c43, [sx * 0.80, 0.45, -1.62]));
+  }
+  H(boxG(0.30, 0.05, 0.03, BC.chrome, [0, 0.50, -2.61]));                                 // tailgate badge
+  H(boxG(1.80, 0.16, 0.22, BC.chrome, [0, -0.06, -2.62]));                                 // rear step bumper
+  H(boxG(0.50, 0.04, 0.16, BC.black, [0, 0.025, -2.62]));
+  // sports bar over the back of the cab, with a light bar on it
+  for (const sx of [-1, 1]) H(pipeG([sx * 0.74, 0.40, -0.80], [sx * 0.62, 1.16, -0.80], 0.035, 0x2a2b30, 10));
+  H(pipeG([-0.64, 1.14, -0.80], [0.64, 1.14, -0.80], 0.035, 0x2a2b30, 10));
+  H(boxG(1.0, 0.10, 0.12, BC.black, [0, 1.22, -0.80]));
+  heads.push(boxG(0.92, 0.05, 0.03, 0xffffff, [0, 1.22, -0.73]));
+
+  // ---- details
+  mirrorPair(hard, 0.90, 0.80, 1.05, 0.20, 0.17, 0.12, paint);
+  plates(hard, 2.61, -0.08, -2.62, 0.30);
+  for (const sx of [-1, 1]) {
+    H(boxG(0.30, 0.30, 0.02, BC.rubber, [sx * 0.89, -0.31, -2.22]));                      // mud flaps
+  }
+  H(pipeG([0.62, -0.22, -1.30], [0.62, -0.22, -2.64], 0.05, BC.steel, 10));               // exhaust
+  H(boxG(0.13, 0.10, 0.10, 0x2a2b30, [-0.93, 0.30, -1.10]));                              // fuel filler
+  H(pipeG([-0.74, 1.07, -0.66], [-0.80, 1.68, -0.72], 0.01, BC.black, 5));                // antenna
+  cabin(hard, 0.34, 0.52, 0.34, 1, 0.74, 1.10, 1.26);
+
+  panels.push({ name: 'bonnet', g: boxG(1.40, 0.08, 1.30, paint, [0, 0.335, 1.86], null, 2),
+                local: [0, 0.335, 1.86], size: [1.40, 0.08, 1.3], mass: 26, thresh: 0.40 });
+  panels.push({ name: 'tailgate', g: boxG(1.66, 0.30, 0.09, paint, [0, 0.52, -2.555], null, 2),
+                local: [0, 0.52, -2.555], size: [1.66, 0.3, 0.09], mass: 22, thresh: 0.44 });
+  panels.push({ name: 'bumper', g: boxG(1.88, 0.17, 0.30, BC.steel, [0, -0.09, 2.56], null, 1),
+                local: [0, -0.09, 2.56], size: [1.88, 0.17, 0.3], mass: 18, thresh: 0.30 });
+  panels.push({ name: 'step', g: boxG(0.24, 0.06, 1.30, BC.black, [-0.92, -0.25, -0.10], null, 1),
+                local: [-0.92, -0.25, -0.10], size: [0.24, 0.06, 1.3], mass: 10, thresh: 0.52 });
+  return { soft, hard, panels, heads, tails };
+}
+
+
+/** A rounded box straight from roundBoxGeo, at whatever radius you ask for. */
+function rbox(sx, sy, sz, r, hex, pos, rot) {
+  const g = roundBoxGeo(sx, sy, sz, r, 2);
+  paint(g, hex); xform(g, pos, rot);
+  return g;
+}
+
+/* --------------------------------------------------------- LONGHAUL 18 ---
+ * A classic American long-nose tractor. Lofted hood with fenders that sweep
+ * down over the steer axle, a tall chrome grille, round headlamps in chrome
+ * bezels, a cab with a split windscreen under a visor, a sleeper behind it,
+ * twin chrome stacks, air horns, polished tanks and a fifth wheel on the
+ * frame. Same colliders as before — the cockpit camera sits at z 1.35, so the
+ * windscreen is put just ahead of it.
+ */
+function bodySemi(paint, trim) {
+  const soft = [], hard = [], panels = [], heads = [], tails = [];
+  const H = (...g) => hard.push(...g);
+
+  // ---- the long hood, narrowing a touch toward the grille
+  soft.push(shellG([
+    { z: 1.48, w: 0.76, t: 0.30, b: 0.62, y: 1.14, pt: 7, pb: 10 },
+    { z: 2.10, w: 0.74, t: 0.29, b: 0.62, y: 1.12, pt: 7, pb: 10 },
+    { z: 2.70, w: 0.70, t: 0.26, b: 0.62, y: 1.08, pt: 6.5, pb: 10 },
+    { z: 3.03, w: 0.64, t: 0.22, b: 0.60, y: 1.04, pt: 6, pb: 10 },
+  ], paint, 20));
+  // ---- sweeping fenders over the front wheels, one each side
+  for (const sx of [-1, 1]) {
+    const f = shellG([
+      { z: 1.62, w: 0.32, t: 0.05, b: 0.03, y: 0.52, pt: 4, pb: 6 },
+      { z: 1.95, w: 0.36, t: 0.11, b: 0.04, y: 0.74, pt: 4, pb: 6 },
+      { z: 2.35, w: 0.37, t: 0.13, b: 0.04, y: 0.86, pt: 4, pb: 6 },
+      { z: 2.80, w: 0.36, t: 0.11, b: 0.04, y: 0.76, pt: 4, pb: 6 },
+      { z: 3.10, w: 0.31, t: 0.06, b: 0.03, y: 0.52, pt: 4, pb: 6 },
+    ], paint, 16);
+    soft.push(xform(f, [sx * 1.02, 0, 0]));
+  }
+
+  // ---- cab and sleeper
+  H(rbox(2.22, 1.62, 1.50, 0.14, paint, [0, 1.58, 0.75]));                     // cab
+  H(rbox(2.22, 1.78, 1.32, 0.16, paint, [0, 1.50, -0.66]));                    // sleeper
+  H(rbox(2.30, 0.10, 2.90, 0.04, trim, [0, 0.74, 0.05]));                      // cab floor/skirt
+  // split windscreen with a centre post, under a visor
+  for (const sx of [-1, 1]) H(boxG(0.98, 0.58, 0.04, BC.glass, [sx * 0.53, 2.00, 1.51], [-0.12, 0, 0]));
+  H(boxG(0.06, 0.60, 0.06, paint, [0, 2.00, 1.52], [-0.12, 0, 0]));
+  H(boxG(2.26, 0.05, 0.42, trim, [0, 2.38, 1.60], [0.18, 0, 0]));              // visor
+  for (let i = 0; i < 5; i++) H(boxG(0.10, 0.05, 0.05, BC.amber, [(i - 2) * 0.32, 2.35, 1.80])); // marker lamps
+  for (const sx of [-1, 1]) {
+    // door glass and the little quarter window behind it
+    H(boxG(0.04, 0.56, 0.74, BC.glass, [sx * 1.115, 2.00, 0.90]));
+    H(boxG(0.04, 0.44, 0.22, BC.glass, [sx * 1.115, 2.02, 0.28]));
+    H(boxG(0.04, 0.34, 0.50, BC.glass, [sx * 1.115, 1.98, -0.70]));            // sleeper window
+    H(boxG(0.012, 1.10, 0.012, 0x15161a, [sx * 1.118, 1.40, 1.28]));            // door edges
+    H(boxG(0.012, 1.10, 0.012, 0x15161a, [sx * 1.118, 1.40, 0.15]));
+    H(boxG(0.10, 0.04, 0.04, BC.chrome, [sx * 1.13, 1.55, 0.40]));              // handle
+    // west-coast mirror on two chrome arms
+    H(pipeG([sx * 1.11, 2.10, 1.40], [sx * 1.42, 2.15, 1.36], 0.02, BC.chrome, 6));
+    H(pipeG([sx * 1.11, 1.70, 1.40], [sx * 1.42, 1.85, 1.36], 0.02, BC.chrome, 6));
+    H(boxG(0.08, 0.52, 0.20, BC.black, [sx * 1.44, 2.0, 1.36]));
+    H(boxG(0.015, 0.46, 0.16, 0x3a4a5a, [sx * 1.485, 2.0, 1.36]));
+    // grab rail and steps up to the door
+    H(pipeG([sx * 1.13, 1.0, 0.18], [sx * 1.13, 1.9, 0.18], 0.022, BC.chrome, 6));
+    H(boxG(0.30, 0.04, 0.42, BC.chrome, [sx * 1.08, 0.50, 0.85]));
+    H(boxG(0.30, 0.04, 0.42, BC.chrome, [sx * 1.08, 0.18, 0.85]));
+  }
+
+  // ---- grille, bumper, headlamps
+  H(boxG(1.20, 1.06, 0.06, BC.chrome, [0, 0.90, 3.06]));                       // grille surround
+  H(boxG(1.06, 0.94, 0.05, BC.dark, [0, 0.90, 3.08]));
+  for (let i = 0; i < 11; i++) H(boxG(0.035, 0.92, 0.05, BC.chrome, [(i - 5) * 0.094, 0.90, 3.095]));
+  H(boxG(0.30, 0.12, 0.04, BC.chrome, [0, 1.30, 3.02], [-0.3, 0, 0]));         // hood emblem
+  for (const sx of [-1, 1]) {
+    // twin round headlamps in a chrome bezel on each fender
+    for (const k of [0, 1]) {
+      const hx = sx * (0.86 + k * 0.24), hy = 0.64, hz = 2.92 - k * 0.06;
+      H(cylG(0.13, 0.13, 0.10, 16, BC.chrome, [hx, hy, hz], [PI / 2, 0, 0]));
+      heads.push(cylG(0.10, 0.10, 0.04, 16, 0xffffff, [hx, hy, hz + 0.05], [PI / 2, 0, 0]));
+    }
+    H(boxG(0.12, 0.08, 0.06, BC.amber, [sx * 1.12, 0.52, 2.98]));               // indicator
+    H(cylG(0.03, 0.05, 0.18, 8, BC.chrome, [sx * 0.40, 2.47, 0.90]));           // air horn
+    H(cylG(0.06, 0.03, 0.18, 8, BC.chrome, [sx * 0.40, 2.47, 1.08], [PI / 2, 0, 0]));
+  }
+
+  // ---- frame, tanks, stacks, fifth wheel
+  for (const sx of [-1, 1]) {
+    H(boxG(0.12, 0.30, 6.30, 0x1a1b1f, [sx * 0.48, 0.10, -0.25]));             // frame rail
+    // polished fuel tank with two straps
+    for (const dz of [-0.40, 0.60]) H(cylG(0.31, 0.31, 0.05, 20, 0x2a2b30, [sx * 1.10, 0.22, dz], [PI / 2, 0, 0]));
+    // chrome stack with a perforated heat shield
+    H(cylG(0.11, 0.11, 2.6, 14, BC.chrome, [sx * 1.04, 1.95, -1.40]));
+    H(cylG(0.14, 0.14, 1.0, 14, 0xa8adb6, [sx * 1.04, 1.40, -1.40]));
+    H(cylG(0.115, 0.13, 0.12, 14, 0x2a2b30, [sx * 1.04, 3.28, -1.40]));
+    // mud flaps with chrome weights behind the drive axles
+    H(boxG(0.56, 0.62, 0.025, BC.rubber, [sx * 1.14, -0.44, -3.10]));
+    H(boxG(0.56, 0.06, 0.04, BC.chrome, [sx * 1.14, -0.73, -3.10]));
+    H(pipeG([sx * 0.55, 0.12, -3.08], [sx * 1.30, 0.12, -3.08], 0.04, BC.chrome, 6));
+    // tail lamps on the rear bar
+    H(boxG(0.22, 0.12, 0.06, BC.dark, [sx * 0.90, 0.12, -3.30]));
+    tails.push(boxG(0.18, 0.08, 0.04, 0xffffff, [sx * 0.90, 0.12, -3.34]));
+  }
+  for (const z of [1.5, 0.2, -1.2, -2.6]) H(boxG(0.90, 0.10, 0.12, 0x1a1b1f, [0, 0.06, z])); // crossmembers
+  H(boxG(2.40, 0.08, 0.40, 0x2a2b30, [0, 0.20, -3.30]));                       // rear bar
+  H(boxG(1.20, 0.12, 1.10, 0x2a2b30, [0, 0.44, -1.85]));                       // fifth wheel plate
+  H(boxG(0.30, 0.13, 0.50, BC.dark, [0, 0.45, -2.25]));                        // the slot
+  H(boxG(1.40, 0.06, 0.90, 0x34363c, [0, 0.38, -0.95]));                       // deck plate
+  plates(hard, 3.32, 0.10, null, null, 1.1);
+  cabin(hard, 0.45, 1.25, 0.95, 1.2, 1.62, 1.30, 1.9);
+
+  panels.push({ name: 'bumper', g: boxG(2.44, 0.30, 0.30, BC.chrome, [0, 0.10, 3.16], null, 1),
+                local: [0, 0.10, 3.16], size: [2.44, 0.3, 0.3], mass: 60, thresh: 0.34 });
+  panels.push({ name: 'tankL', g: cylG(0.30, 0.30, 1.30, 20, BC.chrome, [-1.10, 0.22, 0.10], [PI / 2, 0, 0]),
+                local: [-1.10, 0.22, 0.10], size: [0.62, 0.62, 1.3], mass: 80, thresh: 0.5 });
+  panels.push({ name: 'tankR', g: cylG(0.30, 0.30, 1.30, 20, BC.chrome, [1.10, 0.22, 0.10], [PI / 2, 0, 0]),
+                local: [1.10, 0.22, 0.10], size: [0.62, 0.62, 1.3], mass: 80, thresh: 0.5 });
+  return { soft, hard, panels, heads, tails };
+}
+
+/** A darker shade of a body colour, for ribs, stakes and pressings. */
+function shade(hex, k) { return new THREE.Color(hex).multiplyScalar(k).getHex(); }
+
+/* ------------------------------------------------------------ DUSTDEVIL RS ---
+ * A gravel-spec hatchback in the WRC mould: a short lofted body pumped out
+ * over both axles by flared arches, a raked screen, a roof scoop feeding the
+ * cabin, a big rear wing on swan-neck stalks, mud flaps, a four-lamp light pod
+ * on the nose, a livery, and a full cage inside. Same colliders as before.
+ */
+function bodyRally(paint, trim) {
+  const soft = [], hard = [], panels = [], heads = [], tails = [];
+  const H = (...g) => hard.push(...g);
+  const LIV = 0xf0c020, WHITE = 0xe9e9e6, cage = 0x3a3d44;
+
+  // ---- lofted lower body; the floor tucks up over both axles
+  soft.push(shellG([
+    { z: -2.00, w: 0.78, t: 0.22, b: 0.20, y: 0.16, pt: 6, pb: 5 },
+    { z: -1.86, w: 0.85, t: 0.27, b: 0.27, y: 0.14, pt: 8, pb: 7 },
+    { z: -1.32, w: 0.88, t: 0.27, b: 0.08, y: 0.14, pt: 8, pb: 2.2 },
+    { z: -0.78, w: 0.86, t: 0.27, b: 0.30, y: 0.13, pt: 8, pb: 9 },
+    { z: 0.62, w: 0.86, t: 0.27, b: 0.30, y: 0.13, pt: 8, pb: 9 },
+    { z: 1.30, w: 0.87, t: 0.225, b: 0.08, y: 0.13, pt: 8, pb: 2.2 },
+    { z: 1.82, w: 0.84, t: 0.17, b: 0.25, y: 0.12, pt: 6, pb: 6 },
+    { z: 2.03, w: 0.74, t: 0.10, b: 0.20, y: 0.10, pt: 5, pb: 5 },
+  ], paint, 20));
+  // the greenhouse: flat-sided glass, a near-vertical hatch, a raked screen
+  soft.push(shellG([
+    { z: -1.70, w: 0.73, t: 0.06, b: 0.0, y: 0.40, pt: 10, pb: 10 },
+    { z: -1.58, w: 0.75, t: 0.40, b: 0.0, y: 0.40, pt: 10, pb: 10 },
+    { z: -1.30, w: 0.77, t: 0.53, b: 0.0, y: 0.40, pt: 10, pb: 10 },
+    { z: 0.02, w: 0.78, t: 0.56, b: 0.0, y: 0.40, pt: 10, pb: 10 },
+    { z: 0.42, w: 0.775, t: 0.49, b: 0.0, y: 0.40, pt: 10, pb: 10 },
+    { z: 1.04, w: 0.75, t: 0.04, b: 0.0, y: 0.40, pt: 10, pb: 10 },
+  ], BC.glass, 18));
+  // roof skin
+  soft.push(shellG([
+    { z: -1.36, w: 0.785, t: 0.03, y: 0.925, pt: 10 },
+    { z: -1.24, w: 0.795, t: 0.03, y: 0.94, pt: 10 },
+    { z: 0.02, w: 0.80, t: 0.03, y: 0.96, pt: 10 },
+    { z: 0.36, w: 0.795, t: 0.03, y: 0.90, pt: 10 },
+  ], paint, 14));
+  // blind rear quarters
+  for (const sx of [-1, 1]) H(boxG(0.03, 0.48, 0.52, paint, [sx * 0.785, 0.66, -1.30]));
+
+  for (const sx of [-1, 1]) {
+    H(pipeG([sx * 0.76, 0.42, 1.02], [sx * 0.775, 0.93, 0.40], 0.035, paint, 8));       // A-pillar
+    H(boxG(0.035, 0.54, 0.09, paint, [sx * 0.785, 0.67, -0.32]));                        // B-pillar
+    H(boxG(0.035, 0.52, 0.10, paint, [sx * 0.785, 0.66, -1.58]));                        // D-pillar
+    // box-flared arches round both wheels
+    H(...arcBoxes(0.44, -1.5, 1.5, 10, 0.16, 0.07, paint, [sx * 0.90, -0.26, 1.30]));
+    H(...arcBoxes(0.44, -1.5, 1.5, 10, 0.16, 0.07, paint, [sx * 0.90, -0.26, -1.32]));
+    H(boxG(0.10, 0.10, 1.66, BC.black, [sx * 0.88, -0.13, -0.01]));                      // side skirt
+    // the door skin, its livery stripe, its number roundel and its handle all
+    // sit inside the panel's box, so they leave with it
+    panels.push({ name: sx < 0 ? 'doorL' : 'doorR',
+                  g: boxG(0.025, 0.45, 1.22, paint, [sx * 0.875, 0.165, -0.08], null, 2),
+                  local: [sx * 0.875, 0.165, -0.08], size: [0.06, 0.45, 1.22], mass: 11, thresh: 0.5 });
+    H(boxG(0.008, 0.07, 1.18, LIV, [sx * 0.903, 0.30, -0.08]));
+    H(cylG(0.13, 0.13, 0.008, 20, WHITE, [sx * 0.903, 0.12, -0.12], [0, 0, PI / 2]));
+    H(boxG(0.008, 0.11, 0.035, BC.black, [sx * 0.908, 0.12, -0.155]));
+    H(boxG(0.008, 0.11, 0.035, BC.black, [sx * 0.908, 0.12, -0.085]));
+    H(boxG(0.012, 0.03, 0.10, BC.chrome, [sx * 0.904, 0.33, -0.55]));
+    // shut lines sit just outside the door's box, so they stay put when it goes
+    for (const dz of [0.565, -0.725]) H(boxG(0.012, 0.40, 0.012, 0x15161a, [sx * 0.875, 0.17, dz]));
+    H(boxG(0.008, 0.07, 0.30, LIV, [sx * 0.876, 0.30, 0.76]));                           // stripe on the wing
+    // headlamps on the nose corners, under the bonnet's front edge
+    H(boxG(0.38, 0.15, 0.16, BC.dark, [sx * 0.54, 0.165, 1.95], [0.45, 0, 0]));
+    heads.push(boxG(0.32, 0.10, 0.12, 0xffffff, [sx * 0.54, 0.175, 1.975], [0.45, 0, 0]));
+    // rear lamps, mud flaps behind all four wheels
+    H(boxG(0.20, 0.12, 0.06, BC.dark, [sx * 0.66, 0.33, -1.99]));
+    tails.push(boxG(0.16, 0.08, 0.03, 0xffffff, [sx * 0.66, 0.335, -2.025]));
+    H(boxG(0.26, 0.28, 0.015, BC.rubber, [sx * 0.86, -0.32, 0.86]));
+    H(boxG(0.26, 0.28, 0.015, BC.rubber, [sx * 0.88, -0.32, -1.76]));
+  }
+
+  // ---- bonnet vents and a livery band, laid on the shell
+  H(boxG(0.56, 0.014, 0.26, BC.dark, [0, 0.371, 1.10], [0.07, 0, 0]));
+  H(boxG(0.40, 0.014, 0.18, BC.dark, [0, 0.327, 1.55], [0.125, 0, 0]));
+  H(boxG(1.40, 0.008, 0.10, LIV, [0, 0.298, 1.78], [0.2, 0, 0]));
+
+  // ---- nose: grille, light pod, intake, splitter
+  H(boxG(0.70, 0.12, 0.03, BC.dark, [0, 0.05, 2.035]));
+  H(boxG(0.98, 0.17, 0.08, BC.black, [0, 0.06, 2.09]));                                  // light pod
+  for (let i = 0; i < 4; i++) {
+    const lx = -0.36 + i * 0.24;
+    H(cylG(0.075, 0.075, 0.04, 16, BC.chrome, [lx, 0.06, 2.13], [PI / 2, 0, 0]));
+    heads.push(cylG(0.062, 0.062, 0.03, 16, 0xffffff, [lx, 0.06, 2.15], [PI / 2, 0, 0]));
+  }
+  H(boxG(1.20, 0.08, 0.03, BC.dark, [0, -0.09, 2.03]));
+  panels.push({ name: 'splitter', g: boxG(1.62, 0.035, 0.22, trim, [0, -0.19, 1.99], null, 2),
+                local: [0, -0.19, 1.99], size: [1.62, 0.035, 0.22], mass: 6, thresh: 0.26 });
+
+  // ---- tail: diffuser, exhaust, plate
+  H(boxG(1.40, 0.10, 0.12, BC.black, [0, -0.11, -1.98]));
+  H(pipeG([0.50, -0.14, -1.70], [0.50, -0.14, -2.08], 0.05, BC.steel, 10));
+  plates(hard, null, null, -2.015, 0.14);
+
+  // ---- rear wing on swan-neck stalks
+  panels.push({ name: 'wing', g: boxG(1.66, 0.05, 0.36, trim, [0, 0.995, -1.78], null, 2),
+                local: [0, 0.995, -1.78], size: [1.66, 0.05, 0.36], mass: 8, thresh: 0.28 });
+  for (const sx of [-1, 1]) {
+    H(boxG(0.025, 0.14, 0.38, trim, [sx * 0.87, 0.985, -1.79]));
+    H(pipeG([sx * 0.42, 0.40, -1.74], [sx * 0.42, 0.945, -1.80], 0.025, trim, 6));
+  }
+
+  // ---- roof scoop, aerial, mirrors
+  H(boxG(0.34, 0.07, 0.36, paint, [0, 0.985, -0.05]));
+  H(boxG(0.26, 0.045, 0.02, BC.dark, [0, 0.99, 0.135]));
+  H(pipeG([0.30, 0.97, -0.80], [0.32, 1.30, -0.86], 0.006, BC.black, 4));
+  mirrorPair(hard, 0.78, 0.48, 0.84, 0.15, 0.11, 0.09, paint);
+
+  // ---- inside: buckets, dash and the cage
+  cabin(hard, 0.32, 0.12, 0.05, 0.95, 0.50, 0.78, 1.20);
+  for (const sx of [-1, 1]) {
+    H(pipeG([sx * 0.66, -0.05, -0.62], [sx * 0.62, 0.86, -0.58], 0.025, cage, 6));
+    H(pipeG([sx * 0.62, 0.86, -0.58], [sx * 0.62, 0.85, 0.30], 0.025, cage, 6));
+    H(pipeG([sx * 0.62, 0.85, 0.30], [sx * 0.68, 0.30, 0.92], 0.025, cage, 6));
+  }
+  H(pipeG([-0.62, 0.86, -0.58], [0.62, 0.86, -0.58], 0.025, cage, 6));
+  H(pipeG([-0.64, 0.10, -0.60], [0.62, 0.84, -0.58], 0.025, cage, 6));
+  return { soft, hard, panels, heads, tails };
+}
+
+/* --------------------------------------------------------- GRAVEDIGGER XL ---
+ * A show monster truck: a fibreglass pickup body perched high on a tube
+ * chassis, with four-link bars, a forest of shocks and the axles all on
+ * show underneath, zoomie headers out of the fenders, a cowl-induction
+ * bonnet, a roof light bar and bash bars at both ends.
+ */
+function bodyMonster(paint, trim) {
+  const soft = [], hard = [], panels = [], heads = [], tails = [];
+  const H = (...g) => hard.push(...g);
+  const ACC = 0x8fd14f, frame = 0x1d1e22, link = 0x6b6e75, spring = 0xd9542b;
+
+  // ---- the body: a pickup shell, arches cut deep over both axles
+  soft.push(shellG([
+    { z: -2.28, w: 0.88, t: 0.26, b: 0.20, y: 0.66, pt: 6, pb: 6 },
+    { z: -2.10, w: 0.94, t: 0.28, b: 0.27, y: 0.64, pt: 8, pb: 8 },
+    { z: -1.55, w: 0.96, t: 0.28, b: 0.06, y: 0.64, pt: 8, pb: 2.2 },
+    { z: -0.95, w: 0.95, t: 0.28, b: 0.30, y: 0.64, pt: 8, pb: 9 },
+    { z: 0.85, w: 0.95, t: 0.27, b: 0.30, y: 0.64, pt: 8, pb: 9 },
+    { z: 1.52, w: 0.96, t: 0.23, b: 0.06, y: 0.64, pt: 8, pb: 2.2 },
+    { z: 2.05, w: 0.92, t: 0.18, b: 0.24, y: 0.63, pt: 7, pb: 6 },
+    { z: 2.30, w: 0.82, t: 0.11, b: 0.18, y: 0.61, pt: 5, pb: 5 },
+  ], paint, 20));
+  // cab glass, tall enough to sit a helmeted driver
+  soft.push(shellG([
+    { z: -0.95, w: 0.86, t: 0.50, b: 0.0, y: 0.92, pt: 7.0, pb: 10 },
+    { z: -0.68, w: 0.875, t: 0.54, b: 0.0, y: 0.92, pt: 8.0, pb: 10 },
+    { z: 0.30, w: 0.875, t: 0.54, b: 0.0, y: 0.92, pt: 8.0, pb: 10 },
+    { z: 0.76, w: 0.865, t: 0.47, b: 0.0, y: 0.92, pt: 8.0, pb: 10 },
+    { z: 1.22, w: 0.85, t: 0.08, b: 0.0, y: 0.92, pt: 8.0, pb: 10 },
+  ], BC.glass, 18));
+  soft.push(shellG([
+    { z: -0.97, w: 0.80, t: 0.03, y: 1.41, pt: 8 },
+    { z: -0.68, w: 0.82, t: 0.03, y: 1.445, pt: 8 },
+    { z: 0.30, w: 0.82, t: 0.03, y: 1.445, pt: 8 },
+    { z: 0.76, w: 0.80, t: 0.03, y: 1.375, pt: 8 },
+  ], paint, 14));
+
+  for (const sx of [-1, 1]) {
+    H(pipeG([sx * 0.84, 0.94, 1.20], [sx * 0.80, 1.37, 0.74], 0.04, paint, 8));         // A-pillar
+    H(boxG(0.05, 0.52, 0.10, paint, [sx * 0.875, 1.18, -0.40]));                         // B-pillar
+    H(boxG(0.05, 0.50, 0.14, paint, [sx * 0.865, 1.17, -0.88]));                         // C-pillar
+    for (const dz of [1.18, -0.40]) H(boxG(0.012, 0.50, 0.012, 0x2a2b30, [sx * 0.958, 0.66, dz]));
+    H(boxG(0.10, 0.03, 0.035, BC.chrome, [sx * 0.958, 0.82, -0.24]));                    // handle
+    // livery: a lime beltline and a black rocker
+    H(boxG(0.01, 0.06, 3.55, ACC, [sx * 0.968, 0.80, -0.275]));
+    H(boxG(0.012, 0.14, 1.60, BC.black, [sx * 0.958, 0.42, -0.05]));
+    // the bed
+    H(boxG(0.10, 0.24, 1.30, paint, [sx * 0.90, 1.04, -1.62]));
+    H(boxG(0.14, 0.035, 1.32, 0x2a2b30, [sx * 0.90, 1.175, -1.62]));
+    // headlamps and tail lamps
+    H(boxG(0.30, 0.14, 0.04, BC.dark, [sx * 0.60, 0.61, 2.305]));
+    heads.push(boxG(0.24, 0.09, 0.03, 0xffffff, [sx * 0.60, 0.61, 2.325]));
+    H(boxG(0.20, 0.24, 0.06, BC.dark, [sx * 0.76, 0.66, -2.30]));
+    tails.push(boxG(0.15, 0.16, 0.03, 0xffffff, [sx * 0.76, 0.67, -2.335]));
+    // zoomie headers out through the front fenders
+    for (let i = 0; i < 4; i++)
+      H(pipeG([sx * 0.90, 0.62, 1.05 - i * 0.12], [sx * 1.12, 0.98, 0.95 - i * 0.12], 0.04, BC.chrome, 8));
+
+    // ---- the chassis on show: rails, shock towers, links, shocks, axles
+    H(boxG(0.12, 0.16, 4.40, frame, [sx * 0.48, 0.18, 0]));
+    for (const az of [1.52, -1.55]) {
+      const dz = az > 0 ? -1 : 1;
+      H(boxG(0.20, 0.30, 0.60, frame, [sx * 0.60, 0.42, az]));
+      H(pipeG([sx * 0.42, 0.12, az + dz * 0.95], [sx * 0.55, -0.36, az + dz * 0.10], 0.035, link, 6));
+      H(pipeG([sx * 0.30, 0.20, az + dz * 0.90], [sx * 0.40, -0.18, az + dz * 0.10], 0.03, link, 6));
+      for (const k of [-1, 0, 1]) {
+        const top = [sx * 0.62, 0.36, az + k * 0.22], bot = [sx * 0.74, -0.32, az + k * 0.18];
+        H(pipeG(top, bot, k === 0 ? 0.075 : 0.05, k === 0 ? spring : BC.chrome, 8));
+      }
+    }
+  }
+  for (const az of [1.52, -1.55]) {
+    H(pipeG([-0.90, -0.42, az], [0.90, -0.42, az], 0.08, frame, 10));
+    H(rbox(0.38, 0.34, 0.38, 0.15, frame, [0.12, -0.42, az]));                           // diff
+  }
+  H(pipeG([0.12, -0.38, 1.40], [0.12, -0.10, 0.10], 0.05, link, 8));                     // driveshafts
+  H(pipeG([0.12, -0.38, -1.42], [0.12, -0.10, -0.10], 0.05, link, 8));
+  H(boxG(0.70, 0.40, 0.90, frame, [0, 0.12, 0.10]));                                     // transfer case
+  H(boxG(1.70, 0.24, 0.10, paint, [0, 1.04, -0.97]));                                    // bed front wall
+  H(boxG(1.66, 0.02, 1.26, 0x2c2d33, [0, 0.925, -1.62]));                                // bed liner
+
+  // ---- cowl-induction scoop on the bonnet
+  H(boxG(0.56, 0.10, 0.46, paint, [0, 0.92, 1.48], [0.04, 0, 0]));
+  H(boxG(0.44, 0.05, 0.02, BC.dark, [0, 0.935, 1.715]));
+
+  // ---- grille, bash bars, tailgate
+  H(boxG(0.82, 0.18, 0.03, BC.dark, [0, 0.60, 2.31]));
+  for (let i = 0; i < 4; i++) H(boxG(0.78, 0.022, 0.035, BC.chrome, [0, 0.535 + i * 0.045, 2.322]));
+  panels.push({ name: 'bumper', g: boxG(1.90, 0.14, 0.14, frame, [0, 0.42, 2.42], null, 1),
+                local: [0, 0.42, 2.42], size: [1.90, 0.14, 0.14], mass: 30, thresh: 0.4 });
+  for (const sx of [-1, 1]) H(pipeG([sx * 0.48, 0.18, 2.04], [sx * 0.58, 0.36, 2.27], 0.05, frame, 8));
+  panels.push({ name: 'tailgate', g: boxG(1.72, 0.30, 0.05, paint, [0, 0.99, -2.335], null, 2),
+                local: [0, 0.99, -2.335], size: [1.72, 0.30, 0.05], mass: 16, thresh: 0.44 });
+  H(pipeG([-0.90, 0.42, -2.44], [0.90, 0.42, -2.44], 0.06, frame, 10));
+  for (const sx of [-1, 1]) H(pipeG([sx * 0.48, 0.18, -2.10], [sx * 0.60, 0.42, -2.42], 0.05, frame, 8));
+  plates(hard, null, null, -2.29, 0.58);
+
+  // ---- roof light bar, mirrors, the seat and wheel
+  H(boxG(1.20, 0.10, 0.14, BC.black, [0, 1.52, 0.30]));
+  for (let i = 0; i < 4; i++) {
+    const lx = -0.45 + i * 0.30;
+    H(cylG(0.075, 0.075, 0.05, 14, BC.chrome, [lx, 1.52, 0.38], [PI / 2, 0, 0]));
+    heads.push(cylG(0.06, 0.06, 0.03, 14, 0xffffff, [lx, 1.52, 0.41], [PI / 2, 0, 0]));
+  }
+  mirrorPair(hard, 0.90, 1.05, 1.10, 0.20, 0.17, 0.12, paint);
+  cabin(hard, 0.40, 0.92, 0.30, 1.0, 1.15, 1.00, 1.30);
+  return { soft, hard, panels, heads, tails };
+}
+
+/* ------------------------------------------------------ QUARRY KING 8x4 ---
+ * A European cab-over tipper: a tall flat-fronted cab right over the steer
+ * axle, with a slotted grille panel, big mirrors on arms, a kerb window and
+ * amber beacons on the roof; a ribbed tipper body with a cab-protector canopy;
+ * and a chassis carrying the tank, the battery box, the tipping ram and full
+ * mudguarding over both rear axles.
+ */
+function bodyDump(paint, trim) {
+  const soft = [], hard = [], panels = [], heads = [], tails = [];
+  const H = (...g) => hard.push(...g);
+  const frame = 0x1c1d21, guard = 0x1b1c1f, steelG = 0x3a3c42, rib = shade(paint, 0.78);
+
+  // ---- cab
+  H(rbox(2.36, 1.50, 2.00, 0.16, paint, [0, 1.30, 2.22]));
+  H(boxG(2.12, 0.86, 0.03, BC.black, [0, 1.62, 3.232], [-0.06, 0, 0]));                 // screen rubber
+  H(boxG(2.04, 0.80, 0.04, BC.glass, [0, 1.62, 3.245], [-0.06, 0, 0]));                 // windscreen
+  H(boxG(2.20, 0.06, 0.30, paint, [0, 2.06, 3.20], [0.22, 0, 0]));                      // sun visor
+  for (let i = 0; i < 4; i++) H(boxG(0.10, 0.04, 0.04, BC.amber, [(i - 1.5) * 0.36, 2.03, 3.34]));
+  panels.push({ name: 'grille', g: boxG(1.92, 0.50, 0.05, paint, [0, 0.98, 3.25], null, 2),
+                local: [0, 0.98, 3.25], size: [1.92, 0.5, 0.05], mass: 40, thresh: 0.45 });
+  for (let i = 0; i < 4; i++) H(boxG(1.70, 0.05, 0.02, BC.dark, [0, 0.82 + i * 0.11, 3.28]));
+  H(boxG(0.36, 0.07, 0.02, BC.chrome, [0, 1.17, 3.285]));                                 // badge
+  for (const sx of [-1, 1]) {
+    H(boxG(0.04, 0.70, 0.95, BC.glass, [sx * 1.185, 1.62, 2.62]));                       // door glass
+    H(boxG(0.04, 0.30, 0.34, BC.glass, [sx * 1.185, 0.92, 2.86]));                       // kerb window
+    H(boxG(0.04, 0.50, 0.40, BC.glass, [sx * 1.185, 1.68, 1.72]));
+    for (const dz of [3.10, 2.02]) H(boxG(0.012, 1.30, 0.012, 0x15161a, [sx * 1.188, 1.20, dz]));
+    H(boxG(0.03, 0.04, 0.16, BC.chrome, [sx * 1.19, 1.20, 2.20]));                      // handle
+    // mirrors on arms, main and wide-angle
+    H(pipeG([sx * 1.16, 1.95, 3.05], [sx * 1.48, 1.90, 2.95], 0.025, BC.black, 6));
+    H(pipeG([sx * 1.16, 1.28, 3.05], [sx * 1.48, 1.30, 2.95], 0.025, BC.black, 6));
+    H(boxG(0.10, 0.62, 0.26, BC.black, [sx * 1.50, 1.56, 2.95]));
+    H(boxG(0.10, 0.24, 0.24, BC.black, [sx * 1.50, 1.10, 2.95]));
+    H(boxG(0.08, 0.56, 0.015, 0x3a4a5a, [sx * 1.50, 1.56, 2.815]));
+    // steps behind the front wheel, and the front mudguards
+    H(boxG(0.30, 0.04, 0.42, steelG, [sx * 1.10, 0.30, 1.78]));
+    H(boxG(0.30, 0.04, 0.42, steelG, [sx * 1.10, -0.02, 1.78]));
+    H(boxG(0.06, 0.50, 0.42, frame, [sx * 0.95, 0.14, 1.78]));
+    H(...arcBoxes(0.74, -1.3, 1.3, 9, 0.48, 0.05, guard, [sx * 1.18, -0.46, 2.75]));
+    // headlamps and indicators in the bumper
+    H(boxG(0.40, 0.18, 0.06, BC.dark, [sx * 0.88, 0.40, 3.60]));
+    heads.push(boxG(0.34, 0.12, 0.03, 0xffffff, [sx * 0.88, 0.40, 3.63]));
+    H(boxG(0.14, 0.10, 0.03, BC.amber, [sx * 0.56, 0.40, 3.61]));
+    // amber beacons on the roof
+    H(cylG(0.10, 0.10, 0.06, 12, BC.black, [sx * 0.72, 2.08, 2.60]));
+    H(cylG(0.085, 0.09, 0.16, 12, BC.amber, [sx * 0.72, 2.19, 2.60]));
+  }
+  H(boxG(2.46, 0.36, 0.34, steelG, [0, 0.36, 3.42]));                                     // bumper
+  H(boxG(2.00, 0.10, 0.20, frame, [0, 0.10, 3.40]));
+  H(boxG(1.10, 0.10, 0.12, BC.black, [0, 2.12, 3.05]));                                   // roof spots
+  for (let i = 0; i < 4; i++) heads.push(cylG(0.045, 0.045, 0.03, 12, 0xffffff, [(i - 1.5) * 0.26, 2.12, 3.12], [PI / 2, 0, 0]));
+  plates(hard, 3.60, 0.25, -3.50, -0.10, 1.0);
+  cabin(hard, 0.55, 1.25, 2.20, 1.2, 1.55, 2.95, 2.0);
+
+  // ---- chassis: rails, tank, battery box, air tanks, tipping ram
+  for (const sx of [-1, 1]) H(boxG(0.14, 0.32, 7.10, frame, [sx * 0.50, 0.02, -0.15]));
+  for (const z of [2.4, 0.9, -0.6, -2.2]) H(boxG(0.90, 0.12, 0.12, frame, [0, 0.02, z]));
+  panels.push({ name: 'tank', g: cylG(0.28, 0.28, 1.10, 20, 0xbfc3cb, [-1.02, 0.0, 0.50], [PI / 2, 0, 0]),
+                local: [-1.02, 0.0, 0.50], size: [0.56, 0.56, 1.1], mass: 60, thresh: 0.5 });
+  for (const dz of [0.15, 0.85]) H(cylG(0.29, 0.29, 0.05, 20, frame, [-1.02, 0.0, dz], [PI / 2, 0, 0]));
+  H(boxG(0.50, 0.42, 0.70, guard, [1.02, 0.02, 0.50]));
+  H(cylG(0.12, 0.12, 0.80, 12, 0x5a5c62, [0.90, -0.24, -0.25], [PI / 2, 0, 0]));
+  H(pipeG([0, -0.05, 0.95], [0, 0.40, 0.72], 0.11, BC.chrome, 12));
+  H(pipeG([1.00, 0.70, 1.08], [1.00, 1.98, 1.08], 0.075, BC.chrome, 12));                 // stack
+  H(cylG(0.09, 0.09, 0.05, 12, frame, [1.00, 2.00, 1.08]));
+
+  // ---- the tipper body
+  H(boxG(2.46, 0.20, 3.86, paint, [0, 0.42, -1.30]));                                     // floor
+  for (const sx of [-1, 1]) {
+    H(boxG(0.08, 1.24, 3.86, paint, [sx * 1.19, 1.06, -1.30]));                           // sides
+    H(boxG(0.16, 0.12, 3.90, paint, [sx * 1.20, 1.70, -1.29]));                           // top rail
+    H(boxG(0.14, 0.18, 3.86, rib, [sx * 1.21, 0.50, -1.30]));                             // bottom rail
+    for (const z of [-2.9, -2.2, -1.5, -0.8, -0.1, 0.5]) H(boxG(0.06, 1.08, 0.10, rib, [sx * 1.245, 1.08, z]));
+    // rear mudguards over the tandem, flaps behind
+    H(boxG(0.48, 0.04, 2.30, guard, [sx * 1.22, 0.26, -2.15]));
+    H(boxG(0.48, 0.55, 0.02, BC.rubber, [sx * 1.22, -0.30, -3.58]));
+    // rear lamps on the light bar
+    tails.push(boxG(0.30, 0.08, 0.03, 0xffffff, [sx * 0.95, 0.05, -3.515]));
+    H(boxG(0.14, 0.08, 0.03, BC.amber, [sx * 0.66, 0.05, -3.515]));
+  }
+  H(boxG(2.46, 1.40, 0.12, paint, [0, 1.15, 0.70]));                                      // front wall
+  H(boxG(2.44, 0.36, 0.10, paint, [0, 1.98, 0.70]));
+  H(boxG(2.44, 0.08, 0.86, paint, [0, 2.12, 1.05]));                                      // canopy
+  for (const sx of [-1, 1]) H(boxG(0.08, 0.30, 0.80, rib, [sx * 1.18, 1.98, 1.02]));
+  panels.push({ name: 'tailgate', g: boxG(2.40, 1.15, 0.12, paint, [0, 1.05, -3.34], null, 2),
+                local: [0, 1.05, -3.34], size: [2.4, 1.15, 0.12], mass: 70, thresh: 0.4 });
+  for (let i = 0; i < 3; i++) H(boxG(2.30, 0.08, 0.04, rib, [0, 0.70 + i * 0.35, -3.40]));
+  H(boxG(2.30, 0.10, 0.10, frame, [0, 0.05, -3.45]));                                     // light bar
+  H(boxG(2.10, 0.12, 0.12, steelG, [0, -0.30, -3.30]));                                   // under-run bar
+  H(boxG(0.30, 0.20, 0.25, frame, [0, 0.14, -3.62]));                                     // hitch
+  return { soft, hard, panels, heads, tails };
+}
+
+/* ------------------------------------------------------------- TITAN 8x8 ---
+ * A military-style 8x8 load carrier: a forward-control cab over the first
+ * two axles with a split screen, a cyclone snorkel, a spare wheel behind the
+ * cab, a dropside cargo deck and full mudguarding over all eight wheels.
+ */
+function bodyTitan(paint, trim) {
+  const soft = [], hard = [], panels = [], heads = [], tails = [];
+  const H = (...g) => hard.push(...g);
+  const dark = shade(paint, 0.72), deck = shade(paint, 0.6);
+
+  // ---- cab: a steel lower box, a glass upper, and a roof over it
+  H(rbox(2.36, 0.72, 2.24, 0.10, paint, [0, 1.22, 2.50]));
+  soft.push(shellG([
+    { z: 1.40, w: 1.15, t: 0.55, b: 0.0, y: 1.58, pt: 6, pb: 10 },
+    { z: 3.12, w: 1.15, t: 0.55, b: 0.0, y: 1.58, pt: 6, pb: 10 },
+    { z: 3.46, w: 1.12, t: 0.06, b: 0.0, y: 1.58, pt: 6, pb: 10 },
+  ], BC.glass, 18));
+  soft.push(shellG([
+    { z: 1.38, w: 1.10, t: 0.035, y: 2.115, pt: 7 },
+    { z: 3.14, w: 1.10, t: 0.035, y: 2.115, pt: 7 },
+  ], paint, 14));
+  H(boxG(2.24, 0.52, 0.04, paint, [0, 1.84, 1.37]));                                      // rear wall
+  H(boxG(0.07, 0.60, 0.06, paint, [0, 1.885, 3.29], [-0.606, 0, 0]));                     // centre post
+  for (const sx of [-1, 1]) {
+    H(pipeG([sx * 1.10, 1.60, 3.44], [sx * 1.08, 2.10, 3.12], 0.045, paint, 8));          // A-pillar
+    H(boxG(0.05, 0.54, 0.10, paint, [sx * 1.16, 1.85, 2.30]));                            // B-pillar
+    H(boxG(0.05, 0.50, 0.80, paint, [sx * 1.16, 1.84, 1.80]));                            // blind rear quarter
+    for (const dz of [3.40, 2.30]) H(boxG(0.012, 0.70, 0.012, 0x1a1b17, [sx * 1.185, 1.22, dz]));
+    H(boxG(0.03, 0.04, 0.16, BC.black, [sx * 1.19, 1.42, 2.45]));                         // handle
+    H(boxG(0.30, 0.04, 0.40, dark, [sx * 1.30, 0.62, 2.58]));                             // step
+    H(pipeG([sx * 1.20, 0.95, 2.36], [sx * 1.20, 1.50, 2.36], 0.02, BC.black, 6));        // grab handle
+    // mirrors on arms
+    H(pipeG([sx * 1.18, 1.95, 3.30], [sx * 1.48, 1.90, 3.22], 0.025, BC.black, 6));
+    H(pipeG([sx * 1.18, 1.40, 3.30], [sx * 1.48, 1.40, 3.22], 0.025, BC.black, 6));
+    H(boxG(0.10, 0.56, 0.26, BC.black, [sx * 1.50, 1.64, 3.22]));
+    H(boxG(0.08, 0.50, 0.015, 0x3a4a5a, [sx * 1.50, 1.64, 3.085]));
+    // headlamps in square guards at the bumper ends
+    H(boxG(0.30, 0.26, 0.06, BC.black, [sx * 0.98, 0.56, 4.17]));
+    heads.push(cylG(0.10, 0.10, 0.03, 16, 0xffffff, [sx * 0.98, 0.56, 4.20], [PI / 2, 0, 0]));
+    for (const dy of [-0.08, 0.08]) H(pipeG([sx * 0.84, 0.56 + dy, 4.24], [sx * 1.12, 0.56 + dy, 4.24], 0.012, BC.black, 5));
+    H(boxG(0.14, 0.10, 0.03, BC.amber, [sx * 0.70, 0.56, 4.17]));
+    // mudguards over all eight wheels: flat tops with a lip front and back
+    for (const z of [3.30, 1.85, -1.85, -3.30]) {
+      H(boxG(0.52, 0.05, 1.56, dark, [sx * 1.27, 0.40, z]));
+      H(boxG(0.52, 0.30, 0.05, dark, [sx * 1.27, 0.26, z + 0.78]));
+      H(boxG(0.52, 0.30, 0.05, dark, [sx * 1.27, 0.26, z - 0.78]));
+    }
+    H(boxG(0.16, 0.36, 8.00, BC.black, [sx * 0.55, 0.10, 0]));                            // frame rail
+    H(boxG(0.14, 0.26, 4.60, dark, [sx * 0.55, 0.42, -1.45]));                            // subframe
+    tails.push(boxG(0.22, 0.10, 0.03, 0xffffff, [sx * 0.95, 0.30, -4.025]));
+    H(boxG(0.12, 0.10, 0.03, BC.amber, [sx * 0.70, 0.30, -4.025]));
+  }
+  // ---- front: grille panel, apron, bumper, winch
+  panels.push({ name: 'grille', g: boxG(1.70, 0.50, 0.05, paint, [0, 1.18, 3.655], null, 2),
+                local: [0, 1.18, 3.655], size: [1.7, 0.5, 0.05], mass: 40, thresh: 0.46 });
+  for (let i = 0; i < 6; i++) H(boxG(0.12, 0.38, 0.02, BC.dark, [-0.65 + i * 0.26, 1.18, 3.685]));
+  H(boxG(1.60, 0.56, 0.36, trim, [0, 0.62, 3.76]));
+  H(boxG(2.50, 0.34, 0.26, trim, [0, 0.52, 4.03]));
+  H(cylG(0.14, 0.14, 0.60, 12, BC.black, [0, 0.52, 4.20], [0, 0, PI / 2]));
+  H(boxG(0.10, 0.10, 0.08, 0xc23a2a, [0, 0.36, 4.24]));
+  H(boxG(1.60, 0.50, 2.00, 0x22231f, [0, 0.55, 2.50]));                                   // engine
+  // ---- roof: light bar, hatch, aerials
+  H(boxG(1.10, 0.10, 0.12, BC.black, [0, 2.20, 3.02]));
+  for (let i = 0; i < 4; i++) heads.push(cylG(0.045, 0.045, 0.03, 12, 0xffffff, [(i - 1.5) * 0.26, 2.20, 3.09], [PI / 2, 0, 0]));
+  H(cylG(0.32, 0.32, 0.06, 18, paint, [0.40, 2.17, 2.20]));
+  for (const sx of [-1, 1]) H(pipeG([sx * 1.02, 2.12, 1.50], [sx * 1.02, 3.40, 1.48], 0.008, BC.black, 4));
+  cabin(hard, 0.58, 1.40, 2.60, 1.2, 1.70, 3.30, 2.0);
+  // ---- behind the cab: snorkel, stack, spare wheel
+  H(pipeG([-1.24, 1.00, 1.55], [-1.24, 2.35, 1.55], 0.085, trim, 12));
+  H(cylG(0.13, 0.13, 0.22, 12, trim, [-1.24, 2.44, 1.55]));
+  H(pipeG([1.02, 0.90, 1.24], [1.02, 2.40, 1.24], 0.075, 0x2a2b2e, 12));
+  H(cylG(0.095, 0.095, 0.06, 12, BC.black, [1.02, 2.42, 1.24]));
+  H(cylG(0.70, 0.70, 0.42, 22, BC.rubber, [0, 1.30, 1.10], [PI / 2, 0, 0]));
+  H(cylG(0.38, 0.38, 0.44, 16, dark, [0, 1.30, 1.10], [PI / 2, 0, 0]));
+  // ---- side boxes between the axle pairs
+  panels.push({ name: 'tankL', g: boxG(0.50, 0.50, 1.10, dark, [-1.20, 0.28, 0.30], null, 2),
+                local: [-1.20, 0.28, 0.30], size: [0.5, 0.5, 1.1], mass: 30, thresh: 0.55 });
+  H(boxG(0.50, 0.46, 0.90, trim, [1.20, 0.30, 0.10]));
+  for (const z of [3.30, 1.85, -1.85, -3.30]) H(boxG(0.40, 0.34, 0.40, 0x26271f, [0, -0.26, z])); // diffs
+  H(pipeG([0, -0.22, 3.10], [0, -0.22, -3.10], 0.05, 0x26271f, 8));                       // driveline
+  // ---- the deck: dropsides, headboard, tailgate
+  H(boxG(2.46, 0.14, 4.66, deck, [0, 0.62, -1.45]));
+  for (const sx of [-1, 1]) {
+    H(boxG(0.07, 0.62, 4.62, paint, [sx * 1.20, 1.00, -1.45]));
+    for (let i = 0; i < 3; i++) H(boxG(0.03, 0.04, 4.62, dark, [sx * 1.24, 0.80 + i * 0.18, -1.45]));
+    for (const z of [-3.2, -2.1, -1.0, 0.1]) H(boxG(0.04, 0.62, 0.08, dark, [sx * 1.245, 1.0, z]));
+  }
+  H(boxG(2.46, 1.20, 0.10, paint, [0, 1.29, 0.82]));
+  for (let i = 0; i < 4; i++) H(boxG(2.30, 0.04, 0.06, dark, [0, 0.85 + i * 0.30, 0.76]));
+  panels.push({ name: 'tailgate', g: boxG(2.44, 0.62, 0.08, paint, [0, 1.00, -3.86], null, 2),
+                local: [0, 1.00, -3.86], size: [2.44, 0.62, 0.08], mass: 60, thresh: 0.5 });
+  for (let i = 0; i < 3; i++) H(boxG(2.30, 0.04, 0.03, dark, [0, 0.82 + i * 0.18, -3.905]));
+  H(boxG(2.40, 0.16, 0.12, trim, [0, 0.30, -3.95]));
+  H(boxG(0.30, 0.22, 0.40, trim, [0, 0.18, -4.10]));
+  plates(hard, null, null, -4.02, 0.12);
+  return { soft, hard, panels, heads, tails };
+}
+
+/** Vehicles with a rebuilt body. Anything not listed keeps its original. */
+const BODY_SHOPS = { pickup: bodyPickup, semi: bodySemi, rally: bodyRally, monster: bodyMonster,
+                     dump: bodyDump, titan: bodyTitan };
+
+
 function buildTruckVisual(spec) {
+  BOX_ROUND = 0.075;          // every panel built from here on gets a radius
   const group = new THREE.Group();
   const paint = spec.paint, trim = spec.trim;
   const body = [], panels = [];
   const P = (g) => body.push(g);
   const S = 3;   // box subdivisions — enough vertices for visible denting
 
-  if (spec.id === 'pickup') {
+  // a rebuilt body, if this vehicle has one — its lofted shells go in first so
+  // they lead the merged buffer, which is the range that keeps smooth normals
+  const shop = BODY_SHOPS[spec.id] ? BODY_SHOPS[spec.id](paint, trim) : null;
+  let shopSmooth = 0;
+  if (shop) {
+    for (const g of shop.soft) { P(g); shopSmooth += g.attributes.position.count; }
+    for (const g of shop.hard) P(g);
+    for (const p of shop.panels) panels.push(p);
+  } else if (spec.id === 'pickup') {
     P(boxG(1.76, 0.62, 5.00, paint, [0, 0.10, 0], null, S));
     P(boxG(1.64, 0.72, 1.90, paint, [0, 0.78, 0.34], null, S));      // cab
     P(boxG(1.54, 0.52, 0.10, 0x11111b, [0, 0.86, 1.28]));            // windscreen
@@ -3728,9 +4822,9 @@ function buildTruckVisual(spec) {
     P(boxG(0.14, 0.40, 2.10, trim, [0.82, 0.42, -1.35]));            // bed walls
     P(boxG(0.14, 0.40, 2.10, trim, [-0.82, 0.42, -1.35]));
     P(boxG(1.80, 0.16, 0.30, trim, [0, -0.05, 2.52]));               // front bumper
-    P(boxG(0.28, 0.14, 0.90, 0x585b70, [0.84, -0.18, -1.0]));        // side steps
-    P(boxG(0.28, 0.14, 0.90, 0x585b70, [-0.84, -0.18, -1.0]));
-    P(boxG(0.10, 0.10, 1.30, 0x6c7086, [0.70, -0.24, -1.9]));        // exhaust
+    P(boxG(0.28, 0.14, 0.90, 0x5c5e61, [0.84, -0.18, -1.0]));        // side steps
+    P(boxG(0.28, 0.14, 0.90, 0x5c5e61, [-0.84, -0.18, -1.0]));
+    P(boxG(0.10, 0.10, 1.30, 0x707275, [0.70, -0.24, -1.9]));        // exhaust
     for (const sx of [-1, 1]) {                                      // fender arches
       P(boxG(0.16, 0.42, 1.10, trim, [sx * 0.88, 0.22, 1.58]));
       P(boxG(0.16, 0.42, 1.10, trim, [sx * 0.88, 0.22, -1.62]));
@@ -3741,17 +4835,17 @@ function buildTruckVisual(spec) {
                   local: [-0.86, 0.72, 0.30], size: [0.12, 0.66, 1.1], mass: 22, thresh: 0.55 });
     panels.push({ name: 'doorR', g: boxG(0.12, 0.66, 1.10, paint, [0.86, 0.72, 0.30], null, 2),
                   local: [0.86, 0.72, 0.30], size: [0.12, 0.66, 1.1], mass: 22, thresh: 0.55 });
-    panels.push({ name: 'bumper', g: boxG(1.86, 0.24, 0.26, 0x585b70, [0, 0.02, -2.55], null, 1),
+    panels.push({ name: 'bumper', g: boxG(1.86, 0.24, 0.26, 0x5c5e61, [0, 0.02, -2.55], null, 1),
                   local: [0, 0.02, -2.55], size: [1.86, 0.24, 0.26], mass: 18, thresh: 0.3 });
-  } else if (spec.id === 'monster') {
+  } else if (spec.id === 'monster' && !shop) {
     P(boxG(1.90, 0.44, 4.10, trim, [0, -0.06, 0], null, 2));         // ladder frame
     P(boxG(1.86, 0.74, 3.30, paint, [0, 0.46, -0.10], null, S));
     P(boxG(1.74, 0.78, 2.00, paint, [0, 1.02, 0.20], null, S));
     P(boxG(1.62, 0.54, 0.10, 0x11111b, [0, 1.10, 1.15]));
-    P(boxG(0.16, 0.16, 4.30, 0x6c7086, [0.94, 0.26, 0]));            // rock rails
-    P(boxG(0.16, 0.16, 4.30, 0x6c7086, [-0.94, 0.26, 0]));
-    P(cylG(0.09, 0.09, 1.50, 8, 0x9399b2, [0.72, 1.20, -0.6], [0, 0, 0.2]));  // stacks
-    P(cylG(0.09, 0.09, 1.50, 8, 0x9399b2, [-0.72, 1.20, -0.6], [0, 0, -0.2]));
+    P(boxG(0.16, 0.16, 4.30, 0x707275, [0.94, 0.26, 0]));            // rock rails
+    P(boxG(0.16, 0.16, 4.30, 0x707275, [-0.94, 0.26, 0]));
+    P(cylG(0.09, 0.09, 1.50, 8, 0x9a9c9f, [0.72, 1.20, -0.6], [0, 0, 0.2]));  // stacks
+    P(cylG(0.09, 0.09, 1.50, 8, 0x9a9c9f, [-0.72, 1.20, -0.6], [0, 0, -0.2]));
     P(boxG(1.30, 0.10, 0.60, 0xf38ba8, [0, 1.46, 0.2]));             // roof scoop
     panels.push({ name: 'hood', g: boxG(1.50, 0.14, 1.20, paint, [0, 0.86, 1.30], null, 2),
                   local: [0, 0.86, 1.3], size: [1.5, 0.14, 1.2], mass: 20, thresh: 0.4 });
@@ -3759,43 +4853,43 @@ function buildTruckVisual(spec) {
                   local: [-0.96, 0.62, -1.1], size: [0.1, 0.5, 1.2], mass: 15, thresh: 0.5 });
     panels.push({ name: 'wingR', g: boxG(0.10, 0.50, 1.20, paint, [0.96, 0.62, -1.1], null, 2),
                   local: [0.96, 0.62, -1.1], size: [0.1, 0.5, 1.2], mass: 15, thresh: 0.5 });
-  } else if (spec.id === 'semi') {
+  } else if (spec.id === 'semi' && !shop) {
     P(boxG(1.94, 0.60, 6.00, trim, [0, 0.05, -0.2], null, S));       // frame
     P(boxG(2.28, 1.58, 2.30, paint, [0, 1.10, 1.35], null, S));      // cab
     P(boxG(2.10, 0.90, 0.10, 0x11111b, [0, 1.42, 2.52]));            // windscreen
     P(boxG(2.20, 1.30, 1.50, paint, [0, 1.05, -0.15], null, 2));     // sleeper
-    P(boxG(2.30, 0.20, 0.44, 0x585b70, [0, 0.02, 2.66]));            // bumper
-    P(cylG(0.14, 0.14, 2.20, 8, 0x9399b2, [1.14, 1.35, 0.30]));      // stacks
-    P(cylG(0.14, 0.14, 2.20, 8, 0x9399b2, [-1.14, 1.35, 0.30]));
-    P(boxG(1.20, 0.16, 1.10, 0x585b70, [0, 0.42, -1.85]));           // fifth wheel
-    P(boxG(0.60, 0.60, 0.16, 0x6c7086, [0, 0.55, -2.38]));
-    P(boxG(0.55, 0.70, 0.90, 0x585b70, [1.30, 0.30, -0.6]));         // fuel tanks
-    P(boxG(0.55, 0.70, 0.90, 0x585b70, [-1.30, 0.30, -0.6]));
+    P(boxG(2.30, 0.20, 0.44, 0x5c5e61, [0, 0.02, 2.66]));            // bumper
+    P(cylG(0.14, 0.14, 2.20, 8, 0x9a9c9f, [1.14, 1.35, 0.30]));      // stacks
+    P(cylG(0.14, 0.14, 2.20, 8, 0x9a9c9f, [-1.14, 1.35, 0.30]));
+    P(boxG(1.20, 0.16, 1.10, 0x5c5e61, [0, 0.42, -1.85]));           // fifth wheel
+    P(boxG(0.60, 0.60, 0.16, 0x707275, [0, 0.55, -2.38]));
+    P(boxG(0.55, 0.70, 0.90, 0x5c5e61, [1.30, 0.30, -0.6]));         // fuel tanks
+    P(boxG(0.55, 0.70, 0.90, 0x5c5e61, [-1.30, 0.30, -0.6]));
     panels.push({ name: 'hood', g: boxG(2.10, 0.26, 1.10, paint, [0, 1.30, 2.20], null, 2),
                   local: [0, 1.3, 2.2], size: [2.1, 0.26, 1.1], mass: 40, thresh: 0.42 });
     panels.push({ name: 'fairL', g: boxG(0.14, 0.80, 1.60, paint, [-1.18, 0.70, 0.4], null, 2),
                   local: [-1.18, 0.7, 0.4], size: [0.14, 0.8, 1.6], mass: 24, thresh: 0.5 });
     panels.push({ name: 'fairR', g: boxG(0.14, 0.80, 1.60, paint, [1.18, 0.70, 0.4], null, 2),
                   local: [1.18, 0.7, 0.4], size: [0.14, 0.8, 1.6], mass: 24, thresh: 0.5 });
-  } else if (spec.id === 'dump') {
+  } else if (spec.id === 'dump' && !shop) {
     P(boxG(2.10, 0.70, 7.00, trim, [0, -0.10, 0], null, S));
     P(boxG(2.28, 1.45, 2.05, paint, [0, 1.05, 2.20], null, S));      // cab
     P(boxG(2.10, 0.80, 0.10, 0x11111b, [0, 1.30, 3.20]));
-    P(boxG(2.46, 0.20, 3.90, 0x585b70, [0, 0.42, -1.30], null, 2));  // bed floor
-    P(boxG(0.16, 1.20, 3.90, 0x585b70, [1.22, 1.05, -1.30], null, 2));
-    P(boxG(0.16, 1.20, 3.90, 0x585b70, [-1.22, 1.05, -1.30], null, 2));
-    P(boxG(2.46, 1.20, 0.18, 0x585b70, [0, 1.05, 0.68], null, 2));
-    P(boxG(2.30, 0.24, 0.50, 0x585b70, [0, 0.12, 3.50]));            // bumper
-    P(cylG(0.15, 0.15, 1.90, 8, 0x9399b2, [1.16, 1.30, 1.30]));
-    P(boxG(0.60, 0.70, 1.00, 0x585b70, [1.32, 0.20, 0.4]));
-    P(boxG(0.60, 0.70, 1.00, 0x585b70, [-1.32, 0.20, 0.4]));
+    P(boxG(2.46, 0.20, 3.90, 0x5c5e61, [0, 0.42, -1.30], null, 2));  // bed floor
+    P(boxG(0.16, 1.20, 3.90, 0x5c5e61, [1.22, 1.05, -1.30], null, 2));
+    P(boxG(0.16, 1.20, 3.90, 0x5c5e61, [-1.22, 1.05, -1.30], null, 2));
+    P(boxG(2.46, 1.20, 0.18, 0x5c5e61, [0, 1.05, 0.68], null, 2));
+    P(boxG(2.30, 0.24, 0.50, 0x5c5e61, [0, 0.12, 3.50]));            // bumper
+    P(cylG(0.15, 0.15, 1.90, 8, 0x9a9c9f, [1.16, 1.30, 1.30]));
+    P(boxG(0.60, 0.70, 1.00, 0x5c5e61, [1.32, 0.20, 0.4]));
+    P(boxG(0.60, 0.70, 1.00, 0x5c5e61, [-1.32, 0.20, 0.4]));
     panels.push({ name: 'tailgate', g: boxG(2.40, 1.15, 0.16, 0xf9e2af, [0, 1.05, -3.28], null, 2),
                   local: [0, 1.05, -3.28], size: [2.4, 1.15, 0.16], mass: 70, thresh: 0.4 });
     panels.push({ name: 'hood', g: boxG(2.10, 0.24, 1.00, paint, [0, 1.24, 3.05], null, 2),
                   local: [0, 1.24, 3.05], size: [2.1, 0.24, 1.0], mass: 46, thresh: 0.45 });
   }
 
-  if (spec.id === 'rally') {
+  if (spec.id === 'rally' && !shop) {
     P(boxG(1.72, 0.44, 3.40, paint, [0, 0.10, 0], null, S));          // low wide tub
     P(boxG(1.60, 0.46, 1.60, paint, [0, 0.52, -0.10], null, S));      // greenhouse
     P(boxG(1.48, 0.40, 0.10, 0x11111b, [0, 0.56, 0.68]));             // windscreen
@@ -3808,10 +4902,10 @@ function buildTruckVisual(spec) {
       P(boxG(0.10, 0.34, 0.50, trim, [sx * 0.84, 0.44, -1.62]));      // wing endplates
       P(boxG(0.20, 0.34, 1.30, trim, [sx * 0.88, 0.16, 1.32]));       // arch flares
       P(boxG(0.20, 0.34, 1.30, trim, [sx * 0.90, 0.16, -1.32]));
-      P(boxG(0.16, 0.14, 1.10, 0x585b70, [sx * 0.90, -0.06, 0]));     // side skirts
+      P(boxG(0.16, 0.14, 1.10, 0x5c5e61, [sx * 0.90, -0.06, 0]));     // side skirts
     }
     P(boxG(0.70, 0.14, 0.50, 0x11111b, [0, 0.36, 1.52]));             // bonnet vent
-    P(cylG(0.07, 0.07, 0.70, 6, 0x9399b2, [0.62, -0.10, -1.80], [0, 0, PI / 2]));
+    P(cylG(0.07, 0.07, 0.70, 6, 0x9a9c9f, [0.62, -0.10, -1.80], [0, 0, PI / 2]));
     P(boxG(1.10, 0.18, 0.14, 0xf9e2af, [0, 0.78, 0.55]));             // roof light bar
     panels.push({ name: 'bonnet', g: boxG(1.44, 0.12, 1.10, paint, [0, 0.34, 1.20], null, 2),
                   local: [0, 0.34, 1.20], size: [1.44, 0.12, 1.1], mass: 12, thresh: 0.34 });
@@ -3823,7 +4917,7 @@ function buildTruckVisual(spec) {
                   local: [0.83, 0.44, -0.15], size: [0.1, 0.44, 1.0], mass: 11, thresh: 0.5 });
   }
 
-  let smoothVerts = 0;      // the leading run of vertices that must stay smooth
+  let smoothVerts = shop ? shopSmooth : 0;   // the leading run that must stay smooth
   if (spec.id === 'hyper') {
     const hb = buildHyperBody(paint, trim);
     // the two lofted shells come first, so they occupy [0, smoothVerts) of the
@@ -3861,31 +4955,31 @@ function buildTruckVisual(spec) {
                   local: [0, -0.08, -2.50], size: [1.94, 0.15, 0.22], mass: 20, thresh: 0.30 });
   }
 
-  if (spec.id === 'titan') {
+  if (spec.id === 'titan' && !shop) {
     P(boxG(2.30, 0.70, 8.20, trim, [0, 0.02, 0], null, S));           // ladder frame
     P(boxG(2.44, 1.55, 2.30, paint, [0, 1.30, 2.50], null, S));       // forward cab
     P(boxG(2.24, 0.85, 0.12, 0x11111b, [0, 1.60, 3.62]));             // windscreen
     P(boxG(0.12, 0.70, 1.70, 0x11111b, [1.20, 1.55, 2.40]));
     P(boxG(0.12, 0.70, 1.70, 0x11111b, [-1.20, 1.55, 2.40]));
-    P(boxG(2.44, 0.22, 4.40, 0x585b70, [0, 0.55, -1.40], null, 2));   // flat deck
+    P(boxG(2.44, 0.22, 4.40, 0x5c5e61, [0, 0.55, -1.40], null, 2));   // flat deck
     for (const sx of [-1, 1]) {
-      P(boxG(0.14, 0.80, 4.40, 0x6c7086, [sx * 1.22, 1.00, -1.40], null, 2));
-      P(boxG(0.30, 0.24, 8.00, 0x585b70, [sx * 1.26, -0.28, 0]));     // rock rails
-      P(boxG(0.55, 0.80, 1.10, 0x585b70, [sx * 1.36, 0.28, 0.70]));   // tanks
-      P(cylG(0.13, 0.13, 2.00, 8, 0x9399b2, [sx * 1.18, 1.55, 1.20]));// stacks
+      P(boxG(0.14, 0.80, 4.40, 0x707275, [sx * 1.22, 1.00, -1.40], null, 2));
+      P(boxG(0.30, 0.24, 8.00, 0x5c5e61, [sx * 1.26, -0.28, 0]));     // rock rails
+      P(boxG(0.55, 0.80, 1.10, 0x5c5e61, [sx * 1.36, 0.28, 0.70]));   // tanks
+      P(cylG(0.13, 0.13, 2.00, 8, 0x9a9c9f, [sx * 1.18, 1.55, 1.20]));// stacks
       for (const z of [3.30, 1.85, -1.85, -3.30])                     // mudguards
-        P(boxG(0.50, 0.12, 1.70, 0x313244, [sx * 1.28, 0.42, z]));
+        P(boxG(0.50, 0.12, 1.70, 0x323336, [sx * 1.28, 0.42, z]));
     }
-    P(boxG(2.50, 0.90, 0.24, 0x585b70, [0, 0.62, -3.70], null, 2));   // headboard
-    P(boxG(2.55, 0.30, 0.60, 0x585b70, [0, 0.22, 4.10]));             // bull bar
-    P(boxG(2.20, 0.22, 0.22, 0x9399b2, [0, 0.62, 4.20]));
+    P(boxG(2.50, 0.90, 0.24, 0x5c5e61, [0, 0.62, -3.70], null, 2));   // headboard
+    P(boxG(2.55, 0.30, 0.60, 0x5c5e61, [0, 0.22, 4.10]));             // bull bar
+    P(boxG(2.20, 0.22, 0.22, 0x9a9c9f, [0, 0.62, 4.20]));
     P(boxG(1.60, 0.20, 0.18, 0xf9e2af, [0, 2.16, 2.50]));             // roof light bar
-    P(cylG(0.22, 0.22, 0.30, 10, 0x6c7086, [0, 0.75, -4.05], [PI / 2, 0, 0])); // winch drum
+    P(cylG(0.22, 0.22, 0.30, 10, 0x707275, [0, 0.75, -4.05], [PI / 2, 0, 0])); // winch drum
     panels.push({ name: 'hood', g: boxG(2.30, 0.26, 1.10, paint, [0, 2.02, 2.90], null, 2),
                   local: [0, 2.02, 2.90], size: [2.3, 0.26, 1.1], mass: 48, thresh: 0.44 });
     panels.push({ name: 'headboard', g: boxG(2.50, 0.90, 0.24, 0x74c7ec, [0, 1.30, -3.70], null, 2),
                   local: [0, 1.30, -3.70], size: [2.5, 0.9, 0.24], mass: 80, thresh: 0.5 });
-    panels.push({ name: 'tankL', g: boxG(0.55, 0.80, 1.10, 0x585b70, [-1.36, 0.28, 0.70], null, 2),
+    panels.push({ name: 'tankL', g: boxG(0.55, 0.80, 1.10, 0x5c5e61, [-1.36, 0.28, 0.70], null, 2),
                   local: [-1.36, 0.28, 0.70], size: [0.55, 0.8, 1.1], mass: 30, thresh: 0.55 });
   }
 
@@ -3896,7 +4990,10 @@ function buildTruckVisual(spec) {
   const tailMat = new THREE.MeshBasicMaterial({ color: 0x8a2b3d });
   const heads = new THREE.Group(), tails = new THREE.Group();
   const ls = (spec.rig && spec.rig.lightScale) || 1;
-  for (const sx of [-1, 1]) {
+  if (shop && shop.heads.length) {
+    heads.add(new THREE.Mesh(mergeGeoms(shop.heads), headMat));
+    tails.add(new THREE.Mesh(mergeGeoms(shop.tails), tailMat));
+  } else for (const sx of [-1, 1]) {
     const m = new THREE.Mesh(new THREE.BoxGeometry(0.30 * ls, 0.18 * ls, 0.10), headMat);
     m.position.set(sx * lightX, lightY, lightZ); heads.add(m);
     const t = new THREE.Mesh(new THREE.BoxGeometry(0.24 * ls, 0.16 * ls, 0.08), tailMat);
@@ -3917,6 +5014,7 @@ function buildTruckVisual(spec) {
     bar2.position.set(0, 0.03, -2.32); tails.add(bar2);
   }
 
+  BOX_ROUND = 0;              // and nothing built after this does
   const geo = mergeGeoms(body.concat(panels.map(p => p.g)));
   // A lofted shell needs smooth shading and a clearcoat to read as car paint;
   // every other rig keeps the flat-shaded low-poly look on purpose.
@@ -3925,11 +5023,35 @@ function buildTruckVisual(spec) {
   // half-metal car paint comes out grey and washed out whatever colour you
   // give it. Colour from the diffuse, shine from the clearcoat.
   const smooth = !!(spec.rig && spec.rig.smooth);
-  const material = smooth
-    ? new THREE.MeshPhysicalMaterial({
-        vertexColors: true, flatShading: false, roughness: 0.38, metalness: 0.10,
-        clearcoat: 1.0, clearcoatRoughness: 0.06 })
-    : vcMat({ roughness: 0.62, metalness: 0.22 });
+  /* Every vehicle gets real paint now: a base coat with a clear lacquer over
+   * it, reflecting the sky through the environment map. The road cars get a
+   * deep, glassy coat; the working trucks a harder-wearing, slightly duller
+   * one, because a dump truck that shines like a showroom car looks wrong. */
+  const heavy = spec.mass > 5000;
+  const material = new THREE.MeshPhysicalMaterial({
+    vertexColors: true, flatShading: false,
+    roughness: smooth ? 0.36 : heavy ? 0.55 : 0.44, metalness: smooth ? 0.10 : 0.06,
+    clearcoat: smooth ? 1.0 : heavy ? 0.35 : 0.7,
+    clearcoatRoughness: smooth ? 0.05 : heavy ? 0.3 : 0.12 });
+  /* One material for paint, chrome and glass, sorted per pixel by colour —
+   * the same trick the wheels use. A bright, neutral colour is brightwork and
+   * becomes a real mirror-finish metal that reflects the sky; a very dark one
+   * is glass and goes glossy; everything else is the painted coat above. Before
+   * this, every bumper, grille and tank on every truck read as white plastic. */
+  material.onBeforeCompile = (sh) => {
+    sh.fragmentShader = sh.fragmentShader
+      .replace('#include <roughnessmap_fragment>',
+        // linear colours: chrome 0xc8ccd4 sits near 0.60, a white plate near 0.72
+        'float vLum = dot(vColor.rgb, vec3(0.3, 0.59, 0.11));\n' +
+        'float vSat = max(vColor.r, max(vColor.g, vColor.b)) - min(vColor.r, min(vColor.g, vColor.b));\n' +
+        'float vChrome = smoothstep(0.30, 0.42, vLum) * (1.0 - smoothstep(0.66, 0.70, vLum))' +
+        ' * (1.0 - smoothstep(0.05, 0.12, vSat));\n' +
+        // glass is dark and blue; black plastic and rubber are dark and neutral
+        'float vGlass = smoothstep(0.040, 0.022, vLum) * step(vColor.r * 1.8, vColor.b);\n' +
+        'float roughnessFactor = mix(mix(roughness, 0.06, vGlass), 0.14, vChrome);')
+      .replace('#include <metalnessmap_fragment>',
+        'float metalnessFactor = mix(metalness, 1.0, vChrome);');
+  };
   const chassis = new THREE.Mesh(geo, material);
   chassis.castShadow = true; chassis.receiveShadow = true;
   group.add(chassis, heads, tails);
@@ -3963,32 +5085,86 @@ function buildTruckVisual(spec) {
  * keeps it from looking glitchy.
  * ========================================================================= */
 
-/** Tapered, swept wing solid — 8 corners, 12 triangles, flat shaded. */
-function wingGeo(span, rootChord, tipChord, thick, sweep, hex) {
-  const rh = rootChord / 2, th2 = tipChord / 2, ty = thick / 2;
-  // root at x=0, tip at x=span, chord runs along z, sweep pulls the tip back
-  const R = [[0, -ty, -rh], [0, -ty, rh], [0, ty, rh], [0, ty, -rh]];
-  const T = [[span, -ty * 0.5, -sweep - th2], [span, -ty * 0.5, -sweep + th2],
-             [span, ty * 0.5, -sweep + th2], [span, ty * 0.5, -sweep - th2]];
-  const v = [];
-  const quad = (a, b, c, d) => { v.push(...a, ...b, ...c, ...a, ...c, ...d); };
-  quad(R[0], R[1], R[2], R[3]);            // root rib
-  quad(T[3], T[2], T[1], T[0]);            // tip rib
-  quad(R[1], T[1], T[2], R[2]);            // trailing edge
-  quad(R[3], T[3], T[0], R[0]);            // leading edge
-  quad(R[2], T[2], T[3], R[3]);            // upper surface
-  quad(R[0], T[0], T[1], R[1]);            // lower surface
+/**
+ * Tapered, swept wing with a real aerofoil section — a rounded leading edge, a
+ * knife trailing edge and a touch of camber, smooth-shaded along the span.
+ * Root at x=0, tip at x=span; chord runs along z with the leading edge
+ * forward (+z), and sweep pulls the tip back. `mirror` builds the left-hand
+ * copy: x is negated and the winding flipped, so the leading edge still faces
+ * forward (rotating the right wing 180 degrees would put it at the back).
+ */
+function wingGeo(span, rootChord, tipChord, thick, sweep, hex, mirror) {
+  const N = 9;
+  const prof = [];                                    // [u along chord, side]
+  for (let k = 0; k <= N; k++) prof.push([1 - (1 - Math.cos(PI * k / N)) / 2, 1]);  // top, TE to LE
+  for (let k = 1; k <= N; k++) prof.push([(1 - Math.cos(PI * k / N)) / 2, -1]);     // bottom, LE to TE
+  const M = prof.length;
+  // NACA four-digit thickness, scaled so the thickest point is thick/2 a side
+  const half = (u) => 5 * (0.2969 * Math.sqrt(u) - 0.1260 * u - 0.3516 * u * u +
+                           0.2843 * u * u * u - 0.1036 * u * u * u * u);
+  const stations = [0, 0.3, 0.6, 0.85, 1.0];
+  const sx = mirror ? -1 : 1;
+  const pos = [], idx = [];
+  const rings = [];
+  for (const s of stations) {
+    const c = rootChord + (tipChord - rootChord) * s;
+    const th = thick * (1 - 0.5 * s) * (s === 1 ? 0.7 : 1);
+    const z0 = -sweep * s;
+    const ring = [];
+    for (const [u, side] of prof) {
+      const y = side * half(u) * th + 0.12 * th * Math.sin(PI * u);   // camber
+      ring.push([sx * span * s, y, z0 + c / 2 - u * c]);
+    }
+    rings.push(ring);
+  }
+  for (const ring of rings) for (const p of ring) pos.push(p[0], p[1], p[2]);
+  const tri = (a, b, c) => { if (mirror) idx.push(a, c, b); else idx.push(a, b, c); };
+  for (let i = 0; i < rings.length - 1; i++) {
+    for (let j = 0; j < M - 1; j++) {
+      const a = i * M + j, b = i * M + j + 1, c = (i + 1) * M + j, d = (i + 1) * M + j + 1;
+      tri(a, b, c); tri(b, d, c);
+    }
+  }
+  // root and tip caps on their own vertices, so they keep crisp normals
+  const cap = (ring, outward) => {
+    const base = pos.length / 3;
+    let cx = 0, cy = 0, cz = 0;
+    for (const p of ring) { pos.push(p[0], p[1], p[2]); cx += p[0]; cy += p[1]; cz += p[2]; }
+    pos.push(cx / M, cy / M, cz / M);
+    const ctr = base + M;
+    for (let j = 0; j < M - 1; j++) {
+      if (outward) tri(ctr, base + j, base + j + 1); else tri(ctr, base + j + 1, base + j);
+    }
+  };
+  cap(rings[0], false);
+  cap(rings[rings.length - 1], true);
   const g = new THREE.BufferGeometry();
-  g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(v), 3));
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  g.setAttribute('uv', new THREE.Float32BufferAttribute(new Array((pos.length / 3) * 2).fill(0), 2));
+  g.setIndex(idx);
   g.computeVertexNormals();
-  g.setAttribute('uv', new THREE.BufferAttribute(new Float32Array((v.length / 3) * 2), 2));
-  paint(g, hex);
-  return g;
+  const out = g.toNonIndexed();
+  paint(out, hex);
+  return out;
+}
+
+/** A tapered, rounded boom or nacelle lofted along -z from the origin. */
+function boomGeo(len, w0, h0, w1, h1, hex) {
+  return shellG([
+    { z: -len, w: w1, t: h1, y: 0, pt: 2.6 },
+    { z: -len * 0.55, w: (w0 + w1) * 0.55, t: (h0 + h1) * 0.55, y: 0, pt: 2.6 },
+    { z: -len * 0.08, w: w0, t: h0, y: 0, pt: 2.6 },
+    { z: 0, w: w0 * 0.94, t: h0 * 0.94, y: 0, pt: 2.6 },
+  ], hex, 16);
 }
 
 let _planeMat = null, _glowMat = null;
 function planeMaterial() {
-  if (!_planeMat) { _planeMat = vcMat({ roughness: 0.55, metalness: 0.35 }); _planeMat.__keep = true; }
+  if (!_planeMat) {
+    _planeMat = new THREE.MeshPhysicalMaterial({ vertexColors: true, roughness: 0.42, metalness: 0.10,
+                                                  clearcoat: 0.7, clearcoatRoughness: 0.12 });
+    _planeMat.__keep = true;
+  }
   return _planeMat;
 }
 function glowMaterial() {
@@ -4045,11 +5221,7 @@ function buildPlaneKit(spec) {
    * sweep is negated first and the rotation puts it right. Mirroring by scaling
    * -1 would be simpler but inverts the winding and the face vanishes.
    */
-  const wingFor = (sx, sp, root, tip, thick, sweep, hex) => {
-    const g = wingGeo(sp, root, tip, thick, sx < 0 ? -sweep : sweep, hex);
-    if (sx < 0) xform(g, null, [0, PI, 0]);
-    return g;
-  };
+  const wingFor = (sx, sp, root, tip, thick, sweep, hex) => wingGeo(sp, root, tip, thick, sweep, hex, sx < 0);
 
   // ---- main wings: folded flat inside the flanks, swing down and out -------
   for (const sx of [-1, 1]) {
@@ -4058,7 +5230,7 @@ function buildPlaneKit(spec) {
       P([sx * hw * 1.02, wingY, wingZ], [0, 0, sx * -0.06], [1, 1, 1]),
       0.14, 0.62);
     // wingtip winglet, unfolds a beat later
-    add(boxG(0.14, 0.9, chord * 0.42, trimC, [0, 0.45, 0]),
+    add(xform(wingGeo(0.9, chord * 0.42, chord * 0.22, 0.10, chord * 0.16, trimC), null, [0, 0, PI / 2]),
       P([sx * hw * 0.4, wingY, wingZ], [0, 0, 0], [1, 0.05, 1]),
       P([sx * (hw * 1.02 + span * 0.97), wingY + 0.06, wingZ - chord * 0.40], [0, 0, sx * -0.18], [1, 1, 1]),
       0.45, 0.80);
@@ -4066,7 +5238,7 @@ function buildPlaneKit(spec) {
 
   // ---- tail boom telescopes out of the back ----
   const boomLen = hl * 0.95;
-  add(boxG(hw * 0.7, hw * 0.55, boomLen, trimC, [0, 0, -boomLen / 2]),
+  add(boomGeo(boomLen, hw * 0.36, hw * 0.30, hw * 0.16, hw * 0.14, trimC),
     P([0, hy * 0.25, backZ + hl * 0.35], [0, 0, 0], [1, 1, 0.08]),
     P([0, hy * 0.25, backZ + hl * 0.02], [0, 0, 0], [1, 1, 1]),
     0.05, 0.50);
@@ -4088,8 +5260,8 @@ function buildPlaneKit(spec) {
 
   // ---- nose cone extends forward, clear of the bumper ----
   add(mergeGeoms([
-      cylG(0.06, hw * 0.62, hl * 0.55, 7, paintC, [0, 0, 0], [PI / 2, 0, 0]),
-      boxG(hw * 0.5, 0.16, hl * 0.2, trimC, [0, -hw * 0.22, hl * 0.10]),
+      xform(boomGeo(hl * 0.55, hw * 0.62, hw * 0.50, hw * 0.08, hw * 0.07, paintC), [0, 0, -hl * 0.275], [0, PI, 0]),
+      cylG(hw * 0.20, hw * 0.24, hl * 0.2, 14, trimC, [0, -hw * 0.30, hl * 0.06], [PI / 2, 0, 0]),
     ]),
     P([0, hy * 0.15, frontZ - hl * 0.30], [0, 0, 0], [0.7, 0.7, 0.05]),
     P([0, hy * 0.15, frontZ + hl * 0.28], [0, 0, 0], [1, 1, 1]),
@@ -4099,8 +5271,10 @@ function buildPlaneKit(spec) {
   const jets = [];
   for (const sx of [-1, 1]) {
     add(mergeGeoms([
-        cylG(hw * 0.34, hw * 0.30, hl * 0.55, 8, trimC, [0, 0, 0], [PI / 2, 0, 0]),
-        cylG(hw * 0.36, hw * 0.36, 0.14, 8, 0x9399b2, [0, 0, -hl * 0.275], [PI / 2, 0, 0]),
+        xform(boomGeo(hl * 0.55, hw * 0.34, hw * 0.34, hw * 0.28, hw * 0.28, trimC), [0, 0, hl * 0.275]),
+        cylG(hw * 0.35, hw * 0.35, 0.08, 18, 0xc8ccd4, [0, 0, hl * 0.27], [PI / 2, 0, 0]),
+        cylG(hw * 0.29, hw * 0.29, 0.10, 18, 0x9a9c9f, [0, 0, -hl * 0.28], [PI / 2, 0, 0]),
+        cylG(hw * 0.22, hw * 0.05, hl * 0.12, 14, 0x3a3c42, [0, 0, -hl * 0.33], [PI / 2, 0, 0]),
       ]),
       P([sx * hw * 0.3, hy * 0.15, -hl * 0.2], [0, 0, 0], [0.15, 0.15, 0.4]),
       P([sx * jetX, hy * 0.10, backZ + hl * 0.42], [0, 0, 0], [1, 1, 1]),
@@ -4175,7 +5349,7 @@ function buildBoatKit(spec) {
       P([sx * (hw + floatW * 0.55), -hy * 0.30, 0], [0, 0, 0], [1, 1, 1]),
       0.06, 0.60);
     // strut linking the float to the body
-    add(boxG(0.16, 0.16, hw * 1.5, 0x585b70, [0, 0, 0], [0, 0, PI / 2]),
+    add(boxG(0.16, 0.16, hw * 1.5, 0x5c5e61, [0, 0, 0], [0, 0, PI / 2]),
       P([sx * hw * 0.3, hy * 0.05, -hl * 0.1], [0, 0, PI / 2], [1, 1, 0.05]),
       P([sx * hw * 0.62, -hy * 0.12, -hl * 0.1], [0, 0, PI / 2], [1, 1, 1]),
       0.20, 0.62);
@@ -4189,8 +5363,8 @@ function buildBoatKit(spec) {
 
   // ---- water-jet nozzle + rudder ----------------------------------------
   add(mergeGeoms([
-      cylG(hw * 0.30, hw * 0.24, hl * 0.34, 8, 0x585b70, [0, 0, 0], [PI / 2, 0, 0]),
-      boxG(0.14, hy * 0.62, hl * 0.30, 0x9399b2, [0, -hy * 0.28, -hl * 0.06]),
+      cylG(hw * 0.30, hw * 0.24, hl * 0.34, 8, 0x5c5e61, [0, 0, 0], [PI / 2, 0, 0]),
+      boxG(0.14, hy * 0.62, hl * 0.30, 0x9a9c9f, [0, -hy * 0.28, -hl * 0.06]),
     ]),
     P([0, -hy * 0.05, backZ + hl * 0.25], [0, 0, 0], [0.2, 0.2, 0.2]),
     P([0, -hy * 0.20, backZ - hl * 0.10], [0, 0, 0], [1, 1, 1]),
@@ -4251,15 +5425,10 @@ class TruckRig {
     this.needNormals = false;
 
     // wheels
-    const wd = this.spec.wheelDef;
-    const alloy = this.spec.rig && this.spec.rig.wheel === 'alloy';
-    const wgeo = alloy ? alloyWheel(wd.radius, wd.width, 0x9aa0b4, 0x22222c)
-                       : wheelGeometry(wd.radius, wd.width, this.spec.trim, 0x252534);
-    this.wheelMat = alloy ? vcMat({ roughness: 0.52, metalness: 0.60, flatShading: false })
-                          : vcMat({ roughness: 0.94, metalness: 0.02 });
-    this.wheelMeshes = this.vehicle.wheels.map(w => {
-      const m = new THREE.Mesh(wgeo, this.wheelMat);
-      m.castShadow = true;
+    this.wheelSet = wheelSet(this.spec);
+    this.wheelMat = wheelMat();
+    this.wheelMeshes = this.vehicle.wheels.map((w, i) => {
+      const m = makeWheelMesh(this.wheelSet, this.spec.wheels[i], this.wheelMat);
       scene.add(m);
       w.mesh = m;
       return m;
@@ -4360,6 +5529,14 @@ class TruckRig {
     FX.sparks(worldPoint, worldNormal, 6 + strength * 40);
     FX.debrisPuff(worldPoint, strength);
     Game.shake(strength * 1.5);
+    // Touching down on the ground (impact from below) is a landing, not a
+    // crash: no camera grab, no slow-mo, and no rebound to kill your momentum.
+    const landing = worldNormal && Math.abs(worldNormal.y) > 0.6;
+    if (landing) {
+      const v = this.vehicle.body.velocity;
+      if (v.y > 0) v.y *= 0.1;
+      return;
+    }
     if (strength > 0.16) Game.crashCam(strength);
 
     // Invulnerable rigs still spark, bang and shake — the crash reads exactly
@@ -4436,16 +5613,22 @@ class TruckRig {
   detachPanel(p) {
     p.gone = true;
     this.detachedPanels++;
-    // hide it in the merged mesh by collapsing its vertices to the panel centre
+    // Hide it in the merged mesh by collapsing it to the panel centre — whole
+    // triangles only, and only those lying entirely inside the panel's box.
+    // Collapsing vertex by vertex dragged half of every part that merely
+    // touched the panel (a brace, a bed wall, a lamp) into a long spike.
     const g = this.chassisMesh.geometry, pos = g.attributes.position, arr = pos.array;
     const cx = p.local[0], cy = p.local[1], cz = p.local[2];
     const hx = p.size[0] / 2 + 0.02, hy = p.size[1] / 2 + 0.02, hz = p.size[2] / 2 + 0.02;
-    for (let i = 0; i < pos.count; i++) {
-      const ix = i * 3;
-      if (Math.abs(this.basePos[ix] - cx) <= hx && Math.abs(this.basePos[ix + 1] - cy) <= hy &&
-          Math.abs(this.basePos[ix + 2] - cz) <= hz) {
+    const bp = this.basePos;
+    const inBox = (ix) => Math.abs(bp[ix] - cx) <= hx && Math.abs(bp[ix + 1] - cy) <= hy &&
+                          Math.abs(bp[ix + 2] - cz) <= hz;
+    for (let i = 0; i + 2 < pos.count; i += 3) {
+      if (!inBox(i * 3) || !inBox(i * 3 + 3) || !inBox(i * 3 + 6)) continue;
+      for (let k = 0; k < 3; k++) {
+        const ix = (i + k) * 3;
         arr[ix] = cx; arr[ix + 1] = cy; arr[ix + 2] = cz;
-        this.dentAmt[i] = 9;
+        this.dentAmt[i + k] = 9;
       }
     }
     pos.needsUpdate = true; this.needNormals = true;
@@ -4522,9 +5705,8 @@ class TruckRig {
     for (const w of this.vehicle.wheels) {
       if (!w.detached) continue;
       w.detached = false;
-      const m = new THREE.Mesh(this.wheelMeshes[0] ? this.wheelMeshes[0].geometry : null,
-                               this.wheelMat);
-      m.castShadow = true;
+      const m = makeWheelMesh(this.wheelSet, this.spec.wheels[this.vehicle.wheels.indexOf(w)],
+                              this.wheelMat);
       scene.add(m);
       w.mesh = m;
     }
@@ -4676,9 +5858,10 @@ class TruckRig {
           this.group.localToWorld(tmpV);
           w.mesh.position.lerp(tmpV, this.gear);
           w.mesh.scale.setScalar(1 - this.gear * 0.72);
+          w.mesh.scale.x *= (w.mesh.userData.side || 1);
         }
       } else {
-        for (const w of v.wheels) if (w.mesh) w.mesh.scale.setScalar(1);
+        for (const w of v.wheels) if (w.mesh) w.mesh.scale.set(w.mesh.userData.side || 1, 1, 1);
       }
     }
     if (this.needNormals) {
@@ -4733,7 +5916,7 @@ class TruckRig {
     if (this.damage > 0.5 && Math.random() < this.damage * 0.7) {
       tmpV.set(0, 0.9, (this.spec.rig && this.spec.rig.smokeZ) || 1.9);
       this.group.localToWorld(tmpV);
-      FX.smoke(tmpV, 0.35 + this.damage * 0.5, this.damage > 0.8 ? 0x1e1e2e : 0x585b70);
+      FX.smoke(tmpV, 0.35 + this.damage * 0.5, this.damage > 0.8 ? 0x1d1e20 : 0x5c5e61);
     }
   }
 
@@ -4753,7 +5936,7 @@ class TruckRig {
 
 const TRAILERS = {
   flatbed: {
-    id: 'flatbed', name: 'FLATBED', mass: 2400, paint: 0x94e2d5, trim: 0x45475a,
+    id: 'flatbed', name: 'FLATBED', mass: 2400, paint: 0x94e2d5, trim: 0x47484b,
     hitchLocal: [0, 0.62, 4.20], deckY: 0.62, length: 9.0,
     payload: 5000,
     colliders: [
@@ -4770,7 +5953,7 @@ const TRAILERS = {
     cargoZone: { p: [0, 0.95, -0.6], s: [2.2, 1.2, 6.6] },
   },
   box: {
-    id: 'box', name: 'BOX TRAILER', mass: 3400, paint: 0xcdd6f4, trim: 0x45475a,
+    id: 'box', name: 'BOX TRAILER', mass: 3400, paint: 0xd4d6d8, trim: 0x47484b,
     hitchLocal: [0, 0.62, 4.60], deckY: 0.62, length: 10.0,
     payload: 7000,
     colliders: [
@@ -4854,26 +6037,26 @@ class Trailer {
       for (let i = -4; i <= 4; i++) parts.push(boxG(2.66, 0.06, 0.10, 0x8b6a44, [0, 0.64, i]));
       parts.push(boxG(2.50, 0.60, 0.20, p.paint, [0, 0.92, -4.42]));
       for (const sx of [-1, 1]) {
-        parts.push(boxG(0.12, 0.45, 0.12, 0x585b70, [sx * 1.22, 0.85, -2.6]));
-        parts.push(boxG(0.12, 0.45, 0.12, 0x585b70, [sx * 1.22, 0.85, 0.4]));
-        parts.push(boxG(0.12, 0.45, 0.12, 0x585b70, [sx * 1.22, 0.85, 3.2]));
+        parts.push(boxG(0.12, 0.45, 0.12, 0x5c5e61, [sx * 1.22, 0.85, -2.6]));
+        parts.push(boxG(0.12, 0.45, 0.12, 0x5c5e61, [sx * 1.22, 0.85, 0.4]));
+        parts.push(boxG(0.12, 0.45, 0.12, 0x5c5e61, [sx * 1.22, 0.85, 3.2]));
       }
-      parts.push(boxG(0.30, 0.55, 1.20, 0x585b70, [0, 0.10, 4.0]));           // kingpin box
-      parts.push(cylG(0.10, 0.10, 0.42, 8, 0x9399b2, [0, 0.18, 4.2]));
+      parts.push(boxG(0.30, 0.55, 1.20, 0x5c5e61, [0, 0.10, 4.0]));           // kingpin box
+      parts.push(cylG(0.10, 0.10, 0.42, 8, 0x9a9c9f, [0, 0.18, 4.2]));
     } else {
       parts.push(boxG(2.55, 0.26, 9.80, p.trim, [0, 0.42, 0], null, 2));
       parts.push(boxG(2.55, 2.70, 9.20, p.paint, [0, 2.00, -0.3], null, 3));
-      parts.push(boxG(2.60, 0.16, 0.16, 0x585b70, [0, 3.32, -0.3]));
-      parts.push(boxG(2.48, 2.50, 0.10, 0x45475a, [0, 1.95, -4.92]));         // rear doors
-      parts.push(boxG(0.10, 2.40, 0.10, 0x9399b2, [0, 1.95, -4.99]));
-      for (let i = -4; i <= 4; i++) parts.push(boxG(2.58, 2.60, 0.06, 0x9399b2, [0, 2.0, i]));
-      parts.push(boxG(0.30, 0.55, 1.20, 0x585b70, [0, 0.10, 4.4]));
-      parts.push(cylG(0.10, 0.10, 0.42, 8, 0x9399b2, [0, 0.18, 4.6]));
+      parts.push(boxG(2.60, 0.16, 0.16, 0x5c5e61, [0, 3.32, -0.3]));
+      parts.push(boxG(2.48, 2.50, 0.10, 0x47484b, [0, 1.95, -4.92]));         // rear doors
+      parts.push(boxG(0.10, 2.40, 0.10, 0x9a9c9f, [0, 1.95, -4.99]));
+      for (let i = -4; i <= 4; i++) parts.push(boxG(2.58, 2.60, 0.06, 0x9a9c9f, [0, 2.0, i]));
+      parts.push(boxG(0.30, 0.55, 1.20, 0x5c5e61, [0, 0.10, 4.4]));
+      parts.push(cylG(0.10, 0.10, 0.42, 8, 0x9a9c9f, [0, 0.18, 4.6]));
     }
     // landing gear
-    for (const sx of [-1, 1]) parts.push(boxG(0.14, 0.90, 0.14, 0x6c7086, [sx * 0.8, -0.05, 2.4]));
+    for (const sx of [-1, 1]) parts.push(boxG(0.14, 0.90, 0.14, 0x707275, [sx * 0.8, -0.05, 2.4]));
     // mudguards
-    for (const sx of [-1, 1]) parts.push(boxG(0.42, 0.10, 2.60, 0x313244, [sx * 1.2, 0.35, -3.0]));
+    for (const sx of [-1, 1]) parts.push(boxG(0.42, 0.10, 2.60, 0x323336, [sx * 1.2, 0.35, -3.0]));
 
     this.mesh = new THREE.Mesh(mergeGeoms(parts), vcMat({ roughness: 0.7, metalness: 0.15 }));
     this.mesh.castShadow = true; this.mesh.receiveShadow = true;
@@ -4890,11 +6073,13 @@ class Trailer {
     scene.add(group);
 
     const wd = p.wheelDef;
-    const wg = wheelGeometry(wd.radius, wd.width, 0x45475a, 0x252534);
-    this.wheelMat = vcMat({ roughness: 0.94, metalness: 0.02 });
+    const wg = wheelCommercial(wd.radius, wd.width, 0xbfc3cc, false, false);
+    this.wheelMat = wheelMat();
     for (const w of this.vehicle.wheels) {
       const m = new THREE.Mesh(wg, this.wheelMat);
-      m.castShadow = true; scene.add(m); w.mesh = m;
+      m.castShadow = true;
+      m.userData.side = w.local.x < 0 ? -1 : 1; m.scale.x = m.userData.side;
+      scene.add(m); w.mesh = m;
     }
     this.wheelGeo = wg;
   }
@@ -4962,9 +6147,9 @@ class Trailer {
 /* ------------------------------------------------------------------ cargo */
 const CARGO_KINDS = [
   { name: 'CRATE', color: 0xa07b52, s: [0.9, 0.9, 0.9], mass: 130, fragile: 0.5 },
-  { name: 'PIPE', color: 0x9399b2, s: [0.6, 0.6, 3.2], mass: 240, fragile: 0.3 },
+  { name: 'PIPE', color: 0x9a9c9f, s: [0.6, 0.6, 3.2], mass: 240, fragile: 0.3 },
   { name: 'BARREL', color: 0xf38ba8, s: [0.8, 1.1, 0.8], mass: 180, fragile: 1.0 },
-  { name: 'BLOCK', color: 0x6c7086, s: [1.2, 0.7, 1.2], mass: 420, fragile: 0.15 },
+  { name: 'BLOCK', color: 0x707275, s: [1.2, 0.7, 1.2], mass: 420, fragile: 0.15 },
   { name: 'GRAVEL', color: 0x8d8a86, s: [1.0, 0.6, 1.0], mass: 520, fragile: 0.05 },
 ];
 
@@ -5001,8 +6186,8 @@ class Cargo {
       b.allowSleep = false;   // must never nod off while riding in the bed
       const g = mergeGeoms([
         boxG(kind.s[0], kind.s[1], kind.s[2], kind.color),
-        boxG(kind.s[0] * 1.02, kind.s[1] * 0.12, kind.s[2] * 1.02, 0x45475a, [0, kind.s[1] * 0.4, 0]),
-        boxG(kind.s[0] * 1.02, kind.s[1] * 0.12, kind.s[2] * 1.02, 0x45475a, [0, -kind.s[1] * 0.4, 0]),
+        boxG(kind.s[0] * 1.02, kind.s[1] * 0.12, kind.s[2] * 1.02, 0x47484b, [0, kind.s[1] * 0.4, 0]),
+        boxG(kind.s[0] * 1.02, kind.s[1] * 0.12, kind.s[2] * 1.02, 0x47484b, [0, -kind.s[1] * 0.4, 0]),
       ]);
       const m = new THREE.Mesh(g, vcMat({ roughness: 0.9 }));
       m.castShadow = true; m.receiveShadow = true;
@@ -5216,7 +6401,7 @@ const FX = {
 
   /* --------------------------------------------------------- spawn helpers */
   smoke(p, scale, colorHex) {
-    const c = new THREE.Color(colorHex == null ? 0x585b70 : colorHex);
+    const c = new THREE.Color(colorHex == null ? 0x5c5e61 : colorHex);
     this.dustPool.spawn(p.x + (Math.random() - .5) * .3, p.y, p.z + (Math.random() - .5) * .3,
       (Math.random() - .5) * .8, 0.8 + Math.random() * 1.2, (Math.random() - .5) * .8,
       (0.7 + Math.random()) * scale * 2.4, c.r, c.g, c.b,
@@ -5497,9 +6682,9 @@ const MISSILE_RAY_OPTS = {
 /** The rocket itself: body tube, nose cone, motor bell, four tail fins. */
 function missileGeometry() {
   const parts = [
-    cylG(0.075, 0.075, 1.00, 8, 0xcdd6f4, [0, 0, 0], [PI / 2, 0, 0]),
+    cylG(0.075, 0.075, 1.00, 8, 0xd4d6d8, [0, 0, 0], [PI / 2, 0, 0]),
     cylG(0.006, 0.075, 0.34, 8, 0xf38ba8, [0, 0, 0.66], [PI / 2, 0, 0]),
-    cylG(0.088, 0.070, 0.12, 8, 0x585b70, [0, 0, -0.54], [PI / 2, 0, 0]),
+    cylG(0.088, 0.070, 0.12, 8, 0x5c5e61, [0, 0, -0.54], [PI / 2, 0, 0]),
     boxG(0.16, 0.16, 0.10, 0xf9e2af, [0, 0, 0.22]),
   ];
   for (let i = 0; i < 4; i++) {
@@ -5522,11 +6707,11 @@ function buildLauncherPods(spec) {
     // ground-proximity fuse, so the rocket trips it on the first rise
     const px = sx * hw * 0.88, py = hy * 0.72 + 0.16, pz = backZ * 0.26;
     parts.push(boxG(0.36, 0.32, 1.10, 0x3a3f52, [px, py, pz]));
-    parts.push(boxG(0.40, 0.06, 0.30, 0x585b70, [px, py + 0.18, pz - 0.42]));
+    parts.push(boxG(0.40, 0.06, 0.30, 0x5c5e61, [px, py + 0.18, pz - 0.42]));
     for (const [ox, oy] of [[-0.085, 0.075], [0.085, 0.075], [-0.085, -0.075], [0.085, -0.075]]) {
       parts.push(cylG(0.058, 0.058, 1.16, 8, 0x11111b, [px + ox, py + oy, pz], [PI / 2, 0, 0]));
     }
-    parts.push(boxG(0.22, 0.14, 0.34, 0x6c7086, [px - sx * 0.24, py - 0.06, pz]));  // mount arm
+    parts.push(boxG(0.22, 0.14, 0.34, 0x707275, [px - sx * 0.24, py - 0.06, pz]));  // mount arm
     muzzles.push([px, py, pz + 0.62]);
   }
   const mesh = new THREE.Mesh(mergeGeoms(parts), vcMat({ roughness: 0.58, metalness: 0.42 }));
@@ -5687,7 +6872,7 @@ const Weapons = {
     world.addBody(body);
     this.live.push(m);
     Audio_.launch();
-    FX.smoke(o, 0.7, 0x9399b2);
+    FX.smoke(o, 0.7, 0x9a9c9f);
     Net.sendShoot(o, d, m.speed, k);
     return m;
   },
@@ -5773,7 +6958,7 @@ const Weapons = {
    */
   blastBits(p, power) {
     const n = Math.round(clamp(6 + power * 7, 4, 22));
-    const cols = [0x585b70, 0x6c7086, 0x45475a, 0x8a7350, 0x9399b2];
+    const cols = [0x5c5e61, 0x707275, 0x47484b, 0x8a7350, 0x9a9c9f];
     for (let i = 0; i < n; i++) {
       const s = (0.22 + Math.random() * 0.5) * (0.6 + power * 0.6);
       const body = makeBody({
@@ -6140,15 +7325,11 @@ class RemoteRig {
     this.wing = vis.wing;
     scene.add(this.group);
 
-    const wd = spec.wheelDef;
-    const alloy = spec.rig && spec.rig.wheel === 'alloy';
-    this.wheelGeo = alloy ? alloyWheel(wd.radius, wd.width, 0x9aa0b4, 0x22222c)
-                          : wheelGeometry(wd.radius, wd.width, spec.trim, 0x252534);
-    this.wheelMat = alloy ? vcMat({ roughness: 0.52, metalness: 0.60, flatShading: false })
-                          : vcMat({ roughness: 0.94, metalness: 0.02 });
+    this.wheelSet = wheelSet(spec);
+    this.wheelGeo = this.wheelSet.front;
+    this.wheelMat = wheelMat();
     this.wheels = spec.wheels.map(w => {
-      const mesh = new THREE.Mesh(this.wheelGeo, this.wheelMat);
-      mesh.castShadow = true;
+      const mesh = makeWheelMesh(this.wheelSet, w, this.wheelMat);
       scene.add(mesh);
       return { mesh, local: V3(w.x, w.y, w.z), rest: w.rest || spec.susp.rest, sus: 0, steer: 0, spin: 0 };
     });
@@ -6233,6 +7414,7 @@ class RemoteRig {
       w.mesh.quaternion.multiply(new THREE.Quaternion().setFromAxisAngle(T3_Y, -steer));
       w.mesh.quaternion.multiply(new THREE.Quaternion().setFromAxisAngle(T3_X, spin));
       w.mesh.scale.setScalar(stow ? 0.3 : 1);
+      w.mesh.scale.x *= (w.mesh.userData.side || 1);
       w.mesh.visible = !stow;
     }
 
@@ -6260,7 +7442,7 @@ class RemoteRig {
     if (B.d > 0.5 && Math.random() < B.d * 0.5) {
       tmpV.set(0, 0.9, (this.spec.rig && this.spec.rig.smokeZ) || 1.9);
       this.group.localToWorld(tmpV);
-      FX.smoke(tmpV, 0.3 + B.d * 0.4, B.d > 0.8 ? 0x1e1e2e : 0x585b70);
+      FX.smoke(tmpV, 0.3 + B.d * 0.4, B.d > 0.8 ? 0x1d1e20 : 0x5c5e61);
     }
 
     // name plate floats above, fades out with distance
@@ -6657,7 +7839,7 @@ const Net = {
     if (!log) return;
     const d = document.createElement('div');
     if (name) {
-      const c = '#' + ((colour != null ? colour : 0xbac2de) >>> 0).toString(16).padStart(6, '0');
+      const c = '#' + ((colour != null ? colour : 0xc0c2c5) >>> 0).toString(16).padStart(6, '0');
       d.innerHTML = '<b style="color:' + c + '">' + esc(name) + '</b> ' + esc(text);
     } else {
       d.innerHTML = '<span style="color:var(--ov0)">' + esc(text) + '</span>';
@@ -6725,6 +7907,7 @@ const Sky = {
   night: 0,
   stars: null,
   _top: new THREE.Color(), _mid: new THREE.Color(), _bot: new THREE.Color(), _sun: new THREE.Color(),
+  _tmp: new THREE.Color(), _tmp2: new THREE.Color(),
 
   init() {
     const n = 900, pos = new Float32Array(n * 3);
@@ -6755,43 +7938,51 @@ const Sky = {
     const dusk = clamp01(1 - Math.abs(el) / 0.34) * clamp01(invLerp(-0.42, -0.02, el) + 0.35);
     this.night = 1 - day;
 
-    // sky gradient
-    this._top.setHex(0x0b0b16).lerp(new THREE.Color(0x3a5fa8), day);
-    this._mid.setHex(0x151527).lerp(new THREE.Color(0x89b4fa), day);
-    this._bot.setHex(0x1a1a2a).lerp(new THREE.Color(0xbac2de), day);
+    /* A naturalistic palette, chosen in sRGB like every other colour and then
+     * converted, so the sky goes through the same tone curve as the ground it
+     * sits over. The old one was the UI theme's pastels, and it showed. */
+    const C = (h) => this._tmp.setHex(h);
+    this._top.setHex(0x060a16).lerp(C(0x2f68c4), day);
+    this._mid.setHex(0x0d1424).lerp(C(0x9fc3ea), day);
+    this._bot.setHex(0x101826).lerp(C(0xc9d7e4), day);
     if (dusk > 0.01) {
-      this._mid.lerp(new THREE.Color(0xf38ba8), dusk * 0.75);
-      this._bot.lerp(new THREE.Color(0xfab387), dusk * 0.8);
-      this._top.lerp(new THREE.Color(0x3b2b56), dusk * 0.5);
+      this._mid.lerp(C(0xf0a066), dusk * 0.78);
+      this._bot.lerp(C(0xf6c08c), dusk * 0.8);
+      this._top.lerp(C(0x3c3f86), dusk * 0.5);
     }
-    // overcast washes everything toward grey
-    const grey = new THREE.Color(0x5c5f78);
-    this._top.lerp(grey, this.overcast * 0.62);
-    this._mid.lerp(grey, this.overcast * 0.7);
-    this._bot.lerp(new THREE.Color(0x6c7086), this.overcast * 0.7);
+    // overcast washes everything toward a flat grey
+    this._top.lerp(C(0x7d8794), this.overcast * 0.75);
+    this._mid.lerp(C(0x9aa3ad), this.overcast * 0.8);
+    this._bot.lerp(C(0xa6aeb6), this.overcast * 0.8);
+    this._sun.setHex(0xfff0d4).lerp(C(0xff8a40), dusk);
+    this._sun.lerp(C(0x8fa2d6), this.night * 0.9);
 
-    skyUniforms.topColor.value.copy(this._top);
-    skyUniforms.midColor.value.copy(this._mid);
-    skyUniforms.botColor.value.copy(this._bot);
+    const L = (src, dst) => dst.copy(src).convertSRGBToLinear();
+    L(this._top, skyUniforms.topColor.value);
+    L(this._mid, skyUniforms.midColor.value);
+    L(this._bot, skyUniforms.botColor.value);
+    L(this._sun, skyUniforms.sunColor.value);
     skyUniforms.sunDir.value.copy(dir);
-    this._sun.setHex(0xffe9c4).lerp(new THREE.Color(0xff9a5c), dusk);
-    this._sun.lerp(new THREE.Color(0x8899cc), this.night * 0.9);
-    skyUniforms.sunColor.value.copy(this._sun);
-    skyUniforms.haze.value = 0.25 + this.overcast * 0.55;
+    skyUniforms.haze.value = 0.35 + this.overcast * 0.6;
+    skyUniforms.sunBoost.value = 26 * (1 - this.overcast * 0.85) * clamp01(el * 6 + 0.4);
 
-    // lights
+    // lights — a strong warm key, a soft sky fill, and next to no flat ambient,
+    // because the environment map now supplies the bounce light properly
     sun.position.copy(dir).multiplyScalar(120);
-    sun.color.copy(this._sun).lerp(new THREE.Color(0xffffff), 0.28);
-    sun.intensity = lerp(0.13, 1.85, day) * (1 - this.overcast * 0.55);
-    hemi.color.copy(this._mid);
-    hemi.groundColor.setHex(0x2a2438).lerp(new THREE.Color(0x3d3b2c), day * 0.5);
-    hemi.intensity = lerp(0.22, 0.62, day) + this.overcast * 0.22;
-    ambient.intensity = lerp(0.09, 0.2, day) + this.overcast * 0.1;
+    L(this._sun, sun.color).lerp(this._tmp.setRGB(1, 1, 1), 0.18);
+    sun.intensity = lerp(0.10, 3.5, day) * (1 - this.overcast * 0.62);
+    L(this._mid, hemi.color).lerp(L(this._top, this._tmp2), 0.4);
+    L(C(0x4e5638), hemi.groundColor);
+    hemi.intensity = lerp(0.05, 0.16, day) + this.overcast * 0.24;
+    ambient.intensity = lerp(0.02, 0.05, day);
 
-    // fog matches the horizon so distant geometry dissolves into the sky
-    scene.fog.color.copy(this._bot).lerp(this._mid, 0.35);
+    // fog matches the horizon haze so distance dissolves into the sky
+    L(this._bot, scene.fog.color).lerp(skyUniforms.midColor.value, 0.30);
     renderer.setClearColor(scene.fog.color, 1);
     if (this.stars) this.stars.material.opacity = clamp01(this.night * 1.25 - 0.25) * (1 - this.overcast);
+    // windows and lamps: dark glass and cold bulbs by day, glowing by night
+    lightMaterial().color.setScalar(lerp(0.07, 1.0, clamp01(this.night * 1.4 + this.overcast * 0.25)));
+    Env.update(this.hour, this.overcast);
   },
 
   set(hour, overcast) {
@@ -7070,9 +8261,9 @@ function groundHeightAt(x, z) {
  * 10. LEVEL PIECES
  * ========================================================================= */
 
-const PIECE_COL = { deck: 0x45475a, edge: 0x89b4fa, wood: 0x8b6a44, metal: 0x6c7086,
+const PIECE_COL = { deck: 0x47484b, edge: 0x89b4fa, wood: 0x8b6a44, metal: 0x707275,
                     ice: 0xa8d8ee, weak: 0xeba0ac, spin: 0xcba6f7, hot: 0xf38ba8,
-                    boost: 0xa6e3a1, dark: 0x313244 };
+                    boost: 0xa6e3a1, dark: 0x323336 };
 
 /** Static box with an accent strip along its top edge for readability. */
 function pieceBox(def) {
@@ -7206,10 +8397,10 @@ function pieceBall(def) {
   ball.velocity.set(def.vx || 0, 0, def.vz || 6);
   const c = new CANNON.PointToPointConstraint(anchor, CV(0, 0, 0), ball, CV(0, len, 0), 1e9);
   c.collideConnected = false;
-  const bm = new THREE.Mesh(paint(toNonIndexed(new THREE.IcosahedronGeometry(r, 1)), 0x585b70),
+  const bm = new THREE.Mesh(paint(toNonIndexed(new THREE.IcosahedronGeometry(r, 1)), 0x5c5e61),
     vcMat({ metalness: 0.6, roughness: 0.4 }));
   bm.castShadow = true;
-  const rope = new THREE.Mesh(paint(toNonIndexed(new THREE.CylinderGeometry(0.09, 0.09, 1, 6)), 0x9399b2),
+  const rope = new THREE.Mesh(paint(toNonIndexed(new THREE.CylinderGeometry(0.09, 0.09, 1, 6)), 0x9a9c9f),
     vcMat({ metalness: 0.5, roughness: 0.5 }));
   const beam = new THREE.Mesh(paint(toNonIndexed(new THREE.BoxGeometry(1.0, 0.8, 1.0)), PIECE_COL.metal),
     vcMat({ metalness: 0.5 }));
@@ -7239,7 +8430,7 @@ function pieceDomino(def) {
     addBox(b, s[0], s[1], s[2]);
     b.updateMassProperties();
     const m = new THREE.Mesh(mergeGeoms([
-      boxG(s[0], s[1], s[2], i % 2 ? 0x7f849c : 0x9399b2),
+      boxG(s[0], s[1], s[2], i % 2 ? 0x85878a : 0x9a9c9f),
       boxG(s[0] * 0.6, s[1] * 0.1, s[2] * 1.05, PIECE_COL.hot, [0, s[1] * 0.3, 0]),
     ]), vcMat({ roughness: 0.85 }));
     m.castShadow = true;
@@ -7331,14 +8522,14 @@ function pieceLoop(def) {
   const mat = def.mat || 'rubber';
   const s = Math.sin(phi), c = Math.cos(phi);
   pieceArc({ p: [p[0], p[1] + R1, p[2]], R: R1, w: w + 2, a0: 0, a1: phi, segs: 8,
-             th: 0.5, mat, c: 0x585b70 });
+             th: 0.5, mat, c: 0x5c5e61 });
   const ez = p[2] + R1 * s, ey = p[1] + R1 * (1 - c);
   pieceArc({ p: [p[0], ey + R2 * c, ez - R2 * s], R: R2, w, a0: phi, a1: phi + TAU,
              th: 0.6, shift, rails: true, segs: def.segs || 34, mat });
   // exit transition: the mirror of the entry, flattening you back onto the deck.
   // A wedge here would present its vertical back face to the descending truck.
   pieceArc({ p: [p[0] + shift, ey + R1 * c, ez + R1 * s], R: R1, w: w + 2,
-             a0: -phi, a1: 0, segs: 8, th: 0.5, mat, c: 0x585b70 });
+             a0: -phi, a1: 0, segs: 8, th: 0.5, mat, c: 0x5c5e61 });
 }
 
 /** Kinematic platform sliding between two points. */
@@ -7349,7 +8540,7 @@ function pieceLift(def) {
   body.type = CANNON.Body.KINEMATIC;
   body.allowSleep = false;
   addBox(body, s[0], s[1], s[2]);
-  const parts = [boxG(s[0], s[1], s[2], def.c != null ? def.c : 0x585b70, [0, 0, 0], null, 2),
+  const parts = [boxG(s[0], s[1], s[2], def.c != null ? def.c : 0x5c5e61, [0, 0, 0], null, 2),
                  boxG(s[0] * 1.005, 0.07, s[2] * 1.005, PIECE_COL.boost, [0, s[1] / 2, 0])];
   const mesh = new THREE.Mesh(mergeGeoms(parts), vcMat({ metalness: 0.4, roughness: 0.6 }));
   mesh.castShadow = true; mesh.receiveShadow = true;
@@ -7377,7 +8568,7 @@ function pieceCrusher(def) {
   body.type = CANNON.Body.KINEMATIC;
   body.allowSleep = false;
   addBox(body, s[0], s[1], s[2]);
-  const parts = [boxG(s[0], s[1], s[2], 0x585b70, [0, 0, 0], null, 2),
+  const parts = [boxG(s[0], s[1], s[2], 0x5c5e61, [0, 0, 0], null, 2),
                  boxG(s[0] * 1.02, 0.3, s[2] * 1.02, PIECE_COL.hot, [0, -s[1] / 2, 0])];
   const mesh = new THREE.Mesh(mergeGeoms(parts), vcMat({ metalness: 0.55, roughness: 0.45 }));
   mesh.castShadow = true;
@@ -7480,8 +8671,8 @@ function pieceCrate(def) {
   b.allowSleep = false;
   const m = new THREE.Mesh(mergeGeoms([
     boxG(s[0], s[1], s[2], def.c != null ? def.c : 0xa07b52),
-    boxG(s[0] * 1.02, s[1] * 0.1, s[2] * 1.02, 0x45475a, [0, s[1] * 0.35, 0]),
-    boxG(s[0] * 1.02, s[1] * 0.1, s[2] * 1.02, 0x45475a, [0, -s[1] * 0.35, 0]),
+    boxG(s[0] * 1.02, s[1] * 0.1, s[2] * 1.02, 0x47484b, [0, s[1] * 0.35, 0]),
+    boxG(s[0] * 1.02, s[1] * 0.1, s[2] * 1.02, 0x47484b, [0, -s[1] * 0.35, 0]),
   ]), vcMat({ roughness: 0.9 }));
   m.castShadow = true; m.receiveShadow = true;
   stage.add(b, m);
@@ -7529,7 +8720,7 @@ const PIECE_BUILDERS = {
 /** Checkered goal flag with a pulsing ring. */
 function buildGoal(p) {
   const g = new THREE.Group();
-  const pole = new THREE.Mesh(paint(toNonIndexed(new THREE.CylinderGeometry(0.11, 0.14, 5.4, 8)), 0xcdd6f4),
+  const pole = new THREE.Mesh(paint(toNonIndexed(new THREE.CylinderGeometry(0.11, 0.14, 5.4, 8)), 0xd4d6d8),
     vcMat({ metalness: 0.5, roughness: 0.4 }));
   pole.position.y = 2.7; pole.castShadow = true;
   const flag = new THREE.Mesh(new THREE.PlaneGeometry(3.0, 1.9, 8, 5),
@@ -7581,7 +8772,7 @@ const LEVELS = [
       { t: 'box', p: [0, -0.6, 2], s: [14, 1.2, 46] },
       { t: 'ramp', p: [0, 0, 22], s: [12, 12, 3.2] },
       { t: 'box', p: [0, -0.6, 62], s: [16, 1.2, 34] },
-      { t: 'box', p: [-14, -3, 40], s: [4, 1, 20], c: 0x313244 },
+      { t: 'box', p: [-14, -3, 40], s: [4, 1, 20], c: 0x323336 },
     ] },
   { name: 'SEESAW', hint: 'Let it tip. Don\'t fight it.', par: 18,
     spawn: [0, 1.6, -16], goal: [0, 1.0, 58], pieces: [
@@ -7599,7 +8790,7 @@ const LEVELS = [
   { name: 'NARROW', hint: 'Small inputs.', par: 22,
     spawn: [0, 1.6, -14], goal: [0, 1.0, 76], pieces: [
       { t: 'box', p: [0, -0.6, -4], s: [14, 1.2, 26] },
-      { t: 'box', p: [0, -0.6, 34], s: [4.2, 1.2, 50], mat: 'metal', c: 0x585b70 },
+      { t: 'box', p: [0, -0.6, 34], s: [4.2, 1.2, 50], mat: 'metal', c: 0x5c5e61 },
       { t: 'box', p: [0, -0.6, 72], s: [16, 1.2, 26] },
     ] },
   { name: 'DOMINO ALLEY', hint: 'They fall on you, not for you.', par: 24,
@@ -7630,10 +8821,10 @@ const LEVELS = [
     spawn: [0, 1.6, -16], goal: [0, 1.0, 96], pieces: [
       { t: 'box', p: [0, -0.6, -6], s: [14, 1.2, 26] },
       { t: 'spinner', p: [0, -0.3, 20], s: [26, 0.6, 26], speed: 0.45, mass: 14000, force: 3e7,
-        mat: 'road', c: 0x585b70 },
+        mat: 'road', c: 0x5c5e61 },
       { t: 'box', p: [0, -0.6, 46], s: [14, 1.2, 20] },
       { t: 'spinner', p: [0, -0.3, 68], s: [20, 0.6, 20], speed: -0.9, mass: 12000, force: 3e7,
-        mat: 'road', c: 0x585b70 },
+        mat: 'road', c: 0x5c5e61 },
       { t: 'box', p: [0, -0.6, 92], s: [16, 1.2, 24] },
     ] },
   { name: 'LIFT OFF', hint: 'Drive on. Wait. Don\'t roll off the back.', par: 34,
@@ -7681,10 +8872,10 @@ const LEVELS = [
   { name: 'HIGH WIRE', hint: 'Beam, spinner, beam.', par: 36,
     spawn: [0, 1.6, -16], goal: [0, 1.0, 96], pieces: [
       { t: 'box', p: [0, -0.6, -6], s: [14, 1.2, 24] },
-      { t: 'box', p: [0, -0.6, 22], s: [3.8, 1.2, 34], mat: 'metal', c: 0x585b70 },
+      { t: 'box', p: [0, -0.6, 22], s: [3.8, 1.2, 34], mat: 'metal', c: 0x5c5e61 },
       { t: 'box', p: [0, -0.6, 46], s: [12, 1.2, 14] },
       { t: 'spinner', p: [0, 0.4, 46], s: [20, 0.6, 3.2], speed: 1.5, axis: 'y' },
-      { t: 'box', p: [0, -0.6, 72], s: [3.8, 1.2, 36], mat: 'metal', c: 0x585b70 },
+      { t: 'box', p: [0, -0.6, 72], s: [3.8, 1.2, 36], mat: 'metal', c: 0x5c5e61 },
       { t: 'box', p: [0, -0.6, 100], s: [16, 1.2, 22] },
     ] },
   { name: 'LAUNCH', hint: 'Land it flat.', par: 26,
@@ -7693,7 +8884,7 @@ const LEVELS = [
       { t: 'boost', p: [0, 0.1, -4], s: [10, 0.4, 12], force: 40000 },
       { t: 'ramp', p: [0, 0, 14], s: [12, 16, 7.5] },
       { t: 'box', p: [0, 10.8, 92], s: [16, 1.2, 26] },
-      { t: 'box', p: [0, 4, 60], s: [8, 1.0, 10], c: 0x313244 },
+      { t: 'box', p: [0, 4, 60], s: [8, 1.0, 10], c: 0x323336 },
     ] },
   { name: 'TUMBLE', hint: 'Push through the stack, then jump.', par: 34,
     spawn: [0, 1.6, -18], goal: [0, 1.0, 108], pieces: [
@@ -7711,7 +8902,7 @@ const LEVELS = [
       { t: 'ramp', p: [0, 0, 26], s: [12, 12, 3.6] },
       { t: 'box', p: [0, -0.6, 62], s: [13, 1.2, 26] },
       { t: 'spinner', p: [0, 0.4, 62], s: [18, 0.6, 3.4], speed: -1.6 },
-      { t: 'box', p: [0, -0.6, 92], s: [4.0, 1.2, 34], mat: 'metal', c: 0x585b70 },
+      { t: 'box', p: [0, -0.6, 92], s: [4.0, 1.2, 34], mat: 'metal', c: 0x5c5e61 },
       { t: 'box', p: [0, -0.6, 124], s: [18, 1.2, 26] },
     ] },
   { name: 'VERTICAL', hint: 'Up, over, around, then straight back up again.', par: 55,
@@ -7745,7 +8936,7 @@ const LEVELS = [
   { name: 'THE MILL', hint: 'A rolling drum and nowhere to hide.', par: 46,
     spawn: [0, 1.6, -18], goal: [0, 1.0, 114], pieces: [
       { t: 'box', p: [0, -0.6, -6], s: [14, 1.2, 26] },
-      { t: 'box', p: [0, -0.6, 26], s: [6.5, 1.2, 30], mat: 'metal', c: 0x585b70 },
+      { t: 'box', p: [0, -0.6, 26], s: [6.5, 1.2, 30], mat: 'metal', c: 0x5c5e61 },
       { t: 'spinner', p: [0, 1.5, 26], s: [2.4, 2.4, 22], speed: 2.2, axis: 'z', force: 9e6 },
       { t: 'box', p: [0, -0.6, 54], s: [12, 1.2, 14] },
       { t: 'crusher', p: [0, 9.5, 66], s: [10, 3.5, 4], period: 2.0, drop: 8.2 },
@@ -7759,7 +8950,7 @@ const LEVELS = [
       { t: 'bridge', p: [0, -0.175, 24], n: 10, plank: [7, 0.35, 2.6], collapse: true, mass: 150 },
       { t: 'box', p: [0, -0.6, 46], s: [11, 1.2, 16] },
       { t: 'spinner', p: [0, 0.4, 46], s: [20, 0.6, 3.4], speed: 1.9 },
-      { t: 'box', p: [0, -0.6, 68], s: [4.0, 1.2, 26], mat: 'metal', c: 0x585b70 },
+      { t: 'box', p: [0, -0.6, 68], s: [4.0, 1.2, 26], mat: 'metal', c: 0x5c5e61 },
       { t: 'ball', p: [0, 10.5, 68], len: 8.4, r: 1.6, mass: 2200, vx: 10 },
       { t: 'box', p: [0, -0.6, 92], s: [12, 1.2, 16] },
       { t: 'crusher', p: [0, 9.4, 100], s: [10, 3.4, 4], period: 1.9, drop: 8.2 },
@@ -7776,7 +8967,7 @@ const LEVELS = [
       { t: 'seesaw', p: [12, 0.25, 56], s: [7.5, 0.25, 18] },
       { t: 'box', p: [12, -0.6, 72], s: [12, 1.2, 24] },
       { t: 'ball', p: [12, 10.6, 76], len: 8.5, r: 1.7, mass: 2400, vx: 9 },
-      { t: 'box', p: [12, -0.6, 98], s: [3.8, 1.2, 30], mat: 'metal', c: 0x585b70 },
+      { t: 'box', p: [12, -0.6, 98], s: [3.8, 1.2, 30], mat: 'metal', c: 0x5c5e61 },
       { t: 'box', p: [12, -0.6, 120], s: [12, 1.2, 18] },
       { t: 'crusher', p: [12, 9.4, 120], s: [10, 3.4, 4], period: 1.8, drop: 8.3 },
       { t: 'bridge', p: [12, -0.175, 142], n: 12, plank: [6.5, 0.35, 2.6], collapse: true, mass: 130 },
@@ -8176,64 +9367,195 @@ function chunkTerrainQuery(x, z, out) {
   return true;
 }
 
-function buildChunkMesh(cx, cz, h, s) {
+/* ------------------------------------------------------------- terrain ---
+ * The terrain used to be the purest form of the low-poly look: every 8 m cell
+ * a flat-shaded quad in one solid colour, so the ground read as a checkerboard
+ * of slightly different greens. Three things change that, none of which move a
+ * single vertex — the physics samples this exact grid, triangle for triangle,
+ * and it must keep doing so.
+ *
+ *  1. Smooth normals, from central differences across the grid. The ones on a
+ *     chunk border reach into the neighbouring chunk, so seams stay invisible.
+ *  2. A colour per vertex rather than per cell, blended between neighbouring
+ *     surfaces, rocked-up with slope, and broken up with noise.
+ *  3. A detail texture sampled in world space at three scales in the shader,
+ *     so the ground has grain right under the wheels and patchiness at range.
+ */
+
+/** Smoothed ground height at any global grid point, whichever chunk owns it. */
+function gridH(gx, gz) {
   const C = CHUNK_CELLS;
-  const tris = C * C * 2, verts = tris * 3;
-  const pos = new Float32Array(verts * 3);
-  const nor = new Float32Array(verts * 3);
-  const col = new Float32Array(verts * 3);
-  const c = new THREE.Color();
+  const cx = Math.floor(gx / C), cz = Math.floor(gz / C);
+  return chunkData(cx, cz).h[(gx - cx * C) + (gz - cz * C) * (C + 1)];
+}
+function gridS(gx, gz) {
+  const C = CHUNK_CELLS;
+  const cx = Math.floor(gx / C), cz = Math.floor(gz / C);
+  return chunkData(cx, cz).s[(gx - cx * C) + (gz - cz * C) * (C + 1)];
+}
+
+/* What each surface looks like in daylight, in sRGB — grass, dirt, tarmac,
+ * sand, gravel, mud, riverbed, snow. Converted to linear once. */
+const GROUND_SRGB = [0x667a3a, 0x75604a, 0x3b3c3f, 0xc4b08a, 0x8a8273, 0x4f3f2e, 0x3d4b4c, 0xe9eef3];
+const GROUND_LIN = GROUND_SRGB.map(h => new THREE.Color(h).convertSRGBToLinear());
+const ROCK_LIN = new THREE.Color(0x6c6862).convertSRGBToLinear();
+const DRYGRASS_LIN = new THREE.Color(0xa09552).convertSRGBToLinear();
+const DEEPGRASS_LIN = new THREE.Color(0x46642a).convertSRGBToLinear();
+
+/** Cheap smooth value noise in world space, for colour variation only. */
+function hash2(x, z) {
+  const s = Math.sin(x * 127.1 + z * 311.7) * 43758.5453;
+  return s - Math.floor(s);
+}
+function vnoise(x, z) {
+  const xi = Math.floor(x), zi = Math.floor(z);
+  const xf = x - xi, zf = z - zi;
+  const u = xf * xf * (3 - 2 * xf), v = zf * zf * (3 - 2 * zf);
+  const a = hash2(xi, zi), b = hash2(xi + 1, zi), c = hash2(xi, zi + 1), d = hash2(xi + 1, zi + 1);
+  return a + (b - a) * u + (c - a) * v + (a - b - c + d) * u * v;
+}
+
+function buildChunkMesh(cx, cz, h, s) {
+  const C = CHUNK_CELLS, N = C + 1;
   const ox = cx * CHUNK_SIZE, oz = cz * CHUNK_SIZE;
-  let o = 0;
-  const put = (x, y, z, r, g, b) => {
-    pos[o * 3] = x; pos[o * 3 + 1] = y; pos[o * 3 + 2] = z;
-    col[o * 3] = r; col[o * 3 + 1] = g; col[o * 3 + 2] = b; o++;
-  };
-  for (let j = 0; j < C; j++) {
-    for (let i = 0; i < C; i++) {
-      const x0 = ox + i * CELL, x1 = x0 + CELL;
-      const z0 = oz + j * CELL, z1 = z0 + CELL;
-      const k = i + j * (C + 1);
-      const y00 = h[k], y10 = h[k + 1], y01 = h[k + C + 1], y11 = h[k + C + 2];
-      c.setHex(SURF_COLOR[s[k]]);
-      const slope = Math.abs(y10 - y00) + Math.abs(y01 - y00);
-      const tint = 1 - clamp01(slope / 20) * 0.32;
-      const jitter = 0.93 + ((((cx * C + i) * 7919 + (cz * C + j) * 104729) % 100) + 100) % 100 / 100 * 0.16;
-      let r = c.r * tint * jitter, g = c.g * tint * jitter, b = c.b * tint * jitter;
-      if (slope > 10 && s[k] !== 6) { r = lerp(r, 0.36, 0.5); g = lerp(g, 0.33, 0.5); b = lerp(b, 0.30, 0.5); }
-      // wound counter-clockwise from above so the faces point up
-      put(x0, y00, z0, r, g, b); put(x0, y01, z1, r, g, b); put(x1, y10, z0, r, g, b);
-      put(x1, y10, z0, r, g, b); put(x0, y01, z1, r, g, b); put(x1, y11, z1, r, g, b);
+  const gx0 = cx * C, gz0 = cz * C;
+  const pos = new Float32Array(N * N * 3);
+  const nor = new Float32Array(N * N * 3);
+  const col = new Float32Array(N * N * 3);
+  const c = new THREE.Color(), acc = new THREE.Color();
+  for (let j = 0; j < N; j++) {
+    for (let i = 0; i < N; i++) {
+      const k = i + j * N, gx = gx0 + i, gz = gz0 + j;
+      const x = ox + i * CELL, z = oz + j * CELL, y = h[k];
+      pos[k * 3] = x; pos[k * 3 + 1] = y; pos[k * 3 + 2] = z;
+
+      // smooth normal — the border taps borrow from the neighbouring chunk
+      const hl = i > 0 ? h[k - 1] : gridH(gx - 1, gz);
+      const hr = i < C ? h[k + 1] : gridH(gx + 1, gz);
+      const hd = j > 0 ? h[k - N] : gridH(gx, gz - 1);
+      const hu = j < C ? h[k + N] : gridH(gx, gz + 1);
+      let nx = (hl - hr) / (2 * CELL), nz = (hd - hu) / (2 * CELL), ny = 1;
+      const l = Math.hypot(nx, ny, nz); nx /= l; ny /= l; nz /= l;
+      nor[k * 3] = nx; nor[k * 3 + 1] = ny; nor[k * 3 + 2] = nz;
+
+      // colour: this vertex's surface, softened toward its four neighbours so
+      // a change of surface is a gradient rather than a hard cell edge
+      const sid = s[k];
+      acc.copy(GROUND_LIN[sid]).multiplyScalar(2);
+      const nb = [
+        i > 0 ? s[k - 1] : gridS(gx - 1, gz), i < C ? s[k + 1] : gridS(gx + 1, gz),
+        j > 0 ? s[k - N] : gridS(gx, gz - 1), j < C ? s[k + N] : gridS(gx, gz + 1),
+      ];
+      for (const q of nb) acc.add(GROUND_LIN[q]);
+      c.copy(acc).multiplyScalar(1 / 6);
+
+      // grass is never one green: big dry and lush patches, then finer mottling
+      if (sid === 0) {
+        const big = vnoise(x * 0.011, z * 0.011), small = vnoise(x * 0.06 + 31, z * 0.06 - 17);
+        if (big > 0.52) c.lerp(DRYGRASS_LIN, Math.min(1, (big - 0.52) * 1.9));
+        else c.lerp(DEEPGRASS_LIN, Math.min(1, (0.52 - big) * 1.5));
+        c.multiplyScalar(0.86 + small * 0.26);
+        // high ground thins out to a paler, drier sward
+        if (y > 60) c.lerp(DRYGRASS_LIN, clamp01((y - 60) / 60) * 0.45);
+      } else if (sid !== 2 && sid !== 7) {
+        c.multiplyScalar(0.88 + vnoise(x * 0.05, z * 0.05) * 0.24);
+      }
+      // steep ground shows bare rock, whatever is meant to be growing on it
+      if (sid !== 2 && sid !== 6) {
+        const rock = clamp01((0.90 - ny) / 0.22);
+        if (rock > 0) c.lerp(ROCK_LIN, rock * (sid === 7 ? 0.5 : 0.85));
+      }
+      col[k * 3] = c.r; col[k * 3 + 1] = c.g; col[k * 3 + 2] = c.b;
     }
   }
-  for (let t = 0; t < tris; t++) {
-    const a = t * 9;
-    const ax = pos[a], ay = pos[a + 1], az = pos[a + 2];
-    const bx = pos[a + 3], by = pos[a + 4], bz = pos[a + 5];
-    const cx2 = pos[a + 6], cy = pos[a + 7], cz2 = pos[a + 8];
-    let nx = (by - ay) * (cz2 - az) - (bz - az) * (cy - ay);
-    let ny = (bz - az) * (cx2 - ax) - (bx - ax) * (cz2 - az);
-    let nz = (bx - ax) * (cy - ay) - (by - ay) * (cx2 - ax);
-    const l = Math.hypot(nx, ny, nz) || 1;
-    nx /= l; ny /= l; nz /= l;
-    for (let k = 0; k < 3; k++) { nor[a + k * 3] = nx; nor[a + k * 3 + 1] = ny; nor[a + k * 3 + 2] = nz; }
+  // same triangulation the physics uses: (00, 01, 10) and (10, 01, 11)
+  const idx = new Uint16Array(C * C * 6);
+  let o = 0;
+  for (let j = 0; j < C; j++) {
+    for (let i = 0; i < C; i++) {
+      const a = i + j * N, b = a + 1, d = a + N, e = d + 1;
+      idx[o++] = a; idx[o++] = d; idx[o++] = b;
+      idx[o++] = b; idx[o++] = d; idx[o++] = e;
+    }
   }
   const g = new THREE.BufferGeometry();
   g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
   g.setAttribute('normal', new THREE.BufferAttribute(nor, 3));
   g.setAttribute('color', new THREE.BufferAttribute(col, 3));
+  g.setIndex(new THREE.BufferAttribute(idx, 1));
   g.computeBoundingSphere();
   const mesh = new THREE.Mesh(g, terrainMaterial());
   mesh.receiveShadow = true;
   return mesh;
 }
 
+/**
+ * Three independent noise fields packed into one texture: fine grain, mid
+ * blotches and a coarse patchiness. Data, not colour — so it stays linear and
+ * a texel of 0.8 means exactly "80 % as bright".
+ */
+function groundDetailTexture() {
+  const S = 256;
+  const cv = document.createElement('canvas'); cv.width = cv.height = S;
+  const g = cv.getContext('2d');
+  const img = g.createImageData(S, S);
+  // tileable value noise: wrap the lattice so opposite edges meet
+  const lattice = (period, seed) => {
+    const L = new Float32Array(period * period);
+    for (let i = 0; i < L.length; i++) L[i] = hash2(i * 1.37 + seed, seed * 7.1 + i * 0.13);
+    const at = (a, b) => L[((a % period) + period) % period + (((b % period) + period) % period) * period];
+    return (x, y) => {
+      const fx = x / S * period, fy = y / S * period;
+      const xi = Math.floor(fx), yi = Math.floor(fy), xf = fx - xi, yf = fy - yi;
+      const u = xf * xf * (3 - 2 * xf), v = yf * yf * (3 - 2 * yf);
+      const p = at(xi, yi), q = at(xi + 1, yi), r = at(xi, yi + 1), t2 = at(xi + 1, yi + 1);
+      return p + (q - p) * u + (r - p) * v + (p - q - r + t2) * u * v;
+    };
+  };
+  const f1 = lattice(64, 3.1), f2 = lattice(32, 9.7), f3 = lattice(16, 21.3), f4 = lattice(8, 41.9);
+  for (let y = 0; y < S; y++) {
+    for (let x = 0; x < S; x++) {
+      const i = (x + y * S) * 4;
+      const grain = f1(x, y) * 0.6 + f2(x, y) * 0.4;
+      const blot = f2(x, y) * 0.5 + f3(x, y) * 0.5;
+      const patch = f3(x, y) * 0.45 + f4(x, y) * 0.55;
+      img.data[i] = grain * 255; img.data[i + 1] = blot * 255; img.data[i + 2] = patch * 255;
+      img.data[i + 3] = 255;
+    }
+  }
+  g.putImageData(img, 0, 0);
+  const tx = new THREE.CanvasTexture(cv);
+  tx.wrapS = tx.wrapT = THREE.RepeatWrapping;
+  tx.anisotropy = 8;
+  tx.encoding = THREE.LinearEncoding;
+  tx.minFilter = THREE.LinearMipmapLinearFilter;
+  return tx;
+}
+
 let _terrainMat = null;
 function terrainMaterial() {
   if (!_terrainMat) {
     _terrainMat = new THREE.MeshStandardMaterial({
-      vertexColors: true, roughness: 0.96, metalness: 0.0, side: THREE.DoubleSide,
+      vertexColors: true, roughness: 0.94, metalness: 0.0, side: THREE.DoubleSide,
     });
+    const detail = sharedDetailTexture();
+    _terrainMat.onBeforeCompile = (sh) => {
+      sh.uniforms.tDetail = { value: detail };
+      sh.vertexShader = sh.vertexShader
+        .replace('#include <common>', '#include <common>\nvarying vec3 vGW;')
+        .replace('#include <begin_vertex>', '#include <begin_vertex>\nvGW = (modelMatrix * vec4(position, 1.0)).xyz;');
+      sh.fragmentShader = sh.fragmentShader
+        .replace('#include <common>', '#include <common>\nuniform sampler2D tDetail;\nvarying vec3 vGW;')
+        .replace('#include <color_fragment>',
+          '#include <color_fragment>\n' +
+          // grain under the wheels, blotches at mid range, patchiness far off;
+          // the coarse one also breaks up the tiling of the other two
+          '  float dA = texture2D(tDetail, vGW.xz * 0.26).r;\n' +
+          '  float dB = texture2D(tDetail, vGW.xz * 0.045 + 0.37).g;\n' +
+          '  float dC = texture2D(tDetail, vGW.xz * 0.0071 + 0.71).b;\n' +
+          '  float det = dA * 0.42 + dB * 0.36 + dC * 0.22;\n' +
+          '  diffuseColor.rgb *= 0.62 + det * 0.78;\n');
+    };
     _terrainMat.__keep = true;
   }
   return _terrainMat;
@@ -8261,6 +9583,187 @@ function buildChunkBody(cx, cz, h) {
   body.collisionFilterMask = -1;
   body.surface = 'grass';
   return body;
+}
+
+/* ---------------------------------------------------------------- flora ---
+ * The vegetation used to be the other half of the low-poly look: a pine was
+ * three stacked cones, a broadleaf was a ball on a stick, a boulder was a
+ * six-sided sphere. These build the same kinds of thing out of irregular,
+ * lumpy, self-shadowed shapes instead, which is most of what separates a
+ * stylised tree from a believable one at driving distance.
+ *
+ * Every helper returns a non-indexed geometry with welded smooth normals, so it
+ * merges into the chunk's single scenery mesh like everything else did.
+ */
+
+/** Repeatable 0..1 noise keyed on a vertex position, so duplicated vertices of
+ *  a non-indexed mesh move together and no cracks open up. */
+function vhash(x, y, z, seed) {
+  const s = Math.sin(Math.round(x * 97) * 12.9898 + Math.round(y * 97) * 78.233 +
+                     Math.round(z * 97) * 37.719 + seed * 4.123) * 43758.5453;
+  return s - Math.floor(s);
+}
+
+/**
+ * Bake the look of depth into the vertex colours: darker low down and on the
+ * inside of a crown, a little random brightness per vertex. Foliage lit only
+ * by its own normals looks like painted plastic; this is what gives it volume.
+ */
+function foliageShade(g, ao, jitter, seed, ref) {
+  const p = g.attributes.position.array, c = g.attributes.color.array;
+  let lo = 1e9, hi = -1e9;
+  for (let i = 1; i < p.length; i += 3) { if (p[i] < lo) lo = p[i]; if (p[i] > hi) hi = p[i]; }
+  // with a reference frame, shade against the whole plant rather than this one
+  // piece of it — per-piece shading painted a dark stripe under every tier
+  if (ref) { lo = ref.y0; hi = ref.y0 + ref.h; }
+  const span = Math.max(hi - lo, 1e-3);
+  for (let i = 0; i < p.length; i += 3) {
+    const f = clamp01((p[i + 1] - lo) / span);
+    // and the tips of the branches catch more light than the middle of the crown
+    const rad = ref ? clamp01(Math.hypot(p[i] - ref.x, p[i + 2] - ref.z) / ref.r) : 1;
+    const k = (1 - ao + ao * f) * (ref ? 0.62 + 0.38 * rad : 1) *
+              (1 - jitter * 0.5 + jitter * vhash(p[i], p[i + 1], p[i + 2], seed));
+    c[i] *= k; c[i + 1] *= k; c[i + 2] *= k;
+  }
+  return g;
+}
+
+/** A lumpy blob — crowns, bushes, boulders. `rough` is how irregular it is. */
+function blobG(r, hex, pos, rough, seed, squash, detail) {
+  const g = new THREE.IcosahedronGeometry(r, detail == null ? 1 : detail);
+  const p = g.attributes.position.array;
+  for (let i = 0; i < p.length; i += 3) {
+    const k = 1 + (vhash(p[i], p[i + 1], p[i + 2], seed) - 0.5) * 2 * rough;
+    p[i] *= k; p[i + 1] *= k * (squash || 1); p[i + 2] *= k;
+  }
+  smoothNormals(g);
+  paint(g, hex);
+  xform(g, pos);
+  return g;
+}
+
+/** One conifer tier: a cone with a ragged, drooping hem. */
+function tierG(r, h, hex, pos, seed, spin) {
+  const g = toNonIndexed(new THREE.ConeGeometry(r, h, 11, 2));
+  const p = g.attributes.position.array;
+  for (let i = 0; i < p.length; i += 3) {
+    const rad = Math.hypot(p[i], p[i + 2]);
+    if (rad > r * 0.35) {
+      // the further out a vertex is, the more it hangs and wanders
+      const f = rad / r;
+      const n = vhash(p[i], p[i + 1], p[i + 2], seed);
+      const k = 1 + (n - 0.5) * 0.85 * f;
+      p[i] *= k; p[i + 2] *= k;
+      p[i + 1] -= f * f * h * (0.22 + n * 0.22);
+    }
+  }
+  smoothNormals(g);
+  paint(g, hex);
+  xform(g, pos, [0, spin || 0, 0]);
+  return g;
+}
+
+/** A tapered trunk with a slight lean. */
+function trunkG(r0, r1, h, hex, pos, lean, seed) {
+  const g = toNonIndexed(new THREE.CylinderGeometry(r1, r0, h, 7, 2));
+  const p = g.attributes.position.array;
+  for (let i = 0; i < p.length; i += 3) {
+    const f = (p[i + 1] + h / 2) / h;
+    p[i] += f * f * lean[0]; p[i + 2] += f * f * lean[1];
+    const k = 1 + (vhash(p[i], p[i + 1], p[i + 2], seed) - 0.5) * 0.18;
+    p[i] *= k; p[i + 2] *= k;
+  }
+  smoothNormals(g);
+  paint(g, hex);
+  xform(g, [pos[0], pos[1] + h / 2, pos[2]]);
+  return g;
+}
+
+const PINE_GREENS = [0x2c4626, 0x324f2a, 0x2a4230, 0x3a5730];
+const LEAF_GREENS = [0x4b6e2e, 0x557a34, 0x5e7d36, 0x466a2c, 0x6a7f38];
+const BARK = [0x4a3b2e, 0x544233, 0x3f342a];
+
+/** A conifer, `hgt` metres tall. */
+function plantPine(parts, x, y, z, hgt, rng, snowy) {
+  const seed = rng() * 1000;
+  const bark = rng.pick(BARK);
+  const lean = [rng.range(-0.25, 0.25), rng.range(-0.25, 0.25)];
+  parts.push(trunkG(hgt * 0.035, hgt * 0.012, hgt * 0.5, bark, [x, y - 0.2, z], lean, seed));
+  const tiers = hgt > 12 ? 9 : hgt > 8 ? 8 : 6;
+  const ref = { x, z, y0: y, h: hgt, r: hgt * 0.28 };
+  for (let i = 0; i < tiers; i++) {
+    const f = i / (tiers - 1);
+    // a slightly concave profile: full low down, pinched in toward the top
+    const r = hgt * (0.28 - Math.pow(f, 0.85) * 0.24) * rng.range(0.86, 1.14);
+    const th = hgt * (0.20 - f * 0.06);
+    const ty = y + hgt * (0.24 + f * 0.68);
+    let col = rng.pick(PINE_GREENS);
+    if (snowy && f > 0.25) col = f > 0.7 ? 0xdfe8ee : 0x8aa0a0;
+    const g = tierG(r, th, col, [x + lean[0] * f, ty, z + lean[1] * f], seed + i * 17, rng() * TAU);
+    foliageShade(g, 0.55, 0.24, seed + i, ref);
+    if (!(snowy && f > 0.7)) markFoliage(g, seed + i);
+    parts.push(g);
+  }
+}
+
+/** A broadleaf: a leaning trunk, two limbs, and a crown of overlapping lumps. */
+function plantBroadleaf(parts, x, y, z, hgt, rng) {
+  const seed = rng() * 1000;
+  const bark = rng.pick(BARK);
+  const lean = [rng.range(-0.5, 0.5), rng.range(-0.5, 0.5)];
+  const trunkH = hgt * 0.52;
+  parts.push(trunkG(hgt * 0.05, hgt * 0.028, trunkH, bark, [x, y - 0.2, z], lean, seed));
+  const cx = x + lean[0], cz = z + lean[1], cy = y + trunkH + hgt * 0.12;
+  const cr = hgt * 0.34;
+  const ref = { x: cx, z: cz, y0: y + trunkH - cr * 0.5, h: cr * 2.0, r: cr * 1.1 };
+  // two limbs reaching up into the crown
+  for (let b = 0; b < 2; b++) {
+    const a = rng() * TAU;
+    const g = toNonIndexed(new THREE.CylinderGeometry(hgt * 0.012, hgt * 0.022, cr * 1.1, 5));
+    paint(g, bark);
+    xform(g, [cx + Math.cos(a) * cr * 0.28, cy - cr * 0.15, cz + Math.sin(a) * cr * 0.28],
+             [Math.sin(a) * 0.6, 0, -Math.cos(a) * 0.6]);
+    parts.push(g);
+  }
+  const blobs = 6 + Math.floor(rng() * 3);
+  for (let i = 0; i < blobs; i++) {
+    const a = i / blobs * TAU + rng() * 0.8;
+    const d = i === 0 ? 0 : cr * rng.range(0.42, 0.70);
+    const br = cr * (i === 0 ? 0.80 : rng.range(0.44, 0.62));
+    const g = blobG(br, rng.pick(LEAF_GREENS),
+      [cx + Math.cos(a) * d, cy + (i === 0 ? cr * 0.18 : rng.range(-0.25, 0.28) * cr), cz + Math.sin(a) * d],
+      0.26, seed + i * 31, 0.84);
+    foliageShade(g, 0.55, 0.26, seed + i, ref);
+    markFoliage(g, seed + i);
+    parts.push(g);
+  }
+}
+
+/** A boulder, half buried, with moss on top if it sits in grass. */
+function plantBoulder(parts, x, y, z, r, rng, mossy) {
+  const seed = rng() * 1000;
+  const col = rng.pick([0x77736c, 0x6b6862, 0x837d73, 0x5f5c57]);
+  const g = blobG(r, col, [x, y + r * 0.22, z], 0.32, seed, 0.68, 1);
+  // moss creeps over the top of anything left lying in a field
+  if (mossy) {
+    const p = g.attributes.position.array, c = g.attributes.color.array;
+    const moss = new THREE.Color(0x56692f).convertSRGBToLinear();
+    for (let i = 0; i < p.length; i += 3) {
+      const up = (p[i + 1] - y) / r;
+      const m = clamp01((up - 0.25) * 1.6) * (0.55 + vhash(p[i], p[i + 1], p[i + 2], seed) * 0.45);
+      c[i] += (moss.r - c[i]) * m; c[i + 1] += (moss.g - c[i + 1]) * m; c[i + 2] += (moss.b - c[i + 2]) * m;
+    }
+  }
+  foliageShade(g, 0.35, 0.3, seed);
+  parts.push(g);
+}
+
+function plantBush(parts, x, y, z, r, rng, hex) {
+  const seed = rng() * 1000;
+  const g = blobG(r, hex || rng.pick(LEAF_GREENS), [x, y + r * 0.45, z], 0.3, seed, 0.75, 1);
+  foliageShade(g, 0.55, 0.3, seed);
+  markFoliage(g, seed);
+  parts.push(g);
 }
 
 /** Trees, boulders and the odd dirt kicker, seeded from the chunk address. */
@@ -8295,93 +9798,83 @@ function buildChunkScenery(cx, cz, h, s) {
   };
   const ox = cx * CHUNK_SIZE, oz = cz * CHUNK_SIZE;
   const C = CHUNK_CELLS;
-  const count = 16;
-  for (let n = 0; n < count; n++) {
-    const lx = rng() * CHUNK_SIZE, lz = rng() * CHUNK_SIZE;
-    const x = ox + lx, z = oz + lz;
-    const gi = Math.min(C - 1, Math.floor(lx / CELL)), gj = Math.min(C - 1, Math.floor(lz / CELL));
-    const k = gi + gj * (C + 1);
-    const sid = s[k];
-    if (sid === 6 || sid === 2) continue;                    // no trees in water or on tarmac
-    const y = h[k];
-    const slope = Math.abs(h[k + 1] - y) + Math.abs(h[k + C + 1] - y);
-    if (slope > 7) continue;
+  // Exact ground height under a point, interpolated the way the mesh and the
+  // physics both do it — the old code used the nearest grid corner, so trees on
+  // a slope floated on one side and were buried on the other.
+  const groundAt = (lx, lz) => {
+    const fx = lx / CELL, fz = lz / CELL;
+    const gi = Math.min(C - 1, Math.floor(fx)), gj = Math.min(C - 1, Math.floor(fz));
+    const u = fx - gi, v = fz - gj, row = gj * (C + 1), row2 = row + C + 1;
+    const h00 = h[row + gi], h10 = h[row + gi + 1], h01 = h[row2 + gi], h11 = h[row2 + gi + 1];
+    return u + v < 1 ? h00 + (h10 - h00) * u + (h01 - h00) * v
+                     : h11 + (h01 - h11) * (1 - u) + (h10 - h11) * (1 - v);
+  };
+  /* Trees grow in groves, not on a grid. A seed spot is picked, and around it
+   * a handful of its own kind sprout at random distances; between groves the
+   * ground is open. Same total as before, far more natural to look at. */
+  const groves = 7;
+  for (let n = 0; n < groves; n++) {
+    const sx = rng() * CHUNK_SIZE, sz = rng() * CHUNK_SIZE;
     const kind = rng();
-    // What grows here depends on what you are standing on and how high up you
-    // are — pine forest low down, snow-dusted trees on the peaks, cactus and
-    // scrub on the sand, bare boulder fields on gravel.
-    if (sid === 7 || y > SNOW_LINE) {
-      if (kind < 0.42) {
-        const hgt = rng.range(5, 11);
-        parts.push(cylG(0.3, 0.55, hgt * 0.30, 5, 0x3b2f28, [x, y + hgt * 0.15, z]));
-        for (let b = 0; b < 3; b++) {
-          const r = (1 - b * 0.30) * hgt * 0.26;
-          parts.push(cylG(0.04, r, hgt * 0.32, 6, b === 2 ? 0xe8f1fa : 0x2f5238,
-            [x, y + hgt * (0.30 + b * 0.21), z]));
+    const size = 1 + Math.floor(rng() * 4);
+    for (let m = 0; m < size; m++) {
+      const a = rng() * TAU, d = m === 0 ? 0 : rng.range(5, 15);
+      const lx = clamp(sx + Math.cos(a) * d, 0.5, CHUNK_SIZE - 0.5);
+      const lz = clamp(sz + Math.sin(a) * d, 0.5, CHUNK_SIZE - 0.5);
+      const x = ox + lx, z = oz + lz;
+      const gi = Math.min(C - 1, Math.floor(lx / CELL)), gj = Math.min(C - 1, Math.floor(lz / CELL));
+      const k = gi + gj * (C + 1);
+      const sid = s[k];
+      if (sid === 6 || sid === 2) continue;                  // no trees in water or on tarmac
+      const slope = Math.abs(h[k + 1] - h[k]) + Math.abs(h[k + C + 1] - h[k]);
+      if (slope > 7) continue;
+      const y = groundAt(lx, lz);
+      // What grows depends on the ground and the altitude: conifers low down and
+      // dusted with snow up high, scrub and cactus on sand, boulders on gravel.
+      if (sid === 7 || y > SNOW_LINE) {
+        if (kind < 0.5) plantPine(parts, x, y, z, rng.range(6, 12), rng, true);
+        else plantBoulder(parts, x, y, z, rng.range(1.0, 2.6), rng, false);
+      } else if (sid === 3) {
+        if (kind < 0.34) {                                   // saguaro
+          const hgt = rng.range(2.4, 4.6);
+          const cact = 0x4c7240;
+          const trunk = toNonIndexed(new THREE.CylinderGeometry(0.22, 0.28, hgt, 9));
+          paint(trunk, cact); xform(trunk, [x, y + hgt / 2, z]); parts.push(trunk);
+          for (const sxx of [-1, 1]) {
+            if (rng() < 0.45) continue;
+            const ah = rng.range(0.8, 1.6);
+            parts.push(cylG(0.15, 0.15, ah, 8, cact, [x + sxx * 0.42, y + hgt * 0.55, z], [0, 0, sxx * -1.1]));
+            parts.push(cylG(0.15, 0.15, ah * 0.8, 8, cact, [x + sxx * 0.64, y + hgt * 0.55 + ah * 0.45, z]));
+          }
+        } else if (kind < 0.72) plantBush(parts, x, y, z, rng.range(0.5, 1.2), rng, 0x7d6a48);
+        else plantBoulder(parts, x, y, z, rng.range(0.7, 2.0), rng, false);
+      } else if (sid === 4) {
+        plantBoulder(parts, x, y, z, rng.range(1.0, 3.2), rng, false);
+      } else if (kind < 0.46) {
+        plantPine(parts, x, y, z, rng.range(8, 17), rng, false);
+      } else if (kind < 0.72) {
+        plantBroadleaf(parts, x, y, z, rng.range(7, 13), rng);
+      } else if (kind < 0.84) {
+        plantBoulder(parts, x, y, z, rng.range(0.9, 2.8), rng, true);
+      } else if (kind < 0.95) {
+        plantBush(parts, x, y, z, rng.range(0.7, 1.6), rng);
+      } else if (m === 0) {
+        // Stacked log pile. The logs lie along one axis and the stack runs along
+        // the other — two fixed orientations rather than a free yaw, because a
+        // single Euler can't both spin the cylinder and keep the stack square.
+        const alongZ = rng() < 0.5;
+        for (let l = 0; l < 5; l++) {
+          const row = l < 3 ? 0 : 1;
+          const k2 = (l < 3 ? l - 1 : l - 3.5) * 0.56;
+          parts.push(cylG(0.26, 0.26, rng.range(2.6, 3.6), 10, 0x6b4d33,
+            [x + (alongZ ? k2 : 0), y + 0.26 + row * 0.48, z + (alongZ ? 0 : k2)],
+            alongZ ? [PI / 2, 0, 0] : [0, 0, PI / 2]));
         }
-      } else {
-        const r = rng.range(1.0, 2.8);
-        parts.push(sphG(r, 0x8d94a4, [x, y + r * 0.35, z], 5, 3));
-        parts.push(sphG(r * 0.72, 0xe4edf7, [x, y + r * 0.68, z], 5, 3));
       }
-    } else if (sid === 3) {
-      if (kind < 0.34) {                                   // saguaro
-        const hgt = rng.range(2.4, 4.6);
-        parts.push(cylG(0.22, 0.28, hgt, 7, 0x4e7a44, [x, y + hgt / 2, z]));
-        for (const sx of [-1, 1]) {
-          if (rng() < 0.45) continue;
-          const ah = rng.range(0.8, 1.6);
-          parts.push(cylG(0.15, 0.15, ah, 6, 0x4e7a44,
-            [x + sx * 0.42, y + hgt * 0.55, z], [0, 0, sx * -1.1]));
-          parts.push(cylG(0.15, 0.15, ah * 0.8, 6, 0x4e7a44,
-            [x + sx * 0.64, y + hgt * 0.55 + ah * 0.45, z]));
-        }
-      } else if (kind < 0.72) {                            // dead bush
-        const r = rng.range(0.5, 1.3);
-        parts.push(sphG(r, 0x8a7350, [x, y + r * 0.6, z], 5, 3));
-      } else {
-        const r = rng.range(0.7, 2.2);
-        parts.push(sphG(r, 0xa89572, [x, y + r * 0.3, z], 5, 3));
-      }
-    } else if (sid === 4) {
-      const r = rng.range(1.0, 3.6);                       // boulder field
-      parts.push(sphG(r, rng() < 0.5 ? 0x6f6d6a : 0x7c7a76, [x, y + r * 0.36, z], 6, 4));
-      if (rng() < 0.3) parts.push(sphG(r * 0.5, 0x63615e, [x + r, y + r * 0.2, z + r * 0.4], 5, 3));
-    } else if (kind < 0.52) {
-      const hgt = rng.range(7, 16);
-      parts.push(cylG(0.4, 0.7, hgt * 0.35, 5, 0x4a3728, [x, y + hgt * 0.17, z]));
-      for (let b = 0; b < 3; b++) {
-        const r = (1 - b * 0.28) * hgt * 0.30;
-        parts.push(cylG(0.05, r, hgt * 0.34, 6, b === 0 ? 0x3d6b3a : 0x47773f,
-          [x, y + hgt * (0.32 + b * 0.22), z]));
-      }
-    } else if (kind < 0.66) {                              // broadleaf
-      const hgt = rng.range(6, 12);
-      parts.push(cylG(0.32, 0.5, hgt * 0.55, 5, 0x53412e, [x, y + hgt * 0.27, z]));
-      const cr = hgt * 0.30;
-      parts.push(sphG(cr, 0x53853f, [x, y + hgt * 0.66, z], 6, 4));
-      parts.push(sphG(cr * 0.7, 0x467038, [x + cr * 0.5, y + hgt * 0.52, z - cr * 0.4], 5, 3));
-    } else if (kind < 0.80) {
-      const r = rng.range(0.9, 3.2);
-      parts.push(sphG(r, 0x6f6d6a, [x, y + r * 0.4, z], 6, 4));
-    } else if (kind < 0.92) {
-      const hgt = rng.range(1.2, 2.6);
-      parts.push(boxG(rng.range(0.4, 0.9), hgt, rng.range(0.4, 0.9), 0x5c7a3f, [x, y + hgt / 2, z]));
-    } else {
-      // Stacked log pile. The logs lie along one axis and the stack runs along
-      // the other — two fixed orientations rather than a free yaw, because a
-      // single Euler can't both spin the cylinder and keep the stack square.
-      const alongZ = rng() < 0.5;
-      for (let l = 0; l < 5; l++) {
-        const row = l < 3 ? 0 : 1;
-        const k2 = (l < 3 ? l - 1 : l - 3.5) * 0.56;
-        parts.push(cylG(0.26, 0.26, rng.range(2.6, 3.6), 6, 0x6b4d33,
-          [x + (alongZ ? k2 : 0), y + 0.26 + row * 0.48, z + (alongZ ? 0 : k2)],
-          alongZ ? [PI / 2, 0, 0] : [0, 0, PI / 2]));
-      }
+      mark();
     }
-    mark();
   }
+
   // one in eight chunks gets a jump, so there is always something to find
   if (rng() < 0.13 && Math.hypot(ox, oz) > 400) {
     const x = ox + CHUNK_SIZE * 0.5, z = oz + CHUNK_SIZE * 0.5;
@@ -8401,9 +9894,71 @@ function buildChunkScenery(cx, cz, h, s) {
 }
 let _scenMat = null;
 function sceneryMaterial() {
-  if (!_scenMat) { _scenMat = vcMat({ roughness: 0.95 }); _scenMat.__keep = true; }
+  if (!_scenMat) {
+    _scenMat = vcMat({ roughness: 0.92 });
+    /* Foliage. A smooth cone reads as a lampshade and a smooth ball as
+     * broccoli, however well it is shaded — needles and leaves are mostly gaps.
+     * Real games use alpha-cut cards; this does the same job inside the one
+     * merged scenery mesh. Foliage vertices carry u = 2 (nothing else in here
+     * has a u outside 0..1), and for those the shader lays a clumpy needle
+     * texture over the colour and discards fragments in the gaps wherever the
+     * surface turns edge-on to the camera — which is exactly where a real
+     * canopy shows sky through it. The silhouette goes ragged, and the trees
+     * stop looking like they were moulded out of plastic. */
+    const detail = sharedDetailTexture();
+    _scenMat.onBeforeCompile = (sh) => {
+      sh.uniforms.tFol = { value: detail };
+      sh.vertexShader = sh.vertexShader
+        .replace('#include <common>', '#include <common>\nvarying vec2 vFol;\nvarying vec3 vSW;\nvarying vec3 vSWN;')
+        .replace('#include <begin_vertex>',
+          '#include <begin_vertex>\nvFol = uv;\nvSW = (modelMatrix * vec4(position, 1.0)).xyz;\n' +
+          'vSWN = normalize(mat3(modelMatrix) * normal);');
+      sh.fragmentShader = sh.fragmentShader
+        .replace('#include <common>', '#include <common>\nuniform sampler2D tFol;\nvarying vec2 vFol;\nvarying vec3 vSW;\nvarying vec3 vSWN;')
+        .replace('#include <color_fragment>',
+          '#include <color_fragment>\n' +
+          '  if (vFol.x > 1.5) {\n' +
+          // cheap triplanar: three projections weighted by the surface direction
+          '    vec3 wn = abs(normalize(vSWN));\n' +
+          '    wn /= (wn.x + wn.y + wn.z);\n' +
+          // scaled so one noise feature is a clump of needles, 15-35 cm across —
+          // any finer and the mipmaps average it away to flat grey
+          '    vec3 q = vSW * 0.085 + vFol.y * 13.0;\n' +
+          '    float n = texture2D(tFol, q.yz).r * wn.x + texture2D(tFol, q.xz).r * wn.y +\n' +
+          '              texture2D(tFol, q.xy).r * wn.z;\n' +
+          '    float m = texture2D(tFol, q.yz * 2.1).g * wn.x + texture2D(tFol, q.xz * 2.1).g * wn.y +\n' +
+          '              texture2D(tFol, q.xy * 2.1).g * wn.z;\n' +
+          '    n = smoothstep(0.28, 0.72, n * 0.55 + m * 0.45);\n' +
+          // clumps of needles with dark gaps between them
+          '    diffuseColor.rgb *= 0.38 + n * 1.0;\n' +
+          // ragged silhouette: holes where the surface is seen edge-on, and a
+          // few right through the middle of the crown too
+          '    float facing = abs(dot(normalize(vNormal), normalize(vViewPosition)));\n' +
+          '    if (n < max(0.05, 0.70 - facing * 0.66)) discard;\n' +
+          '  }\n');
+    };
+    _scenMat.side = THREE.DoubleSide;     // holes show the far side of the crown
+    _scenMat.__keep = true;
+  }
   return _scenMat;
 }
+
+/** Mark a geometry as foliage for the scenery shader: u = 2, v = a clump seed. */
+function markFoliage(g, seed) {
+  const n = g.attributes.position.count;
+  const uv = new Float32Array(n * 2);
+  const v = (seed % 97) / 97;
+  for (let i = 0; i < n; i++) { uv[i * 2] = 2.0; uv[i * 2 + 1] = v; }
+  g.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
+  return g;
+}
+
+let _detailTex = null;
+function sharedDetailTexture() {
+  if (!_detailTex) _detailTex = groundDetailTexture();
+  return _detailTex;
+}
+
 function makeKickerSpec(x, z, yaw, w, len, h) { return { x, z, yaw, w, len, h }; }
 
 const Chunks = {
@@ -8631,8 +10186,11 @@ function recipeGeo(list) {
   return g;
 }
 
-const CITY_WALL = [0x585b70, 0x6c7086, 0x45475a, 0x7f849c, 0x8d7a6a, 0x9399b2,
-                   0x6b5f52, 0x74697c];
+/* Real building materials: pale and dark concrete, limestone, render, two
+ * bricks, granite. Glass is a tinted curtain wall — and must stay darker and
+ * bluer than any wall, because that is how cityMaterial tells it apart. */
+const CITY_WALL = [0x8c8780, 0xa8a092, 0x6f6a64, 0xb9b2a5, 0x8f5a44, 0x7a4e3c,
+                   0x5d6266, 0x9a9488];
 const CITY_GLASS = [0x1e3243, 0x24384a, 0x1b2a3a, 0x2a3d52];
 
 /**
@@ -8644,7 +10202,7 @@ function makeBuilding(rng, x, z, kind) {
   const parts = [], lit = [], tiers = [];
   const wall = rng.pick(CITY_WALL);
   const glass = rng.pick(CITY_GLASS);
-  const trim = 0x313244;
+  const trim = 0x45464a;     // neutral, so it never reads as glass
   let w, d, h;
 
   /** A band of lit windows round all four sides at height y. */
@@ -8691,10 +10249,10 @@ function makeBuilding(rng, x, z, kind) {
     }
     // crown and aircraft-warning mast
     const top = gy + h;
-    bp(parts, w * 0.30, 4, d * 0.30, 0x7f849c, x, top + 2, z);
-    bp(parts, 0.7, 16, 0.7, 0x9399b2, x, top + 12, z);
+    bp(parts, w * 0.30, 4, d * 0.30, 0x85878a, x, top + 2, z);
+    bp(parts, 0.7, 16, 0.7, 0x9a9c9f, x, top + 12, z);
     lit.push({ s: [1.5, 1.5, 1.5], c: 0xf38ba8, p: [x, top + 20.4, z], r: null });
-    for (const sx of [-1, 1]) bp(parts, 1.2, 3.4, 1.2, 0x585b70, x + sx * w * 0.28, top + 5.6, z);
+    for (const sx of [-1, 1]) bp(parts, 1.2, 3.4, 1.2, 0x5c5e61, x + sx * w * 0.28, top + 5.6, z);
 
   } else if (kind === 'office') {
     /* ---- mid-rise slab: banded glazing, plant room on the roof -------- */
@@ -8708,8 +10266,8 @@ function makeBuilding(rng, x, z, kind) {
       if (rng() < 0.5) windowBand(x, z, w / 2 + 0.2, d / 2 + 0.2, y, 4.6, 0.6);
     }
     bp(parts, w + 1.2, 0.9, d + 1.2, trim, x, gy + h, z);
-    bp(parts, w * 0.35, 3.4, d * 0.4, 0x6c7086, x + w * 0.18, gy + h + 1.7, z);
-    bp(parts, 2.4, 1.8, 2.4, 0x9399b2, x - w * 0.25, gy + h + 0.9, z + d * 0.2);
+    bp(parts, w * 0.35, 3.4, d * 0.4, 0x707275, x + w * 0.18, gy + h + 1.7, z);
+    bp(parts, 2.4, 1.8, 2.4, 0x9a9c9f, x - w * 0.25, gy + h + 0.9, z + d * 0.2);
 
   } else if (kind === 'block') {
     /* ---- apartments: balconies all the way up ------------------------- */
@@ -8720,12 +10278,12 @@ function makeBuilding(rng, x, z, kind) {
     for (let y = gy + 3.2, f = 0; y < gy + h - 2; y += 3.2, f++) {
       for (const sz of [-1, 1]) {
         bp(parts, w * 0.8, 0.25, 1.6, trim, x, y, z + sz * (d / 2 + 0.8));
-        bp(parts, w * 0.8, 0.9, 0.16, 0x9399b2, x, y + 0.55, z + sz * (d / 2 + 1.55));
+        bp(parts, w * 0.8, 0.9, 0.16, 0x9a9c9f, x, y + 0.55, z + sz * (d / 2 + 1.55));
       }
       if (f % 2 === 0) windowBand(x, z, w / 2 + 0.1, d / 2 + 0.1, y + 1.4, 3.8, 0.45);
     }
     bp(parts, w + 0.8, 0.7, d + 0.8, trim, x, gy + h, z);
-    bp(parts, 3, 2.6, 3, 0x585b70, x, gy + h + 1.3, z);       // stair head
+    bp(parts, 3, 2.6, 3, 0x5c5e61, x, gy + h + 1.3, z);       // stair head
 
   } else if (kind === 'garage') {
     /* ---- multi-storey car park: open decks, no walls ------------------ */
@@ -8735,13 +10293,13 @@ function makeBuilding(rng, x, z, kind) {
     const decks = Math.max(3, Math.round(h / 3.4));
     for (let i = 0; i <= decks; i++) {
       const y = gy + (h / decks) * i;
-      bp(parts, w, 0.6, d, 0x6c7086, x, y, z);
-      if (i < decks) bp(parts, w + 0.4, 0.5, d + 0.4, 0x585b70, x, y + 1.1, z);
+      bp(parts, w, 0.6, d, 0x707275, x, y, z);
+      if (i < decks) bp(parts, w + 0.4, 0.5, d + 0.4, 0x5c5e61, x, y + 1.1, z);
     }
     for (const sx of [-1, 1]) for (const sz of [-1, 1]) {
-      bp(parts, 1.4, h, 1.4, 0x7f849c, x + sx * (w / 2 - 1), gy + h / 2, z + sz * (d / 2 - 1));
+      bp(parts, 1.4, h, 1.4, 0x85878a, x + sx * (w / 2 - 1), gy + h / 2, z + sz * (d / 2 - 1));
     }
-    bp(parts, 1.4, h, 1.4, 0x7f849c, x, gy + h / 2, z);
+    bp(parts, 1.4, h, 1.4, 0x85878a, x, gy + h / 2, z);
     lit.push({ s: [w * 0.5, 0.3, 0.3], c: 0xf9e2af, p: [x, gy + h - 1.2, z + d / 2], r: null });
 
   } else if (kind === 'warehouse') {
@@ -8753,11 +10311,11 @@ function makeBuilding(rng, x, z, kind) {
     const teeth = 5;
     for (let i = 0; i < teeth; i++) {
       const px = x - w / 2 + (w / teeth) * (i + 0.5);
-      bp(parts, w / teeth * 0.94, 2.6, d, 0x45475a, px, gy + h + 1.1, z, [0.22, 0, 0]);
+      bp(parts, w / teeth * 0.94, 2.6, d, 0x47484b, px, gy + h + 1.1, z, [0.22, 0, 0]);
       lit.push({ s: [w / teeth * 0.7, 1.2, d * 0.9], c: 0x89dceb, p: [px, gy + h + 1.9, z], r: null });
     }
     for (let i = -1; i <= 1; i++) {
-      bp(parts, 6, 5.4, 0.4, 0x45475a, x + i * 10, gy + 2.7, z + d / 2 + 0.2);
+      bp(parts, 6, 5.4, 0.4, 0x47484b, x + i * 10, gy + 2.7, z + d / 2 + 0.2);
       bp(parts, 6.6, 0.5, 1.4, 0xf9e2af, x + i * 10, gy + 5.8, z + d / 2 + 0.6);
     }
 
@@ -8769,11 +10327,11 @@ function makeBuilding(rng, x, z, kind) {
     tiers.push({ y0: gy, y1: gy + h, hw: w / 2, hd: d / 2 });
     tiers.push({ y0: gy, y1: gy + th, hw: 3.2, hd: 3.2, off: [-w * 0.1, d * 0.42] });
     bp(parts, w, h, d, 0x8d7a6a, x, gy + h / 2, z);
-    bp(parts, w + 1.4, 2.2, d + 1.4, 0x45475a, x, gy + h + 0.6, z);
+    bp(parts, w + 1.4, 2.2, d + 1.4, 0x47484b, x, gy + h + 0.6, z);
     const tx = x - w * 0.1, tz = z + d * 0.42;
     bp(parts, 6.4, th, 6.4, 0x8d7a6a, tx, gy + th / 2, tz);
-    bp(parts, 7.4, 1.2, 7.4, 0x45475a, tx, gy + th, tz);
-    bp(parts, 4.4, 6, 4.4, 0x585b70, tx, gy + th + 3.2, tz, [0, PI / 4, 0]);
+    bp(parts, 7.4, 1.2, 7.4, 0x47484b, tx, gy + th, tz);
+    bp(parts, 4.4, 6, 4.4, 0x5c5e61, tx, gy + th + 3.2, tz, [0, PI / 4, 0]);
     bp(parts, 0.5, 5, 0.5, 0xf9e2af, tx, gy + th + 8.4, tz);
     lit.push({ s: [3.4, 3.4, 0.3], c: 0xf9e2af, p: [tx, gy + th - 3, tz + 3.3], r: null });
     for (let i = -2; i <= 2; i++) {
@@ -8787,17 +10345,17 @@ function makeBuilding(rng, x, z, kind) {
     w = 12; d = 12;
     tiers.push({ y0: gy, y1: gy + h, hw: 5, hd: 5 });
     for (const sx of [-1, 1]) for (const sz of [-1, 1]) {
-      bp(parts, 0.9, h * 0.72, 0.9, 0x6c7086, x + sx * 4, gy + h * 0.36, z + sz * 4, [0, 0, sx * 0.06]);
+      bp(parts, 0.9, h * 0.72, 0.9, 0x707275, x + sx * 4, gy + h * 0.36, z + sz * 4, [0, 0, sx * 0.06]);
     }
     for (let i = 1; i <= 2; i++) {
-      bp(parts, 9, 0.5, 0.5, 0x585b70, x, gy + h * 0.24 * i, z + 4);
-      bp(parts, 9, 0.5, 0.5, 0x585b70, x, gy + h * 0.24 * i, z - 4);
-      bp(parts, 0.5, 0.5, 9, 0x585b70, x + 4, gy + h * 0.24 * i, z);
-      bp(parts, 0.5, 0.5, 9, 0x585b70, x - 4, gy + h * 0.24 * i, z);
+      bp(parts, 9, 0.5, 0.5, 0x5c5e61, x, gy + h * 0.24 * i, z + 4);
+      bp(parts, 9, 0.5, 0.5, 0x5c5e61, x, gy + h * 0.24 * i, z - 4);
+      bp(parts, 0.5, 0.5, 9, 0x5c5e61, x + 4, gy + h * 0.24 * i, z);
+      bp(parts, 0.5, 0.5, 9, 0x5c5e61, x - 4, gy + h * 0.24 * i, z);
     }
     bp(parts, 11, 8, 11, 0x94e2d5, x, gy + h * 0.72 + 4, z);
-    bp(parts, 12, 1.2, 12, 0x45475a, x, gy + h * 0.72 + 8.4, z);
-    bp(parts, 3, 2, 3, 0x585b70, x, gy + h * 0.72 + 9.6, z);
+    bp(parts, 12, 1.2, 12, 0x47484b, x, gy + h * 0.72 + 8.4, z);
+    bp(parts, 3, 2, 3, 0x5c5e61, x, gy + h * 0.72 + 9.6, z);
     h = h * 0.72 + 9;
 
   } else if (kind === 'house') {
@@ -9026,8 +10584,35 @@ function rebuildCityBatch(batch) {
 /* ------------------------------------------------------------- demolition */
 let _rubbleMat = null;
 function cityRubbleMaterial() {
-  if (!_rubbleMat) { _rubbleMat = vcMat({ roughness: 0.9 }); _rubbleMat.__keep = true; }
+  if (!_rubbleMat) { _rubbleMat = cityMaterial(); }
   return _rubbleMat;
+}
+
+/**
+ * One material for walls and glass alike. A merged building has no way to
+ * give its glass a different material, so the shader decides per pixel: a
+ * vertex colour that is dark and distinctly blue is curtain-wall glass, and
+ * gets a light steel-blue base, high metalness and a near-mirror finish — so it
+ * reflects the actual sky through the environment map. Everything else is
+ * stone and concrete: rough, dull, no reflection to speak of.
+ */
+let _cityMat = null;
+function cityMaterial() {
+  if (!_cityMat) {
+    _cityMat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.88, metalness: 0.0 });
+    _cityMat.onBeforeCompile = (sh) => {
+      sh.fragmentShader = sh.fragmentShader
+        .replace('#include <color_fragment>',
+          '#include <color_fragment>\n' +
+          'float cLum = dot(diffuseColor.rgb, vec3(0.3, 0.59, 0.11));\n' +
+          'float cGlass = smoothstep(0.075, 0.045, cLum) * step(diffuseColor.r * 1.3, diffuseColor.b);\n' +
+          'diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.30, 0.37, 0.44), cGlass);')
+        .replace('#include <roughnessmap_fragment>', 'float roughnessFactor = mix(0.88, 0.07, cGlass);')
+        .replace('#include <metalnessmap_fragment>', 'float metalnessFactor = cGlass * 0.85;');
+    };
+    _cityMat.__keep = true;
+  }
+  return _cityMat;
 }
 
 /**
@@ -9543,6 +11128,28 @@ const Destruct = {
     g.dispose();
   },
 
+  /** Solid scenery: push a body out of any tree or boulder it overlaps and
+   *  take away the part of its velocity heading into it. */
+  collideBody(b) {
+    if (!World.chunks) return;
+    const p = b.position, v = b.velocity;
+    for (const rec of World.chunks.values()) {
+      if (!rec.items || !rec.items.length) continue;
+      const cxm = rec.cx * CHUNK_SIZE + CHUNK_SIZE * 0.5, czm = rec.cz * CHUNK_SIZE + CHUNK_SIZE * 0.5;
+      if (Math.abs(cxm - p.x) > CHUNK_SIZE || Math.abs(czm - p.z) > CHUNK_SIZE) continue;
+      for (const it of rec.items) {
+        if (it.dead || Math.abs(it.y - p.y) > it.r + 3) continue;
+        const R = Math.min(it.r, it.tall ? 0.6 : it.r) + 1.3;
+        const dx = p.x - it.x, dz = p.z - it.z, d = Math.hypot(dx, dz);
+        if (d >= R || d < 1e-4) continue;
+        const nx = dx / d, nz = dz / d;
+        p.x += nx * (R - d); p.z += nz * (R - d);
+        const vn = v.x * nx + v.z * nz;
+        if (vn < 0) { v.x -= nx * vn * 1.2; v.z -= nz * vn * 1.2; if (vn < -4) Audio_.impact(Math.min(1, -vn / 20), true); }
+      }
+    }
+  },
+
   /** Does the segment a->b clip any scenery? The missile fuse asks this. */
   hitScenery(ax, ay, az, bx, by, bz) {
     if (!World.chunks) return null;
@@ -9693,7 +11300,7 @@ function buildTown(rng) {
     const batch = { buildings: group, mesh: null, litMesh: null };
     const idx = World.cityBatches.length;
     for (const b of group) b.batch = idx;
-    batch.mesh = new THREE.Mesh(new THREE.BufferGeometry(), vcMat({ roughness: 0.86 }));
+    batch.mesh = new THREE.Mesh(new THREE.BufferGeometry(), cityMaterial());
     batch.mesh.castShadow = true; batch.mesh.receiveShadow = true;
     batch.litMesh = new THREE.Mesh(new THREE.BufferGeometry(), lightMaterial());
     World.cityBatches.push(batch);
@@ -9708,8 +11315,8 @@ function buildTown(rng) {
     street.push(boxG(T.r * 2, 0.12, 13, 0x2c2c3c, [T.x, terrainH(T.x, T.z + off) + 0.1, T.z + off]));
     street.push(boxG(13, 0.12, T.r * 2, 0x2c2c3c, [T.x + off, terrainH(T.x + off, T.z) + 0.1, T.z]));
     for (let k = -8; k <= 8; k++) {
-      street.push(boxG(4.4, 0.14, 0.5, 0xbac2de, [T.x + k * 18, terrainH(T.x, T.z + off) + 0.16, T.z + off]));
-      street.push(boxG(0.5, 0.14, 4.4, 0xbac2de, [T.x + off, terrainH(T.x + off, T.z) + 0.16, T.z + k * 18]));
+      street.push(boxG(4.4, 0.14, 0.5, 0xc0c2c5, [T.x + k * 18, terrainH(T.x, T.z + off) + 0.16, T.z + off]));
+      street.push(boxG(0.5, 0.14, 4.4, 0xc0c2c5, [T.x + off, terrainH(T.x + off, T.z) + 0.16, T.z + k * 18]));
     }
   }
   // lamps, traffic lights and a few parked cars along the grid
@@ -9717,15 +11324,15 @@ function buildTown(rng) {
     const x = T.x + rng.range(-T.r * 0.92, T.r * 0.92);
     const z = T.z + rng.range(-T.r * 0.92, T.r * 0.92);
     const gy = terrainH(x, z);
-    street.push(cylG(0.14, 0.2, 8, 6, 0x585b70, [x, gy + 4, z]));
-    street.push(boxG(0.8, 0.35, 1.6, 0x45475a, [x, gy + 8, z]));
+    street.push(cylG(0.14, 0.2, 8, 6, 0x5c5e61, [x, gy + 4, z]));
+    street.push(boxG(0.8, 0.35, 1.6, 0x47484b, [x, gy + 8, z]));
     streetLit.push(boxG(0.7, 0.22, 1.4, 0xf9e2af, [x, gy + 7.85, z]));
   }
   for (let i = 0; i < 14; i++) {
     const x = T.x + rng.range(-T.r * 0.8, T.r * 0.8);
     const z = T.z + rng.range(-T.r * 0.8, T.r * 0.8);
     const gy = terrainH(x, z);
-    street.push(cylG(0.16, 0.16, 6, 5, 0x45475a, [x, gy + 3, z]));
+    street.push(cylG(0.16, 0.16, 6, 5, 0x47484b, [x, gy + 3, z]));
     street.push(boxG(0.7, 2.1, 0.7, 0x11111b, [x, gy + 6.6, z]));
     streetLit.push(boxG(0.42, 0.42, 0.24, rng.pick([0xf38ba8, 0xf9e2af, 0xa6e3a1]),
       [x, gy + 6.6, z + 0.4]));
@@ -9741,7 +11348,7 @@ function buildTown(rng) {
     const z = T.z + rng.range(-T.r * 0.9, T.r * 0.9);
     const gy = terrainH(x, z);
     const yaw = rng() < 0.5 ? 0 : PI / 2;
-    const col = rng.pick([0xf38ba8, 0x89b4fa, 0xa6e3a1, 0xf9e2af, 0xcba6f7, 0xbac2de]);
+    const col = rng.pick([0xf38ba8, 0x89b4fa, 0xa6e3a1, 0xf9e2af, 0xcba6f7, 0xc0c2c5]);
     const body = makeBody({ pos: [x, gy + 0.6, z], rot: [0, yaw, 0], surface: 'metal' });
     addBox(body, 1.9, 1.0, 4.3);
     stage.add(body, null);
@@ -9810,7 +11417,7 @@ function buildQuarry(rng) {
   }
   // conveyor / silo landmark + a big dirt kicker out of the pit
   const gy = terrainH(Q.x, Q.z);
-  addStaticBox(16, 26, 16, Q.x + 40, gy + 13, Q.z + 40, 0, 0x7f849c, 'road');
+  addStaticBox(16, 26, 16, Q.x + 40, gy + 13, Q.z + 40, 0, 0x85878a, 'road');
   buildKicker(Q.x - 60, Q.z - 40, 0.7, 16, 26, 9, 'dirt');
   // gravel piles you can drive over
   for (let i = 0; i < 14; i++) {
@@ -9840,7 +11447,7 @@ function buildKicker(x, z, yaw, w, len, h, surface, detached) {
   const q = new CANNON.Quaternion(); q.setFromEuler(-ang, 0, 0);
   body.addShape(new CANNON.Box(CV(w / 2, 0.25, slab / 2)),
     CV(0, h / 2 - 0.25 * Math.cos(ang), 0.25 * Math.sin(ang)), q);
-  const col = surface === 'dirt' ? 0x6b543c : 0x45475a;
+  const col = surface === 'dirt' ? 0x6b543c : 0x47484b;
   const g = wedgeG(w, len, h, col);
   const mesh = new THREE.Mesh(g, vcMat({ roughness: 0.85 }));
   mesh.position.set(x, gy, z); mesh.rotation.y = yaw;
@@ -9870,7 +11477,7 @@ function buildStuntPark(rng) {
       const q = new CANNON.Quaternion(); q.setFromEuler(-a, 0, 0);
       body.addShape(new CANNON.Box(CV(w / 2, 0.3, chord / 2)),
         CV(0, -Math.cos(a) * (R + 0.3), Math.sin(a) * (R + 0.3)), q);
-      parts.push(boxG(w, 0.6, chord, i % 2 ? 0x45475a : 0x3b3c50,
+      parts.push(boxG(w, 0.6, chord, i % 2 ? 0x47484b : 0x3b3c50,
         [0, -Math.cos(a) * (R + 0.3), Math.sin(a) * (R + 0.3)], [-a, 0, 0]));
     }
     const mesh = new THREE.Mesh(mergeGeoms(parts), vcMat({ roughness: 0.72, metalness: 0.15 }));
@@ -9884,7 +11491,7 @@ function buildStuntPark(rng) {
   buildDriftBowl(P.x - 160, P.z + 160, 30, 9);
   // stacked platforms and a gap jump
   for (let i = 0; i < 5; i++) {
-    addStaticBox(20, 3, 20, P.x + 150, gy + 1.5 + i * 3, P.z + i * 26 - 40, 0, 0x585b70, 'road');
+    addStaticBox(20, 3, 20, P.x + 150, gy + 1.5 + i * 3, P.z + i * 26 - 40, 0, 0x5c5e61, 'road');
   }
   // barrels and crates to smash
   for (let i = 0; i < 40; i++) {
@@ -9908,7 +11515,7 @@ function buildCorkscrew(x, y, z, R, w, shift) {
     const q = new CANNON.Quaternion(); q.setFromEuler(-a, 0, 0);
     body.addShape(new CANNON.Box(CV(w / 2, 0.3, chord / 2)),
       CV(off, R - Math.cos(a) * (R + 0.3), Math.sin(a) * (R + 0.3)), q);
-    parts.push(boxG(w, 0.6, chord, i % 2 ? 0x6c7086 : 0x585b70,
+    parts.push(boxG(w, 0.6, chord, i % 2 ? 0x707275 : 0x5c5e61,
       [off, R - Math.cos(a) * (R + 0.3), Math.sin(a) * (R + 0.3)], [-a, 0, 0]));
     parts.push(boxG(w * 1.01, 0.06, chord, 0xcba6f7,
       [off, R - Math.cos(a) * (R - 0.05), Math.sin(a) * (R - 0.05)], [-a, 0, 0]));
@@ -9932,7 +11539,13 @@ function buildCorkscrew(x, y, z, R, w, shift) {
 let _lightMat = null;
 function lightMaterial() {
   if (!_lightMat) {
-    _lightMat = new THREE.MeshBasicMaterial({ vertexColors: true });
+    // Lit windows, street lamps, runway lights. These used to glow at full
+    // brightness at noon; Sky.apply now dims them by day. The polygon offset
+    // pulls them in front of the glass ribbons they overlap — the two were
+    // fighting for the same depth, which is what drew those streaky diagonal
+    // patterns across every tower.
+    _lightMat = new THREE.MeshBasicMaterial({
+      vertexColors: true, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
     _lightMat.__keep = true;
   }
   return _lightMat;
@@ -9961,13 +11574,13 @@ function buildAirfield(rng) {
 
   // centre-line dashes and threshold bars
   for (let i = -14; i <= 14; i++) {
-    deco.push(boxG(14, 0.06, 1.1, 0xcdd6f4, [A.x + i * 21, y + 0.37, A.z]));
+    deco.push(boxG(14, 0.06, 1.1, 0xd4d6d8, [A.x + i * 21, y + 0.37, A.z]));
   }
   for (const sx of [-1, 1]) {
     for (let k = -3; k <= 3; k++) {
-      deco.push(boxG(22, 0.06, 1.8, 0xbac2de, [A.x + sx * (A.half - 16), y + 0.37, A.z + k * 5]));
+      deco.push(boxG(22, 0.06, 1.8, 0xc0c2c5, [A.x + sx * (A.half - 16), y + 0.37, A.z + k * 5]));
     }
-    deco.push(boxG(1.0, 0.06, A.halfW * 2, 0x9399b2, [A.x + sx * (A.half - 1), y + 0.37, A.z]));
+    deco.push(boxG(1.0, 0.06, A.halfW * 2, 0x9a9c9f, [A.x + sx * (A.half - 1), y + 0.37, A.z]));
   }
   // edge lights, every 40 m down both sides
   for (let x = -A.half; x <= A.half; x += 40) {
@@ -9984,28 +11597,28 @@ function buildAirfield(rng) {
   // two hangars: three slabs each, open to the apron
   for (let hgt = 0; hgt < 2; hgt++) {
     const hx = A.x + 90 + hgt * 66, hz = A.z - 78;
-    addStaticBox(2.0, 15, 46, hx - 25, y + 7.5, hz, 0, 0x6c7086, 'metal');
-    addStaticBox(2.0, 15, 46, hx + 25, y + 7.5, hz, 0, 0x6c7086, 'metal');
-    addStaticBox(52, 2.0, 46, hx, y + 15.5, hz, 0, 0x585b70, 'metal');
-    addStaticBox(52, 15, 2.0, hx, y + 7.5, hz - 23, 0, 0x7f849c, 'metal');
+    addStaticBox(2.0, 15, 46, hx - 25, y + 7.5, hz, 0, 0x707275, 'metal');
+    addStaticBox(2.0, 15, 46, hx + 25, y + 7.5, hz, 0, 0x707275, 'metal');
+    addStaticBox(52, 2.0, 46, hx, y + 15.5, hz, 0, 0x5c5e61, 'metal');
+    addStaticBox(52, 15, 2.0, hx, y + 7.5, hz - 23, 0, 0x85878a, 'metal');
     for (let r = 0; r < 7; r++) {
-      deco.push(boxG(52.4, 0.5, 0.7, 0x45475a, [hx, y + 2 + r * 2.1, hz + 23]));
+      deco.push(boxG(52.4, 0.5, 0.7, 0x47484b, [hx, y + 2 + r * 2.1, hz + 23]));
     }
     deco.push(boxG(20, 2.6, 0.6, 0xf9e2af, [hx, y + 13, hz + 23.4]));
   }
 
   // control tower
   const tx = A.x - 130, tz = A.z - 64;
-  addStaticBox(9, 20, 9, tx, y + 10, tz, 0, 0x7f849c, 'road');
-  addStaticBox(15, 5, 15, tx, y + 22.5, tz, 0, 0x45475a, 'road');
+  addStaticBox(9, 20, 9, tx, y + 10, tz, 0, 0x85878a, 'road');
+  addStaticBox(15, 5, 15, tx, y + 22.5, tz, 0, 0x47484b, 'road');
   deco.push(boxG(15.4, 3.4, 15.4, 0x14202c, [tx, y + 22.4, tz]));
-  deco.push(boxG(16.6, 0.8, 16.6, 0x585b70, [tx, y + 25.2, tz]));
-  deco.push(cylG(0.16, 0.16, 9, 5, 0x9399b2, [tx, y + 29.6, tz]));
+  deco.push(boxG(16.6, 0.8, 16.6, 0x5c5e61, [tx, y + 25.2, tz]));
+  deco.push(cylG(0.16, 0.16, 9, 5, 0x9a9c9f, [tx, y + 29.6, tz]));
   lights.push(boxG(0.8, 0.8, 0.8, 0xf38ba8, [tx, y + 34.2, tz]));
 
   // windsock, and a pair of fuel bowsers to smash
   const wx = A.x - 40, wz = A.z + A.halfW + 16;
-  deco.push(cylG(0.14, 0.2, 9, 5, 0xbac2de, [wx, y + 4.5, wz]));
+  deco.push(cylG(0.14, 0.2, 9, 5, 0xc0c2c5, [wx, y + 4.5, wz]));
   for (let i = 0; i < 4; i++) {
     deco.push(cylG(0.75 - i * 0.12, 0.9 - i * 0.12, 1.3, 7, i % 2 ? 0xf38ba8 : 0xf9e2af,
       [wx + 0.8 + i * 1.3, y + 8.4, wz], [0, 0, PI / 2]));
@@ -10046,11 +11659,11 @@ function buildPeak(rng) {
   // summit: a ramp pointing off the north face, and a radio mast
   const sy = terrainH(P.x, P.z);
   buildKicker(P.x, P.z + P.pad * 0.45, 0, 14, 26, 8, 'road');
-  deco.push(cylG(0.3, 0.5, 26, 5, 0x9399b2, [P.x - 14, sy + 13, P.z - 12]));
+  deco.push(cylG(0.3, 0.5, 26, 5, 0x9a9c9f, [P.x - 14, sy + 13, P.z - 12]));
   for (let i = 1; i <= 3; i++) {
-    deco.push(boxG(6 - i * 1.4, 0.3, 0.3, 0x585b70, [P.x - 14, sy + 8 + i * 5.5, P.z - 12]));
+    deco.push(boxG(6 - i * 1.4, 0.3, 0.3, 0x5c5e61, [P.x - 14, sy + 8 + i * 5.5, P.z - 12]));
   }
-  addStaticBox(9, 4, 9, P.x + 16, sy + 2, P.z - 8, 0.4, 0x585b70, 'road');
+  addStaticBox(9, 4, 9, P.x + 16, sy + 2, P.z - 8, 0.4, 0x5c5e61, 'road');
   const m = new THREE.Mesh(mergeGeoms(deco), vcMat({ roughness: 0.82 }));
   m.castShadow = true;
   stage.add(null, m);
@@ -10100,13 +11713,13 @@ function buildMarina(rng) {
   for (let i = 0; i < 2; i++) {
     const bx = bankX - 26, bz = M.z - 40 + i * 54;
     const by = terrainH(bx, bz);
-    addStaticBox(16, 7, 20, bx, by + 3.5, bz, 0, i ? 0x6c7086 : 0x7f849c, 'wood');
-    deco.push(boxG(17.5, 1.0, 21.5, 0x45475a, [bx, by + 7.4, bz]));
+    addStaticBox(16, 7, 20, bx, by + 3.5, bz, 0, i ? 0x707275 : 0x85878a, 'wood');
+    deco.push(boxG(17.5, 1.0, 21.5, 0x47484b, [bx, by + 7.4, bz]));
   }
   const cx = bankX - 6, cz = M.z + 66, cy = terrainH(cx, cz);
   deco.push(boxG(1.2, 14, 1.2, 0xf9e2af, [cx, cy + 7, cz]));
   deco.push(boxG(1.0, 1.0, 14, 0xf9e2af, [cx, cy + 13.6, cz + 6]));
-  deco.push(cylG(0.08, 0.08, 7, 4, 0x9399b2, [cx, cy + 10, cz + 12]));
+  deco.push(cylG(0.08, 0.08, 7, 4, 0x9a9c9f, [cx, cy + 10, cz + 12]));
 
   // slalom buoys: alternating sides, bobbing on the surface
   const buoys = [];
@@ -10116,8 +11729,8 @@ function buildMarina(rng) {
     const bx = RX(z) + side;
     const g = mergeGeoms([
       cylG(0.9, 1.2, 1.6, 8, i % 2 ? 0xf38ba8 : 0xf9e2af, [0, 0, 0]),
-      cylG(0.12, 0.12, 2.2, 4, 0xbac2de, [0, 1.6, 0]),
-      boxG(0.7, 0.5, 0.06, 0xcdd6f4, [0.3, 2.5, 0]),
+      cylG(0.12, 0.12, 2.2, 4, 0xc0c2c5, [0, 1.6, 0]),
+      boxG(0.7, 0.5, 0.06, 0xd4d6d8, [0.3, 2.5, 0]),
     ]);
     const mesh = new THREE.Mesh(g, vcMat({ roughness: 0.7 }));
     mesh.position.set(bx, WATER_Y, z);
@@ -10152,7 +11765,7 @@ function buildWindFarm(rng) {
     body.addShape(new CANNON.Box(CV(1.6, H / 2, 1.6)));
     const tower = new THREE.Mesh(mergeGeoms([
       cylG(1.1, 2.2, H, 8, 0xdfe4ee, [0, H / 2, 0]),
-      boxG(6, 1.2, 6, 0x9399b2, [0, 0.6, 0]),
+      boxG(6, 1.2, 6, 0x9a9c9f, [0, 0.6, 0]),
     ]), vcMat({ roughness: 0.7 }));
     tower.position.set(x, gy, z);
     tower.castShadow = true;
@@ -10216,7 +11829,7 @@ function buildTruckStop(rng) {
   addStaticBox(140, 0.4, 74, x0, y + 0.15, z0, 0, 0x30303f, 'road').body.driveOver = true;  // apron
   // canopy on six pillars
   for (let i = -1; i <= 1; i++) for (const sz of [-1, 1]) {
-    addStaticBox(1.2, 6.4, 1.2, x0 + i * 16, deck + 3.2, z0 + sz * 8, 0, 0x9399b2, 'metal');
+    addStaticBox(1.2, 6.4, 1.2, x0 + i * 16, deck + 3.2, z0 + sz * 8, 0, 0x9a9c9f, 'metal');
   }
   addStaticBox(46, 1.4, 22, x0, deck + 7.0, z0, 0, 0xf38ba8, 'metal');
   deco.push(boxG(47, 0.5, 23, 0xeff1f5, [x0, deck + 6.1, z0]));
@@ -10225,14 +11838,14 @@ function buildTruckStop(rng) {
   }
   // pumps
   for (let i = -1; i <= 1; i++) for (const sz of [-1, 1]) {
-    addStaticBox(1.6, 2.2, 1.0, x0 + i * 16, deck + 1.15, z0 + sz * 3.6, 0, 0xbac2de, 'metal', true, 260);
+    addStaticBox(1.6, 2.2, 1.0, x0 + i * 16, deck + 1.15, z0 + sz * 3.6, 0, 0xc0c2c5, 'metal', true, 260);
     deco.push(boxG(1.0, 0.7, 0.1, 0x89dceb, [x0 + i * 16, deck + 1.85, z0 + sz * 4.2]));
   }
   // diner
   const dx = x0 + 52, dz = z0 + 14;
   const dy = terrainH(dx, dz);
-  addStaticBox(24, 7, 18, dx, dy + 3.5, dz, 0, 0x7f849c, 'road');
-  deco.push(boxG(25.5, 1.0, 19.5, 0x45475a, [dx, dy + 7.2, dz]));
+  addStaticBox(24, 7, 18, dx, dy + 3.5, dz, 0, 0x85878a, 'road');
+  deco.push(boxG(25.5, 1.0, 19.5, 0x47484b, [dx, dy + 7.2, dz]));
   deco.push(boxG(22, 3.2, 0.3, 0x11111b, [dx, dy + 3.4, dz - 9.2]));
   lights.push(boxG(11, 1.6, 0.3, 0xf38ba8, [dx, dy + 8.6, dz - 9.2]));
   lights.push(boxG(0.6, 4.2, 0.6, 0xf9e2af, [dx - 13, dy + 9.5, dz - 9]));
@@ -10246,7 +11859,7 @@ function buildTruckStop(rng) {
   for (let i = -2; i <= 2; i++) {
     const lx = x0 + i * 30, lz = z0 + 32;
     const ly = terrainH(lx, lz);
-    deco.push(cylG(0.16, 0.22, 9, 6, 0x585b70, [lx, ly + 4.5, lz]));
+    deco.push(cylG(0.16, 0.22, 9, 6, 0x5c5e61, [lx, ly + 4.5, lz]));
     lights.push(boxG(1.4, 0.4, 2.4, 0xfff4d0, [lx, ly + 9.1, lz]));
   }
   const m = new THREE.Mesh(mergeGeoms(deco), vcMat({ roughness: 0.8 }));
@@ -10277,9 +11890,9 @@ function buildDriftBowl(x, z, innerR, bankH) {
     q.setFromEuler(0, -a, ang);
     body.addShape(new CANNON.Box(CV(slab / 2, 0.3, chord / 2)),
       CV(rx * (RIN + W / 2), bankH / 2, rz * (RIN + W / 2)), q);
-    parts.push(boxG(slab, 0.6, chord, i % 2 ? 0x45475a : 0x3b3c50,
+    parts.push(boxG(slab, 0.6, chord, i % 2 ? 0x47484b : 0x3b3c50,
       [rx * (RIN + W / 2), bankH / 2, rz * (RIN + W / 2)], [0, -a, ang]));
-    parts.push(boxG(slab * 0.06, 0.1, chord, i % 2 ? 0xf9e2af : 0x45475a,
+    parts.push(boxG(slab * 0.06, 0.1, chord, i % 2 ? 0xf9e2af : 0x47484b,
       [rx * (RIN + W * 0.98), bankH * 0.99, rz * (RIN + W * 0.98)], [0, -a, ang]));
     n++;
     if (n >= 6) { body.updateMassProperties(); body.updateBoundingRadius(); stage.add(body, null); n = 0; }
@@ -10317,15 +11930,15 @@ function buildRiverAndBridges(rng) {
   // a catenary and vertical hangers down to the deck.
   const bz = 180;
   const rx = RIVER_X(bz);
-  addStaticBox(150, 2.2, 26, rx, 25, bz, 0, 0x45475a, 'road');
+  addStaticBox(150, 2.2, 26, rx, 25, bz, 0, 0x47484b, 'road');
   for (const sx of [-1, 1]) addStaticBox(150, 2.0, 1.2, rx, 27, bz + sx * 13, 0, 0xf9e2af, 'metal');
   const deco = [], SPAN = 62, TOW = 34, DECK = 26.1;
   for (const tx of [-SPAN, SPAN]) {
     for (const sz of [-1, 1]) {
-      addStaticBox(4.0, TOW, 4.0, rx + tx, DECK + TOW / 2, bz + sz * 12, 0, 0xbac2de, 'metal');
+      addStaticBox(4.0, TOW, 4.0, rx + tx, DECK + TOW / 2, bz + sz * 12, 0, 0xc0c2c5, 'metal');
     }
-    deco.push(boxG(5.0, 2.0, 30, 0x9399b2, [rx + tx, DECK + TOW, bz]));
-    deco.push(boxG(5.0, 2.0, 30, 0x9399b2, [rx + tx, DECK + TOW * 0.62, bz]));
+    deco.push(boxG(5.0, 2.0, 30, 0x9a9c9f, [rx + tx, DECK + TOW, bz]));
+    deco.push(boxG(5.0, 2.0, 30, 0x9a9c9f, [rx + tx, DECK + TOW * 0.62, bz]));
   }
   // main cable: a chain of short segments following y = sag * (u^2)
   for (const sz of [-1, 1]) {
@@ -10341,7 +11954,7 @@ function buildRiverAndBridges(rng) {
           [(x + prev[0]) / 2, (y + prev[1]) / 2, zc], [0, 0, Math.atan2(dy, dx)]));
         // hanger down to the deck
         if (i % 2 === 0 && y > DECK + 3) {
-          deco.push(boxG(0.18, y - DECK, 0.18, 0xbac2de, [x, (y + DECK) / 2, zc]));
+          deco.push(boxG(0.18, y - DECK, 0.18, 0xc0c2c5, [x, (y + DECK) / 2, zc]));
         }
       }
       prev = [x, y];
@@ -10351,7 +11964,7 @@ function buildRiverAndBridges(rng) {
       const ax = rx + sx * (SPAN + 34);
       deco.push(boxG(Math.hypot(34, TOW), 0.34, 0.34, 0xdfe4ee,
         [rx + sx * (SPAN + 17), DECK + TOW / 2, zc], [0, 0, Math.atan2(-sx * TOW, 34)]));
-      if (sx > 0) addStaticBox(7, 6, 7, ax, DECK + 1, zc, 0, 0x7f849c, 'road');
+      if (sx > 0) addStaticBox(7, 6, 7, ax, DECK + 1, zc, 0, 0x85878a, 'road');
     }
   }
   const bm = new THREE.Mesh(mergeGeoms(deco), vcMat({ roughness: 0.62, metalness: 0.4 }));
@@ -10366,12 +11979,12 @@ function buildHighway(rng) {
     if (Math.abs(x - World.landmarks.RIVER_X(Z)) < 90) continue;
     const y = terrainH(x, Z);
     for (const sx of [-1, 1]) {
-      addStaticBox(22, 0.9, 0.5, x, y + 0.9, Z + sx * 14, 0, 0xbac2de, 'metal');
+      addStaticBox(22, 0.9, 0.5, x, y + 0.9, Z + sx * 14, 0, 0xc0c2c5, 'metal');
     }
   }
   for (let x = -840; x <= 840; x += 160) {
     const y = terrainH(x, Z + 22);
-    addStaticBox(0.6, 8, 0.6, x, y + 4, Z + 22, 0, 0x585b70, 'metal');
+    addStaticBox(0.6, 8, 0.6, x, y + 4, Z + 22, 0, 0x5c5e61, 'metal');
     addStaticBox(11, 3.4, 0.5, x, y + 9.5, Z + 22, 0, 0x2b4c3a, 'metal');
   }
 }
@@ -10506,7 +12119,7 @@ function buildActivities(rng) {
     const p = spot(t[1], t[2]);
     // gantry over the road so the trap reads as a piece of the world
     for (const sx of [-1, 1]) {
-      addStaticBox(0.7, 8, 0.7, t[1], p[1] + 4, t[2] + sx * 13, 0, 0x585b70, 'metal');
+      addStaticBox(0.7, 8, 0.7, t[1], p[1] + 4, t[2] + sx * 13, 0, 0x5c5e61, 'metal');
     }
     addStaticBox(0.8, 0.8, 27, t[1], p[1] + 8.2, t[2], 0, 0x89b4fa, 'metal');
     World.activities.push({
@@ -11288,6 +12901,7 @@ const UI = {
       { k: 'tc', label: 'Traction control', sub: 'cuts torque when a driven wheel spins', bool: true },
       { k: 'esc', label: 'Stability control', sub: 'damps the yaw rate — kills most spins, and most drifts', bool: true },
       { k: 'noFlip', label: 'No-flip gyro', sub: 'cannot roll or pitch over — yaw stays free, so it drifts beautifully', bool: true },
+      { k: 'solidScenery', label: 'Solid trees & rocks', sub: 'off: you drive straight through scenery · on: trees and boulders stop you dead', bool: true },
       { k: 'noDamage', label: 'Indestructible', sub: 'no dents, no lost panels, and no crash cam or slow motion — you just carry on driving', bool: true },
       { k: 'autoBoat', label: 'Auto boat mode', sub: 'fold into a boat the moment you hit water, and back on dry land', bool: true },
       // only appears once you have found the launchers
@@ -11759,8 +13373,8 @@ const Game = {
     addBox(pad, 90, 1.2, 90);
     const pm = new THREE.Mesh(mergeGeoms([
       boxG(90, 1.2, 90, 0x282838),
-      boxG(34, 1.24, 34, 0x313244, [0, 0.01, 0]),
-      boxG(35, 0.06, 35, 0x45475a, [0, 0.63, 0]),
+      boxG(34, 1.24, 34, 0x323336, [0, 0.01, 0]),
+      boxG(35, 0.06, 35, 0x47484b, [0, 0.63, 0]),
     ]), vcMat({ roughness: 0.9 }));
     pm.position.set(0, -0.6, 0); pm.receiveShadow = true;
     stage.add(pad, pm);
@@ -12583,13 +14197,14 @@ addEventListener('orientationchange', () => setTimeout(onResize, 250));
 
 /* A small handle for poking at the sim from the console. */
 window.HAULHARD = { Game, World, Chunks, Minimap, Sky, FX, Cam, Quality, TRUCKS, LEVELS, TRAILERS,
-                    Weapons, MISSILE, Net, UI, Input, Demo, Destruct, shatterMesh, world, scene, camera, renderer, store, Audio_,
+                    Weapons, MISSILE, Net, UI, Input, Demo, Destruct, shatterMesh, Env, skyUniforms, sun, hemi, ambient, world, scene, camera, renderer, store, Audio_,
                     THREE, CANNON, worldHeight, worldSurface, spiralRoad,
                     carveBuilding, damageCity, spawnPoints, randomSpawnPoint,
                     ground: (x, z) => { const o = {}; chunkTerrainQuery(x, z, o); return o; } };
 
 /* ------------------------------------------------------------------ boot */
 boot(0.75, 'wiring it up…');
+Env.init();
 Sky.init();
 FX.init();
 Input.init();
