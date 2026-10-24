@@ -170,6 +170,28 @@ canvas{display:block}
 #startBtn:active{transform:translateY(4px);box-shadow:0 0 0 3px var(--grn),0 4px 0 rgba(5,7,13,.6)}
 #hintTxt{margin-top:16px;font-size:11px;letter-spacing:.2em;color:#8fc9e3}
 
+#onlineBtn{margin-top:16px;padding:10px 40px;font-size:22px;color:#05070d;
+  background:var(--cyn);border:3px solid #05070d;border-radius:5px;
+  box-shadow:0 0 0 3px var(--cyn),0 6px 0 rgba(5,7,13,.6);cursor:pointer;
+  font-family:"Arial Black",Impact,sans-serif;font-weight:900;font-style:italic;
+  transition:transform .09s,box-shadow .09s;pointer-events:auto}
+#onlineBtn:hover{transform:translateY(-3px);box-shadow:0 0 0 3px var(--cyn),0 9px 0 rgba(5,7,13,.6)}
+#onlineScr{background:rgba(6,18,31,.8)}
+#olBox{width:min(560px,92vw);text-align:center;display:flex;flex-direction:column;gap:12px;align-items:stretch}
+#olLogo{font-size:48px;color:var(--cyn);text-shadow:-3px -3px 0 #05070d,3px -3px 0 #05070d,-3px 3px 0 #05070d,3px 3px 0 #05070d,0 7px 0 rgba(5,7,13,.5)}
+#olBox input{font:inherit;font-weight:800;padding:12px 14px;border-radius:6px;border:3px solid #05070d;background:#e9f2f7;color:#05070d;text-align:center;width:100%;pointer-events:auto}
+#olStatus{font-size:13px;letter-spacing:.14em;color:#8fc9e3;min-height:18px}
+.olb{padding:12px 20px;font-size:20px;color:#05070d;background:var(--grn);border:3px solid #05070d;border-radius:5px;box-shadow:0 5px 0 rgba(5,7,13,.6);cursor:pointer;
+  font-family:"Arial Black",Impact,sans-serif;font-weight:900;font-style:italic;pointer-events:auto}
+.olb.alt{background:var(--edge)}
+.olb:disabled{opacity:.45;cursor:default}
+.olrow{display:flex;gap:10px}.olrow input{text-transform:uppercase;letter-spacing:.2em}
+#olCodeLine{font-size:13px;color:#8fc9e3}#olCodeLine b{color:#fff;font-size:34px;margin-left:10px;letter-spacing:.2em}
+#olPlayers{display:flex;flex-direction:column;gap:8px}
+.olp{display:flex;align-items:center;gap:12px;padding:10px 14px;background:rgba(11,13,20,.82);border:2px solid var(--edge);border-radius:5px;font-weight:800;text-align:left}
+.olp i{width:14px;height:14px;border-radius:50%;flex:none;border:2px solid #05070d}.olp span{flex:1}.olp small{color:var(--yel);letter-spacing:.14em}
+#olHint{font-size:12px;letter-spacing:.14em;color:#8fc9e3}
+.rrow.norin{animation:none;opacity:1}
 #results{background:linear-gradient(180deg,rgba(6,18,31,.42),rgba(6,18,31,.88) 55%)}
 #resInner{text-align:center;width:min(660px,92vw)}
 #resTitle{font-size:70px;color:var(--yel);
@@ -307,7 +329,29 @@ canvas{display:block}
       <div class="card ctl"><b>C &nbsp; M &nbsp; R</b><span>CAM / MUTE / RESET</span></div>
     </div>
     <button id="startBtn" type="button">START RACE</button>
+    <button id="onlineBtn" type="button">PLAY ONLINE</button>
     <div class="tt up" id="hintTxt">CHARGE MINI-TURBOS IN THE CORNERS &nbsp;&#9670;&nbsp; LAND TRICKS OFF THE CRESTS &nbsp;&#9670;&nbsp; TUCK IN BEHIND RIVALS TO SLIPSTREAM</div>
+  </div>
+</div>
+
+<div class="screen hide" id="onlineScr">
+  <div id="olBox">
+    <div class="tt" id="olLogo">ONLINE RACE</div>
+    <input id="olName" maxlength="16" placeholder="Your name" autocomplete="off" spellcheck="false">
+    <div class="tt up" id="olStatus">…</div>
+    <div id="olEntry" class="hide">
+      <button class="olb" id="olQuick" type="button">QUICK PLAY</button>
+      <button class="olb alt" id="olCreate" type="button" style="margin-top:10px">CREATE PRIVATE ROOM</button>
+      <div class="olrow" style="margin-top:10px"><input id="olCode" maxlength="8" placeholder="ROOM CODE" autocomplete="off" spellcheck="false"><button class="olb alt" id="olJoin" type="button">JOIN</button></div>
+    </div>
+    <div id="olRoom" class="hide">
+      <div class="tt up" id="olCodeLine">ROOM CODE <b id="olRoomCode">----</b></div>
+      <div id="olPlayers"></div>
+      <div class="tt up" id="olHint"></div>
+      <button class="olb" id="olStart" type="button">START RACE</button>
+      <button class="olb alt" id="olLeave" type="button" style="margin-top:10px">LEAVE ROOM</button>
+    </div>
+    <button class="olb alt" id="olBack" type="button">BACK</button>
   </div>
 </div>
 
@@ -3539,7 +3583,8 @@ var Race = {
 })();
 
 var GRID = [ {di:30, lat:-12}, {di:30, lat:12}, {di:15, lat:-12}, {di:15, lat:12} ];
-function gridSlotFor(i){ return (i===0) ? GRID[3] : GRID[i-1]; }
+var NETSLOT = null;   // online: racer index -> grid slot
+function gridSlotFor(i){ if(NETSLOT && NETSLOT[i]!=null) return GRID[NETSLOT[i]]; return (i===0) ? GRID[3] : GRID[i-1]; }
 
 function resetRace(){
   var base = 10;
@@ -3595,7 +3640,7 @@ function updateStandings(){
   // rubber-banding: everybody is quietly pulled toward the player's pace
   var pp = Race.player.progress;
   Race.racers.forEach(function(r){
-    if(r.isPlayer){ r.rubber = 1; return; }
+    if(r.isPlayer || r.isRemote){ r.rubber = 1; return; }
     var gap = pp - r.progress;                       // + means the AI is behind
     r.rubber = 1 + clamp(gap/165, -0.075, 0.105);
   });
@@ -4000,16 +4045,13 @@ function tickBig(dt){
   }
 }
 
-function finishRace(){
-  Race.state='done';
-  Audio2.finish();
-  Audio2.stopMusic();
+function renderResTable(noAnim){
   var tbl=$('resTable'); tbl.innerHTML='';
   var total = CFG.LAPS*Track.length;
   Race.order.forEach(function(r,i){
     var row=document.createElement('div');
     row.className='card rrow'+(r.isPlayer?' me':'');
-    row.style.animationDelay=(i*0.11)+'s';
+    if(noAnim) row.className+=' norin'; else row.style.animationDelay=(i*0.11)+'s';
     // racers still on the water get an honest projection, not a DNF
     var t;
     if(r.finished) t = fmtTime(r.finishTime);
@@ -4029,6 +4071,13 @@ function finishRace(){
   $('resTitle').textContent = pl===1?'WINNER!':(pl<=3?'PODIUM!':'FINISH!');
   $('resTitle').style.color = pl===1?'#ffd23f':(pl<=3?'#3ff05a':'#ffffff');
   $('resSub').textContent = 'CORAL CIRCUIT — YOU FINISHED '+ordinal(pl);
+}
+
+function finishRace(){
+  Race.state='done';
+  Audio2.finish();
+  Audio2.stopMusic();
+  renderResTable(false);
   setTimeout(function(){
     $('results').classList.remove('hide');
     $('hud').classList.remove('on');
@@ -4041,18 +4090,21 @@ function finishRace(){
 var KEY = {};
 var BLOCK = {Space:1, ArrowUp:1, ArrowDown:1, ArrowLeft:1, ArrowRight:1};
 addEventListener('keydown', function(e){
+  if(e.target && e.target.tagName==='INPUT') return;   // typing in a lobby box is not driving
   if(BLOCK[e.code]) e.preventDefault();
   if(KEY[e.code]) return;
   KEY[e.code]=true;
   if(e.code==='KeyM'){ Audio2.toggleMute(); FX.toast(Audio2.isMuted()?'SOUND OFF':'SOUND ON'); }
   if(e.code==='KeyC'){ Race.camMode=(Race.camMode+1)%CAM_MODES.length; FX.toast('CAMERA '+(Race.camMode+1)); }
-  if(e.code==='KeyR' && Race.state!=='title'){ Audio2.stopMusic(); resetRace(); }
+  if(e.code==='Escape' && NET.active && Race.state!=='title'){ NET.again(); return; }
+  if(e.code==='KeyR' && Race.state!=='title' && !NET.active){ Audio2.stopMusic(); resetRace(); }
   if(e.code==='Enter' && (Race.state==='title'||Race.state==='done')) startBtnHit();
 });
 addEventListener('keyup', function(e){ KEY[e.code]=false; });
 addEventListener('blur', function(){ KEY={}; });
 
 function startBtnHit(){
+  if(NET.active){ NET.again(); return; }
   Audio2.init(); Audio2.resume();
   resetRace();
   Audio2.startMusic();
@@ -4114,6 +4166,7 @@ function frame(){
       r.updateDraft(Race.racers);
       if(r.finished){ r.throttle=0.35; r.brake=0; r.driftHeld=false; }
       else if(r.isPlayer) r.readInput(KEY, racing);
+      else if(r.isRemote) NET.driveRemote(r);
       else r.think(h, Race.t, Race.racers, Race.player);
       r.step(h, Race.t, racing || Race.state==='done');
     });
@@ -4121,6 +4174,7 @@ function frame(){
     acc -= FIXED; steps++;
   }
   if(steps>=4) acc = 0;
+  if(NET.active) NET.afterSim(dt);
 
   /* ---- lap completion ---- */
   if(racing){
@@ -4365,6 +4419,246 @@ window.__AZ = {
     updateStandings(); finishRace();
   }
 };
+
+/* ============================================================
+   25. ONLINE MULTIPLAYER — ZD Studios multiplayer server
+   Rooms of 2-4 racers. Everybody simulates their own boat (so it
+   answers the controls instantly) and streams its state ~20x/s.
+   Every other boat is simulated locally too, driven by the
+   throttle / steer / drift of its owner and steered back onto the
+   owner's real position — smooth, with no lag-snapping.
+   The room host picks the start time (server clock) so the
+   countdown ends at the same instant for everybody.
+   ============================================================ */
+var NETCFG = { url:'https://mp.zdstudios.network', key:'pk_-Hb_QlsYsaF3pWhNrI_xWfqr', game:'azure-rush', max:4 };
+var NET = (function(){
+  var mp=null, sdkP=null, wired=false, curRace=null, leaving=false, active=false, sendT=0, tabT=0, tabSig='';
+  var ALL = Race.racers.slice(), NAMES = ALL.map(function(r){ return r.name; });
+  var remotes = {};
+  var num = function(v){ return typeof v==='number' && isFinite(v); };
+  var el = function(id){ return document.getElementById(id); };
+  var status = function(t){ el('olStatus').textContent = t; };
+  var view = function(v){ el('olEntry').classList.toggle('hide', v!=='entry'); el('olRoom').classList.toggle('hide', v!=='room'); };
+  var lobbyOpen = function(){ return !el('onlineScr').classList.contains('hide'); };
+  var errText = function(e){ return (e && (e.message || e.code)) || 'unknown error'; };
+  var myName = function(){ var n = (el('olName').value||'').replace(/[^\x20-\x7e]/g,'').trim().slice(0,16) || 'Racer'; try{ localStorage.setItem('az_name', n); }catch(e){} return n; };
+  var cleanName = function(s){ return String(s||'Racer').replace(/[^\x20-\x7e]/g,'').slice(0,16) || 'Racer'; };
+
+  /* ---------------- SDK + lobby ---------------- */
+  function loadSdk(){
+    if(typeof Multiplayer !== 'undefined') return Promise.resolve();
+    if(sdkP) return sdkP;
+    var urls = [NETCFG.url+'/sdk.js', NETCFG.url+'/client/multiplayer.js'], fails = [];
+    function tryOne(i){
+      return new Promise(function(res, rej){
+        var s = document.createElement('script'); s.src = urls[i] + '?t=' + Date.now(); s.async = true;
+        s.onload = function(){ typeof Multiplayer !== 'undefined' ? res() : rej(new Error('loaded but defined no Multiplayer')); };
+        s.onerror = function(){ s.remove(); rej(new Error('could not fetch ' + urls[i])); };
+        document.head.appendChild(s);
+      }).catch(function(e){ fails.push(e.message); if(i+1 < urls.length) return tryOne(i+1); throw new Error(fails.join('; ')); });
+    }
+    sdkP = tryOne(0).catch(function(e){ sdkP = null; throw e; });
+    return sdkP;
+  }
+  function open(){
+    el('title').classList.add('hide'); el('onlineScr').classList.remove('hide'); view('');
+    try{ if(!el('olName').value) el('olName').value = localStorage.getItem('az_name') || ('Racer' + ((Math.random()*900+100)|0)); }catch(e){}
+    status('Loading multiplayer…');
+    loadSdk().then(connectNow).catch(function(e){ status('The multiplayer SDK could not be loaded (' + errText(e) + '). The server may be asleep — wait a few seconds, press Back, then Play online again.'); });
+  }
+  function connectNow(){
+    if(!mp){ mp = new Multiplayer({ url:NETCFG.url, key:NETCFG.key, name:myName(), identity:'tab' }); wire(); }
+    if(mp.connected){ refresh(); return; }
+    status('Connecting…');
+    mp.connect().then(refresh).catch(function(e){ status('Could not connect: ' + errText(e)); view(''); });
+  }
+  function opts(){ return { maxPlayers:NETCFG.max, meta:{ game:NETCFG.game } }; }
+  function guard(p){ view(''); status('Working…'); return p.catch(function(e){ status(errText(e)); view('entry'); }).then(refresh); }
+  function ready(){ if(!mp || !mp.connected) return false; mp.setName(myName()).catch(function(){}); return true; }
+  function quick(){ if(ready()) guard(mp.quickJoin(NETCFG.game, opts())); }
+  function create(){ if(ready()) guard(mp.create(opts())); }
+  function joinCode(){ var c = String(el('olCode').value||'').trim().toUpperCase(); if(!c || !ready()) return; guard(mp.join(c, Object.assign(opts(), { mustExist:true }))); }
+  function players(){ return mp.playerList.filter(function(p){ return p.connected; }).sort(function(a,b){ return a.joined - b.joined; }); }
+  function refresh(){
+    if(!mp || !lobbyOpen()) return;
+    if(!mp.connected){ view(''); return; }
+    if(!mp.room){ view('entry'); status('Connected. Quick play, or create / join a private room.'); return; }
+    view('room'); el('olRoomCode').textContent = mp.room.id;
+    var box = el('olPlayers'); box.innerHTML = '';
+    var ps = players();
+    ps.forEach(function(p, i){
+      var d = document.createElement('div'); d.className = 'olp';
+      var dot = document.createElement('i'); dot.style.background = (RACER_STYLE[i] && RACER_STYLE[i].dot) || '#fff';
+      var n = document.createElement('span'); n.textContent = cleanName(p.name) + (p.id===mp.playerId ? ' (you)' : '');
+      var h = document.createElement('small'); h.textContent = p.id===mp.room.host ? 'HOST' : '';
+      d.appendChild(dot); d.appendChild(n); d.appendChild(h); box.appendChild(d);
+    });
+    el('olStart').classList.toggle('hide', !mp.isHost); el('olStart').disabled = ps.length < 2;
+    status(ps.length + ' / ' + NETCFG.max + ' racers');
+    el('olHint').textContent = mp.isHost ? (ps.length < 2 ? 'Share the room code — you need at least 2 racers.' : 'Press START RACE when everyone is in.') : 'Waiting for the host to start…';
+  }
+  function wire(){
+    if(wired) return; wired = true;
+    mp.on('joined', refresh);
+    ['playerJoined','roomUpdated','host','playerConnection','connected','reconnected'].forEach(function(e){ mp.on(e, refresh); });
+    mp.on('playerLeft', function(p){ if(active) dropRemote(p && p.id, p && p.name); refresh(); });
+    mp.on('disconnected', function(){ if(lobbyOpen()){ status('Disconnected from server.'); view(''); } else if(active) FX.toast('CONNECTION LOST — RECONNECTING'); });
+    mp.on('reconnecting', function(){ if(lobbyOpen()) status('Reconnecting…'); });
+    mp.on('error', function(e){ if(e && e.code !== 'rate_limited') FX.toast('NETWORK: ' + String(errText(e)).slice(0,40).toUpperCase()); });
+    mp.on('left', function(){ if(leaving) return; if(active){ FX.toast('YOU WERE REMOVED FROM THE ROOM'); exitToTitle(); } else refresh(); });
+    mp.on('state:race', onRace);
+    mp.onMessage('st', onState);
+    mp.onMessage('bye', function(d, from){ if(active) dropRemote(from); });
+  }
+
+  /* ---------------- starting a race ---------------- */
+  function start(){
+    if(!mp || !mp.isHost) return;
+    var ps = players(); if(ps.length < 2) return;
+    var order = ps.slice(0, NETCFG.max).map(function(p){ return p.id; });
+    el('olStart').disabled = true;
+    mp.updateRoom({ locked:true }).catch(function(){}).then(function(){
+      return mp.setState('race', { id:Date.now()+'-'+((Math.random()*1e6)|0), order:order, startAt:Math.round(mp.serverTime()) + 4500 });
+    }).catch(function(e){ FX.toast('COULD NOT START: ' + String(errText(e)).slice(0,40).toUpperCase()); refresh(); });
+  }
+  function hideRacer(r, on){ r.group.visible = !on; if(r.trail && r.trail.mesh) r.trail.mesh.visible = !on; }
+  function onRace(m){
+    if(!m || m.id === curRace || !Array.isArray(m.order) || !num(m.startAt) || !mp.room) return;
+    var ids = m.order.filter(function(id, i){ return typeof id==='string' && mp.players.get(id) && m.order.indexOf(id)===i; }).slice(0, NETCFG.max);
+    var me = ids.indexOf(mp.playerId); if(me < 0) return;
+    curRace = m.id; Audio2.init(); Audio2.resume();
+    restoreAll(true);
+    var others = ids.filter(function(id){ return id !== mp.playerId; });
+    NETSLOT = [me]; remotes = {};
+    var list = [ALL[0]];
+    ALL[0].name = myName();
+    others.forEach(function(id, j){
+      var r = ALL[j+1], pl = mp.players.get(id);
+      r.isRemote = true; r.netId = id; r.name = cleanName(pl && pl.name); r.finished = false; r.thr = 0;
+      remotes[id] = { r:r, s:null, seen:performance.now() };
+      NETSLOT.push(ids.indexOf(id)); list.push(r);
+    });
+    ALL.forEach(function(r, i){ hideRacer(r, i >= list.length); });
+    Race.racers = list;
+    var dots = el('posDots').children; for(var i=0;i<dots.length;i++) dots[i].style.display = i < list.length ? '' : 'none';
+    active = true; sendT = 0; tabSig = '';
+    el('onlineScr').classList.add('hide');
+    resetRace();
+    Race.lastPlace = list.length;
+    Race.cdT = 0.9 + Math.max(0, (m.startAt - mp.serverTime())/1000);
+    el('againBtn').textContent = 'BACK TO LOBBY';
+  }
+  function restoreAll(keepActive){
+    Race.racers = ALL.slice();
+    ALL.forEach(function(r, i){ r.isRemote = false; r.netId = null; r.name = NAMES[i]; hideRacer(r, false); });
+    var dots = el('posDots').children; for(var i=0;i<dots.length;i++) dots[i].style.display = '';
+    NETSLOT = null; remotes = {};
+    el('againBtn').textContent = 'RACE AGAIN';
+    if(!keepActive) active = false;
+  }
+  function dropRemote(id, name){
+    var R = remotes[id]; if(!R) return;
+    var r = R.r; r.isRemote = false; hideRacer(r, true); delete remotes[id];
+    Race.racers = Race.racers.filter(function(x){ return x !== r; });
+    var dots = el('posDots').children; for(var i=0;i<dots.length;i++) dots[i].style.display = i < Race.racers.length ? '' : 'none';
+    FX.toast(cleanName(name || r.name).toUpperCase() + ' LEFT');
+    updateStandings();
+  }
+  function parkOnGrid(){
+    Race.racers.forEach(function(r, i){ var g = gridSlotFor(i); r.placeAt(10 + g.di, g.lat, 0); });
+    camState.init = false;
+  }
+  /** back to the title screen (offline state) */
+  function exitToTitle(){
+    leaving = true; var p = mp && mp.room ? mp.leave() : null;
+    Promise.resolve(p).catch(function(){}).then(function(){ leaving = false; });
+    endRaceView(); restoreAll(); parkOnGrid(); updateStandings();
+    el('onlineScr').classList.add('hide'); el('title').classList.remove('hide');
+  }
+  function endRaceView(){
+    Race.state = 'title'; el('hud').classList.remove('on'); el('results').classList.add('hide'); Audio2.stopMusic();
+  }
+  /** after a race (or ESC): everyone returns to the room lobby */
+  function again(){
+    if(!active) return;
+    if(mp && mp.connected) mp.send('bye', {});
+    endRaceView(); restoreAll(); parkOnGrid(); updateStandings();
+    if(mp && mp.isHost) mp.updateRoom({ locked:false }).catch(function(){});
+    el('onlineScr').classList.remove('hide'); refresh();
+  }
+  function back(){
+    if(mp && mp.room){ leaving = true; Promise.resolve(mp.leave()).catch(function(){}).then(function(){ leaving = false; }); }
+    el('onlineScr').classList.add('hide'); el('title').classList.remove('hide');
+  }
+
+  /* ---------------- per-frame traffic ---------------- */
+  function onState(d, from){
+    var R = remotes[from]; if(!active || !R || !d || typeof d !== 'object') return;
+    var f = ['t','x','z','yaw','vx','vz','th','br','sr','bt','bp','sk','lp','pg','ft'];
+    for(var i=0;i<f.length;i++) if(!num(d[f[i]])) return;
+    var prev = R.s;
+    if(prev && d.t <= prev.t) return;
+    R.s = { t:d.t, x:clamp(d.x,-1e5,1e5), z:clamp(d.z,-1e5,1e5), yaw:d.yaw, vx:clamp(d.vx,-120,120), vz:clamp(d.vz,-120,120),
+      th:clamp(d.th,0,1), br:clamp(d.br,0,1), sr:clamp(d.sr,-1,1), dh:d.dh?1:0, bt:clamp(d.bt,0,10), bp:clamp(d.bp,1,3), sk:clamp(d.sk|0,0,3),
+      lp:clamp(d.lp|0,1,CFG.LAPS+1), pg:d.pg, fn:d.fn?1:0, ft:d.ft };
+    R.seen = performance.now();
+    if(!prev){ R.r.pos.x = R.s.x; R.r.pos.z = R.s.z; R.r.yaw = R.s.yaw; R.r.vel.x = R.s.vx; R.r.vel.z = R.s.vz; }
+  }
+  function driveRemote(r){
+    var R = remotes[r.netId]; if(!R || !R.s){ r.throttle = 0; r.brake = 0; r.driftHeld = false; return; }
+    var stale = performance.now() - R.seen > 2500;
+    var s = R.s; r.throttle = stale ? 0 : s.th; r.brake = stale ? 0 : s.br; r.steer = stale ? 0 : s.sr; r.driftHeld = !stale && !!s.dh;
+  }
+  function afterSim(dt){
+    if(!mp || !mp.connected) return;
+    var now = mp.serverTime();
+    /* pull every other boat back onto where its owner really is */
+    for(var id in remotes){
+      var R = remotes[id], r = R.r, s = R.s; if(!s) continue;
+      var age = clamp((now - s.t)/1000, 0, 0.5);
+      var tx = s.x + s.vx*age, tz = s.z + s.vz*age, dx = tx - r.pos.x, dz = tz - r.pos.z;
+      if(dx*dx + dz*dz > 900){ r.pos.x = tx; r.pos.z = tz; r.vel.x = s.vx; r.vel.z = s.vz; r.yaw = s.yaw; }
+      else {
+        var k = 1 - Math.exp(-9*dt);
+        r.pos.x += dx*k; r.pos.z += dz*k;
+        r.vel.x += (s.vx - r.vel.x)*k; r.vel.z += (s.vz - r.vel.z)*k;
+        r.yaw += wrapPi(s.yaw - r.yaw)*k;
+      }
+      r.boostT = s.bt; r.boostPow = s.bp; r.stocks = s.sk;
+      r.lap = s.lp; r.progress = s.pg + Math.hypot(s.vx, s.vz)*age;
+      if(s.fn && !r.finished){ r.finished = true; r.finishTime = s.ft; }
+    }
+    /* tell everyone where I am */
+    sendT += dt;
+    if(sendT >= 0.05){
+      sendT = 0; var p = Race.player, r3 = function(v){ return Math.round(v*1000)/1000; };
+      mp.send('st', { t:Math.round(now), x:r3(p.pos.x), z:r3(p.pos.z), yaw:r3(p.yaw), vx:r3(p.vel.x), vz:r3(p.vel.z),
+        th:p.throttle, br:p.brake, sr:r3(p.steer), dh:p.driftHeld?1:0, bt:r3(p.boostT), bp:r3(p.boostPow), sk:p.stocks,
+        lp:p.lap, pg:r3(p.progress), fn:p.finished?1:0, ft:r3(p.finishTime||0) });
+    }
+    /* keep the results table current while others are still racing */
+    if(Race.state === 'done'){
+      tabT += dt;
+      if(tabT > 0.4){
+        tabT = 0;
+        var sig = Race.order.map(function(r){ return r.name + (r.finished?'1':'0'); }).join(',');
+        if(sig !== tabSig){ tabSig = sig; renderResTable(true); }
+      }
+    }
+  }
+  return {
+    open:open, back:back, quick:quick, create:create, joinCode:joinCode, start:start, again:again, exitToTitle:exitToTitle,
+    driveRemote:driveRemote, afterSim:afterSim, get active(){ return active; }
+  };
+})();
+$('onlineBtn').addEventListener('click', function(){ NET.open(); });
+$('olQuick').addEventListener('click', function(){ NET.quick(); });
+$('olCreate').addEventListener('click', function(){ NET.create(); });
+$('olJoin').addEventListener('click', function(){ NET.joinCode(); });
+$('olStart').addEventListener('click', function(){ NET.start(); });
+$('olLeave').addEventListener('click', function(){ NET.exitToTitle(); });
+$('olBack').addEventListener('click', function(){ NET.back(); });
+$('olCode').addEventListener('keydown', function(e){ if(e.key === 'Enter') NET.joinCode(); });
 
 frame();
 
