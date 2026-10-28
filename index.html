@@ -738,12 +738,13 @@
     "spike-arena.html": { online: true, local: true },
     "matchday.html":    { local: true },
     "poke-clash.html":  { local: true },
-    "https://lucal2889l-coder.github.io/mow-town/": { unknown: true }
+    "https://lucal2889l-coder.github.io/mow-town/": { single: true, online: true }
   };
   function mpBadges(game){
     const m = MULTIPLAYER[game.file] || {};
     if (m.unknown) return "";
     const b = [];
+    if (m.single) b.push('<span class="mp-badge none">\ud83d\udc64 Single player</span>');
     if (m.online) b.push('<span class="mp-badge online">\ud83c\udf10 Online multiplayer</span>');
     if (m.local)  b.push('<span class="mp-badge local">\ud83c\udfae Local multiplayer</span>');
     if (!b.length) b.push('<span class="mp-badge none">\ud83d\udc64 Single player</span>');
