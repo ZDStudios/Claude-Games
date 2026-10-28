@@ -379,6 +379,10 @@
     opacity:0.75;
   }
   footer a{ color:var(--ink); }
+  footer .ai-note{
+    max-width:640px; margin:0 auto 18px; font-weight:600; line-height:1.6; font-size:0.82rem;
+  }
+  footer .ai-note strong{ display:block; font-weight:900; letter-spacing:0.06em; text-transform:uppercase; font-size:0.72rem; margin-bottom:4px; }
 
   @media (max-width: 520px){
     .wrap{ padding: 38px 16px 60px; }
@@ -496,21 +500,11 @@
       <p>Scanning the arcade for games…</p>
     </div>
 
-    <div class="section-head" id="mainHead" hidden>
-      <h2>ZD Studios Games</h2>
-    </div>
     <div class="grid" id="grid" hidden></div>
-
-    <section id="piggotSection" hidden>
-      <div class="section-head">
-        <h2>Piggot&#8217;s Games</h2>
-        <span class="sub">&#9733; Made by our friend Piggot</span>
-      </div>
-      <div class="grid" id="piggotGrid"></div>
-    </section>
   </main>
 
   <footer>
+    <p class="ai-note"><strong>How these games are made.</strong> Every game in this library was built with heavy use of AI. Each one also represents a great deal of human effort &mdash; the ideas, design direction, testing and constant iteration &mdash; and AI is what carried that work through to a finished, playable game.</p>
     <p>Built by <a href="https://github.com/ZDStudios" target="_blank" rel="noopener">ZDStudios</a> · <a href="https://github.com/ZDStudios/Claude-Games" target="_blank" rel="noopener">View source on GitHub</a></p>
   </footer>
 
@@ -522,6 +516,7 @@
   const REPO = "Claude-Games";
   const BRANCH = "main";
   const SELF_FILES = new Set(["index.html"]); // never list itself
+  const EXTERNAL_GAMES = ["https://lucal2889l-coder.github.io/Mow-Town/"];   // hosted elsewhere; the card links straight to them
 
   // Known metadata for games — extend this as you add more games to the repo.
   // Anything found in the repo that ISN'T listed here gets sane auto-generated info instead.
@@ -656,13 +651,12 @@
       title: "John Pork: Escape", tagline: "John Pork Is Calling",
       desc: "You wake up in John Pork's house. Find the keys, dodge him, hide, set traps and get out the front door \u2014 before you run out of chances.",
       emoji: "\ud83d\udc37", genre: "3D / Horror",
-      tagBg: "#B91C1C", artBg: "linear-gradient(135deg,#FCA5A5,#7F1D1D)",
-      author: "Piggot"
+      tagBg: "#B91C1C", artBg: "linear-gradient(135deg,#FCA5A5,#7F1D1D)"
     },
-    "mow-rush.html": {
-      title: "Mow Rush", tagline: "Just One More Lawn",
-      desc: "Drive a red mower across ever-trickier lawns, cut every blade of grass to hit 100%, and chase the clock \u2014 just one more lawn.",
-      emoji: "\ud83c\udf31", genre: "3D / Arcade",
+    "https://lucal2889l-coder.github.io/mow-town/": {
+      title: "Mow Town", tagline: "Mow the Whole Town",
+      desc: "A lawn-mowing game made by Piggot. It lives on its own page, so it opens in a new tab.",
+      emoji: "\ud83c\udf31", genre: "Arcade",
       tagBg: "#65A30D", artBg: "linear-gradient(135deg,#D9F99D,#4D7C0F)",
       author: "Piggot"
     },
@@ -696,7 +690,7 @@
   const FEATURED = ["everything.html","skyrim.html","cs2.html","bricks-of-the-dark-knight.html",
                     "neon-rush.html","matchday.html","abyss-ocean-simulator.html",
                     "haul-hard.html","reefkeeper.html","azure-rush.html",
-                    "hyperkick.html","scrapyard-siege.html","john-pork-escape.html","mow-rush.html","poke-clash.html","spike-arena.html","skyhook-run.html","spaceship-fly.html","stickman-hook.html","terraria.html","minecraft.html"];
+                    "hyperkick.html","scrapyard-siege.html","john-pork-escape.html","https://lucal2889l-coder.github.io/mow-town/","poke-clash.html","spike-arena.html","skyhook-run.html","spaceship-fly.html","stickman-hook.html","terraria.html","minecraft.html"];
 
   const FALLBACK_PALETTE = [
     { tagBg:"#3B82F6", artBg:"linear-gradient(135deg,#93C5FD,#3B82F6)" },
@@ -743,10 +737,12 @@
     "azure-rush.html":  { online: true },
     "spike-arena.html": { online: true, local: true },
     "matchday.html":    { local: true },
-    "poke-clash.html":  { local: true }
+    "poke-clash.html":  { local: true },
+    "https://lucal2889l-coder.github.io/mow-town/": { unknown: true }
   };
   function mpBadges(game){
     const m = MULTIPLAYER[game.file] || {};
+    if (m.unknown) return "";
     const b = [];
     if (m.online) b.push('<span class="mp-badge online">\ud83c\udf10 Online multiplayer</span>');
     if (m.local)  b.push('<span class="mp-badge local">\ud83c\udfae Local multiplayer</span>');
@@ -784,16 +780,10 @@
       if (!q) return true;
       return (g.title + " " + g.genre + " " + g.tagline + " " + g.desc + " " + (g.author || "")).toLowerCase().includes(q);
     });
-    // Friends' games live in their own section; everything else is the main library.
-    const mine   = shown.filter(g => !g.author);
-    const piggot = shown.filter(g => g.author === "Piggot");
-    grid.innerHTML = mine.length
-      ? mine.map(cardHtml).join("")
-      : (shown.length ? "" : `<div class="empty-card">Nothing matches that \u2014 try a different search. \ud83d\udd0d</div>`);
+    grid.innerHTML = shown.length
+      ? shown.map(cardHtml).join("")
+      : `<div class="empty-card">Nothing matches that \u2014 try a different search. \ud83d\udd0d</div>`;
     grid.hidden = !grid.innerHTML;
-    document.getElementById("piggotSection").hidden = !piggot.length;
-    document.getElementById("piggotGrid").innerHTML = piggot.map(cardHtml).join("");
-    document.getElementById("mainHead").hidden = !(mine.length && piggot.length);
   }
 
   function buildChips(){
@@ -866,6 +856,8 @@
       console.warn("Repo listing unavailable, using the built-in library.", err);
     }
     if (!names || !names.length) names = Object.keys(GAME_INFO);
+    // Games hosted on their own pages are listed alongside the ones in this repo.
+    names = names.filter(n => !EXTERNAL_GAMES.some(u => u.toLowerCase() === n.toLowerCase())).concat(EXTERNAL_GAMES);   // keep the URL's exact capitalisation
     renderGrid(orderGames(names).map(toGame));
   }
 
