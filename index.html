@@ -389,55 +389,20 @@
     h1.title{ -webkit-text-stroke: 2px var(--ink); text-shadow: 4px 4px 0 var(--ink); }
   }
 
-  /* ===== HALLOWEEN THEME (delete this block to go back to the normal look) ===== */
-  :root{
-    --bg-1:#2A0A45; --bg-2:#120420;
-    --ink:#0E0618; --panel:#FFF1DC; --panel-edge:#0E0618;
-    --accent-pink:#FF7A00; --accent-teal:#7CFF4F; --accent-blue:#B14CFF; --accent-purple:#8B2FD9;
-    --shadow-hard: 6px 6px 0 #FF7A00;
-    --shadow-hard-sm: 3px 3px 0 #FF7A00;
-  }
-  body{
-    background:
-      radial-gradient(circle at 50% -10%, rgba(255,122,0,0.35), transparent 45%),
-      radial-gradient(circle at 85% 90%, rgba(124,255,79,0.12), transparent 40%),
-      linear-gradient(180deg, var(--bg-1), var(--bg-2));
-    background-attachment:fixed;
-  }
-  .shape{display:none;}
-  .spook{position:fixed; z-index:0; pointer-events:none; font-size:44px; opacity:.22; animation:floatY 8s ease-in-out infinite; filter:drop-shadow(0 0 10px #FF7A00);}
-  .spook.a{top:10%; left:5%;} .spook.b{top:18%; right:6%; animation-delay:-2s; font-size:56px;}
-  .spook.c{top:60%; left:3%; animation-delay:-4s; font-size:52px;} .spook.d{top:72%; right:5%; animation-delay:-1s;}
-  .spook.e{top:40%; left:92%; animation-delay:-5s; font-size:36px;}
-  .web{position:fixed; top:0; z-index:0; pointer-events:none; font-size:120px; line-height:1; opacity:.25; color:#fff;}
-  .web.l{left:0;} .web.r{right:0; transform:scaleX(-1);}
-  h1.title{color:#FF8A1F !important; -webkit-text-stroke:2px var(--ink); text-shadow:4px 4px 0 #6B1FB1, 0 0 30px rgba(255,122,0,.55);}
-  .badge{background:#7CFF4F !important; color:var(--ink) !important;}
-  .section-head h2{color:#FF8A1F; -webkit-text-stroke:0; text-shadow:3px 3px 0 #6B1FB1, 0 0 22px rgba(255,122,0,.5);}
-  .device-note, .subtitle{background:var(--panel);}
-  .stat-pill{background:#6B1FB1; border-color:var(--ink);}
-  .card{box-shadow:6px 6px 0 #FF7A00;}
-  .card:hover{box-shadow:9px 9px 0 #7CFF4F; }
-  .play-btn{background:#FF7A00 !important; color:var(--ink) !important; box-shadow:3px 3px 0 #6B1FB1 !important;}
-  footer, footer a, footer p{color:#FFD9A8 !important;}
-  .candle{display:inline-block; animation:flick 1.4s ease-in-out infinite;}
-  @keyframes flick{0%,100%{opacity:1; transform:scale(1)} 50%{opacity:.75; transform:scale(1.15)}}
-  @media (prefers-reduced-motion: reduce){ .spook,.candle{animation:none !important;} }
-
   /* ===== GAME IDEA BOX ===== */
   .idea-fab{position:fixed; right:18px; bottom:18px; z-index:50; cursor:pointer; font-family:var(--font-display); font-size:1rem; letter-spacing:.02em;
-    background:#7CFF4F; color:var(--ink); border:3px solid var(--ink); border-radius:999px; padding:12px 18px; box-shadow:4px 4px 0 #6B1FB1;}
-  .idea-fab:hover{transform:translate(-1px,-1px); box-shadow:6px 6px 0 #6B1FB1;}
+    background:#7CFF4F; color:var(--ink); border:3px solid var(--ink); border-radius:999px; padding:12px 18px; box-shadow:4px 4px 0 var(--ink);}
+  .idea-fab:hover{transform:translate(-1px,-1px); box-shadow:6px 6px 0 var(--ink);}
   .idea-modal{position:fixed; inset:0; z-index:100; display:none; align-items:center; justify-content:center; padding:16px; background:rgba(8,2,16,.78);}
   .idea-modal.open{display:flex;}
-  .idea-box{width:100%; max-width:480px; background:var(--panel); color:var(--ink); border:4px solid var(--ink); border-radius:22px; box-shadow:8px 8px 0 #FF7A00; padding:22px; max-height:92vh; overflow:auto;}
+  .idea-box{width:100%; max-width:480px; background:var(--panel); color:var(--ink); border:4px solid var(--ink); border-radius:22px; box-shadow:8px 8px 0 var(--accent-pink); padding:22px; max-height:92vh; overflow:auto;}
   .idea-box h3{font-family:var(--font-display); font-size:1.5rem; font-weight:400; margin-bottom:6px;}
   .idea-box p{font-weight:700; font-size:.9rem; margin-bottom:12px;}
   .idea-box input,.idea-box textarea{width:100%; font:inherit; font-weight:700; padding:10px 12px; margin-bottom:10px; background:#fff; color:var(--ink); border:3px solid var(--ink); border-radius:12px;}
   .idea-box textarea{min-height:130px; resize:vertical;}
   .idea-row{display:flex; gap:10px; justify-content:flex-end; align-items:center; flex-wrap:wrap;}
   .idea-row button{cursor:pointer; font:inherit; font-weight:900; padding:10px 18px; border:3px solid var(--ink); border-radius:12px; background:#fff; color:var(--ink);}
-  .idea-row button.go{background:#FF7A00; box-shadow:3px 3px 0 #6B1FB1;}
+  .idea-row button.go{background:var(--accent-pink); box-shadow:3px 3px 0 var(--ink);}
   .idea-row button:disabled{opacity:.5; cursor:default;}
   .idea-msg{flex:1; font-weight:800; font-size:.85rem; min-width:120px;}
   .idea-msg.ok{color:#0E8F3E;} .idea-msg.err{color:#C0182B;}
@@ -447,8 +412,6 @@
 </head>
 <body>
 
-<div class="spook a">🎃</div><div class="spook b">👻</div><div class="spook c">🦇</div><div class="spook d">🎃</div><div class="spook e">🕷️</div>
-<div class="web l">🕸️</div><div class="web r">🕸️</div>
 <div class="shape s1"></div>
 <div class="shape s2 circle"></div>
 <div class="shape s3"></div>
@@ -460,7 +423,7 @@
   <form class="idea-box" id="ideaForm" autocomplete="off">
     <h3 id="ideaTitle">💡 Got a game idea?</h3>
     <p>Tell us what game you&#8217;d love to see in the arcade and hit send!</p>
-    <input id="ideaTopic" maxlength="80" placeholder="Game idea title (e.g. Pumpkin Racer)" required>
+    <input id="ideaTopic" maxlength="80" placeholder="Game idea title (e.g. Space Racer)" required>
     <textarea id="ideaText" maxlength="1000" placeholder="Describe your game idea&#8230; (and your name if you want credit)" required></textarea>
     <div class="idea-count"><span id="ideaN">0</span> / 1000</div>
     <input class="hp" id="ideaHp" tabindex="-1" aria-hidden="true" placeholder="Leave empty">
@@ -475,9 +438,9 @@
 <div class="wrap">
 
   <header class="hero">
-    <span class="badge">🎃 No installs · No accounts · Just play 🎃</span>
-    <h1 class="title">ZD STUDIOS<br>HALLOWEEN ARCADE</h1>
-    <p class="subtitle">A haunted arcade of browser games — play if you dare. 🦇</p>
+    <span class="badge">★ No installs · No accounts · Just play ★</span>
+    <h1 class="title">ZD STUDIOS<br>GAME LIBRARY</h1>
+    <p class="subtitle">A growing arcade of browser games — built scrappy, played instantly.</p>
     <div class="stat-row" id="statRow" hidden>
       <div class="stat-pill">🎮 <strong id="gameCount">0</strong> games live</div>
       <div class="stat-pill">⚡ 100% browser-based</div>
