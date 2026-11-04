@@ -1,0 +1,1565 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Chase Lane</title>
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#07071a">
+<style>
+  :root { --bg:#07071a; --panel:rgba(12,12,38,.88); --line:#2c2c66; --pink:#ff2d95; --cyan:#00e5ff; --gold:#ffd400; --text:#eef0ff; --dim:#8d90c0; }
+  * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html,body { margin:0; height:100%; background:var(--bg); color:var(--text); overflow:hidden; overscroll-behavior:none;
+    font-family:"Segoe UI","Trebuchet MS",system-ui,-apple-system,sans-serif; }
+  canvas#game { position:fixed; inset:0; width:100%; height:100%; display:block; touch-action:none; }
+  button,input { font:inherit; color:inherit; }
+  .hidden { display:none !important; }
+
+  /* ---- overlays (menu, lobby, results) ---- */
+  .overlay { position:fixed; inset:0; display:flex; align-items:center; justify-content:center; padding:16px; overflow:auto; z-index:20; }
+  .overlay.dim { background:rgba(5,5,20,.62); }
+  .panel { width:min(460px,100%); max-height:100%; overflow:auto; background:var(--panel); border:1px solid var(--line); border-radius:14px;
+    padding:22px; box-shadow:0 0 40px rgba(0,229,255,.14), 0 0 90px rgba(255,45,149,.1); }
+  h1.logo { margin:0; font-size:clamp(38px,9vw,56px); font-weight:900; font-style:italic; letter-spacing:.02em; line-height:1; text-align:center;
+    color:#fff; text-shadow:0 0 10px var(--pink),0 0 28px var(--pink),3px 3px 0 var(--cyan); }
+  .tag { text-align:center; color:var(--dim); margin:10px 0 18px; font-size:14px; }
+  label.small { display:block; font-size:11px; letter-spacing:.14em; text-transform:uppercase; color:var(--dim); margin:0 0 5px; }
+  input[type=text] { width:100%; padding:11px 12px; background:#0b0b26; border:1px solid var(--line); border-radius:8px; outline:none; font-size:16px; }
+  input[type=text]:focus { border-color:var(--cyan); box-shadow:0 0 0 2px rgba(0,229,255,.2); }
+  .btn { display:block; width:100%; padding:12px 14px; border:1px solid var(--line); border-radius:8px; background:#17173f; cursor:pointer;
+    font-weight:800; letter-spacing:.06em; text-transform:uppercase; font-size:14px; transition:transform .08s,box-shadow .15s,background .15s; }
+  .btn:hover:not(:disabled) { background:#22225a; }
+  .btn:active:not(:disabled) { transform:scale(.98); }
+  .btn:disabled { opacity:.42; cursor:not-allowed; }
+  .btn.go { background:linear-gradient(90deg,var(--pink),#ff7a2d); border-color:transparent; color:#fff; box-shadow:0 0 18px rgba(255,45,149,.45); }
+  .btn.go2 { background:linear-gradient(90deg,#0089ff,var(--cyan)); border-color:transparent; color:#04121c; box-shadow:0 0 18px rgba(0,229,255,.35); }
+  .row { display:flex; gap:8px; align-items:stretch; }
+  .row > .btn { width:auto; flex:0 0 auto; }
+  .stack > * + * { margin-top:10px; }
+  .status { text-align:center; font-size:13px; color:var(--dim); margin-top:12px; min-height:18px; }
+  .status.err { color:#ff8fa0; }
+  .status .retry { background:none; border:0; color:var(--cyan); text-decoration:underline; cursor:pointer; padding:0 0 0 6px; }
+  .help { font-size:12px; color:var(--dim); text-align:center; margin-top:14px; line-height:1.6; }
+  kbd { background:#1b1b47; border:1px solid var(--line); border-bottom-width:2px; border-radius:4px; padding:0 5px; font:inherit; font-size:11px; color:var(--text); }
+  .board { margin-top:14px; border-top:1px solid var(--line); padding-top:10px; font-size:13px; }
+  .board h3 { margin:0 0 6px; font-size:11px; letter-spacing:.14em; text-transform:uppercase; color:var(--dim); }
+  .board div { display:flex; justify-content:space-between; padding:1px 0; }
+  .board div span:first-child { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:80%; }
+
+  .codebox { display:flex; align-items:center; justify-content:space-between; gap:10px; padding:8px 12px; background:#0b0b26; border:1px dashed var(--cyan); border-radius:8px; margin-bottom:14px; }
+  .code { font:900 30px/1.1 Consolas,"Courier New",monospace; letter-spacing:.14em; color:var(--cyan); text-shadow:0 0 12px rgba(0,229,255,.6); }
+  .linkbtn { background:none; border:1px solid var(--line); border-radius:6px; padding:5px 9px; font-size:12px; cursor:pointer; color:var(--text); white-space:nowrap; }
+  ul.players { list-style:none; margin:0 0 14px; padding:0; }
+  ul.players li { display:flex; align-items:center; gap:9px; padding:7px 8px; border-radius:7px; background:rgba(255,255,255,.035); margin-bottom:4px; }
+  .chip { width:14px; height:14px; border-radius:4px; flex:0 0 auto; box-shadow:0 0 8px currentColor; background:currentColor; }
+  ul.players .nm { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-weight:600; }
+  .badge { font-size:10px; font-weight:800; letter-spacing:.08em; padding:2px 6px; border-radius:4px; background:#23235c; color:var(--cyan); }
+  .badge.host { background:var(--gold); color:#221a00; }
+  .badge.off { background:#4a1f35; color:#ff9db8; }
+  .swatches { display:flex; gap:7px; flex-wrap:wrap; margin-bottom:14px; }
+  .swatch { width:32px; height:32px; border-radius:8px; border:2px solid transparent; cursor:pointer; padding:0; }
+  .swatch.sel { border-color:#fff; box-shadow:0 0 12px currentColor; }
+  .swatch:disabled { opacity:.22; cursor:not-allowed; }
+
+  /* ---- results ---- */
+  .winline { text-align:center; font-size:clamp(24px,6vw,36px); font-weight:900; font-style:italic; margin:0 0 4px; overflow-wrap:anywhere; }
+  .subline { text-align:center; color:var(--dim); font-size:13px; margin-bottom:14px; }
+  table.scores { width:100%; border-collapse:collapse; margin-bottom:12px; }
+  table.scores td { padding:7px 6px; border-bottom:1px solid rgba(255,255,255,.07); }
+  table.scores td.nm { font-weight:700; max-width:190px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  table.scores td.n { text-align:right; font-weight:800; font-variant-numeric:tabular-nums; }
+  .pip { display:inline-block; width:10px; height:10px; border-radius:50%; margin-right:3px; background:#25254f; }
+  .pip.on { background:var(--gold); box-shadow:0 0 7px var(--gold); }
+
+  /* ---- HUD ---- */
+  #hud { position:fixed; inset:0; pointer-events:none; z-index:10; font-weight:800; }
+  .hudbox { position:absolute; background:rgba(8,8,30,.62); border:1px solid rgba(90,90,190,.35); border-radius:10px; padding:7px 12px; }
+  #hudLeft { left:calc(12px + env(safe-area-inset-left)); top:calc(12px + env(safe-area-inset-top)); }
+  #hudPos { font-size:32px; font-style:italic; line-height:1; color:#fff; }
+  #hudPos small { font-size:15px; color:var(--dim); font-style:normal; }
+  #hudRound { font-size:11px; letter-spacing:.14em; color:var(--dim); margin-top:3px; }
+  #hudGap { left:50%; top:calc(12px + env(safe-area-inset-top)); transform:translateX(-50%); text-align:center; min-width:140px; }
+  #hudGap b { display:block; font-size:28px; line-height:1.05; color:var(--gold); text-shadow:0 0 12px rgba(255,212,0,.6); font-variant-numeric:tabular-nums; }
+  #hudGap span { font-size:10px; letter-spacing:.16em; color:var(--dim); }
+  #hudBottom { left:calc(12px + env(safe-area-inset-left)); bottom:calc(12px + env(safe-area-inset-bottom)); width:220px; }
+  .meter { height:12px; border-radius:6px; background:#141438; overflow:hidden; margin-top:4px; }
+  #boostFill { height:100%; width:100%; background:linear-gradient(90deg,var(--pink),var(--cyan)); }
+  #boostFill.ready { box-shadow:0 0 12px var(--cyan); }
+  .hudlabel { display:flex; justify-content:space-between; font-size:10px; letter-spacing:.14em; color:var(--dim); }
+  #hudItem { color:var(--gold); }
+  #hudScores { right:calc(12px + env(safe-area-inset-right)); top:calc(196px + env(safe-area-inset-top)); font-size:12px; font-weight:700; width:176px; }
+  #hudScores div { display:flex; align-items:center; gap:6px; }
+  #hudScores .nm { flex:1; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; }
+  #count { position:fixed; left:50%; top:38%; transform:translate(-50%,-50%); font-size:clamp(70px,20vw,160px); font-weight:900; font-style:italic; color:#fff;
+    text-shadow:0 0 22px var(--cyan),0 0 60px var(--pink); pointer-events:none; z-index:12; }
+  #flash { position:fixed; left:50%; top:calc(92px + env(safe-area-inset-top)); transform:translateX(-50%); font-size:18px; font-weight:900; letter-spacing:.1em; color:#ff5a7a; text-shadow:0 0 10px #ff5a7a; pointer-events:none; z-index:12; white-space:nowrap; }
+
+  #banner { position:fixed; left:0; right:0; top:0; z-index:40; text-align:center; padding:7px; background:#b3213f; color:#fff; font-weight:800; font-size:13px; }
+  #toast { position:fixed; left:50%; bottom:22%; transform:translateX(-50%); z-index:41; background:rgba(10,10,34,.94); border:1px solid var(--cyan); padding:8px 14px; border-radius:8px;
+    font-size:13px; font-weight:600; pointer-events:none; max-width:90vw; text-align:center; }
+  #mute { position:fixed; right:calc(12px + env(safe-area-inset-right)); bottom:calc(12px + env(safe-area-inset-bottom)); z-index:30; width:38px; height:38px; border-radius:9px;
+    background:rgba(10,10,34,.7); border:1px solid var(--line); cursor:pointer; font-size:12px; font-weight:800; padding:0; }
+  #leaveRace { position:fixed; right:calc(58px + env(safe-area-inset-right)); bottom:calc(12px + env(safe-area-inset-bottom)); z-index:30; height:38px; border-radius:9px; padding:0 10px;
+    background:rgba(10,10,34,.7); border:1px solid var(--line); cursor:pointer; font-size:11px; font-weight:800; letter-spacing:.08em; }
+
+  /* ---- touch controls ---- */
+  #touch { position:fixed; inset:0; z-index:15; pointer-events:none; }
+  .tbtn { position:absolute; pointer-events:auto; touch-action:none; user-select:none; -webkit-user-select:none; border-radius:50%; background:rgba(0,229,255,.13); border:2px solid rgba(0,229,255,.5);
+    width:76px; height:76px; font-weight:900; font-size:12px; letter-spacing:.04em; color:#fff; display:flex; align-items:center; justify-content:center; }
+  .tbtn.on { background:rgba(0,229,255,.42); }
+  #tLeft  { left:calc(14px + env(safe-area-inset-left)); bottom:calc(68px + env(safe-area-inset-bottom)); font-size:28px; }
+  #tRight { left:calc(102px + env(safe-area-inset-left)); bottom:calc(68px + env(safe-area-inset-bottom)); font-size:28px; }
+  #tBoost { right:calc(14px + env(safe-area-inset-right)); bottom:calc(68px + env(safe-area-inset-bottom)); background:rgba(255,45,149,.2); border-color:var(--pink); }
+  #tItem  { right:calc(102px + env(safe-area-inset-right)); bottom:calc(68px + env(safe-area-inset-bottom)); background:rgba(255,212,0,.15); border-color:var(--gold); }
+  #tBrake { right:calc(14px + env(safe-area-inset-right)); bottom:calc(156px + env(safe-area-inset-bottom)); width:62px; height:62px; font-size:10px; }
+  body.touch #hudBottom { bottom:auto; left:calc(12px + env(safe-area-inset-left)); top:calc(86px + env(safe-area-inset-top)); width:150px; }
+  @media (max-width:700px) {
+    #hudScores { display:none; }
+    #hudPos { font-size:24px; }
+    #hudGap { min-width:0; padding:5px 9px; left:46%; }
+    #hudGap b { font-size:20px; }
+    #hudGap span { font-size:8px; }
+  }
+  @media (prefers-reduced-motion: reduce) { .btn { transition:none; } }
+</style>
+</head>
+<body>
+<canvas id="game"></canvas>
+
+<div id="hud" class="hidden">
+  <div id="hudLeft" class="hudbox"><div id="hudPos">-</div><div id="hudRound">ROUND 1 / 5</div></div>
+  <div id="hudGap" class="hudbox"><span>GETAWAY CAR</span><b id="hudDist">-</b></div>
+  <div id="hudBottom" class="hudbox">
+    <div class="hudlabel"><span>BOOST</span><span id="hudItem"></span></div>
+    <div class="meter"><div id="boostFill"></div></div>
+  </div>
+  <div id="hudScores" class="hudbox"></div>
+</div>
+<div id="count" class="hidden"></div>
+<div id="flash" class="hidden"></div>
+
+<div id="touch" class="hidden">
+  <div class="tbtn" id="tLeft" data-k="left">&#9664;</div>
+  <div class="tbtn" id="tRight" data-k="right">&#9654;</div>
+  <div class="tbtn" id="tItem" data-k="item">OIL</div>
+  <div class="tbtn" id="tBoost" data-k="boost">BOOST</div>
+  <div class="tbtn" id="tBrake" data-k="brake">BRAKE</div>
+</div>
+
+<!-- Main menu -->
+<div id="menu" class="overlay">
+  <div class="panel">
+    <h1 class="logo">CHASE LANE</h1>
+    <p class="tag">No finish line. Just a getaway car. Catch it first.</p>
+    <div class="stack">
+      <div><label class="small" for="nameInput">Your name</label>
+        <input type="text" id="nameInput" maxlength="16" placeholder="Racer" autocomplete="off" spellcheck="false"></div>
+      <button class="btn go" id="btnQuick" disabled>Quick play</button>
+      <button class="btn go2" id="btnCreate" disabled>Create room</button>
+      <div class="row">
+        <input type="text" id="codeInput" maxlength="6" placeholder="ROOM CODE" autocomplete="off" autocapitalize="characters" spellcheck="false" aria-label="Room code">
+        <button class="btn" id="btnJoin" disabled>Join</button>
+      </div>
+    </div>
+    <div class="status" id="netStatus">Connecting...</div>
+    <div class="help"><kbd>WASD</kbd>/<kbd>Arrows</kbd> drive &nbsp; <kbd>Space</kbd> boost &nbsp; <kbd>E</kbd> drop oil &nbsp; <kbd>M</kbd> mute</div>
+    <div class="board hidden" id="boardBox"><h3>Most round wins</h3><div id="boardList" style="display:block"></div></div>
+  </div>
+</div>
+
+<!-- Room lobby -->
+<div id="lobby" class="overlay dim hidden">
+  <div class="panel">
+    <div class="codebox">
+      <div><label class="small" style="margin:0">Room code</label><div class="code" id="roomCode">------</div></div>
+      <button class="linkbtn" id="btnCopy">Copy invite link</button>
+    </div>
+    <label class="small">Racers <span id="playerCount"></span></label>
+    <ul class="players" id="playerList"></ul>
+    <label class="small">Your car colour</label>
+    <div class="swatches" id="swatches"></div>
+    <div class="stack">
+      <button class="btn go" id="btnStart">Start race</button>
+      <div class="status" id="lobbyHint" style="margin-top:0"></div>
+      <button class="btn" id="btnLeave">Leave room</button>
+    </div>
+  </div>
+</div>
+
+<!-- Between rounds -->
+<div id="results" class="overlay dim hidden">
+  <div class="panel">
+    <div class="winline" id="resTitle"></div>
+    <div class="subline" id="resSub"></div>
+    <table class="scores"><tbody id="resTable"></tbody></table>
+    <div class="status" id="resNext" style="margin-top:0"></div>
+    <div class="stack"><button class="btn go hidden" id="btnAgain">Back to lobby</button></div>
+  </div>
+</div>
+
+<div id="banner" class="hidden"></div>
+<div id="toast" class="hidden"></div>
+<button id="leaveRace" class="hidden" title="Leave the room">LEAVE</button>
+<button id="mute" title="Mute (M)">SND</button>
+
+<script>
+'use strict';
+/* =====================================================================
+   CHASE LANE
+   Sync architecture (MULTIPLAYER.md section 4): hybrid.
+     - Movement is client-authoritative: each player owns their car and
+       streams it with mp.setPlayer(..., {unreliable:true}).
+     - Everything else is host-authoritative via room.state. The room is
+       created with stateWrite:'host', the host runs the getaway car,
+       pickups, oil slicks and the catch check.
+     - The host keeps NO authoritative data in local variables. Every host
+       tick is computed from room.state alone, so when the host leaves the
+       next host simply carries on (see Host below).
+   ===================================================================== */
+
+/* =====================================================================
+   SECTION: CONFIG
+   ===================================================================== */
+const CONFIG = {
+  SERVER_URL: 'https://mp.zdstudios.network',
+  GAME_KEY: 'pk_HLu_g4SuaEMp4zEbLuowoqTM',
+  QUICK_TAG: 'chase-lane',
+  LEADERBOARD: 'total_wins',
+  MAX_PLAYERS: 8,
+  MIN_PLAYERS: 2,
+  ROUNDS: 5,            // best of 5...
+  WINS_TO_TAKE: 3,      // ...so three wins ends it early
+  COUNTDOWN_MS: 4000,
+  RESULTS_MS: 7000,
+  PLAYER_HZ: 25,        // 25 + 20 = 45 msg/s on the host, under the ~60/s limit
+  GETAWAY_HZ: 20,
+};
+
+const TUNE = {
+  STEP: 1 / 60,          // fixed physics timestep
+  ROAD_HALF: 100,
+  CAR_R: 19,             // collision radius for cars
+  TOP: 430,              // normal top speed (px/s)
+  BOOST_TOP: 610,
+  TURBO_TOP: 540,        // speed pickup: a nudge, weaker than the boost
+  ACCEL: 340,
+  BRAKE: 620,
+  REVERSE: 170,
+  DRAG: 0.18,
+  TURN: 2.9,             // rad/s
+  GRIP: 6.5,
+  BOOST_TIME: 1.15,
+  BOOST_RECHARGE: 5.5,
+  TURBO_TIME: 1.3,
+  SHIELD_TIME: 6,
+  SPIN_TIME: 1.1,        // hit an oil slick
+  OIL_LIFE_MS: 14000,
+  OIL_R: 34,
+  PAD_R: 30,
+  PAD_RESPAWN_MS: 9000,
+  // Getaway car, as multiples of TUNE.TOP and pixels of gap.
+  G_LEAD: 520,           // head start
+  G_START: 0.98,
+  G_PEAK: 1.12,
+  G_RAMP_S: 30,          // seconds to reach G_PEAK
+  G_TIRE_AT: 35,         // after this it starts to overheat, so no round lasts forever
+  G_TIRE_OVER: 25,
+  G_TIRED: 0.84,
+  G_FAR: 520,            // leader further back than this: getaway eases off...
+  G_FAR_RANGE: 700,
+  G_FAR_MIN: 0.70,       // ...down to this multiplier
+  G_NEAR: 380,           // leader closer than this: getaway panics...
+  G_PANIC: 0.20,         // ...by up to this much, fading as it overheats
+  G_LANE: 85,            // px of lateral travel at lane = 1
+  // Catch box, in road space. Longitudinal uses unwrapped progress, so a car on another lap
+  // (turned round to ram it head-on, or sitting still being lapped) can never count.
+  CATCH_LONG: 62,
+  CATCH_LAT: 56,
+};
+
+const COLOURS = ['#ff2d95', '#00e5ff', '#7cff4f', '#ff8a00', '#b266ff', '#ff3b3b', '#2f8bff', '#f4f4ff'];
+const GOLD = '#ffd400';
+
+// Closed loops, Catmull-Rom control points. Checked offline: tightest bend radius 172px,
+// non-adjacent sections stay 500px+ apart, so the 200px road never folds or touches itself.
+const TRACKS = [
+  { name: 'Neon Kidney', a: '#00e5ff', b: '#ff2d95', pts: [[0,0],[1000,-260],[2000,-200],[2650,350],[2500,1150],[1850,1380],[1300,1050],[850,700],[350,1000],[0,1600],[-650,1450],[-800,600]] },
+  { name: 'Harbor Run',  a: '#7cff4f', b: '#b266ff', pts: [[0,0],[900,-400],[1900,-380],[2650,150],[2300,850],[1550,700],[850,1000],[950,1650],[1750,1900],[1650,2550],[800,2700],[100,2300],[-350,1550],[-750,750]] },
+  { name: 'Double Back', a: '#ff8a00', b: '#00e5ff', pts: [[0,0],[1100,-150],[2200,-100],[2900,450],[2650,1300],[1900,1250],[1450,700],[850,850],[1000,1550],[1800,1900],[2000,2500],[1100,2750],[100,2300],[-200,1400],[-700,700]] },
+];
+
+/* =====================================================================
+   SECTION: UTILITIES
+   ===================================================================== */
+const $ = (id) => document.getElementById(id);
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const lerp = (a, b, t) => a + (b - a) * t;
+const smooth = (t) => { t = clamp(t, 0, 1); return t * t * (3 - 2 * t); };
+const dist = (ax, ay, bx, by) => Math.hypot(ax - bx, ay - by);
+const noop = () => {};
+const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+/** Escape player-supplied text before it goes into innerHTML. */
+function esc(s) {
+  return String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+function angleDiff(a, b) { let d = (b - a) % (Math.PI * 2); if (d > Math.PI) d -= Math.PI * 2; if (d < -Math.PI) d += Math.PI * 2; return d; }
+function ordinal(n) { return n + (['th', 'st', 'nd', 'rd'][n % 100 > 10 && n % 100 < 14 ? 0 : n % 10] || 'th'); }
+function colourOf(i) { return COLOURS[((i | 0) % COLOURS.length + COLOURS.length) % COLOURS.length]; }
+
+function storeGet(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
+function storeSet(k, v) { try { localStorage.setItem(k, v); } catch (e) { /* private mode */ } }
+
+let toastTimer = 0;
+function toast(msg, ms = 2600) {
+  const el = $('toast');
+  el.textContent = msg; el.classList.remove('hidden');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.add('hidden'), ms);
+}
+
+/* =====================================================================
+   SECTION: TRACK
+   Everything on the road is addressed by `s`, distance along the centre
+   line, plus a lateral offset. Player progress is unwrapped (it keeps
+   counting up over laps), which is what makes "distance to the getaway"
+   and the anti-lapping catch check possible on a looping track.
+   ===================================================================== */
+function catmull(p0, p1, p2, p3, t) {
+  const t2 = t * t, t3 = t2 * t;
+  return 0.5 * (2 * p1 + (-p0 + p2) * t + (2 * p0 - 5 * p1 + 4 * p2 - p3) * t2 + (-p0 + 3 * p1 - 3 * p2 + p3) * t3);
+}
+
+function buildTrack(def) {
+  const pts = def.pts, n = pts.length, dense = [];
+  for (let i = 0; i < n; i++) {
+    const a = pts[(i - 1 + n) % n], b = pts[i], c = pts[(i + 1) % n], d = pts[(i + 2) % n];
+    for (let k = 0; k < 60; k++) dense.push([catmull(a[0], b[0], c[0], d[0], k / 60), catmull(a[1], b[1], c[1], d[1], k / 60)]);
+  }
+  const cum = [0];
+  for (let i = 1; i <= dense.length; i++) {
+    const a = dense[i - 1], b = dense[i % dense.length];
+    cum.push(cum[i - 1] + dist(a[0], a[1], b[0], b[1]));
+  }
+  const L = cum[cum.length - 1], N = Math.round(L / 10), ds = L / N;
+  const xs = new Float32Array(N), ys = new Float32Array(N), nx = new Float32Array(N), ny = new Float32Array(N);
+  for (let i = 0, j = 0; i < N; i++) {
+    const s = i * ds;
+    while (cum[j + 1] < s) j++;
+    const f = (s - cum[j]) / (cum[j + 1] - cum[j]), a = dense[j], b = dense[(j + 1) % dense.length];
+    xs[i] = lerp(a[0], b[0], f); ys[i] = lerp(a[1], b[1], f);
+  }
+  for (let i = 0; i < N; i++) {
+    const p = (i - 1 + N) % N, q = (i + 1) % N;
+    const tx = xs[q] - xs[p], ty = ys[q] - ys[p], m = Math.hypot(tx, ty) || 1;
+    nx[i] = -ty / m; ny[i] = tx / m;
+  }
+
+  const T = {
+    def, L, N, ds, xs, ys, nx, ny,
+    wrap(s) { return ((s % L) + L) % L; },
+    /** World position at distance s and lateral offset lat. */
+    pos(s, lat = 0) {
+      const w = T.wrap(s) / ds, i = Math.floor(w) % N, j = (i + 1) % N, f = w - Math.floor(w);
+      return { x: lerp(xs[i], xs[j], f) + nx[i] * lat, y: lerp(ys[i], ys[j], f) + ny[i] * lat, nx: nx[i], ny: ny[i], tx: ny[i], ty: -nx[i] };
+    },
+    /** Nearest centre-line sample, searching only around `hint` so we never jump to a neighbouring section. */
+    nearest(x, y, hint, win = 40) {
+      let best = hint, bd = Infinity;
+      for (let k = -win; k <= win; k++) {
+        const i = ((hint + k) % N + N) % N, dx = x - xs[i], dy = y - ys[i], d = dx * dx + dy * dy;
+        if (d < bd) { bd = d; best = i; }
+      }
+      return { i: best, lat: (x - xs[best]) * nx[best] + (y - ys[best]) * ny[best] };
+    },
+  };
+
+  // Render paths.
+  const mk = (off) => { const p = new Path2D(); for (let i = 0; i < N; i += 2) { const x = xs[i] + nx[i] * off, y = ys[i] + ny[i] * off; i ? p.lineTo(x, y) : p.moveTo(x, y); } p.closePath(); return p; };
+  T.center = mk(0); T.edgeA = mk(TUNE.ROAD_HALF); T.edgeB = mk(-TUNE.ROAD_HALF);
+  T.chev = new Path2D();
+  for (let s = 200; s < L - 100; s += 420) for (const lat of [-52, 52]) {
+    const c = T.pos(s, lat), tipx = c.x + c.tx * 22, tipy = c.y + c.ty * 22;
+    T.chev.moveTo(c.x - c.tx * 10 + c.nx * 20, c.y - c.ty * 10 + c.ny * 20);
+    T.chev.lineTo(tipx, tipy);
+    T.chev.lineTo(c.x - c.tx * 10 - c.nx * 20, c.y - c.ty * 10 - c.ny * 20);
+  }
+  T.minX = Math.min(...xs); T.maxX = Math.max(...xs); T.minY = Math.min(...ys); T.maxY = Math.max(...ys);
+
+  // Pickup pads: groups of three across the road. Their positions are the same on every client;
+  // only each pad's type and respawn time live in room.state.
+  T.pads = [];
+  for (let g = 0; g < 5; g++) for (const lat of [-60, 0, 60]) {
+    const s = L * (g + 0.55) / 5, c = T.pos(s, lat);
+    T.pads.push({ x: c.x, y: c.y });
+  }
+
+  // Neon city blocks beside the road, from a seeded generator so every client sees the same city.
+  T.blocks = [];
+  let seed = 1337 + L | 0;
+  const rnd = () => { seed = (seed * 1664525 + 1013904223) | 0; return ((seed >>> 8) & 0xffff) / 0xffff; };
+  for (let x = T.minX - 500; x < T.maxX + 500; x += 150) for (let y = T.minY - 500; y < T.maxY + 500; y += 150) {
+    if (rnd() < 0.5) continue;
+    const w = 50 + rnd() * 80, h = 50 + rnd() * 80, cx = x + rnd() * 50, cy = y + rnd() * 50, r = Math.hypot(w, h) / 2 + TUNE.ROAD_HALF + 34;
+    let clear = true;
+    for (let i = 0; i < N; i += 6) if (dist(cx, cy, xs[i], ys[i]) < r) { clear = false; break; }
+    if (clear) T.blocks.push({ x: cx - w / 2, y: cy - h / 2, w, h, c: rnd() < 0.5 ? def.a : def.b, lit: rnd() });
+  }
+  return T;
+}
+
+const trackCache = [];
+function getTrack(i) { i = ((i | 0) % TRACKS.length + TRACKS.length) % TRACKS.length; return trackCache[i] || (trackCache[i] = buildTrack(TRACKS[i])); }
+
+/* =====================================================================
+   SECTION: AUDIO (WebAudio only, no files)
+   ===================================================================== */
+const Sound = {
+  ctx: null, master: null, muted: storeGet('chaselane_muted') === '1',
+  init() {
+    if (this.ctx) { if (this.ctx.state === 'suspended') this.ctx.resume().catch(noop); return; }
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return;
+    const c = this.ctx = new AC();
+    this.master = c.createGain(); this.master.gain.value = this.muted ? 0 : 0.5; this.master.connect(c.destination);
+    // Engine: detuned saw + square through a low-pass, pitched by speed.
+    this.engGain = c.createGain(); this.engGain.gain.value = 0;
+    this.engFilter = c.createBiquadFilter(); this.engFilter.type = 'lowpass'; this.engFilter.frequency.value = 500;
+    this.engA = c.createOscillator(); this.engA.type = 'sawtooth'; this.engA.frequency.value = 60;
+    this.engB = c.createOscillator(); this.engB.type = 'square'; this.engB.frequency.value = 61;
+    const subGain = c.createGain(); subGain.gain.value = 0.35;
+    this.engA.connect(this.engFilter); this.engB.connect(subGain); subGain.connect(this.engFilter);
+    this.engFilter.connect(this.engGain); this.engGain.connect(this.master);
+    this.engA.start(); this.engB.start();
+    const buf = c.createBuffer(1, c.sampleRate, c.sampleRate), d = buf.getChannelData(0);
+    for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+    this.noiseBuf = buf;
+  },
+  setMuted(m) {
+    this.muted = m; storeSet('chaselane_muted', m ? '1' : '0');
+    if (this.master) this.master.gain.value = m ? 0 : 0.5;
+    $('mute').textContent = m ? 'OFF' : 'SND';
+  },
+  engine(norm, on) {
+    if (!this.ctx) return;
+    const t = this.ctx.currentTime, f = 48 + norm * 150;
+    this.engA.frequency.setTargetAtTime(f, t, 0.05);
+    this.engB.frequency.setTargetAtTime(f * 1.5 + 1, t, 0.05);
+    this.engFilter.frequency.setTargetAtTime(350 + norm * 1500, t, 0.08);
+    this.engGain.gain.setTargetAtTime(on ? 0.07 + norm * 0.07 : 0, t, 0.08);
+  },
+  tone(f, dur, type = 'square', vol = 0.15, slide = 0, delay = 0) {
+    if (!this.ctx) return;
+    const t = this.ctx.currentTime + delay, o = this.ctx.createOscillator(), g = this.ctx.createGain();
+    o.type = type; o.frequency.setValueAtTime(f, t);
+    if (slide) o.frequency.exponentialRampToValueAtTime(Math.max(20, slide), t + dur);
+    g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.0008, t + dur);
+    o.connect(g); g.connect(this.master); o.start(t); o.stop(t + dur + 0.02);
+  },
+  noise(dur, vol = 0.2, freq = 1200, sweep = 0) {
+    if (!this.ctx) return;
+    const t = this.ctx.currentTime, s = this.ctx.createBufferSource(), f = this.ctx.createBiquadFilter(), g = this.ctx.createGain();
+    s.buffer = this.noiseBuf; s.loop = true;
+    f.type = 'bandpass'; f.frequency.setValueAtTime(freq, t);
+    if (sweep) f.frequency.exponentialRampToValueAtTime(sweep, t + dur);
+    g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.0008, t + dur);
+    s.connect(f); f.connect(g); g.connect(this.master); s.start(t); s.stop(t + dur + 0.02);
+  },
+  boost()  { this.noise(0.75, 0.3, 500, 3600); this.tone(190, 0.5, 'sawtooth', 0.1, 900); },
+  pickup() { this.tone(660, 0.09, 'square', 0.12); this.tone(990, 0.14, 'square', 0.12, 0, 0.08); },
+  shield() { this.tone(330, 0.32, 'triangle', 0.2, 880); },
+  oil()    { this.noise(0.26, 0.2, 280, 120); },
+  spin()   { this.noise(0.6, 0.26, 1500, 240); this.tone(520, 0.5, 'sawtooth', 0.09, 90); },
+  bump()   { this.noise(0.14, 0.34, 240); this.tone(95, 0.14, 'sine', 0.3, 45); },
+  beep(hi) { this.tone(hi ? 880 : 440, hi ? 0.5 : 0.16, 'square', 0.15); },
+  win()    { [523, 659, 784, 1047, 784, 1047, 1319].forEach((f, i) => this.tone(f, 0.2, 'square', 0.14, 0, i * 0.11)); },
+  lose()   { [392, 330, 262].forEach((f, i) => this.tone(f, 0.26, 'triangle', 0.17, 0, i * 0.16)); },
+};
+
+/* =====================================================================
+   SECTION: INPUT
+   ===================================================================== */
+const held = new Set();                               // keyboard codes currently down
+const touchHeld = { left: false, right: false, brake: false, boost: false, item: false };
+const KEYMAP = { gas: ['ArrowUp', 'KeyW'], brake: ['ArrowDown', 'KeyS'], left: ['ArrowLeft', 'KeyA'], right: ['ArrowRight', 'KeyD'], boost: ['Space'], item: ['KeyE', 'ShiftLeft', 'ShiftRight'] };
+const GAME_KEYS = new Set(Object.values(KEYMAP).flat());
+const isTouch = 'ontouchstart' in window || matchMedia('(pointer:coarse)').matches;
+const down = (k) => KEYMAP[k].some((c) => held.has(c)) || !!touchHeld[k];
+
+function readInput() {
+  return {
+    gas: down('gas') || (isTouch && !touchHeld.brake),   // touch players auto-accelerate: thumbs are busy
+    brake: down('brake'),
+    steer: (down('right') ? 1 : 0) - (down('left') ? 1 : 0),
+    boost: down('boost'),
+    item: down('item'),
+  };
+}
+
+addEventListener('keydown', (e) => {
+  if (e.target && e.target.tagName === 'INPUT') return;
+  if (GAME_KEYS.has(e.code)) { held.add(e.code); e.preventDefault(); }
+  if (e.code === 'KeyM' && !e.repeat) Sound.setMuted(!Sound.muted);
+});
+addEventListener('keyup', (e) => held.delete(e.code));
+addEventListener('blur', () => held.clear());
+addEventListener('pointerdown', () => Sound.init());
+addEventListener('keydown', () => Sound.init());
+
+document.querySelectorAll('.tbtn').forEach((b) => {
+  const k = b.dataset.k;
+  const on = (e) => { e.preventDefault(); touchHeld[k] = true; b.classList.add('on'); if (b.setPointerCapture) try { b.setPointerCapture(e.pointerId); } catch (x) { /* ok */ } };
+  const off = (e) => { e.preventDefault(); touchHeld[k] = false; b.classList.remove('on'); };
+  b.addEventListener('pointerdown', on);
+  b.addEventListener('pointerup', off);
+  b.addEventListener('pointercancel', off);
+});
+if (isTouch) document.body.classList.add('touch');
+
+/* =====================================================================
+   SECTION: SHARED GAME STATE
+   room.state shape (the only source of truth for match flow):
+     phase    'lobby' | 'countdown' | 'racing' | 'results'
+     round    1-based round number
+     track    index into TRACKS
+     startAt  server ms when the round goes live
+     nextAt   server ms when results end
+     scores   { playerId: wins }
+     roster   { playerId: { n: name, c: colourIndex } }, survives players leaving
+     grid     [playerIds] in starting order
+     winner   playerId of this round's winner
+     over     playerId of the match champion, once decided
+     g        getaway car { s, v, l, t }: distance, speed, lane (-1..1), server time
+              of the sample. Clients extrapolate s by v, so it glides between writes.
+     pk       { padIndex: { t: 's'|'o'|'h', a: respawnAtMs or 0 } }
+     oil      { id: { x, y, e: expiresAtMs, by } }
+   ===================================================================== */
+let mp = null;
+
+const me = {
+  x: 0, y: 0, px: 0, py: 0, vx: 0, vy: 0, angle: 0, pangle: 0, speed: 0, idx: 0, p: 0, lat: 0,
+  boost: 1, boostT: 0, turboT: 0, shieldT: 0, spinT: 0, item: null, wrongT: 0, bumpCd: 0, wallCd: 0,
+};
+
+const G = {
+  track: getTrack(0),
+  phaseKey: '',             // last phase seen, for detecting transitions
+  roundKey: 0,              // startAt of the round we have set up
+  acc: 0, lastStep: 0,      // fixed-timestep accumulator
+  lastSend: 0, lastSent: '',
+  lastHostWrite: 0, lastPrune: 0,
+  localTaken: {},           // pads hidden locally until the host confirms
+  oilHit: new Set(),        // slicks that have already spun us
+  pendingOil: [],           // slicks we dropped, drawn until the state echo arrives
+  views: new Map(),         // remote cars: smoothed render state
+  gv: { s: 0, l: 0, x: 0, y: 0, a: 0, init: false },
+  attractS: 0,
+  lastCountNum: null,
+  wonRound: 0,
+};
+
+const S = () => (mp && mp.state) || {};
+const inRoom = () => !!(mp && mp.room);
+const serverNow = () => (mp ? mp.serverTime() : Date.now());
+/** Live means cars may move. Uses the shared clock rather than the phase write, so everyone goes on the same beat. */
+function raceLive() { const st = S(); return st.phase === 'racing' || (st.phase === 'countdown' && serverNow() >= st.startAt); }
+function inRace() { const p = S().phase; return p === 'countdown' || p === 'racing' || p === 'results'; }
+
+/** Getaway distance right now, extrapolated from the last sample. */
+function getawayS(now) {
+  const g = S().g;
+  if (!g) return 0;
+  return g.s + g.v * Math.max(0, now - g.t) / 1000;
+}
+
+function nameOf(id) { const r = (S().roster || {})[id], p = mp && mp.players.get(id); return (p && p.name) || (r && r.n) || 'Racer'; }
+function colourFor(id) {
+  const p = mp && mp.players.get(id);
+  if (p && p.data && typeof p.data.c === 'number') return colourOf(p.data.c);
+  const r = (S().roster || {})[id];
+  return r ? colourOf(r.c) : '#ffffff';
+}
+
+/* =====================================================================
+   SECTION: NETWORKING - host logic
+   Every method reads mp.state and writes through mp.state calls, so any
+   client can take over mid-round. It runs whenever mp.isHost is true.
+   ===================================================================== */
+const write = (p) => { if (p && p.catch) p.catch(noop); };   // rejected writes roll back in the SDK; a race during migration is harmless
+
+const Host = {
+  randomPad() { const r = Math.random(); return { t: r < 0.3 ? 's' : r < 0.68 ? 'o' : 'h', a: 0 }; },
+
+  startMatch() {
+    if (!mp.isHost || S().phase !== 'lobby') return;
+    write(mp.updateRoom({ locked: true }));
+    this.startRound(1, {});
+  },
+
+  startRound(round, scores) {
+    const players = mp.playerList, roster = Object.assign({}, S().roster);
+    for (const p of players) roster[p.id] = { n: p.name, c: p.data.c | 0 };
+    // Trailing players start at the front of the grid.
+    const grid = players.map((p) => p.id).sort((a, b) => (scores[a] || 0) - (scores[b] || 0) || (a < b ? -1 : 1));
+    const track = (round - 1) % TRACKS.length, T = getTrack(track), pk = {};
+    T.pads.forEach((_, i) => { pk[i] = this.randomPad(); });
+    const startAt = Math.round(mp.serverTime() + CONFIG.COUNTDOWN_MS);
+    write(mp.batchState([
+      ['phase', 'countdown'], ['round', round], ['track', track], ['startAt', startAt], ['nextAt', 0], ['scores', scores],
+      ['roster', roster], ['grid', grid], ['winner', ''], ['over', ''], ['pk', pk], ['oil', {}],
+      ['g', { s: SLOT_S + TUNE.G_LEAD, v: 0, l: 0, t: startAt }],
+    ]));
+  },
+
+  /** Called every physics step on the host; throttles itself to GETAWAY_HZ. */
+  tick(now) {
+    if (!mp.isHost || !mp.connected || !inRoom()) return;
+    if (now - G.lastHostWrite < 1000 / CONFIG.GETAWAY_HZ) return;
+    G.lastHostWrite = now;
+    const st = S();
+    if (st.phase === 'countdown' && now >= st.startAt) write(mp.setState('phase', 'racing'));
+    else if (st.phase === 'racing') { this.driveGetaway(now); this.housekeeping(now); }
+    else if (st.phase === 'results' && !st.over && st.nextAt && now >= st.nextAt) this.startRound((st.round | 0) + 1, Object.assign({}, st.scores));
+  },
+
+  /** The racers the host can currently see, at their best-guess position right now. */
+  racers() {
+    const out = [], grid = S().grid || [];
+    for (const p of mp.playerList) {
+      if (p.connected === false || !grid.includes(p.id)) continue;
+      if (p.id === mp.playerId) { out.push({ id: p.id, x: me.x, y: me.y, p: me.p }); continue; }
+      if (typeof p.data.x !== 'number') continue;
+      const q = mp.predict(p.id, ['x', 'y', 'p']);
+      out.push({ id: p.id, x: q.x, y: q.y, p: q.p });
+    }
+    return out;
+  },
+
+  driveGetaway(now) {
+    const st = S(), g = st.g, T = G.track;
+    if (!g) return;
+    const latOf = (r) => T.nearest(r.x, r.y, Math.round(T.wrap(r.p) / T.ds)).lat;
+    const elapsed = (now - st.startAt) / 1000, dt = clamp((now - g.t) / 1000, 0, 0.5);
+    const s = getawayS(now), racers = this.racers();
+    let lead = -Infinity, near = null;
+    for (const r of racers) { if (r.p > lead) { lead = r.p; near = r; } }
+    const gap = racers.length ? s - lead : 0;
+
+    // Gradual ramp up, then it overheats late on, so a round always ends.
+    let base = lerp(TUNE.G_START, TUNE.G_PEAK, smooth(elapsed / TUNE.G_RAMP_S));
+    const tired = smooth((elapsed - TUNE.G_TIRE_AT) / TUNE.G_TIRE_OVER);
+    base *= lerp(1, TUNE.G_TIRED, tired);
+    // Rubber band: eases off when the pack is far back, panics when someone is on its bumper.
+    let band = 1;
+    if (gap > TUNE.G_FAR) band = lerp(1, TUNE.G_FAR_MIN, clamp((gap - TUNE.G_FAR) / TUNE.G_FAR_RANGE, 0, 1));
+    else if (gap < TUNE.G_NEAR) band = 1 + TUNE.G_PANIC * (1 - tired) * clamp(1 - gap / TUNE.G_NEAR, 0, 1);
+    const target = base * band * TUNE.TOP;
+    const v = g.v + (target - g.v) * Math.min(1, dt * 1.4);
+
+    // Lane: weaves on its own, swerves away from a close chaser.
+    let laneTarget = Math.sin(s / 420) * 0.4;
+    if (near && gap < 340) {
+      laneTarget = latOf(near) > g.l * TUNE.G_LANE ? -0.7 : 0.7;
+    }
+    const l = g.l + (laneTarget - g.l) * Math.min(1, dt * 1.7);
+
+    write(mp.setState('g', { s: Math.round(s * 10) / 10, v: Math.round(v), l: Math.round(l * 100) / 100, t: Math.round(now) }));
+
+    // Catch check, in road space (see TUNE.CATCH_LONG).
+    let winner = null, best = Infinity;
+    for (const r of racers) {
+      const along = Math.abs(s - r.p), across = Math.abs(latOf(r) - l * TUNE.G_LANE);
+      if (along < TUNE.CATCH_LONG && across < TUNE.CATCH_LAT && along < best) { best = along; winner = r.id; }
+    }
+    if (winner) this.finishRound(winner, s, now);
+  },
+
+  finishRound(winner, s, now) {
+    const st = S(), scores = Object.assign({}, st.scores);
+    scores[winner] = (scores[winner] || 0) + 1;
+    const top = Math.max(...Object.values(scores)), leaders = Object.keys(scores).filter((k) => scores[k] === top);
+    let over = '';
+    if (top >= CONFIG.WINS_TO_TAKE || (st.round >= CONFIG.ROUNDS && leaders.length === 1)) over = leaders[0];
+    write(mp.batchState([
+      ['phase', 'results'], ['winner', winner], ['scores', scores], ['over', over],
+      ['nextAt', Math.round(now + CONFIG.RESULTS_MS)], ['g', { s: Math.round(s), v: 0, l: st.g.l, t: Math.round(now) }],
+    ]));
+  },
+
+  housekeeping(now) {
+    if (now - G.lastPrune < 500) return;
+    G.lastPrune = now;
+    const st = S(), ops = [];
+    for (const [i, p] of Object.entries(st.pk || {})) if (p.a && now >= p.a) ops.push(['pk.' + i, this.randomPad()]);
+    for (const [id, o] of Object.entries(st.oil || {})) if (now >= o.e) ops.push(['oil.' + id, null, 1]);
+    if (ops.length) write(mp.batchState(ops));
+  },
+
+  onGrab(i, from) {
+    const st = S();
+    if (st.phase !== 'racing' || !Number.isInteger(i)) return;
+    const p = (st.pk || {})[i], now = serverNow();
+    if (!p || p.a > now) return;
+    write(mp.setState('pk.' + i, { t: p.t, a: Math.round(now + TUNE.PAD_RESPAWN_MS) }));
+  },
+
+  onOil(d, from) {
+    const st = S();
+    if (st.phase !== 'racing' || !d || !Number.isFinite(d.x) || !Number.isFinite(d.y)) return;
+    if (Object.keys(st.oil || {}).length >= 24) return;
+    const id = Math.random().toString(36).slice(2, 8);
+    write(mp.setState('oil.' + id, { x: Math.round(d.x), y: Math.round(d.y), e: Math.round(serverNow() + TUNE.OIL_LIFE_MS), by: from }));
+  },
+
+  backToLobby() {
+    if (!mp.isHost) return;
+    write(mp.batchState([['phase', 'lobby'], ['round', 0], ['scores', {}], ['winner', ''], ['over', ''], ['oil', {}], ['pk', {}]]));
+    write(mp.updateRoom({ locked: false }));
+  },
+};
+
+/* =====================================================================
+   SECTION: NETWORKING - client plumbing
+   ===================================================================== */
+function bindNetwork() {
+  mp.on('joined', () => { G.phaseKey = ''; claimColour(); });
+  mp.on('state', () => syncPhase());
+  mp.on('playerJoined', (p) => { if (!inRace()) toast(p.name + ' joined'); refreshLobby(); });
+  mp.on('playerLeft', (p, reason) => {
+    G.views.delete(p.id);
+    toast((p.name || 'A racer') + ' left');
+    refreshLobby();
+  });
+  mp.on('playerUpdated', (p, changed) => { if ('c' in changed) { claimColour(); refreshLobby(); } });
+  mp.on('playerConnection', (p, on) => {
+    if (p.id !== mp.playerId) toast(p.name + (on ? ' is back' : ' lost connection...'));
+    refreshLobby();
+  });
+  mp.on('host', (id, mine) => {
+    G.lastHostWrite = 0;
+    if (mine) toast("You're the host now");
+    refreshLobby(); refreshResults();
+  });
+  mp.on('reconnecting', () => showBanner('Connection lost. Reconnecting...'));
+  mp.on('disconnected', (e) => { if (inRoom()) showBanner('Connection lost. Reconnecting...'); else setNetStatus('Disconnected. Reconnecting...'); });
+  mp.on('reconnected', () => { showBanner(''); setNetReady(); toast('Reconnected'); });
+  mp.on('connected', () => setNetReady());
+  mp.on('left', (room, reason) => {
+    resetRoomView();
+    if (reason === 'kicked') toast('You were removed from the room');
+    else if (reason === 'rejoin_failed') toast('That room is gone: you were away too long');
+    else if (reason && reason !== 'left' && reason !== 'disconnected') toast('Left the room (' + reason + ')');
+  });
+  mp.on('kicked', () => toast('You were removed from the room'));
+  mp.on('error', (e) => {
+    if (e.code === 'rate_limited') console.warn('[chase] rate limited');
+    else if (e.code === 'replaced') { showBanner('This player opened in another tab'); }
+    else console.warn('[chase] server error', e.code, e.message);
+  });
+  mp.onMessage('grab', (d, from) => { if (mp.isHost && d) Host.onGrab(d.i, from); });
+  mp.onMessage('oil', (d, from) => { if (mp.isHost) Host.onOil(d, from); });
+}
+
+/** Send to the host, or call it directly when we are the host. */
+function toHost(type, data) {
+  if (mp.isHost) { if (type === 'grab') Host.onGrab(data.i, mp.playerId); else Host.onOil(data, mp.playerId); }
+  else mp.send(type, data, 'host');
+}
+
+function sendMyCar(now, force) {
+  if (!inRoom() || !mp.connected || !inRace()) return;
+  if (!force && now - G.lastSend < 1000 / CONFIG.PLAYER_HZ) return;
+  const fx = (me.boostT > 0 || me.turboT > 0 ? 1 : 0) | (me.shieldT > 0 ? 2 : 0) | (me.spinT > 0 ? 4 : 0);
+  const d = { x: Math.round(me.x), y: Math.round(me.y), angle: Math.round(me.angle * 100) / 100, speed: Math.round(me.speed), p: Math.round(me.p), fx };
+  const sig = d.x + ',' + d.y + ',' + d.angle + ',' + d.fx;
+  if (sig === G.lastSent) return;                     // don't spend messages on a parked car
+  G.lastSent = sig; G.lastSend = now;
+  mp.setPlayer(d, { unreliable: true });
+}
+
+/** React to phase changes. Safe to call repeatedly, and after a reconnect snapshot. */
+function syncPhase() {
+  if (!inRoom()) return;
+  const st = S();
+  if (!st.phase) { if (mp.isHost) write(mp.setState('phase', 'lobby')); return; }
+  const key = [st.phase, st.round, st.startAt].join('|');
+  if (key === G.phaseKey) return;
+  const prev = G.phaseKey;
+  G.phaseKey = key;
+  if (st.phase !== 'lobby' && st.startAt !== G.roundKey) beginRound();
+
+  $('menu').classList.add('hidden');
+  $('lobby').classList.toggle('hidden', st.phase !== 'lobby');
+  $('results').classList.toggle('hidden', st.phase !== 'results');
+  $('hud').classList.toggle('hidden', st.phase === 'lobby');
+  $('leaveRace').classList.toggle('hidden', st.phase === 'lobby');
+  $('touch').classList.toggle('hidden', !isTouch || st.phase === 'lobby' || st.phase === 'results');
+
+  if (st.phase === 'lobby') { G.roundKey = 0; G.lastCountNum = null; $('count').classList.add('hidden'); refreshLobby(); }
+  if (st.phase === 'results') { if (prev) onRoundWon(); refreshResults(); }
+}
+
+function onRoundWon() {
+  const st = S(), mine = st.winner === mp.playerId;
+  const gx = G.gv.x, gy = G.gv.y;
+  shake(24);
+  for (let i = 0; i < 110; i++) {
+    const a = Math.random() * Math.PI * 2, v = 80 + Math.random() * 480;
+    puff(gx, gy, { vx: Math.cos(a) * v, vy: Math.sin(a) * v, life: 0.7 + Math.random() * 1.2, size: 3 + Math.random() * 5, col: Math.random() < 0.5 ? GOLD : colourFor(st.winner), drag: 2 });
+  }
+  Sound.bump();
+  if (mine) {
+    Sound.win();
+    if (G.wonRound !== st.startAt) {                  // submit each round win once, even across reconnects
+      G.wonRound = st.startAt;
+      if (mp.leaderboard) mp.leaderboard.submit(CONFIG.LEADERBOARD, 1, { config: { mode: 'sum' } }).catch((e) => console.warn('[chase] leaderboard', e.code));
+    }
+  } else Sound.lose();
+}
+
+/* =====================================================================
+   SECTION: PHYSICS (runs at a fixed 60 Hz; the local car only)
+   ===================================================================== */
+const SLOT_S = 420;
+
+function beginRound() {
+  const st = S();
+  G.roundKey = st.startAt;
+  G.track = getTrack(st.track);
+  const grid = st.grid || [];
+  let slot = grid.indexOf(mp.playerId);
+  if (slot < 0) slot = grid.length;
+  const s = SLOT_S - Math.floor(slot / 2) * 80, lat = slot % 2 ? 52 : -52, c = G.track.pos(s, lat);
+  Object.assign(me, {
+    x: c.x, y: c.y, px: c.x, py: c.y, vx: 0, vy: 0, speed: 0, angle: Math.atan2(c.ty, c.tx), idx: Math.round(s / G.track.ds), p: s, lat,
+    boost: 1, boostT: 0, turboT: 0, shieldT: 0, spinT: 0, item: null, wrongT: 0, bumpCd: 0, wallCd: 0,
+  });
+  me.pangle = me.angle;
+  myTrail.length = 0;
+  G.localTaken = {}; G.oilHit.clear(); G.pendingOil.length = 0; G.views.clear(); G.lastSent = ''; G.gv.init = false; G.lastCountNum = null;
+  parts.length = 0;
+  cam.snap = true;
+  sendMyCar(serverNow(), true);          // others see us on the grid straight away
+}
+
+function stepMe(dt, now, inp) {
+  const T = G.track, live = raceLive();
+  let stopping = false;                     // held on the grid, or the round is over
+  me.px = me.x; me.py = me.y; me.pangle = me.angle;
+  for (const k of ['boostT', 'turboT', 'shieldT', 'spinT', 'bumpCd', 'wallCd']) me[k] = Math.max(0, me[k] - dt);
+
+  if (live && S().phase !== 'results') {
+    if (inp.boost && me.boost >= 1 && me.spinT <= 0) { me.boost = 0; me.boostT = TUNE.BOOST_TIME; Sound.boost(); shake(3); }
+    if (inp.item && me.item === 'o') dropOil(now);
+  } else { inp = { gas: false, brake: false, steer: 0 }; stopping = true; }
+  if (me.boostT <= 0) me.boost = Math.min(1, me.boost + dt / TUNE.BOOST_RECHARGE);
+
+  const boosting = me.boostT > 0 || me.turboT > 0, spinning = me.spinT > 0;
+  const top = me.boostT > 0 ? TUNE.BOOST_TOP : me.turboT > 0 ? TUNE.TURBO_TOP : TUNE.TOP;
+  const cs = Math.cos(me.angle), sn = Math.sin(me.angle);
+  let f = me.vx * cs + me.vy * sn, side = -me.vx * sn + me.vy * cs;
+
+  if (stopping) f = Math.max(0, f - TUNE.BRAKE * dt);   // never into reverse: that would roll cars off the grid
+  else if (spinning) { f *= 1 - 1.1 * dt; }
+  else {
+    if (inp.gas && f < top) f += TUNE.ACCEL * (boosting ? 2.4 : 1) * (1 - 0.55 * Math.max(0, f) / top) * dt;
+    if (inp.brake) f -= (f > 0 ? TUNE.BRAKE : TUNE.REVERSE) * dt;
+  }
+  if (f > top) f -= (f - top) * Math.min(1, 2.4 * dt);      // bleed off after a boost
+  f = Math.max(f, -150);
+  f *= 1 - TUNE.DRAG * dt;
+  if (!inp.gas && !inp.brake && Math.abs(f) < 6) f = 0;
+
+  const grip = spinning ? 0.9 : TUNE.GRIP;
+  side *= Math.exp(-grip * dt);
+  const auth = clamp(Math.abs(f) / 130, 0, 1) * Math.sign(f) * (1 - 0.18 * clamp(Math.abs(f) / TUNE.TOP, 0, 1));
+  me.angle += (spinning ? 0 : inp.steer * TUNE.TURN * auth) * dt;
+
+  const c2 = Math.cos(me.angle), s2 = Math.sin(me.angle);
+  me.vx = c2 * f - s2 * side; me.vy = s2 * f + c2 * side;
+  me.x += me.vx * dt; me.y += me.vy * dt;
+
+  // Road barriers.
+  let r = T.nearest(me.x, me.y, me.idx);
+  const lim = TUNE.ROAD_HALF - TUNE.CAR_R * 0.7;
+  if (Math.abs(r.lat) > lim) {
+    const sgn = Math.sign(r.lat), nx = T.nx[r.i] * sgn, ny = T.ny[r.i] * sgn, over = Math.abs(r.lat) - lim;
+    me.x -= nx * over; me.y -= ny * over;
+    const vn = me.vx * nx + me.vy * ny;
+    if (vn > 0) {
+      me.vx -= nx * vn * 1.35; me.vy -= ny * vn * 1.35;
+      me.vx *= 1 - 0.5 * dt; me.vy *= 1 - 0.5 * dt;
+      if (vn > 70 && me.wallCd <= 0) {
+        me.wallCd = 0.28; shake(Math.min(9, vn / 26)); Sound.bump();
+        for (let i = 0; i < 12; i++) puff(me.x + nx * 16, me.y + ny * 16, { vx: -nx * 150 + (Math.random() - .5) * 240, vy: -ny * 150 + (Math.random() - .5) * 240, life: 0.3 + Math.random() * 0.3, size: 2, col: GOLD, drag: 3 });
+      }
+    }
+  }
+
+  // Unwrapped progress along the road.
+  let d = r.i - me.idx;
+  if (d > T.N / 2) d -= T.N; else if (d < -T.N / 2) d += T.N;
+  me.p += d * T.ds; me.idx = r.i; me.lat = r.lat;
+  me.speed = Math.hypot(me.vx, me.vy);
+
+  const tan = T.pos(me.idx * T.ds);
+  me.wrongT = (me.vx * tan.tx + me.vy * tan.ty) < -60 ? me.wrongT + dt : 0;
+
+  if (live && S().phase === 'racing') { checkPads(now); checkOil(now); }
+  checkCarBumps();
+}
+
+function checkPads(now) {
+  const T = G.track, pk = S().pk || {};
+  for (let i = 0; i < T.pads.length; i++) {
+    const st = pk[i], pad = T.pads[i];
+    if (!st || st.a > now || (G.localTaken[i] || 0) > now) continue;
+    if (dist(me.x, me.y, pad.x, pad.y) > TUNE.PAD_R + TUNE.CAR_R) continue;
+    G.localTaken[i] = now + 1500;                   // applied instantly; the host just arbitrates the pad
+    for (let k = 0; k < 16; k++) puff(pad.x, pad.y, { vx: (Math.random() - .5) * 320, vy: (Math.random() - .5) * 320, life: 0.5, size: 3, col: PAD_COL[st.t], drag: 3 });
+    if (st.t === 's') { me.turboT = TUNE.TURBO_TIME; Sound.boost(); flash('SPEED BOOST'); }
+    else if (st.t === 'h') { me.shieldT = TUNE.SHIELD_TIME; Sound.shield(); flash('SHIELD UP'); }
+    else { me.item = 'o'; Sound.pickup(); flash('OIL SLICK READY'); }
+    toHost('grab', { i });
+  }
+}
+
+function dropOil(now) {
+  me.item = null;
+  const x = me.x - Math.cos(me.angle) * 54, y = me.y - Math.sin(me.angle) * 54;
+  G.pendingOil.push({ x, y, t: now });
+  Sound.oil();
+  toHost('oil', { x, y });
+}
+
+function checkOil(now) {
+  for (const [id, o] of Object.entries(S().oil || {})) {
+    if (now >= o.e || G.oilHit.has(id)) continue;
+    if (o.by === mp.playerId && now < o.e - TUNE.OIL_LIFE_MS + 1500) continue;     // can't trip on your own slick straight away
+    if (dist(me.x, me.y, o.x, o.y) > TUNE.OIL_R + TUNE.CAR_R * 0.6) continue;
+    G.oilHit.add(id);
+    if (me.shieldT > 0) { me.shieldT = 0; Sound.shield(); flash('SHIELD BLOCKED IT'); shake(5); }
+    else { me.spinT = TUNE.SPIN_TIME; me.boostT = 0; me.turboT = 0; Sound.spin(); flash('OIL!'); shake(10); }
+  }
+}
+
+/** Car-to-car contact. Each client resolves only its own car, so both sides react symmetrically. */
+function checkCarBumps() {
+  const R = TUNE.CAR_R * 2;
+  for (const [id, v] of G.views) {
+    if (!v.ready) continue;
+    const d = dist(me.x, me.y, v.x, v.y);
+    if (d >= R || d < 0.01) continue;
+    const nx = (me.x - v.x) / d, ny = (me.y - v.y) / d, push = (R - d) * 0.5;
+    me.x += nx * push; me.y += ny * push;
+    const vn = me.vx * nx + me.vy * ny;
+    if (vn < 0) { me.vx -= nx * vn * 1.2; me.vy -= ny * vn * 1.2; }
+    if (me.bumpCd <= 0) {
+      me.bumpCd = 0.35;
+      me.vx += nx * 70; me.vy += ny * 70;
+      if (me.shieldT <= 0) { me.vx *= 0.95; me.vy *= 0.95; }
+      shake(11); Sound.bump();
+      for (let i = 0; i < 18; i++) puff(me.x - nx * 18, me.y - ny * 18, { vx: (Math.random() - .5) * 420, vy: (Math.random() - .5) * 420, life: 0.35 + Math.random() * 0.3, size: 2.5, col: Math.random() < .5 ? '#fff' : GOLD, drag: 3 });
+    }
+  }
+}
+
+/** Fixed-timestep driver. Called from rAF when visible and from a Worker heartbeat when the tab is hidden. */
+function step(now) {
+  const dtReal = Math.min(0.25, (now - (G.lastStep || now)) / 1000);
+  G.lastStep = now;
+  if (!inRoom() || !inRace()) { G.acc = 0; if (inRoom()) Host.tick(serverNow()); return; }
+  G.acc += dtReal;
+  const snow = serverNow();
+  let n = 0;
+  while (G.acc >= TUNE.STEP && n++ < 16) {
+    const inp = readInput();
+    stepMe(TUNE.STEP, snow, inp);
+    G.acc -= TUNE.STEP;
+  }
+  if (n >= 16) G.acc = 0;
+  sendMyCar(snow);
+  Host.tick(snow);
+}
+
+// Hidden tabs get no rAF and their timers are throttled, which would freeze the host's getaway car.
+// A Worker timer isn't throttled, so it keeps the simulation (not the drawing) alive.
+function startHeartbeat() {
+  const beat = () => { if (performance.now() - G.lastStep > 45) step(performance.now()); };
+  try {
+    const w = new Worker(URL.createObjectURL(new Blob(['setInterval(()=>postMessage(0),25)'], { type: 'text/javascript' })));
+    w.onmessage = beat;
+  } catch (e) { setInterval(beat, 25); }
+}
+
+/* =====================================================================
+   SECTION: RENDERING
+   ===================================================================== */
+const canvas = $('game'), ctx = canvas.getContext('2d');
+let W = 0, H = 0, DPR = 1;
+function resize() {
+  DPR = Math.min(2, devicePixelRatio || 1);
+  W = innerWidth; H = innerHeight;
+  canvas.width = Math.round(W * DPR); canvas.height = Math.round(H * DPR);
+}
+addEventListener('resize', resize);
+
+const cam = { x: 0, y: 0, zoom: 0.8, shake: 0, snap: true };
+function shake(n) { if (!reducedMotion) cam.shake = Math.min(30, Math.max(cam.shake, n)); }
+
+/* --- particles --- */
+const parts = [];
+function puff(x, y, o) {
+  if (parts.length > 700) parts.shift();
+  const life = o.life || 0.5;
+  parts.push({ x, y, vx: o.vx || 0, vy: o.vy || 0, life, max: life, size: o.size || 3, col: o.col || '#fff', drag: o.drag || 0, bill: !!o.bill, rot: Math.random() * 6, vr: (Math.random() - .5) * 9, grow: o.grow || 0 });
+}
+function drawParts(dt) {
+  ctx.globalCompositeOperation = 'lighter';
+  for (let i = parts.length - 1; i >= 0; i--) {
+    const p = parts[i];
+    p.life -= dt;
+    if (p.life <= 0) { parts[i] = parts[parts.length - 1]; parts.pop(); continue; }
+    p.x += p.vx * dt; p.y += p.vy * dt;
+    const k = Math.exp(-p.drag * dt); p.vx *= k; p.vy *= k; p.rot += p.vr * dt; p.size += p.grow * dt;
+    ctx.globalAlpha = clamp(p.life / p.max, 0, 1);
+    ctx.fillStyle = p.col;
+    if (p.bill) { ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.rot); ctx.fillRect(-6, -3, 12, 6); ctx.restore(); }
+    else ctx.fillRect(p.x - p.size / 2, p.y - p.size / 2, p.size, p.size);
+  }
+  ctx.globalAlpha = 1;
+  ctx.globalCompositeOperation = 'source-over';
+}
+
+/* --- cached glow sprites --- */
+const glowCache = {};
+function glow(col) {
+  if (glowCache[col]) return glowCache[col];
+  const c = document.createElement('canvas'); c.width = c.height = 128;
+  const g = c.getContext('2d'), r = g.createRadialGradient(64, 64, 4, 64, 64, 64);
+  r.addColorStop(0, col + 'aa'); r.addColorStop(0.4, col + '44'); r.addColorStop(1, col + '00');
+  g.fillStyle = r; g.fillRect(0, 0, 128, 128);
+  return glowCache[col] = c;
+}
+
+function rr(x, y, w, h, r) { ctx.beginPath(); ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r); ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath(); }
+
+function drawCar(x, y, a, col, o = {}) {
+  ctx.globalCompositeOperation = 'lighter';
+  ctx.drawImage(glow(col), x - 58, y - 58, 116, 116);
+  ctx.globalCompositeOperation = 'source-over';
+  ctx.save(); ctx.translate(x, y); ctx.rotate(a);
+  ctx.globalAlpha = o.dim ? 0.45 : 1;
+  ctx.fillStyle = 'rgba(0,0,0,.45)'; rr(-22, -11, 46, 26, 7); ctx.fill();
+  ctx.fillStyle = col; rr(-23, -13, 46, 26, 7); ctx.fill();
+  ctx.fillStyle = 'rgba(8,8,26,.85)'; rr(-8, -10, 20, 20, 4); ctx.fill();
+  ctx.fillStyle = 'rgba(255,255,255,.55)'; ctx.fillRect(6, -8, 3, 16);
+  ctx.fillStyle = '#fff'; ctx.fillRect(21, -10, 3, 5); ctx.fillRect(21, 5, 3, 5);
+  ctx.fillStyle = o.boost ? '#fff' : '#ff2040'; ctx.fillRect(-24, -10, 3, 6); ctx.fillRect(-24, 4, 3, 6);
+  ctx.restore();
+  if (o.shield) {
+    ctx.strokeStyle = '#7cf7ff'; ctx.globalAlpha = 0.6 + Math.sin(performance.now() / 90) * 0.3; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.arc(x, y, 34, 0, Math.PI * 2); ctx.stroke(); ctx.globalAlpha = 1;
+  }
+}
+
+function drawGetaway(x, y, a, t) {
+  const blink = Math.floor(t / 170) % 2 === 0;
+  ctx.globalCompositeOperation = 'lighter';
+  ctx.drawImage(glow(GOLD), x - 86, y - 86, 172, 172);
+  ctx.globalCompositeOperation = 'source-over';
+  ctx.save(); ctx.translate(x, y); ctx.rotate(a);
+  ctx.fillStyle = '#121223'; rr(-30, -16, 60, 32, 6); ctx.fill();
+  ctx.strokeStyle = GOLD; ctx.lineWidth = 3; ctx.stroke();
+  ctx.fillStyle = 'rgba(255,212,0,.16)'; ctx.fillRect(-22, -11, 30, 22);
+  ctx.fillStyle = 'rgba(160,200,255,.65)'; ctx.fillRect(14, -11, 6, 22);
+  ctx.save(); ctx.rotate(-a); ctx.fillStyle = GOLD; ctx.font = '900 20px "Segoe UI",sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('$', 0, 0); ctx.restore();
+  ctx.fillStyle = blink ? '#ff9a00' : '#3a2600'; ctx.fillRect(-30, -14, 4, 7); ctx.fillRect(26, 7, 4, 7);
+  ctx.fillStyle = blink ? '#3a2600' : '#ff9a00'; ctx.fillRect(-30, 7, 4, 7); ctx.fillRect(26, -14, 4, 7);
+  ctx.restore();
+}
+
+function drawRibbon(pts, col) {
+  if (pts.length < 2) return;
+  ctx.globalCompositeOperation = 'lighter';
+  ctx.strokeStyle = col; ctx.lineCap = 'round';
+  for (let i = 1; i < pts.length; i++) {
+    const k = i / pts.length;
+    ctx.globalAlpha = k * 0.42; ctx.lineWidth = 2 + k * 9;
+    ctx.beginPath(); ctx.moveTo(pts[i - 1].x, pts[i - 1].y); ctx.lineTo(pts[i].x, pts[i].y); ctx.stroke();
+  }
+  ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over'; ctx.lineCap = 'butt';
+}
+function pushTrail(tr, x, y) {
+  const l = tr[tr.length - 1];
+  if (!l || dist(l.x, l.y, x, y) > 16) { tr.push({ x, y }); if (tr.length > 22) tr.shift(); }
+}
+const myTrail = [];
+
+const PAD_COL = { s: '#00e5ff', o: '#b266ff', h: '#7cff4f' };
+const PAD_ICON = { s: '»', o: 'OIL', h: 'S' };
+
+/* --- world --- */
+function drawWorld(t, now) {
+  const T = G.track, vw = W / cam.zoom, vh = H / cam.zoom, l = cam.x - vw / 2 - 20, r = cam.x + vw / 2 + 20, u = cam.y - vh / 2 - 20, d = cam.y + vh / 2 + 20;
+
+  ctx.fillStyle = '#07071a'; ctx.fillRect(l - 40, u - 40, vw + 120, vh + 120);
+  // grid floor
+  ctx.strokeStyle = 'rgba(70,70,170,.14)'; ctx.lineWidth = 1.5; ctx.beginPath();
+  for (let x = Math.floor(l / 160) * 160; x < r; x += 160) { ctx.moveTo(x, u); ctx.lineTo(x, d); }
+  for (let y = Math.floor(u / 160) * 160; y < d; y += 160) { ctx.moveTo(l, y); ctx.lineTo(r, y); }
+  ctx.stroke();
+  // city
+  for (const b of T.blocks) {
+    if (b.x > r || b.x + b.w < l || b.y > d || b.y + b.h < u) continue;
+    ctx.fillStyle = '#0d0d28'; ctx.fillRect(b.x, b.y, b.w, b.h);
+    ctx.strokeStyle = b.c; ctx.globalAlpha = 0.35 + b.lit * 0.35; ctx.lineWidth = 2; ctx.strokeRect(b.x, b.y, b.w, b.h);
+    ctx.fillStyle = b.c; ctx.globalAlpha = 0.14; ctx.fillRect(b.x + 8, b.y + 8, b.w - 16, b.h - 16);
+    ctx.globalAlpha = 1;
+  }
+  // road
+  ctx.lineJoin = 'round';
+  ctx.strokeStyle = '#15163a'; ctx.lineWidth = TUNE.ROAD_HALF * 2; ctx.stroke(T.center);
+  ctx.strokeStyle = '#1e2050'; ctx.lineWidth = TUNE.ROAD_HALF * 2 - 30; ctx.setLineDash([]); ctx.stroke(T.center);
+  ctx.strokeStyle = 'rgba(255,255,255,.14)'; ctx.lineWidth = 5; ctx.setLineDash([46, 54]); ctx.lineDashOffset = 0; ctx.stroke(T.center); ctx.setLineDash([]);
+  ctx.strokeStyle = 'rgba(255,255,255,.1)'; ctx.lineWidth = 8; ctx.lineCap = 'round'; ctx.stroke(T.chev); ctx.lineCap = 'butt';
+  for (const [p, c] of [[T.edgeA, T.def.a], [T.edgeB, T.def.b]]) {
+    ctx.strokeStyle = c;
+    ctx.globalAlpha = 0.1; ctx.lineWidth = 26; ctx.stroke(p);
+    ctx.globalAlpha = 0.28; ctx.lineWidth = 11; ctx.stroke(p);
+    ctx.globalAlpha = 1; ctx.lineWidth = 4; ctx.stroke(p);
+  }
+
+  if (!inRoom() || !inRace()) return;
+
+  // oil slicks
+  const drawSlick = (x, y) => {
+    ctx.fillStyle = 'rgba(30,8,60,.92)'; ctx.beginPath(); ctx.ellipse(x, y, TUNE.OIL_R + 4, TUNE.OIL_R - 8, 0.4, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = 'rgba(178,102,255,.75)'; ctx.lineWidth = 2.5; ctx.stroke();
+    ctx.fillStyle = 'rgba(0,229,255,.2)'; ctx.beginPath(); ctx.ellipse(x - 8, y - 5, 11, 6, 0.3, 0, Math.PI * 2); ctx.fill();
+  };
+  for (const o of Object.values(S().oil || {})) if (now < o.e && o.x > l && o.x < r && o.y > u && o.y < d) drawSlick(o.x, o.y);
+  G.pendingOil = G.pendingOil.filter((o) => now - o.t < 900);
+  for (const o of G.pendingOil) drawSlick(o.x, o.y);
+
+  // pickups
+  const pk = S().pk || {};
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  T.pads.forEach((pad, i) => {
+    const st = pk[i];
+    if (!st || st.a > now || (G.localTaken[i] || 0) > now) return;
+    if (pad.x < l || pad.x > r || pad.y < u || pad.y > d) return;
+    const col = PAD_COL[st.t];
+    ctx.globalCompositeOperation = 'lighter'; ctx.drawImage(glow(col), pad.x - 40, pad.y - 40, 80, 80); ctx.globalCompositeOperation = 'source-over';
+    ctx.save(); ctx.translate(pad.x, pad.y); ctx.rotate(t / 500 + i);
+    ctx.strokeStyle = col; ctx.lineWidth = 3; ctx.fillStyle = 'rgba(8,8,30,.75)'; rr(-17, -17, 34, 34, 7); ctx.fill(); ctx.stroke(); ctx.restore();
+    ctx.fillStyle = col; ctx.font = st.t === 'o' ? '900 11px "Segoe UI",sans-serif' : '900 19px "Segoe UI",sans-serif'; ctx.fillText(PAD_ICON[st.t], pad.x, pad.y + 1);
+  });
+}
+
+function updateGetawayView(dt, now) {
+  const v = G.gv, T = G.track;
+  let s, l;
+  if (inRoom() && inRace() && S().g) { s = getawayS(now); l = S().g.l; }
+  else { G.attractS += dt * 300; s = G.attractS; l = Math.sin(s / 420) * 0.4; }
+  if (!v.init) { v.s = s; v.l = l; v.init = true; }
+  // The clock offset re-syncs every few seconds, so ease rather than snap.
+  const k = 1 - Math.exp(-dt * 14);
+  v.s += (s - v.s) * k; v.l += (l - v.l) * k;
+  const lat = v.l * TUNE.G_LANE, a = T.pos(v.s, lat), b = T.pos(v.s + 26, lat);
+  v.x = a.x; v.y = a.y; v.a = Math.atan2(b.y - a.y, b.x - a.x);
+}
+
+function updateRemote(dt) {
+  if (!inRoom() || !inRace()) return;
+  const k = 1 - Math.exp(-dt * 16);
+  for (const p of mp.playerList) {
+    if (p.id === mp.playerId || typeof p.data.x !== 'number') continue;
+    let v = G.views.get(p.id);
+    const q = mp.predict(p.id);
+    if (!q) continue;
+    if (!v) { v = { x: q.x, y: q.y, a: p.data.angle || 0, trail: [], ready: true }; G.views.set(p.id, v); }
+    if (dist(v.x, v.y, q.x, q.y) > 280) { v.x = q.x; v.y = q.y; v.trail.length = 0; }
+    else { v.x += (q.x - v.x) * k; v.y += (q.y - v.y) * k; }
+    v.a += angleDiff(v.a, p.data.angle || 0) * k;
+    pushTrail(v.trail, v.x, v.y);
+  }
+}
+
+function exhaust(x, y, a, boosting, col, dt) {
+  if (Math.random() < dt * (boosting ? 90 : 16)) {
+    const bx = x - Math.cos(a) * 24, by = y - Math.sin(a) * 24;
+    puff(bx + (Math.random() - .5) * 10, by + (Math.random() - .5) * 10, {
+      vx: -Math.cos(a) * 90 + (Math.random() - .5) * 40, vy: -Math.sin(a) * 90 + (Math.random() - .5) * 40,
+      life: boosting ? 0.45 : 0.3, size: boosting ? 7 : 3.5, col: boosting ? (Math.random() < .5 ? '#fff' : col) : col, drag: 2,
+    });
+  }
+}
+
+function drawCars(t, now, dt) {
+  // Remote cars
+  for (const p of (inRoom() && inRace()) ? mp.playerList : []) {
+    if (p.id === mp.playerId) continue;
+    const v = G.views.get(p.id);
+    if (!v) continue;
+    const col = colourFor(p.id), fx = p.data.fx | 0;
+    drawRibbon(v.trail, col);
+    if ((p.data.speed | 0) > 30) exhaust(v.x, v.y, v.a, fx & 1, col, dt);
+    drawCar(v.x, v.y, v.a + ((fx & 4) ? t / 55 : 0), col, { boost: fx & 1, shield: fx & 2, dim: p.connected === false });
+    ctx.font = '700 13px "Segoe UI",sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
+    ctx.fillStyle = 'rgba(0,0,0,.6)'; ctx.fillText(p.name, v.x + 1, v.y - 33);
+    ctx.fillStyle = col; ctx.fillText(p.name, v.x, v.y - 34);
+  }
+  // Me
+  if (inRoom() && inRace()) {
+    const a = clamp(G.acc / TUNE.STEP, 0, 1), x = lerp(me.px, me.x, a), y = lerp(me.py, me.y, a), ang = lerp(me.pangle, me.angle, a);
+    const col = colourFor(mp.playerId), boosting = me.boostT > 0 || me.turboT > 0;
+    pushTrail(myTrail, x, y);
+    drawRibbon(myTrail, col);
+    if (me.speed > 30) exhaust(x, y, ang, boosting, col, dt);
+    if (boosting && Math.random() < dt * 60) puff(x, y, { vx: (Math.random() - .5) * 60, vy: (Math.random() - .5) * 60, life: 0.4, size: 3, col: '#fff', drag: 2 });
+    if (me.spinT > 0 && Math.random() < dt * 40) puff(x, y, { life: 0.6, size: 8, grow: 22, col: '#8560c0', drag: 1 });
+    drawCar(x, y, ang + (me.spinT > 0 ? t / 55 : 0), col, { boost: boosting, shield: me.shieldT > 0 });
+  }
+  // Getaway car, trailing stolen cash
+  const gv = G.gv, st = S(), moving = !inRoom() || !inRace() || (st.phase !== 'results' && now >= (st.startAt || 0));
+  if (moving && Math.random() < dt * 11) {
+    const bx = gv.x - Math.cos(gv.a) * 30, by = gv.y - Math.sin(gv.a) * 30;
+    puff(bx, by, { vx: -Math.cos(gv.a) * 40 + (Math.random() - .5) * 80, vy: -Math.sin(gv.a) * 40 + (Math.random() - .5) * 80, life: 1.5, col: '#37e07a', drag: 1.4, bill: true });
+  }
+  if (moving && Math.random() < dt * 40) {
+    puff(gv.x - Math.cos(gv.a) * 30, gv.y - Math.sin(gv.a) * 30, { vx: -Math.cos(gv.a) * 80, vy: -Math.sin(gv.a) * 80, life: 0.4, size: 5, col: GOLD, drag: 2 });
+  }
+  drawGetaway(gv.x, gv.y, gv.a, t);
+}
+
+function drawMinimap(now) {
+  const T = G.track, box = W < 700 ? 104 : 176, x0 = W - box - 12, y0 = 12, w = T.maxX - T.minX, h = T.maxY - T.minY;
+  const pad = 12, sc = Math.min((box - pad * 2) / w, (box - pad * 2) / h);
+  const ox = x0 + (box - w * sc) / 2 - T.minX * sc, oy = y0 + (box - h * sc) / 2 - T.minY * sc;
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  ctx.fillStyle = 'rgba(8,8,30,.62)'; rr(x0, y0, box, box, 10); ctx.fill();
+  ctx.strokeStyle = 'rgba(90,90,190,.35)'; ctx.lineWidth = 1; ctx.stroke();
+  ctx.setTransform(DPR * sc, 0, 0, DPR * sc, ox * DPR, oy * DPR);
+  ctx.strokeStyle = T.def.a; ctx.globalAlpha = 0.65; ctx.lineWidth = 3 / sc; ctx.stroke(T.center); ctx.globalAlpha = 1;
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  const dot = (wx, wy, r, c) => { ctx.fillStyle = c; ctx.beginPath(); ctx.arc(ox + wx * sc, oy + wy * sc, r, 0, Math.PI * 2); ctx.fill(); };
+  dot(G.gv.x, G.gv.y, 3 + Math.sin(now / 130) * 1.2 + 1.2, GOLD);
+  for (const p of mp.playerList) {
+    if (p.id === mp.playerId) continue;
+    const v = G.views.get(p.id);
+    if (v) dot(v.x, v.y, 3, colourFor(p.id));
+  }
+  dot(me.x, me.y, 3.6, '#fff'); dot(me.x, me.y, 2.6, colourFor(mp.playerId));
+}
+
+/** Gold arrow on the screen edge pointing at the getaway car when it's out of view. */
+function drawEdgeArrow() {
+  const sx = (G.gv.x - cam.x) * cam.zoom + W / 2, sy = (G.gv.y - cam.y) * cam.zoom + H / 2;
+  const m = 46;
+  if (sx > m && sx < W - m && sy > m && sy < H - m) return;
+  const dx = sx - W / 2, dy = sy - H / 2, k = Math.min((W / 2 - m) / Math.abs(dx || 1), (H / 2 - m) / Math.abs(dy || 1));
+  const x = W / 2 + dx * k, y = H / 2 + dy * k, a = Math.atan2(dy, dx);
+  ctx.save(); ctx.setTransform(DPR, 0, 0, DPR, 0, 0); ctx.translate(x, y); ctx.rotate(a);
+  ctx.fillStyle = GOLD; ctx.shadowColor = GOLD; ctx.shadowBlur = 14;
+  ctx.beginPath(); ctx.moveTo(20, 0); ctx.lineTo(-11, -13); ctx.lineTo(-5, 0); ctx.lineTo(-11, 13); ctx.closePath(); ctx.fill();
+  ctx.restore();
+}
+
+/* --- frame --- */
+let lastFrame = 0;
+function frame(t) {
+  requestAnimationFrame(frame);
+  const dt = Math.min(0.05, (t - (lastFrame || t)) / 1000);
+  lastFrame = t;
+  step(performance.now());
+
+  const now = serverNow(), racing = inRoom() && inRace();
+  updateGetawayView(dt, now);
+  updateRemote(dt);
+
+  // camera
+  const speedN = racing ? clamp(me.speed / TUNE.BOOST_TOP, 0, 1) : 0.35;
+  const base = clamp(Math.min(W / 1150, H / 800), 0.42, 1.2);
+  const tz = base * (1 - 0.22 * speedN);
+  const tx = racing ? lerp(me.px, me.x, clamp(G.acc / TUNE.STEP, 0, 1)) + me.vx * 0.3 : G.gv.x;
+  const ty = racing ? lerp(me.py, me.y, clamp(G.acc / TUNE.STEP, 0, 1)) + me.vy * 0.3 : G.gv.y;
+  if (cam.snap) { cam.x = tx; cam.y = ty; cam.zoom = tz; cam.snap = false; }
+  const ck = 1 - Math.exp(-dt * 7);
+  cam.x += (tx - cam.x) * ck; cam.y += (ty - cam.y) * ck;
+  cam.zoom += (tz - cam.zoom) * (1 - Math.exp(-dt * 2.5));
+  cam.shake *= Math.exp(-dt * 8);
+  const shx = (Math.random() - .5) * cam.shake * 2, shy = (Math.random() - .5) * cam.shake * 2;
+
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  const z = cam.zoom * DPR;
+  ctx.setTransform(z, 0, 0, z, (W / 2 + shx) * DPR - cam.x * z, (H / 2 + shy) * DPR - cam.y * z);
+  drawWorld(t, now);
+  drawParts(dt);
+  drawCars(t, now, dt);
+
+  if (racing) {
+    drawEdgeArrow();
+    drawMinimap(t);
+    updateHud(now);
+  }
+  if (inRoom() && S().phase === 'results') updateResultsTimer(now);
+
+  Sound.engine(racing ? clamp(me.speed / TUNE.BOOST_TOP, 0, 1) : 0, racing && S().phase !== 'results' && !document.hidden);
+}
+
+/* =====================================================================
+   SECTION: UI - menu & lobby
+   ===================================================================== */
+function setNetStatus(msg, err) {
+  const el = $('netStatus');
+  el.textContent = msg; el.classList.toggle('err', !!err);
+}
+function setButtons(on) { for (const id of ['btnQuick', 'btnCreate', 'btnJoin']) $(id).disabled = !on; }
+function setNetReady() {
+  setNetStatus('Online');
+  setButtons(true);
+  loadLeaderboard();
+  const invite = new URLSearchParams(location.search).get('room');
+  if (invite && !G.inviteUsed && !inRoom()) { G.inviteUsed = true; $('codeInput').value = invite.toUpperCase(); doJoin(); }
+}
+
+function showBanner(msg) { const b = $('banner'); b.textContent = msg; b.classList.toggle('hidden', !msg); }
+
+function humanError(e) {
+  return ({
+    room_not_found: 'No room with that code.', room_full: 'That room is full.', room_locked: 'That race has already started.',
+    not_connected: 'Not connected to the server yet.', timeout: 'The server took too long to answer.', banned: 'You are banned from that room.',
+  })[e && e.code] || ('Could not join: ' + ((e && (e.code || e.message)) || 'unknown error'));
+}
+
+const roomOptions = () => ({ maxPlayers: CONFIG.MAX_PLAYERS, stateWrite: 'host', state: { phase: 'lobby', round: 0, scores: {} } });
+
+async function enterRoom(fn) {
+  Sound.init();
+  setButtons(false);
+  setNetStatus('Joining...');
+  try {
+    await applyName();
+    await fn();
+    setNetStatus('Online');
+  } catch (e) {
+    setNetStatus(humanError(e), true);
+  }
+  setButtons(true);
+}
+
+async function applyName() {
+  const name = ($('nameInput').value.trim() || $('nameInput').placeholder).slice(0, 16);
+  storeSet('chaselane_name', name);
+  if (name !== mp.name) await mp.setName(name);
+}
+
+function doJoin() {
+  const code = $('codeInput').value.trim().toUpperCase();
+  if (!code) { setNetStatus('Type a room code first.', true); return; }
+  enterRoom(() => mp.join(code, { mustExist: true }));
+}
+
+/** Take the first free colour; if two players collide, the later joiner moves. */
+function claimColour() {
+  if (!inRoom() || !mp.me) return;
+  const mine = mp.me.data.c, others = mp.playerList.filter((p) => p.id !== mp.playerId);
+  const clash = others.some((p) => p.data.c === mine && (p.joined < mp.me.joined || (p.joined === mp.me.joined && p.id < mp.playerId)));
+  if (typeof mine === 'number' && !clash) return;
+  const used = new Set(others.map((p) => p.data.c));
+  for (let i = 0; i < COLOURS.length; i++) if (!used.has(i)) { mp.setPlayer({ c: i }); return; }
+}
+
+function refreshLobby() {
+  if (!inRoom() || S().phase !== 'lobby') return;
+  const list = mp.playerList.slice().sort((a, b) => a.joined - b.joined);
+  $('roomCode').textContent = mp.room.id;
+  $('playerCount').textContent = '(' + list.length + '/' + CONFIG.MAX_PLAYERS + ')';
+  $('playerList').innerHTML = list.map((p) =>
+    '<li><span class="chip" style="color:' + colourOf(p.data.c) + '"></span><span class="nm">' + esc(p.name) + '</span>' +
+    (p.id === mp.playerId ? '<span class="badge">YOU</span>' : '') +
+    (p.id === mp.room.host ? '<span class="badge host">HOST</span>' : '') +
+    (p.connected === false ? '<span class="badge off">OFFLINE</span>' : '') + '</li>').join('');
+
+  const mine = mp.me ? mp.me.data.c : -1, taken = new Set(list.filter((p) => p.id !== mp.playerId).map((p) => p.data.c));
+  $('swatches').innerHTML = COLOURS.map((c, i) =>
+    '<button class="swatch' + (i === mine ? ' sel' : '') + '" data-i="' + i + '" style="background:' + c + ';color:' + c + '"' + (taken.has(i) ? ' disabled' : '') + ' aria-label="Colour ' + (i + 1) + '"></button>').join('');
+
+  const start = $('btnStart'), enough = list.length >= CONFIG.MIN_PLAYERS;
+  start.classList.toggle('hidden', !mp.isHost);
+  start.disabled = !enough;
+  $('lobbyHint').textContent = mp.isHost
+    ? (enough ? 'Ready when you are.' : 'Waiting for at least one more racer. Share the code!')
+    : 'Waiting for ' + nameOf(mp.room.host) + ' to start...';
+}
+
+function resetRoomView() {
+  G.phaseKey = ''; G.roundKey = 0; G.views.clear(); parts.length = 0; G.gv.init = false; cam.snap = true;
+  G.track = getTrack(0);
+  for (const id of ['lobby', 'results', 'hud', 'count', 'flash', 'touch', 'leaveRace']) $(id).classList.add('hidden');
+  $('menu').classList.remove('hidden');
+  loadLeaderboard();
+}
+
+async function leaveRoom() {
+  try { await mp.leave(); } catch (e) { /* offline: the 'left' event may not fire */ }
+  resetRoomView();
+}
+
+/** Identity is per tab, so one person can have several entries; add them up by name for the menu board. */
+async function loadLeaderboard() {
+  try {
+    const r = await mp.leaderboard.top(CONFIG.LEADERBOARD, { limit: 50 });
+    const byName = new Map();
+    for (const e of r.entries || []) { const k = String(e.name || 'Racer'); byName.set(k, (byName.get(k) || 0) + e.score); }
+    const top = [...byName.entries()].sort((a, b) => b[1] - a[1]).slice(0, 5);
+    $('boardBox').classList.toggle('hidden', !top.length);
+    $('boardList').innerHTML = top.map(([n, s]) => '<div><span>' + esc(n) + '</span><span>' + s + '</span></div>').join('');
+  } catch (e) { $('boardBox').classList.add('hidden'); }   // board doesn't exist until the first win
+}
+
+/* =====================================================================
+   SECTION: UI - HUD & results
+   ===================================================================== */
+let hudAt = 0, flashTimer = 0, lastScoresHtml = '';
+function flash(msg) {
+  const el = $('flash'); el.textContent = msg; el.classList.remove('hidden');
+  clearTimeout(flashTimer); flashTimer = setTimeout(() => el.classList.add('hidden'), 1300);
+}
+
+function roundLabel(st) {
+  return st.round > CONFIG.ROUNDS ? 'ROUND ' + st.round + ' / TIEBREAK' : 'ROUND ' + st.round + ' / ' + CONFIG.ROUNDS;
+}
+
+function updateHud(now) {
+  const st = S();
+  // Countdown is driven by the shared clock so every client ticks together.
+  const c = $('count'), left = (st.startAt - now) / 1000;
+  if (st.phase === 'countdown' || left > -0.9) {
+    if (left > 0) {
+      const n = Math.ceil(left);
+      if (n <= 3) {
+        c.textContent = n; c.classList.remove('hidden');
+        if (G.lastCountNum !== n) { G.lastCountNum = n; Sound.beep(false); }
+      } else c.classList.add('hidden');
+    } else if (left > -0.9 && st.phase !== 'results') {
+      c.textContent = 'GO!'; c.classList.remove('hidden');
+      if (G.lastCountNum !== 0) { G.lastCountNum = 0; Sound.beep(true); shake(6); }
+    } else c.classList.add('hidden');
+  } else c.classList.add('hidden');
+
+  $('boostFill').style.width = (me.boostT > 0 ? me.boostT / TUNE.BOOST_TIME : me.boost) * 100 + '%';
+  $('boostFill').classList.toggle('ready', me.boost >= 1);
+
+  if (performance.now() - hudAt < 100) return;        // text doesn't need 60 Hz of DOM writes
+  hudAt = performance.now();
+
+  const racers = [{ id: mp.playerId, p: me.p }];
+  for (const p of mp.playerList) if (p.id !== mp.playerId && p.connected !== false && typeof p.data.p === 'number') racers.push({ id: p.id, p: p.data.p });
+  racers.sort((a, b) => b.p - a.p);
+  const rank = racers.findIndex((r) => r.id === mp.playerId) + 1;
+  $('hudPos').innerHTML = esc(ordinal(rank)) + ' <small>/ ' + racers.length + '</small>';
+  $('hudRound').textContent = roundLabel(st);
+  $('hudDist').textContent = Math.max(0, Math.round((getawayS(now) - me.p - TUNE.CATCH_LONG) / 10)) + ' m';
+  $('hudItem').textContent = me.item === 'o' ? (isTouch ? 'OIL READY' : 'OIL READY [E]') : (me.shieldT > 0 ? 'SHIELD ' + Math.ceil(me.shieldT) + 's' : '');
+  if (me.wrongT > 0.8 && S().phase === 'racing') flash('WRONG WAY');
+
+  const rows = Object.keys(st.roster || {}).map((id) => ({ id, w: (st.scores || {})[id] || 0 })).sort((a, b) => b.w - a.w);
+  const html = rows.map((r) => '<div><span class="chip" style="color:' + colourFor(r.id) + ';width:10px;height:10px"></span><span class="nm">' + esc(nameOf(r.id)) + '</span><span>' + r.w + '</span></div>').join('');
+  if (html !== lastScoresHtml) { lastScoresHtml = html; $('hudScores').innerHTML = html; }
+}
+
+function refreshResults() {
+  if (!inRoom() || S().phase !== 'results') return;
+  const st = S(), champ = st.over, mine = st.winner === mp.playerId;
+  const title = $('resTitle'), col = colourFor(champ || st.winner);
+  title.style.color = col; title.style.textShadow = '0 0 18px ' + col;
+  title.textContent = champ ? nameOf(champ) + ' takes the match!' : (mine ? 'You caught it!' : nameOf(st.winner) + ' caught it!');
+  $('resSub').textContent = champ ? 'Final scoreboard, ' + st.round + (st.round === 1 ? ' round' : ' rounds') : roundLabel(st) + ' complete';
+  const need = Math.max(CONFIG.WINS_TO_TAKE, ...Object.values(st.scores || {}));
+  const rows = Object.keys(st.roster || {}).map((id) => ({ id, w: (st.scores || {})[id] || 0 })).sort((a, b) => b.w - a.w);
+  $('resTable').innerHTML = rows.map((r) => {
+    let pips = ''; for (let i = 0; i < need; i++) pips += '<span class="pip' + (i < r.w ? ' on' : '') + '"></span>';
+    return '<tr><td style="width:18px"><span class="chip" style="display:inline-block;color:' + colourFor(r.id) + '"></span></td><td class="nm">' + esc(nameOf(r.id)) + (mp.players.has(r.id) ? '' : ' (left)') + '</td><td>' + pips + '</td><td class="n">' + r.w + '</td></tr>';
+  }).join('');
+  $('btnAgain').classList.toggle('hidden', !(champ && mp.isHost));
+  $('resNext').textContent = champ && !mp.isHost ? 'Waiting for the host...' : '';
+}
+
+function updateResultsTimer(now) {
+  const st = S();
+  if (st.over) return;
+  const n = Math.max(0, Math.ceil((st.nextAt - now) / 1000));
+  $('resNext').textContent = 'Next round in ' + n + '...';
+}
+
+/* =====================================================================
+   SECTION: BOOT
+   ===================================================================== */
+function connect() {
+  setNetStatus('Connecting...');
+  setButtons(false);
+  mp.connect().catch((e) => {
+    const el = $('netStatus');
+    el.textContent = e && e.code === 'bad_key' ? 'This game key was rejected.' : "Can't reach the game server.";
+    el.classList.add('err');
+    const b = document.createElement('button');
+    b.className = 'retry'; b.textContent = 'Retry'; b.onclick = connect;
+    el.appendChild(b);
+  });
+}
+
+function boot() {
+  resize();
+  Sound.setMuted(Sound.muted);
+  const saved = (storeGet('chaselane_name') || '').slice(0, 16);
+  const fallback = 'Racer' + Math.floor(100 + Math.random() * 900);
+  $('nameInput').value = saved; $('nameInput').placeholder = fallback;
+
+  $('btnQuick').onclick = () => enterRoom(() => mp.quickJoin(CONFIG.QUICK_TAG, roomOptions()));
+  $('btnCreate').onclick = () => enterRoom(() => mp.create(Object.assign(roomOptions(), { private: true })));
+  $('btnJoin').onclick = doJoin;
+  $('codeInput').addEventListener('keydown', (e) => { if (e.key === 'Enter') doJoin(); });
+  $('codeInput').addEventListener('input', (e) => { e.target.value = e.target.value.toUpperCase(); });
+  $('btnStart').onclick = () => Host.startMatch();
+  $('btnLeave').onclick = leaveRoom;
+  $('leaveRace').onclick = () => { if (confirm('Leave this race?')) leaveRoom(); };
+  $('btnAgain').onclick = () => Host.backToLobby();
+  $('mute').onclick = () => Sound.setMuted(!Sound.muted);
+  $('btnCopy').onclick = async () => {
+    const url = location.origin + location.pathname + '?room=' + mp.room.id;
+    try { await navigator.clipboard.writeText(url); toast('Invite link copied'); }
+    catch (e) { toast(url, 6000); }
+  };
+  $('swatches').addEventListener('click', (e) => {
+    const b = e.target.closest('.swatch');
+    if (b && !b.disabled) { mp.setPlayer({ c: +b.dataset.i }); refreshLobby(); }
+  });
+
+  requestAnimationFrame(frame);
+  startHeartbeat();
+
+  // The SDK loads on demand (and is retried) so a slow or sleeping server never blocks the page itself.
+  const sdkUrls = [CONFIG.SERVER_URL + '/sdk.js', CONFIG.SERVER_URL + '/client/multiplayer.js'];
+  const tryLoad = (i) => new Promise((res, rej) => {
+    if (typeof Multiplayer !== 'undefined') return res();
+    const el = document.createElement('script'); el.src = sdkUrls[i] + '?t=' + Date.now(); el.async = true;
+    el.onload = () => (typeof Multiplayer !== 'undefined' ? res() : rej(new Error('no Multiplayer global')));
+    el.onerror = () => { el.remove(); rej(new Error('could not fetch ' + sdkUrls[i])); };
+    document.head.appendChild(el);
+  }).catch((e) => { if (i + 1 < sdkUrls.length) return tryLoad(i + 1); throw e; });
+  setNetStatus('Loading multiplayer\u2026');
+  tryLoad(0).then(() => {
+    mp = new Multiplayer({ url: CONFIG.SERVER_URL, key: CONFIG.GAME_KEY, name: saved || fallback });
+    bindNetwork();
+    connect();
+  }).catch(() => setNetStatus("Couldn't load the multiplayer SDK. The server may be asleep or you may be offline \u2014 reload to retry.", true));
+}
+
+// Small handle for poking at the game from the browser console.
+window.__chase = { me, G, TUNE, held, Host, get mp() { return mp; } };
+
+boot();
+</script>
+</body>
+</html>
