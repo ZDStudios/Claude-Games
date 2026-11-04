@@ -305,6 +305,17 @@
     font-weight:800; font-size:0.85rem; padding:6px 14px;
     background:var(--panel); border:3px solid var(--ink); border-radius:999px; box-shadow:var(--shadow-hard-sm);
   }
+  .arcade-btn{
+    display:inline-flex; align-items:center; gap:8px; margin-top:18px;
+    font-family:var(--font-display); font-size:1.15rem; letter-spacing:0.04em;
+    background:var(--accent-pink); color:var(--ink);
+    border:4px solid var(--ink); border-radius:16px; padding:12px 26px;
+    text-decoration:none; box-shadow:5px 5px 0 var(--ink);
+    transition: transform 0.12s ease, box-shadow 0.12s ease;
+  }
+  .arcade-btn:hover{ transform:translate(-2px,-2px); box-shadow:7px 7px 0 var(--ink); }
+  .arcade-btn:active{ transform:translate(3px,3px); box-shadow:2px 2px 0 var(--ink); }
+  .arcade-sub{ display:block; font-family:inherit; font-weight:800; font-size:0.78rem; opacity:0.8; margin-top:6px; }
   .play-btn{
     font-family:var(--font-display);
     font-size:0.92rem;
@@ -450,6 +461,8 @@
       <span>📱 Most games may or may not work on mobile.</span>
       <span>🌐 Online = play with friends over the internet &nbsp;·&nbsp; 🎮 Local = share one screen or keyboard</span>
     </p>
+    <a class="arcade-btn" href="mini-arcade.html" target="_blank" rel="noopener">🕹️ Mini Arcade</a>
+    <span class="arcade-sub">Snake · Pong · Pac-Man · Breakout · Space Invaders · Tetris · Flappy</span>
   </header>
 
   <div id="filterBar" hidden>
@@ -486,7 +499,7 @@
   const OWNER = "ZDStudios";
   const REPO = "Claude-Games";
   const BRANCH = "main";
-  const SELF_FILES = new Set(["index.html"]); // never list itself
+  const SELF_FILES = new Set(["index.html","mini-arcade.html"]); // never list itself
   const EXTERNAL_GAMES = ["https://lucal2889l-coder.github.io/Mow-Town/"];   // hosted elsewhere; the card links straight to them
 
   // Known metadata for games — extend this as you add more games to the repo.
