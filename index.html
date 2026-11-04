@@ -464,6 +464,14 @@
     </div>
 
     <div class="grid" id="grid" hidden></div>
+
+    <section id="communitySection" hidden>
+      <div class="section-head">
+        <h2>Suggested by the Public</h2>
+        <span class="sub">&#128161; Games built from ideas sent in through the idea box</span>
+      </div>
+      <div class="grid" id="communityGrid"></div>
+    </section>
   </main>
 
   <footer>
@@ -633,7 +641,8 @@
       title: "Spike Arena 3D", tagline: "Set. Spike. Win.",
       desc: "Full 3D beach-style volleyball \u2014 serve, set and spike against bots, a friend on one keyboard, or online with a room code. Pick 1v1 or 2v2 and play to the final point.",
       emoji: "\ud83c\udfd0", genre: "Sports / 3D",
-      tagBg: "#2563EB", artBg: "linear-gradient(135deg,#93C5FD,#F97316)"
+      tagBg: "#2563EB", artBg: "linear-gradient(135deg,#93C5FD,#F97316)",
+      community: true
     },
     "scrapyard-siege.html": {
       title: "Scrapyard Siege", tagline: "A Tower Defence That Learns",
@@ -728,6 +737,7 @@
           <p class="desc">${escapeHtml(game.desc)}</p>
           ${mpBadges(game)}
           ${game.author ? `<div class="author-tag">\u2605 Made by ${escapeHtml(game.author)}</div>` : ""}
+          ${game.community ? `<div class="author-tag">\ud83d\udca1 Suggested by the public</div>` : ""}
           <div class="card-foot">
             <span class="meta-bits">${escapeHtml(game.tagline)}</span>
             <a class="play-btn" href="${game.url}" target="_blank" rel="noopener">\u25b6 PLAY</a>
@@ -744,10 +754,15 @@
       if (!q) return true;
       return (g.title + " " + g.genre + " " + g.tagline + " " + g.desc + " " + (g.author || "")).toLowerCase().includes(q);
     });
-    grid.innerHTML = shown.length
-      ? shown.map(cardHtml).join("")
-      : `<div class="empty-card">Nothing matches that \u2014 try a different search. \ud83d\udd0d</div>`;
+    // Games that came from public ideas get their own section below the main library.
+    const main      = shown.filter(g => !g.community);
+    const community = shown.filter(g => g.community);
+    grid.innerHTML = main.length
+      ? main.map(cardHtml).join("")
+      : (shown.length ? "" : `<div class="empty-card">Nothing matches that \u2014 try a different search. \ud83d\udd0d</div>`);
     grid.hidden = !grid.innerHTML;
+    document.getElementById("communitySection").hidden = !community.length;
+    document.getElementById("communityGrid").innerHTML = community.map(cardHtml).join("");
   }
 
   function buildChips(){
