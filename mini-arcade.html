@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <title>Mini Arcade</title>
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
-<meta name="description" content="Mini Arcade: Snake, Pong, Pac-Man, Breakout, Space Invaders, Tetris and Flappy — arcade classics in one page.">
+<meta name="description" content="Mini Arcade: Snake, Pong, Pac-Man, Breakout, Space Invaders, Tetris, Flappy and Crossy Road — arcade classics in one page.">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%2307071a'/%3E%3Ccircle cx='28' cy='32' r='16' fill='%23ffd23f'/%3E%3Cpath d='M28 32l16-9v18z' fill='%2307071a'/%3E%3Ccircle cx='50' cy='32' r='4' fill='%23fff'/%3E%3C/svg%3E">
 <style>
 :root{ --bg:#07071a; --panel:#10123a; --line:#2b2f7a; --text:#eef1ff; --dim:#8f95d6; --yellow:#ffd23f; --pink:#ff4fa3; --cyan:#35e0ff; --green:#5dff7a; }
@@ -727,6 +727,190 @@ function Flappy(){
   reset();
   return g;
 }
+/* =====================================================  CROSSY ROAD  */
+function Crossy(){
+  var COLS = 9, T = Math.floor(W/COLS), OXC = Math.floor((W - COLS*T)/2), BASE = H - 8;
+  var g = { score:0, over:false };
+  var lanes, pl, cam, camT, best, idle, deadMsg, deathT, t, lastType, run, seed;
+  var CARCOL = ['#ff4f5e','#35e0ff','#ffd23f','#b56bff','#ff9a3d','#f5f5f5'];
+  function hash(n){ var x = Math.sin(n*127.1 + seed*311.7)*43758.5453; return x - Math.floor(x); }
+  function mkLane(i){
+    var type, r = hash(i*7.3);
+    if(i < 3) type = 'grass';
+    else {
+      if(lastType === 'grass' || run >= 3) { r = hash(i*3.1); type = r < 0.5 ? 'road' : (r < 0.8 ? 'river' : (r < 0.92 ? 'rail' : 'grass')); }
+      else type = (r < 0.2 ? 'grass' : (r < 0.62 ? 'road' : (r < 0.88 ? 'river' : 'rail')));
+      if(type === lastType && type !== 'road' && run >= 2) type = 'grass';
+      if(type === 'river' && lastType === 'river' && run >= 2) type = 'road';
+    }
+    run = (type === lastType) ? run + 1 : 1; lastType = type;
+    var L = { i:i, type:type, dir: hash(i*5.9) < 0.5 ? -1 : 1, items:[] };
+    var k, x;
+    if(type === 'grass'){
+      L.trees = [];
+      for(k=0;k<COLS;k++) L.trees[k] = (i >= 3 && hash(i*13 + k*7.7) < (k===0||k===COLS-1 ? 0.5 : 0.18) && !(i < 6 && k === 4));
+    } else if(type === 'road'){
+      L.speed = 1.2 + hash(i*2.2)*1.6 + Math.min(i/80, 1.2);
+      x = hash(i*1.7)*3;
+      while(x < COLS + 4){
+        var len = hash(i*9 + x) < 0.25 ? 2 : 1;
+        L.items.push({ x:x, len:len, c:CARCOL[Math.floor(hash(i*4 + x*3)*CARCOL.length)] });
+        x += len + 1.6 + hash(i*6 + x*5)*3.2;
+      }
+      L.span = x;
+    } else if(type === 'river'){
+      L.speed = 0.7 + hash(i*2.9)*1.0 + Math.min(i/120, 0.6);
+      x = hash(i*1.3)*2;
+      while(x < COLS + 4){
+        var ll = 2 + Math.floor(hash(i*8 + x)*2);
+        L.items.push({ x:x, len:ll });
+        x += ll + 1.3 + hash(i*5 + x*3)*1.6;
+      }
+      L.span = x;
+    } else if(type === 'rail'){
+      L.timer = 2 + hash(i*3.7)*4; L.state = 'idle'; L.tx = 0; L.speed = 16;
+    }
+    return L;
+  }
+  function ensure(n){ while(lanes.length <= n) lanes.push(mkLane(lanes.length)); }
+  function reset(){
+    seed = Math.floor(Math.random()*1000); lanes = []; lastType = 'grass'; run = 0;
+    pl = { row:0, x:Math.floor(COLS/2), px:Math.floor(COLS/2), prow:0, hop:1, face:'up', dead:false, squash:0 };
+    cam = 0; camT = 0; best = 0; idle = 0; t = 0; deathT = 0; deadMsg = ''; g.score = 0; g.over = false; ensure(24);
+  }
+  function blocked(row, col){ var L = lanes[row]; return L && L.type === 'grass' && col >= 0 && col < COLS && L.trees[col]; }
+  function move(dx, dy){
+    if(pl.dead || g.over || pl.hop < 0.55) return;
+    var nx = Math.round(pl.x) + dx, nr = pl.row + dy;
+    if(nr < 0 || nx < 0 || nx > COLS-1) return;
+    ensure(nr + 24);
+    if(blocked(nr, nx)) return;
+    pl.px = pl.x; pl.prow = pl.row; pl.x = nx; pl.row = nr; pl.hop = 0;
+    pl.face = dy > 0 ? 'up' : (dy < 0 ? 'down' : (dx < 0 ? 'left' : 'right'));
+    beep(dy > 0 ? 520 : 400, .04, 'square', .03);
+    if(nr > best){ best = nr; g.score = best; idle = 0; }
+  }
+  function die(msg, kind){ if(pl.dead) return; pl.dead = true; pl.kind = kind; deadMsg = msg; deathT = 0; beep(kind==='splash'?200:120, .4, 'sawtooth', .05); }
+  g.restart = reset;
+  g.debug = function(){ return { lanes:lanes, pl:pl, ensure:ensure, setCam:function(v){ camT = v; cam = v; } }; };
+  g.key = function(code, down, rep){
+    if(!down || rep) return;
+    if(code==='ArrowUp'||code==='KeyW'||code==='Space') move(0,1);
+    else if(code==='ArrowDown'||code==='KeyS') move(0,-1);
+    else if(code==='ArrowLeft'||code==='KeyA') move(-1,0);
+    else if(code==='ArrowRight'||code==='KeyD') move(1,0);
+  };
+  g.ptr = function(type, x, y){ if(type === 'down') move(0,1); };
+  function carHit(L, px){
+    for(var i=0;i<L.items.length;i++){ var c = L.items[i]; if(px + 0.32 > c.x && px - 0.32 < c.x + c.len) return true; }
+    return false;
+  }
+  g.update = function(dt){
+    t += dt;
+    // world motion
+    var vis = Math.max(0, Math.floor(cam) - 2), top = Math.ceil(cam) + 14;
+    ensure(top + 6);
+    for(var i=vis;i<=top;i++){
+      var L = lanes[i]; if(!L) continue;
+      if(L.type === 'road' || L.type === 'river'){
+        L.items.forEach(function(c){ c.x += L.dir*L.speed*dt; if(L.dir>0 && c.x > COLS+2) c.x -= L.span + c.len; if(L.dir<0 && c.x + c.len < -2) c.x += L.span + c.len; });
+      } else if(L.type === 'rail'){
+        if(L.state === 'idle'){ L.timer -= dt; if(L.timer <= 0){ L.state = 'warn'; L.timer = 1.1; } }
+        else if(L.state === 'warn'){ L.timer -= dt; if(L.timer <= 0){ L.state = 'pass'; L.tx = L.dir > 0 ? -10 : COLS + 2; beep(140, .5, 'sawtooth', .04); } }
+        else { L.tx += L.dir*L.speed*dt; if((L.dir>0 && L.tx > COLS+2) || (L.dir<0 && L.tx < -10)){ L.state = 'idle'; L.timer = 3 + hash(L.i + t)*4; } }
+      }
+    }
+    if(pl.dead){ deathT += dt; if(deathT > 0.9) g.over = true; return; }
+    // hop
+    if(pl.hop < 1){ pl.hop = Math.min(1, pl.hop + dt*7.5); }
+    var hopping = pl.hop < 1;
+    var ex = hopping ? pl.px + (pl.x - pl.px)*pl.hop : pl.x, er = hopping ? pl.prow + (pl.row - pl.prow)*pl.hop : pl.row;
+    var L = lanes[pl.row];
+    // riding a log
+    if(!hopping && L && L.type === 'river'){
+      var log = null; for(var j=0;j<L.items.length;j++){ var lg = L.items[j]; if(pl.x + 0.1 > lg.x - 0.1 && pl.x - 0.1 < lg.x + lg.len + 0.1){ log = lg; break; } }
+      if(!log){ die('SPLASH!', 'splash'); }
+      else { pl.x += L.dir*L.speed*dt; if(pl.x < -0.4 || pl.x > COLS - 0.6) die('CARRIED AWAY!', 'splash'); }
+    }
+    // traffic / trains
+    var cl = lanes[Math.round(er)];
+    if(cl && !pl.dead){
+      if(cl.type === 'road' && carHit(cl, ex)) die('SPLAT!', 'splat');
+      if(cl.type === 'rail' && cl.state === 'pass' && ex + 0.32 > cl.tx && ex - 0.32 < cl.tx + 9) die('SPLAT!', 'splat');
+    }
+    // camera + eagle
+    camT = Math.max(camT, pl.row - 3);
+    cam += (camT - cam)*Math.min(1, dt*5);
+    if(pl.row < cam - 0.4 && !pl.dead) die('TOO SLOW!', 'splat');
+    idle += dt;
+    if(idle > 7 && !pl.dead) die('THE EAGLE GOT YOU!', 'splat');
+    else if(idle > 4.5 && Math.floor(idle*3)%2 === 0 && Math.floor((idle-dt)*3)%2 !== 0) beep(900, .04, 'square', .02);
+  };
+  function laneY(i){ return BASE - (i - cam + 1)*T; }
+  function drawCar(c, y, dir){
+    var x = OXC + c.x*T, w = c.len*T - 6, h = T-16;
+    rrect(x+3, y+8, w, h, 8, c.c);
+    ctx.fillStyle = 'rgba(0,0,0,.3)'; ctx.fillRect(x+3+(dir>0 ? w*0.55 : w*0.15), y+12, w*0.3, h-8);
+    ctx.fillStyle = '#ffe9a8'; ctx.fillRect(x+3+(dir>0 ? w-5 : 0), y+14, 5, 6); ctx.fillRect(x+3+(dir>0 ? w-5 : 0), y+h-4, 5, 6);
+  }
+  g.draw = function(hi){
+    var i;
+    ctx.fillStyle = '#6cc04a'; ctx.fillRect(0,0,W,H);
+    var lo = Math.max(0, Math.floor(cam) - 1), hiRow = Math.ceil(cam) + 12;
+    for(i=hiRow;i>=lo;i--){
+      var L = lanes[i]; if(!L) continue;
+      var y = laneY(i);
+      if(L.type === 'grass'){ ctx.fillStyle = i%2 ? '#79cc55' : '#6cc04a'; ctx.fillRect(0, y, W, T); }
+      else if(L.type === 'road'){
+        ctx.fillStyle = '#3b3f4a'; ctx.fillRect(0, y, W, T);
+        ctx.fillStyle = 'rgba(255,255,255,.35)'; for(var x=10;x<W;x+=48) ctx.fillRect(x, y+T/2-2, 26, 4);
+      } else if(L.type === 'river'){
+        ctx.fillStyle = '#3fa7ff'; ctx.fillRect(0, y, W, T);
+        ctx.fillStyle = 'rgba(255,255,255,.25)'; for(var k=0;k<5;k++){ var wx = ((k*110 + t*20*L.dir) % (W+40) + W+40) % (W+40) - 20; ctx.fillRect(wx, y + 12 + (k%3)*14, 24, 3); }
+      } else {
+        ctx.fillStyle = '#8c7a62'; ctx.fillRect(0, y, W, T);
+        ctx.fillStyle = '#5e4b3a'; for(var tx=4;tx<W;tx+=22) ctx.fillRect(tx, y+4, 10, T-8);
+        ctx.fillStyle = '#c7ccd6'; ctx.fillRect(0, y+14, W, 4); ctx.fillRect(0, y+T-18, W, 4);
+        if(L.state === 'warn'){ var on = Math.floor(t*8)%2; circle(W-24, y+T/2, 9, on ? '#ff3b3b' : '#5a1414'); circle(24, y+T/2, 9, on ? '#5a1414' : '#ff3b3b'); }
+      }
+      if(L.type === 'grass'){
+        for(var c=0;c<COLS;c++) if(L.trees[c]){
+          var tx2 = OXC + c*T; ctx.fillStyle = '#5a3d22'; ctx.fillRect(tx2+T/2-5, y+T-20, 10, 16);
+          rrect(tx2+6, y+4, T-12, T-18, 8, '#2f9e44'); rrect(tx2+12, y+10, T-24, T-28, 6, '#3fb856');
+        }
+      } else if(L.type === 'road'){ L.items.forEach(function(c){ drawCar(c, y, L.dir); }); }
+      else if(L.type === 'river'){ L.items.forEach(function(lg){ rrect(OXC + lg.x*T, y+8, lg.len*T, T-16, 8, '#a8743d'); ctx.fillStyle = '#c0894a'; ctx.fillRect(OXC + lg.x*T+8, y+14, lg.len*T-16, 5); }); }
+      else if(L.type === 'rail' && L.state === 'pass'){
+        for(var v=0;v<5;v++){ var vx = OXC + (L.tx + v*1.8)*T; rrect(vx, y+8, 1.7*T, T-16, 6, v===(L.dir>0?4:0) ? '#ff4f5e' : '#cfd5e6'); ctx.fillStyle = '#35e0ff'; ctx.fillRect(vx+10, y+14, 1.7*T-20, 8); }
+      }
+      // player drawn within its own row for correct overlap
+      if(i === Math.round(pl.hop < 1 ? pl.prow + (pl.row - pl.prow)*pl.hop : pl.row)) drawPlayer(y);
+    }
+    ctx.fillStyle = 'rgba(0,0,0,.35)'; ctx.fillRect(0,0,W,38);
+    text(String(g.score), W/2, 20, 26, '#fff', 'center'); text('BEST ' + Math.max(hi, g.score), W-12, 20, 16, '#ffd23f', 'right');
+    if(pl.dead) text(deadMsg, W/2, H/2-30, 30, '#fff', 'center');
+    else if(g.score === 0 && !pl.dead) text('PRESS ↑ / SPACE TO HOP', W/2, H/2-60, 18, '#fff', 'center');
+    if(idle > 4.5 && !pl.dead){ ctx.fillStyle = 'rgba(255,59,59,' + (0.12 + 0.1*Math.sin(t*14)) + ')'; ctx.fillRect(0,0,W,H); text('MOVE! THE EAGLE IS COMING', W/2, 62, 16, '#fff', 'center'); }
+  };
+  function drawPlayer(y){
+    var hop = pl.hop < 1 ? Math.sin(pl.hop*Math.PI) : 0;
+    var ex = pl.hop < 1 ? pl.px + (pl.x - pl.px)*pl.hop : pl.x;
+    var cx = OXC + ex*T + T/2, by = y + T - 10 - hop*18;
+    ctx.fillStyle = 'rgba(0,0,0,.25)'; ctx.beginPath(); ctx.ellipse(cx, y+T-8, 16 - hop*4, 6, 0, 0, TAU); ctx.fill();
+    if(pl.dead){
+      if(pl.kind === 'splash'){ ctx.fillStyle = 'rgba(255,255,255,.8)'; for(var k=0;k<6;k++) circle(cx + Math.cos(k*1.05)*(10+deathT*30), y+T/2 - Math.sin(k*1.05)*(8+deathT*24), 4, 'rgba(255,255,255,.8)'); return; }
+      ctx.fillStyle = '#fff'; ctx.fillRect(cx-18, y+T-18, 36, 8); ctx.fillStyle = '#ff4f5e'; ctx.fillRect(cx-8, y+T-18, 16, 8); return;
+    }
+    var w = 32 - hop*4, h = 34 + hop*6;
+    rrect(cx - w/2, by - h, w, h, 7, '#fff');
+    ctx.fillStyle = '#ff4f5e'; ctx.fillRect(cx-4, by-h-5, 8, 7);
+    ctx.fillStyle = '#ffa31a'; var bx = pl.face==='left' ? cx-w/2-5 : (pl.face==='right' ? cx+w/2-1 : cx-3); ctx.fillRect(bx, by-h+12, 7, 6);
+    circle(cx-6, by-h+11, 2.5, '#111'); circle(cx+6, by-h+11, 2.5, '#111');
+  }
+  g.hint = '↑ / Space to hop forward · ← → ↓ to dodge · cross roads, ride logs, watch for trains';
+  reset();
+  return g;
+}
 /* =====================================================  ENGINE + MENU  */
 var GAMES = [
   { id:'snake',    name:'SNAKE',          em:'🐍', desc:'Eat the apples, grow longer, don’t crash.', make:Snake },
@@ -735,7 +919,8 @@ var GAMES = [
   { id:'breakout', name:'BREAKOUT',       em:'🧱', desc:'Smash every brick with the bouncing ball.', make:Breakout },
   { id:'invaders', name:'SPACE INVADERS', em:'👾', desc:'Hold the line against the descending aliens.', make:Invaders },
   { id:'tetris',   name:'TETRIS',         em:'🧩', desc:'Stack the falling blocks and clear lines.', make:Tetris },
-  { id:'flappy',   name:'FLAPPY',         em:'🐦', desc:'Flap through the pipes. Harder than it looks.', make:Flappy }
+  { id:'flappy',   name:'FLAPPY',         em:'🐦', desc:'Flap through the pipes. Harder than it looks.', make:Flappy },
+  { id:'crossy',   name:'CROSSY ROAD',    em:'\ud83d\udc14', desc:'Hop across roads, rivers and rails. How far can you go?', make:Crossy }
 ];
 var cur = null, curDef = null, paused = false, last = 0, hi = 0, running = false;
 
