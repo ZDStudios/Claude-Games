@@ -465,6 +465,15 @@
   body.discreet .genre-tag{ border:0; font-weight:600; text-transform:none; letter-spacing:0; font-size:0.74rem; }
   body.discreet .card p.desc{ font-weight:400; color:#4a566f; font-size:0.9rem; line-height:1.5; }
   body.discreet .card p.desc b{ color:#1f2a44; font-weight:700; }
+  .info-btn{
+    display:inline-flex; align-items:center; justify-content:center; vertical-align:middle;
+    width:22px; height:22px; margin-left:8px; border-radius:50%; cursor:pointer;
+    border:1.5px solid #2f6fed; background:#fff; color:#2f6fed; font:italic 700 0.8rem Georgia,"Times New Roman",serif; line-height:1; padding:0;
+  }
+  .info-btn:hover,.info-btn[aria-expanded="true"]{ background:#2f6fed; color:#fff; }
+  .info-panel{ background:#f1f5ff; border:1px solid #cfdcfa; border-left:4px solid #2f6fed; border-radius:8px; padding:10px 12px; font-size:0.86rem; line-height:1.5; color:#33415f; font-weight:400; }
+  .info-panel[hidden]{ display:none; }
+  .info-panel b{ color:#1f2a44; font-weight:700; }
   body.discreet .mp-badge{ border:0; background:#eef1f7 !important; color:#55627f; font-weight:600; text-transform:none; letter-spacing:0; font-size:0.74rem; }
   body.discreet .meta-bits{ font-weight:500; color:#6b7690; }
   body.discreet .play-btn{ background:#2f6fed; color:#fff; border:0; border-radius:8px; box-shadow:none; font-weight:600; font-size:0.88rem; letter-spacing:0; padding:9px 16px; }
@@ -832,37 +841,37 @@
   };
   // file -> [school-style title, subject]
   const DISCRETE = {
-    "reefkeeper.html":                       ["Marine Ecosystems Lab", "Biology"],
-    "haul-hard.html":                        ["Applied Physics: Load & Motion", "Science"],
-    "rivals-fps.html":                       ["Team Strategy & Coordination", "Social Studies"],
-    "neon-rush.html":                        ["Rhythm & Timing Patterns", "Music"],
-    "abyss-ocean-simulator.html":            ["Deep-Sea Habitats Explorer", "Biology"],
-    "everything.html":                       ["Open-Ended Exploration Studio", "Creative Studies"],
-    "bricks-of-the-dark-knight.html":        ["Structures & Problem Solving", "Engineering"],
-    "matchday.html":                         ["Sports Management & Statistics", "Mathematics"],
-    "azure-rush.html":                       ["Waves & Speed: Fluid Dynamics", "Science"],
-    "spaceship-fly.html":                    ["Introduction to Flight & Orbits", "Science"],
-    "minecraft.html":                        ["Spatial Design Workshop", "Engineering"],
-    "terraria.html":                         ["Resource Management & Crafting", "Economics"],
-    "getting-over-it.html":                  ["Persistence & Precision Practice", "Life Skills"],
-    "skidline-gp.html":                      ["Friction & Traction Experiments", "Science"],
-    "subway-surfers.html":                   ["Reaction Time & Pattern Recognition", "Life Skills"],
-    "stickman-hook.html":                    ["Pendulum Motion Lab", "Science"],
-    "monument.html":                         ["Spatial Reasoning Puzzles", "Mathematics"],
-    "slime-orchard.html":                    ["Agriculture & Genetics Basics", "Biology"],
-    "tiny-fishing.html":                     ["Fisheries & Resource Economics", "Economics"],
-    "skyrim.html":                           ["Medieval History & Folklore", "History"],
-    "skyhook-run.html":                      ["Momentum & Swing Physics", "Science"],
-    "john-pork-escape.html":                 ["Safety & Decision-Making Scenarios", "Life Skills"],
-    "https://lucal2889l-coder.github.io/mow-town/": ["Measurement: Area & Efficiency", "Mathematics"],
-    "poke-clash.html":                       ["Classification & Probability", "Biology"],
-    "chase-lane.html":                       ["Pursuit Curves & Strategy", "Mathematics"],
-    "planezzz.html":                         ["Aviation & Logistics", "Geography"],
-    "spike-arena.html":                      ["Team Sports & Cooperation", "Physical Education"],
-    "scrapyard-siege.html":                  ["Defensive Engineering Challenge", "Engineering"],
-    "hyperkick.html":                        ["Collisions & Trajectory Physics", "Science"]
+    "reefkeeper.html": ["Marine Ecosystems Lab", "Biology", "Observe how coral reef communities grow and stay balanced. Learners track populations and see how small changes affect the whole ecosystem."],
+    "haul-hard.html": ["Applied Physics: Load & Motion", "Science", "Investigate how mass, friction and momentum affect moving loads. Complete short experiments and compare your results with the predictions."],
+    "rivals-fps.html": ["Team Strategy & Coordination", "Social Studies", "A team-based exercise in planning, communication and quick decisions. Work with a partner to reach a shared goal under time pressure."],
+    "neon-rush.html": ["Rhythm & Timing Patterns", "Music", "Practise recognising rhythm and timing patterns. Learners match beats to actions and build a feel for tempo."],
+    "abyss-ocean-simulator.html": ["Deep-Sea Habitats Explorer", "Biology", "Explore life in the deep ocean and learn how different animals feed, hide and survive at depth. Includes a built-in species guide."],
+    "everything.html": ["Open-Ended Exploration Studio", "Creative Studies", "A guided exploration studio where learners wander through ten themed districts, collect items and fill in a visual index as they go."],
+    "bricks-of-the-dark-knight.html": ["Structures & Problem Solving", "Engineering", "Solve structure problems by thinking about balance, force and materials. Each stage adds a new design challenge."],
+    "matchday.html": ["Sports Management & Statistics", "Mathematics", "Manage a team through a season and use match statistics to make better decisions. Great for practising averages and percentages."],
+    "azure-rush.html": ["Waves & Speed: Fluid Dynamics", "Science", "See how waves, speed and surface tension interact. Learners test different approaches and record which ones work best."],
+    "spaceship-fly.html": ["Introduction to Flight & Orbits", "Science", "An introduction to flight, thrust and orbits. Control a craft step by step and see how small adjustments change its path."],
+    "minecraft.html": ["Spatial Design Workshop", "Engineering", "A spatial design workshop: plan, build and revise structures block by block while practising 3D thinking."],
+    "terraria.html": ["Resource Management & Crafting", "Economics", "Practise gathering, trading and managing resources to reach longer-term goals. Learners plan what to collect and what to craft."],
+    "getting-over-it.html": ["Persistence & Precision Practice", "Life Skills", "A resilience and precision exercise. Learners practise steady, careful movement and learn from every attempt."],
+    "skidline-gp.html": ["Friction & Traction Experiments", "Science", "Experiment with friction, grip and turning forces on different surfaces and compare how each one behaves."],
+    "subway-surfers.html": ["Reaction Time & Pattern Recognition", "Life Skills", "Train reaction time and pattern recognition with a fast-moving sequence of choices. Scores show how focus improves with practice."],
+    "stickman-hook.html": ["Pendulum Motion Lab", "Science", "A pendulum motion lab. Release at the right moment to see how swing, height and timing affect distance."],
+    "monument.html": ["Spatial Reasoning Puzzles", "Mathematics", "Spatial reasoning puzzles that ask learners to look at structures from different angles and find the path through."],
+    "slime-orchard.html": ["Agriculture & Genetics Basics", "Biology", "Learn the basics of farming cycles and heredity: tend a small orchard, harvest, and breed new varieties."],
+    "tiny-fishing.html": ["Fisheries & Resource Economics", "Economics", "A simple resource-economics activity. Decide when to spend, upgrade and save as you work towards a bigger goal."],
+    "skyrim.html": ["Medieval History & Folklore", "History", "Explore a medieval hold town and its surroundings, and learn about daily life, folklore and geography as you go."],
+    "skyhook-run.html": ["Momentum & Swing Physics", "Science", "Study momentum and swing physics by attaching, swinging and releasing at the right moment to travel further."],
+    "john-pork-escape.html": ["Safety & Decision-Making Scenarios", "Life Skills", "A scenario-based exercise on staying calm and making safe decisions. Learners weigh options and plan a way out."],
+    "https://lucal2889l-coder.github.io/mow-town/": ["Measurement: Area & Efficiency", "Mathematics", "Practise measuring area and planning efficient routes. Learners work out the best way to cover a space in the least time."],
+    "poke-clash.html": ["Classification & Probability", "Biology", "Sort and compare creatures by type and strength, and use simple probability to plan a winning team."],
+    "chase-lane.html": ["Pursuit Curves & Strategy", "Mathematics", "Explore pursuit curves and strategy in a group activity. Learners predict where a moving target will be and plan to intercept it."],
+    "planezzz.html": ["Aviation & Logistics", "Geography", "An introduction to aviation and logistics. Plan routes between airports, manage cargo and see how weather and fuel affect each trip."],
+    "spike-arena.html": ["Team Sports & Cooperation", "Physical Education", "A team sports activity that builds cooperation and coordination. Learners practise passing, timing and communicating with teammates."],
+    "scrapyard-siege.html": ["Defensive Engineering Challenge", "Engineering", "A defensive engineering challenge: design, place and upgrade structures, then test how well they hold up."],
+    "hyperkick.html": ["Collisions & Trajectory Physics", "Science", "Investigate collisions and trajectories in a fast, hands-on experiment. Predict where the ball will go and test your prediction."]
   };
-  const dInfo = g => { const d = DISCRETE[g.file] || ["Interactive Activity", "Science"]; return { title:d[0], subject:d[1], sub:SUBJECTS[d[1]] || SUBJECTS["Science"] }; };
+  const dInfo = g => { const d = DISCRETE[g.file] || ["Interactive Activity", "Science", "A short, self-paced activity with hands-on tasks."]; return { title:d[0], subject:d[1], blurb:d[2], sub:SUBJECTS[d[1]] || SUBJECTS["Science"] }; };
   const gkey = g => discreet ? dInfo(g).subject : g.genre;
   let discreet = false;
   try{ discreet = localStorage.getItem("zd.discreet") === "1"; }catch(_){}
@@ -878,10 +887,11 @@
         </div>
         <div class="card-body">
           <div class="card-top-row">
-            <h3>${escapeHtml(d.title)}</h3>
+            <h3>${escapeHtml(d.title)}<button type="button" class="info-btn" aria-expanded="false" aria-label="Show details" title="Details">i</button></h3>
             <span class="genre-tag" style="background:${d.sub.chip}; color:${d.sub.fg};">${escapeHtml(d.subject)}</span>
           </div>
-          <p class="desc"><b>This activity is the game \u201c${escapeHtml(game.title)}\u201d.</b> ${escapeHtml(game.desc)}</p>
+          <p class="desc">${escapeHtml(d.blurb)}</p>
+          <div class="info-panel" hidden><b>This activity is the game \u201c${escapeHtml(game.title)}\u201d.</b> ${escapeHtml(game.desc)}</div>
           ${mode ? `<div class="mp-row"><span class="mp-badge">${mode}</span>${mode2 ? `<span class="mp-badge">${mode2}</span>` : ""}</div>` : ""}
           <div class="card-foot">
             <span class="meta-bits">Self-paced \u00b7 Ages 10+</span>
@@ -1058,6 +1068,13 @@
     });
     if (ALL_GAMES.length){ activeGenre = "All"; buildChips(); applyFilters(); }
   }
+  // the little "i" next to each activity reveals what it really is
+  document.addEventListener("click", e => {
+    const b = e.target.closest && e.target.closest(".info-btn"); if (!b) return;
+    const panel = b.closest(".card").querySelector(".info-panel"); if (!panel) return;
+    const open = panel.hidden;
+    panel.hidden = !open; b.setAttribute("aria-expanded", String(open));
+  });
   document.getElementById("discreteBtn").addEventListener("click", () => {
     discreet = !discreet;
     try{ localStorage.setItem("zd.discreet", discreet ? "1" : "0"); }catch(_){}
