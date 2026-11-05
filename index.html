@@ -419,6 +419,65 @@
   .idea-msg.ok{color:#0E8F3E;} .idea-msg.err{color:#C0182B;}
   .idea-count{font-size:.75rem; font-weight:800; opacity:.6; text-align:right; margin:-6px 2px 8px;}
   .hp{position:absolute; left:-9999px; width:1px; height:1px; opacity:0;}
+
+  /* ===== top bar + Discrete Mode ===== */
+  .topbar{ display:flex; align-items:center; justify-content:flex-end; gap:12px; margin:-28px 0 18px; min-height:40px; }
+  .topbar .brand{ margin-right:auto; font-weight:800; font-size:1.15rem; display:none; }
+  .discrete-btn{
+    cursor:pointer; font:inherit; font-weight:900; font-size:0.8rem; letter-spacing:0.05em;
+    background:var(--panel); color:var(--ink); border:3px solid var(--ink); border-radius:999px;
+    padding:7px 16px; box-shadow:var(--shadow-hard-sm); transition:transform .12s, box-shadow .12s;
+  }
+  .discrete-btn:hover{ transform:translate(-1px,-1px); box-shadow:5px 5px 0 var(--ink); }
+
+  /* ===== DISCRETE MODE: looks like a school learning site ===== */
+  body.discreet{
+    --ink:#1f2a44; --panel:#ffffff; --panel-edge:#d6dcea;
+    --accent-pink:#2f6fed; --accent-teal:#2f6fed; --accent-blue:#2f6fed;
+    --shadow-hard:0 1px 3px rgba(16,24,40,.10); --shadow-hard-sm:0 1px 2px rgba(16,24,40,.08);
+    --font-display:"Segoe UI",system-ui,-apple-system,Roboto,Arial,sans-serif; --font-body:"Segoe UI",system-ui,-apple-system,Roboto,Arial,sans-serif;
+    background:#f4f7fc !important; color:#1f2a44;
+  }
+  body.discreet .shape{ display:none; }
+  body.discreet .topbar{ background:#fff; border:1px solid #d6dcea; border-radius:12px; padding:8px 14px; margin:-28px 0 34px; box-shadow:0 1px 2px rgba(16,24,40,.06); }
+  body.discreet .topbar .brand{ display:block; color:#2f6fed; }
+  body.discreet .discrete-btn{ border:1px solid #d6dcea; background:#f4f7fc; font-weight:600; letter-spacing:0; font-size:0.82rem; border-radius:8px; box-shadow:none; color:#55627f; }
+  body.discreet .discrete-btn:hover{ transform:none; box-shadow:none; background:#e8eefb; }
+  body.discreet .badge{ transform:none; background:#e8eefb; color:#2f6fed; border:1px solid #cfdcfa; box-shadow:none; letter-spacing:0.04em; text-transform:none; font-weight:700; font-size:0.85rem; }
+  body.discreet h1.title{ color:#1f2a44; -webkit-text-stroke:0; text-stroke:0; text-shadow:none; font-size:clamp(2rem,5vw,3.1rem); font-weight:700; line-height:1.15; letter-spacing:0; }
+  body.discreet .subtitle{ background:transparent; border:0; box-shadow:none; color:#55627f; font-weight:500; font-size:1.05rem; padding:0; }
+  body.discreet .stat-pill{ background:#fff; color:#1f2a44; border:1px solid #d6dcea; font-weight:600; }
+  body.discreet .stat-pill strong{ color:#2f6fed; font-weight:700; }
+  body.discreet .device-note{ display:none; }
+  body.discreet .arcade-btn{ background:#2f6fed; color:#fff; border:0; border-radius:10px; box-shadow:none; font-weight:600; font-size:1rem; padding:11px 22px; letter-spacing:0; }
+  body.discreet .arcade-btn:hover{ transform:none; background:#2559c9; box-shadow:none; }
+  body.discreet .arcade-sub{ color:#6b7690; font-weight:500; opacity:1; }
+  body.discreet #search{ background:#fff; border:1px solid #cfd6e6; border-radius:10px; box-shadow:none; font-weight:500; }
+  body.discreet #search:focus{ border-color:#2f6fed; box-shadow:0 0 0 3px rgba(47,111,237,.18); }
+  body.discreet .chip{ background:#fff; border:1px solid #cfd6e6; border-radius:999px; font-weight:600; text-transform:none; letter-spacing:0; font-size:0.82rem; color:#33415f; }
+  body.discreet .chip[aria-pressed="true"]{ background:#2f6fed; border-color:#2f6fed; color:#fff; }
+  body.discreet .card{ border:1px solid #d6dcea; border-radius:12px; box-shadow:0 1px 3px rgba(16,24,40,.08); background:#fff; }
+  body.discreet .card:hover{ transform:translateY(-2px); box-shadow:0 8px 20px rgba(16,24,40,.12); }
+  body.discreet .card-art{ height:104px; border-bottom:1px solid #e3e8f4; }
+  body.discreet .card-art::after{ display:none; }
+  body.discreet .card-art .emoji{ font-size:2.8rem; transform:none; filter:none; }
+  body.discreet .card h3{ font-size:1.08rem; font-weight:700; line-height:1.25; letter-spacing:0; }
+  body.discreet .genre-tag{ border:0; font-weight:600; text-transform:none; letter-spacing:0; font-size:0.74rem; }
+  body.discreet .card p.desc{ font-weight:400; color:#4a566f; font-size:0.9rem; line-height:1.5; }
+  body.discreet .card p.desc b{ color:#1f2a44; font-weight:700; }
+  body.discreet .mp-badge{ border:0; background:#eef1f7 !important; color:#55627f; font-weight:600; text-transform:none; letter-spacing:0; font-size:0.74rem; }
+  body.discreet .meta-bits{ font-weight:500; color:#6b7690; }
+  body.discreet .play-btn{ background:#2f6fed; color:#fff; border:0; border-radius:8px; box-shadow:none; font-weight:600; font-size:0.88rem; letter-spacing:0; padding:9px 16px; }
+  body.discreet .play-btn:hover{ background:#2559c9; transform:none; box-shadow:none; }
+  body.discreet .section-head h2{ color:#1f2a44; -webkit-text-stroke:0; text-shadow:none; font-weight:700; font-size:clamp(1.3rem,3.5vw,1.8rem); }
+  body.discreet .section-head .sub{ background:transparent; border:0; box-shadow:none; color:#6b7690; font-weight:500; padding:0; }
+  body.discreet .empty-card{ background:#fff; border:1px solid #d6dcea; box-shadow:none; }
+  body.discreet footer, body.discreet footer a, body.discreet footer p{ color:#6b7690 !important; font-weight:500; opacity:1; }
+  body.discreet footer .ai-note{ display:none; }
+  body.discreet .idea-fab{ background:#2f6fed; color:#fff; border:0; border-radius:999px; box-shadow:0 4px 14px rgba(47,111,237,.35); font-weight:600; }
+  body.discreet .idea-box{ border:1px solid #d6dcea; border-radius:14px; box-shadow:0 12px 40px rgba(16,24,40,.2); }
+  body.discreet .idea-box h3{ font-weight:700; }
+  body.discreet .idea-row button.go{ background:#2f6fed; color:#fff; box-shadow:none; }
 </style>
 </head>
 <body>
@@ -447,6 +506,11 @@
 </div>
 
 <div class="wrap">
+
+  <div class="topbar" id="topbar">
+    <span class="brand">📚 Learning Hub</span>
+    <button class="discrete-btn" id="discreteBtn" type="button" aria-pressed="false">Discrete Mode</button>
+  </div>
 
   <header class="hero">
     <span class="badge">★ No installs · No accounts · Just play ★</span>
@@ -751,7 +815,84 @@
     return '<div class="mp-row">' + b.join("") + '</div>';
   }
 
+  /* ---------- Discrete Mode: every game is dressed up as a school activity ---------- */
+  const SUBJECTS = {
+    "Science":          { icon:"\ud83d\udd2c", bg:"linear-gradient(135deg,#dbeafe,#bfdbfe)", fg:"#1d4ed8", chip:"#e0ecff" },
+    "Mathematics":      { icon:"\u2795",       bg:"linear-gradient(135deg,#ede9fe,#ddd6fe)", fg:"#6d28d9", chip:"#efeaff" },
+    "Biology":          { icon:"\ud83c\udf31", bg:"linear-gradient(135deg,#dcfce7,#bbf7d0)", fg:"#15803d", chip:"#e3f8ea" },
+    "Engineering":      { icon:"\u2699\ufe0f", bg:"linear-gradient(135deg,#ffedd5,#fed7aa)", fg:"#c2410c", chip:"#ffefdc" },
+    "Economics":        { icon:"\ud83d\udcc8", bg:"linear-gradient(135deg,#ccfbf1,#99f6e4)", fg:"#0f766e", chip:"#d9fbf3" },
+    "History":          { icon:"\ud83c\udfdb\ufe0f", bg:"linear-gradient(135deg,#fef3c7,#fde68a)", fg:"#a16207", chip:"#fff6d6" },
+    "Geography":        { icon:"\ud83c\udf0d", bg:"linear-gradient(135deg,#cffafe,#a5f3fc)", fg:"#0e7490", chip:"#d9f9fd" },
+    "Physical Education":{ icon:"\ud83c\udfc3", bg:"linear-gradient(135deg,#fee2e2,#fecaca)", fg:"#b91c1c", chip:"#ffe6e6" },
+    "Social Studies":   { icon:"\ud83d\udc65", bg:"linear-gradient(135deg,#e0e7ff,#c7d2fe)", fg:"#4338ca", chip:"#e6eaff" },
+    "Life Skills":      { icon:"\ud83e\udde0", bg:"linear-gradient(135deg,#fce7f3,#fbcfe8)", fg:"#be185d", chip:"#fde8f3" },
+    "Creative Studies": { icon:"\ud83c\udfa8", bg:"linear-gradient(135deg,#fae8ff,#f5d0fe)", fg:"#a21caf", chip:"#fbebff" },
+    "Music":            { icon:"\ud83c\udfb5", bg:"linear-gradient(135deg,#f3e8ff,#e9d5ff)", fg:"#7e22ce", chip:"#f5ecff" }
+  };
+  // file -> [school-style title, subject]
+  const DISCRETE = {
+    "reefkeeper.html":                       ["Marine Ecosystems Lab", "Biology"],
+    "haul-hard.html":                        ["Applied Physics: Load & Motion", "Science"],
+    "rivals-fps.html":                       ["Team Strategy & Coordination", "Social Studies"],
+    "neon-rush.html":                        ["Rhythm & Timing Patterns", "Music"],
+    "abyss-ocean-simulator.html":            ["Deep-Sea Habitats Explorer", "Biology"],
+    "everything.html":                       ["Open-Ended Exploration Studio", "Creative Studies"],
+    "bricks-of-the-dark-knight.html":        ["Structures & Problem Solving", "Engineering"],
+    "matchday.html":                         ["Sports Management & Statistics", "Mathematics"],
+    "azure-rush.html":                       ["Waves & Speed: Fluid Dynamics", "Science"],
+    "spaceship-fly.html":                    ["Introduction to Flight & Orbits", "Science"],
+    "minecraft.html":                        ["Spatial Design Workshop", "Engineering"],
+    "terraria.html":                         ["Resource Management & Crafting", "Economics"],
+    "getting-over-it.html":                  ["Persistence & Precision Practice", "Life Skills"],
+    "skidline-gp.html":                      ["Friction & Traction Experiments", "Science"],
+    "subway-surfers.html":                   ["Reaction Time & Pattern Recognition", "Life Skills"],
+    "stickman-hook.html":                    ["Pendulum Motion Lab", "Science"],
+    "monument.html":                         ["Spatial Reasoning Puzzles", "Mathematics"],
+    "slime-orchard.html":                    ["Agriculture & Genetics Basics", "Biology"],
+    "tiny-fishing.html":                     ["Fisheries & Resource Economics", "Economics"],
+    "skyrim.html":                           ["Medieval History & Folklore", "History"],
+    "skyhook-run.html":                      ["Momentum & Swing Physics", "Science"],
+    "john-pork-escape.html":                 ["Safety & Decision-Making Scenarios", "Life Skills"],
+    "https://lucal2889l-coder.github.io/mow-town/": ["Measurement: Area & Efficiency", "Mathematics"],
+    "poke-clash.html":                       ["Classification & Probability", "Biology"],
+    "chase-lane.html":                       ["Pursuit Curves & Strategy", "Mathematics"],
+    "planezzz.html":                         ["Aviation & Logistics", "Geography"],
+    "spike-arena.html":                      ["Team Sports & Cooperation", "Physical Education"],
+    "scrapyard-siege.html":                  ["Defensive Engineering Challenge", "Engineering"],
+    "hyperkick.html":                        ["Collisions & Trajectory Physics", "Science"]
+  };
+  const dInfo = g => { const d = DISCRETE[g.file] || ["Interactive Activity", "Science"]; return { title:d[0], subject:d[1], sub:SUBJECTS[d[1]] || SUBJECTS["Science"] }; };
+  const gkey = g => discreet ? dInfo(g).subject : g.genre;
+  let discreet = false;
+  try{ discreet = localStorage.getItem("zd.discreet") === "1"; }catch(_){}
+
+  function cardHtmlD(game){
+    const d = dInfo(game), m = (typeof MULTIPLAYER !== "undefined" && MULTIPLAYER[game.file]) || {};
+    const mode = m.unknown ? "" : (m.online ? "\ud83c\udf10 Collaborative (online)" : (m.local ? "\ud83d\udc65 Group (shared device)" : "\ud83d\udc64 Individual"));
+    const mode2 = (m.online && m.local) ? "\ud83d\udc65 Group (shared device)" : "";
+    return `
+      <article class="card">
+        <div class="card-art" style="background:${d.sub.bg}">
+          <span class="emoji" aria-hidden="true">${d.sub.icon}</span>
+        </div>
+        <div class="card-body">
+          <div class="card-top-row">
+            <h3>${escapeHtml(d.title)}</h3>
+            <span class="genre-tag" style="background:${d.sub.chip}; color:${d.sub.fg};">${escapeHtml(d.subject)}</span>
+          </div>
+          <p class="desc"><b>This activity is the game \u201c${escapeHtml(game.title)}\u201d.</b> ${escapeHtml(game.desc)}</p>
+          ${mode ? `<div class="mp-row"><span class="mp-badge">${mode}</span>${mode2 ? `<span class="mp-badge">${mode2}</span>` : ""}</div>` : ""}
+          <div class="card-foot">
+            <span class="meta-bits">Self-paced \u00b7 Ages 10+</span>
+            <a class="play-btn" href="${game.url}" target="_blank" rel="noopener">Start activity</a>
+          </div>
+        </div>
+      </article>`;
+  }
+
   function cardHtml(game){
+    if (discreet) return cardHtmlD(game);
     return `
       <article class="card">
         <div class="card-art" style="background:${game.artBg}">
@@ -778,9 +919,9 @@
     const grid = document.getElementById("grid");
     const q = query.trim().toLowerCase();
     const shown = ALL_GAMES.filter(g => {
-      if (activeGenre !== "All" && g.genre !== activeGenre) return false;
+      if (activeGenre !== "All" && gkey(g) !== activeGenre) return false;
       if (!q) return true;
-      return (g.title + " " + g.genre + " " + g.tagline + " " + g.desc + " " + (g.author || "")).toLowerCase().includes(q);
+      return (g.title + " " + g.genre + " " + g.tagline + " " + g.desc + " " + (g.author || "") + (discreet ? " " + dInfo(g).title + " " + dInfo(g).subject : "")).toLowerCase().includes(q);
     });
     // Games that came from public ideas get their own section below the main library.
     const main      = shown.filter(g => !g.community);
@@ -794,7 +935,7 @@
   }
 
   function buildChips(){
-    const genres = ["All", ...new Set(ALL_GAMES.map(g => g.genre))].slice(0, 9);
+    const genres = ["All", ...new Set(ALL_GAMES.map(gkey))].slice(0, discreet ? 14 : 9);
     const box = document.getElementById("chips");
     box.innerHTML = genres.map(g =>
       `<button class="chip" type="button" aria-pressed="${g === activeGenre}">${escapeHtml(g)}</button>`).join("");
@@ -867,6 +1008,62 @@
     names = names.filter(n => !EXTERNAL_GAMES.some(u => u.toLowerCase() === n.toLowerCase())).concat(EXTERNAL_GAMES);   // keep the URL's exact capitalisation
     renderGrid(orderGames(names).map(toGame));
   }
+
+  /* ---------- Discrete Mode toggle ---------- */
+  const SWAPS = [
+    [".hero .badge",   "Grades 5–12 · Self-paced · No sign-up needed"],
+    [".hero h1.title", "Interactive Learning Activities"],
+    [".hero .subtitle","Explore hands-on, self-paced activities across science, maths, history and more."],
+    [".arcade-btn",    "📝 Quick Practice"],
+    [".arcade-sub",    "Short warm-up drills for focus, logic and reaction time"],
+    ["#communitySection .section-head h2", "Recommended by Learners"],
+    ["#communitySection .section-head .sub", "Activities suggested through the feedback form"],
+    ["footer p:last-of-type", "© Learning Hub · Interactive activities for curious minds"],
+    ["#ideaBtn", "💬 Suggest an activity"],
+    ["#ideaTitle", "💬 Suggest an activity"],
+    ["#ideaModal form > p", "Tell us about an activity you’d like to see and press send."]
+  ];
+  const PLACEHOLDERS = [["#search", "Search activities…"], ["#ideaTopic", "Activity title"], ["#ideaText", "Describe the activity… (and your name if you want credit)"]];
+  const FAV_SVG = "data:image/svg+xml," + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="14" fill="#2f6fed"/><path d="M14 18h16c3 0 5 2 5 5v23c0-3-2-5-5-5H14zM50 18H34c-3 0-5 2-5 5v23c0-3 2-5 5-5h16z" fill="#fff"/></svg>');
+  const ORIG_TITLE = document.title;
+  const swapOrig = new Map(), phOrig = new Map(), iconOrig = [];
+  function applyMode(){
+    document.body.classList.toggle("discreet", discreet);
+    const btn = document.getElementById("discreteBtn");
+    btn.textContent = discreet ? "Standard view" : "Discrete Mode";
+    btn.setAttribute("aria-pressed", String(discreet));
+    SWAPS.forEach(([sel, alt]) => {
+      const el = document.querySelector(sel); if (!el) return;
+      if (!swapOrig.has(sel)) swapOrig.set(sel, el.innerHTML);
+      el.textContent = discreet ? alt : "";
+      if (!discreet) el.innerHTML = swapOrig.get(sel);
+    });
+    PLACEHOLDERS.forEach(([sel, alt]) => {
+      const el = document.querySelector(sel); if (!el) return;
+      if (!phOrig.has(sel)) phOrig.set(sel, el.getAttribute("placeholder"));
+      el.setAttribute("placeholder", discreet ? alt : phOrig.get(sel));
+    });
+    const stat = document.getElementById("statRow");
+    if (stat){
+      if (!stat.dataset.orig) stat.dataset.orig = stat.innerHTML;
+      const n = ALL_GAMES.length || document.getElementById("gameCount").textContent;
+      stat.innerHTML = discreet
+        ? `<div class="stat-pill">📘 <strong id="gameCount">${n}</strong> activities</div><div class="stat-pill">🎓 <strong>${Object.keys(SUBJECTS).length}</strong> subjects</div>`
+        : stat.dataset.orig.replace(/(<strong id="gameCount">)[^<]*/, "$1" + n);
+    }
+    document.title = discreet ? "Learning Hub — Interactive Activities" : ORIG_TITLE;
+    document.querySelectorAll('link[rel~="icon"], link[rel="apple-touch-icon"]').forEach((l, i) => {
+      if (iconOrig[i] === undefined) iconOrig[i] = l.getAttribute("href");
+      l.setAttribute("href", discreet ? FAV_SVG : iconOrig[i]);
+    });
+    if (ALL_GAMES.length){ activeGenre = "All"; buildChips(); applyFilters(); }
+  }
+  document.getElementById("discreteBtn").addEventListener("click", () => {
+    discreet = !discreet;
+    try{ localStorage.setItem("zd.discreet", discreet ? "1" : "0"); }catch(_){}
+    applyMode();
+  });
+  if (discreet) applyMode();
 
   loadGames();
 })();
