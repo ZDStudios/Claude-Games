@@ -8,7 +8,8 @@
   :root { --hot:#ff6a2b; --ice:#6fe3ff; --gold:#ffd24a; --ink:rgba(10,14,20,.62); }
   html,body { margin:0; height:100%; overflow:hidden; background:#10141a; color:#fff;
     font-family:"Segoe UI",system-ui,-apple-system,Roboto,Helvetica,Arial,sans-serif; user-select:none; }
-  canvas#game { position:fixed; inset:0; width:100%; height:100%; display:block; }
+  canvas#game { position:fixed; inset:0; width:100%; height:100%; display:block; cursor:grab; }
+  canvas#game.dragging { cursor:grabbing; }
   .display { font-family:Impact,"Arial Black","Segoe UI Black",sans-serif; font-style:italic; letter-spacing:.02em; }
   .panel { background:var(--ink); border:1px solid rgba(255,255,255,.1); border-radius:10px; backdrop-filter:blur(3px); }
   #hud { position:fixed; inset:0; pointer-events:none; }
@@ -152,6 +153,7 @@ window.addEventListener("pageshow",apply);document.addEventListener("visibilityc
       <tr><td>U or 4 (hold)</td><td>No-hander</td></tr>
       <tr><td>I or 5 (hold)</td><td>Tabletop</td></tr>
       <tr><td>O or 6 (hold)</td><td>Superman</td></tr>
+      <tr><td>Left-click drag</td><td>Look around</td></tr>
       <tr><td>R</td><td>Reset here</td></tr>
       <tr><td>T</td><td>Back to start</td></tr>
       <tr><td>M</td><td>Mute</td></tr>
@@ -5142,7 +5144,7 @@ buildPropsAndStands();
    ------------------------------------------------------------------------------------ */
 // Bike convention: forward is -Z, up is +Y, right is +X. Group origin sits on the ground under
 // the middle of the wheelbase.
-const UP = new V3(0, 1, 0);
+const UP = new V3(0, 1, 0), DOWN = new V3(0, -1, 0);
 const mats = {
   paint: new THREE.MeshStandardMaterial({ color: 0xff5a1f, metalness: .35, roughness: .32 }),
   paint2: new THREE.MeshStandardMaterial({ color: 0xf2f1ec, metalness: .15, roughness: .4 }),
@@ -5188,6 +5190,9 @@ function makeWheel() {
   return g;
 }
 
+// Rear shock geometry, in the sprung body's space.
+const SHOCK = { TOP: new V3(0, .8, .16), LEVER: .24, REST: .38 };
+
 function buildBike() {
   const root = new THREE.Group();          // ground contact, oriented with the bike
   const body = new THREE.Group();          // everything on the springs
@@ -5223,7 +5228,7 @@ function buildBike() {
   shroud.rotation.x = -.35;
   const rearFender = solid(body, new THREE.BoxGeometry(.13, .018, .62), mats.paint, 0, .895, .8);
   rearFender.rotation.x = .24;
-  const sidePanel = solid(body, new THREE.BoxGeometry(.26, .15, .24), mats.paint2, 0, .76, .32);
+  const sidePanel = solid(body, new THREE.BoxGeometry(.22, .12, .2), mats.paint2, 0, .8, .5);
   sidePanel.rotation.x = .3;
 
   // Exhaust: header, then a can up by the rear wheel
@@ -5243,7 +5248,26 @@ function buildBike() {
   swing.position.copy(pivot); body.add(swing);
   const armLen = Math.hypot(.21, .6);
   for (const s of [-1, 1]) tube(swing, new V3(s * .06, 0, 0), new V3(s * .09, 0, armLen), .018, mats.metal);
-  const shock = tube(body, new V3(0, .82, .2), new V3(0, .5, .26), .03, mats.gold);
+  solid(swing, new THREE.BoxGeometry(.17, .03, .05), mats.metal, 0, -.01, SHOCK.LEVER);   // shock mount
+
+  // Rear shock. Its local -Y points from the top mount to the swingarm, and every frame the
+  // coil stretches to fit while the damper rod slides into the body.
+  const shock = new THREE.Group();
+  shock.position.copy(SHOCK.TOP); body.add(shock);
+  solid(shock, new THREE.CylinderGeometry(.024, .024, .2, 12), mats.dark, 0, -.1, 0);
+  solid(shock, new THREE.CylinderGeometry(.05, .05, .012, 16), mats.metal, 0, -.015, 0);
+  class Helix extends THREE.Curve {
+    getPoint(t, out = new V3()) {
+      const a = t * TAU * 7.5;
+      return out.set(Math.cos(a) * .042, -t * SHOCK.REST, Math.sin(a) * .042);
+    }
+  }
+  const coilMat = new THREE.MeshStandardMaterial({ color: 0xffd21f, metalness: .25, roughness: .35 });
+  const shockCoil = new THREE.Mesh(new THREE.TubeGeometry(new Helix(), 120, .0085, 6), coilMat);
+  shockCoil.castShadow = true; shock.add(shockCoil);
+  const shockRod = new THREE.Group(); shock.add(shockRod);
+  solid(shockRod, new THREE.CylinderGeometry(.012, .012, .28, 10), mats.metal, 0, .14, 0);
+  solid(shockRod, new THREE.CylinderGeometry(.05, .05, .012, 16), mats.metal, 0, .015, 0);
 
   // Steering assembly. The rake tips the local Y axis along the forks.
   const steerPivot = new THREE.Group();
@@ -5267,17 +5291,16 @@ function buildBike() {
   plate.rotation.x = .05;
   solid(steerYaw, new THREE.CylinderGeometry(.05, .05, .03, 14).rotateX(Math.PI / 2), new THREE.MeshBasicMaterial({ color: 0xfff6cf }), 0, -.05, -.115);
   // Front fender
-  const ff = solid(steerYaw, new THREE.BoxGeometry(.13, .018, .56), mats.paint, 0, -.27, -.05);
-  ff.rotation.x = -.12;
-
-  // Lower forks and front wheel slide along the steering axis with the suspension.
+  // Lower forks, fender and front wheel all slide along the steering axis with the suspension.
   const forkLower = new THREE.Group(); steerYaw.add(forkLower);
+  const ff = solid(forkLower, new THREE.BoxGeometry(.13, .018, .56), mats.paint, 0, -.27, -.05);
+  ff.rotation.x = -.12;
   for (const s of [-1, 1]) tube(forkLower, new V3(s * .1, -.2, 0), new V3(s * .1, -forkLen - .02, 0), .022, mats.metal);
   const frontWheel = makeWheel();
   frontWheel.position.set(0, -forkLen, 0);
   forkLower.add(frontWheel);
 
-  return { root, body, rearWheel, frontWheel, swing, steerYaw, forkLower, flame, shock, armLen, rake };
+  return { root, body, rearWheel, frontWheel, swing, steerYaw, forkLower, flame, shock, shockCoil, shockRod, armLen, rake };
 }
 
 const bikeModel = buildBike();
@@ -5676,7 +5699,11 @@ const bike = {
   lastSafePos: new V3(0, 0, 34), lastSafeFwd: new V3(0, 0, -1), safeTimer: 0,
 
   // Visual only
-  suspC: 0, suspV: 0, wheelSpin: 0, visOffset: new V3(), visQuat: new Q4(), lift: 0, liftPitch: 0, tabletopSide: 1,
+  suspF: 0, suspR: 0, suspFV: 0, suspRV: 0,   // spring compression at each end, + is squashed
+  roadF: 0, roadR: 0,                         // how far the ground is pushing each wheel up
+  bodyF: 0, bodyR: 0,                         // how far the chassis has followed the ground
+  longAcc: 0, lastVf: 0,                      // filtered acceleration, for dive and squat
+  wheelSpin: 0, visOffset: new V3(), visQuat: new Q4(), tabletopSide: 1,
 };
 const POSE_LABEL = { noHander: 'NO-HANDER', tabletop: 'TABLETOP', superman: 'SUPERMAN' };
 
@@ -5775,7 +5802,7 @@ function stepBalance(h, vf) {
 
   // Front wheel coming back down: a little clunk through the forks.
   if (before * b.tilt <= 0 && before !== 0 && Math.abs(b.tiltVel) > .8) {
-    b.suspV += Math.abs(b.tiltVel) * .32;
+    b.suspFV += Math.abs(b.tiltVel) * .5;
     if (Math.abs(b.tiltVel) > 1.8) { Sound.thud(.25); CameraRig.shake(.1); }
     b.tiltVel = 0; b.tilt = 0;
   }
@@ -5918,7 +5945,7 @@ function stepGround(h) {
 
   // Stick to the surface. Rotating velocity (rather than projecting it) keeps all your speed
   // through curved transitions, which is what makes quarter-pipes and ramps feel right.
-  if (sepV < -1.4) b.suspV += Math.min(-sepV * .1, 1.2);
+  if (sepV < -1.4) { const kick = Math.min(-sepV * .1, 1.2); b.suspFV += kick; b.suspRV += kick * .7; }
   _q.setFromUnitVectors(n, _nrm);
   b.vel.applyQuaternion(_q);
   b.fwd.applyQuaternion(_q);
@@ -6193,7 +6220,10 @@ function touchdown(cx, cz) {
 
   // Effects scale with how hard we came down.
   const k = clamp(impact / 28, 0, 1);
-  b.suspV += .6 + k * 3.2;
+  // Whichever wheel came down first takes the hit.
+  const hitF = b.tilt > .12 ? .25 : 1, hitR = b.tilt < -.12 ? .25 : 1;
+  const hit = Math.min(impact * .32 + Math.min(b.airT, .4) * 3, 11);
+  b.suspFV += hit * hitF; b.suspRV += hit * hitR;
   if (impact > 2.5) {
     CameraRig.shake(k * .9 + .06);
     Sound.thud(k + .1);
@@ -6310,7 +6340,8 @@ function respawn(toStart = false) {
   b.flipRemain = b.spinRemain = b.autoSpin = 0;
   b.wPitch = b.wYaw = 0; b.accPitch = b.accYaw = 0; b.flipsDone = b.halfSpins = 0;
   b.airT = 0; b.maxAlt = 0; b.tLand = 99; b.sepAcc = 0; b.slip = 0;
-  b.suspC = b.suspV = 0; b.lift = b.liftPitch = 0;
+  b.suspF = b.suspR = b.suspFV = b.suspRV = 0;
+  b.roadF = b.roadR = b.bodyF = b.bodyR = b.longAcc = b.lastVf = 0;
   b.visOffset.set(0, 0, 0);
   for (const k in b.pose) { b.pose[k] = 0; b.poseHold[k] = 0; b.poseNamed[k] = false; }
   groundTransform(_p, b.visQuat);
@@ -6333,6 +6364,46 @@ function predictLanding() {
   b.tLand = 99; b.predN.set(0, 1, 0);
 }
 
+/**
+ * Visual suspension: one spring at each end of the bike. It doesn't change how the bike handles,
+ * but it reacts to everything that happens to it. Springs top out in the air, the forks dive under
+ * braking, the rear squats under power, both load up through ramp transitions and corners, and
+ * wheelies and stoppies put all the weight on one end.
+ */
+const SUSP = { K: 170, D: 13, MAX: .24, MIN: -.1, DROOP: -.085 };
+function stepSuspension(h) {
+  const b = bike;
+  let tF = 0, tR = 0;                      // where each end wants to settle
+  if (b.state === 'air') tF = tR = SUSP.DROOP;
+  else if (b.state === 'ground') {
+    const vf = b.vel.dot(b.fwd);
+    b.longAcc = damp(b.longAcc, clamp((vf - b.lastVf) / h, -45, 45), 10, h);
+    b.lastVf = vf;
+    const transfer = clamp(b.longAcc * .0065, -.15, .15);                  // weight moves to the back
+    const load = clamp(-b.sepAcc, 0, 40) * .0042 + Math.abs(b.lean) * .05; // g-force pressing down
+    tF = load - transfer; tR = load + transfer;
+
+    const lift = clamp(b.tilt * 1.6, -1, 1);
+    if (lift > 0) { tF = lerp(tF, SUSP.DROOP, lift); tR += .1 * lift; }
+    else if (lift < 0) { tR = lerp(tR, SUSP.DROOP, -lift); tF += .12 * -lift; }
+
+    // Loose ground shakes the wheels. The springs turn this into a fine chatter.
+    if (SURFACES[b.surf].dust) {
+      const kick = Math.abs(vf) * .05;
+      b.suspFV += (Math.random() - .5) * kick; b.suspRV += (Math.random() - .5) * kick;
+    }
+  }
+  b.suspFV += ((tF - b.suspF) * SUSP.K - b.suspFV * SUSP.D) * h;
+  b.suspRV += ((tR - b.suspR) * SUSP.K - b.suspRV * SUSP.D) * h;
+  b.suspF += b.suspFV * h; b.suspR += b.suspRV * h;
+
+  // Bump stops at both ends of the travel.
+  if (b.suspF > SUSP.MAX) { b.suspF = SUSP.MAX; if (b.suspFV > 0) b.suspFV *= -.25; }
+  if (b.suspR > SUSP.MAX) { b.suspR = SUSP.MAX; if (b.suspRV > 0) b.suspRV *= -.25; }
+  if (b.suspF < SUSP.MIN) { b.suspF = SUSP.MIN; if (b.suspFV < 0) b.suspFV = 0; }
+  if (b.suspR < SUSP.MIN) { b.suspR = SUSP.MIN; if (b.suspRV < 0) b.suspRV = 0; }
+}
+
 function stepPhysics(h) {
   const b = bike;
   if (b.state === 'ground') stepGround(h);
@@ -6342,10 +6413,7 @@ function stepPhysics(h) {
 
   stepPoses(h);
 
-  // Suspension spring: purely visual, but it sells every landing.
-  const target = b.state === 'air' ? -.07 : 0;
-  b.suspV += ((target - b.suspC) * 150 - b.suspV * 15) * h;
-  b.suspC = clamp(b.suspC + b.suspV * h, -.1, .26);
+  stepSuspension(h);
 
   // Safety net: a bad number should never end a session.
   if (!isFinite(b.pos.x + b.pos.y + b.pos.z + b.vel.x + b.vel.y + b.vel.z)) {
@@ -6361,6 +6429,8 @@ const CameraRig = (() => {
   const pos = new V3(0, 3, 42), look = new V3(0, 1, 34), dir = new V3(0, 0, -1), focus = new V3();
   const shakeOff = new V3(), desired = new V3(), tmp = new V3();
   let shakeAmt = 0, lift = 0, fov = 68, roll = 0;
+  let orbitYaw = 0, orbitPitch = 0, dragging = false, holdT = 0;    // left-click drag look-around
+  const ORBIT_HOLD = 1.5;     // seconds a dragged view stays put before easing back behind the bike
 
   function focusPoint(out) {
     const b = bike;
@@ -6371,6 +6441,14 @@ const CameraRig = (() => {
 
   return {
     shake(a) { shakeAmt = Math.min(1.2, Math.max(shakeAmt, a)); },
+    startDrag() { dragging = true; },
+    endDrag() { dragging = false; holdT = ORBIT_HOLD; },
+    /** Drag right swings the view right, drag down raises the camera, as in most 3D viewers. */
+    drag(dx, dy) {
+      orbitYaw = Math.atan2(Math.sin(orbitYaw - dx * .0055), Math.cos(orbitYaw - dx * .0055));
+      orbitPitch = clamp(orbitPitch + dy * .0045, -.42, 1.05);
+    },
+    get orbit() { return { yaw: orbitYaw, pitch: orbitPitch, dragging }; },
     snapBehind() {
       const b = bike;
       dir.set(b.fwd.x, 0, b.fwd.z);
@@ -6379,7 +6457,7 @@ const CameraRig = (() => {
       focusPoint(focus);
       pos.copy(focus).addScaledVector(dir, -6).add(tmp.set(0, 2.2, 0));
       look.copy(focus);
-      lift = 0;
+      lift = 0; orbitYaw = orbitPitch = 0;
     },
     update(dt) {
       const b = bike, speed = b.vel.length();
@@ -6401,11 +6479,28 @@ const CameraRig = (() => {
       const k = clamp(speed / 45, 0, 1);
       const dist = 5 + k * 3.6 + (b.boosting ? .9 : 0) + (b.state === 'air' ? .9 : 0) + (b.state === 'crashed' ? 1.5 : 0);
       const height = 2 + k * .9 + (b.state === 'air' ? .6 : 0);
-      desired.copy(focus).addScaledVector(dir, -dist); desired.y += height;
+
+      // A dragged view holds while you look, then eases back once you are riding again. It stays
+      // where you left it if the bike is standing still.
+      if (!dragging) {
+        holdT -= dt;
+        if (holdT <= 0 && speed > 2) {
+          const back = Math.exp(-2.6 * dt);
+          orbitYaw *= back; orbitPitch *= back;
+        }
+      }
+
+      // Swing the camera around the bike on a sphere, starting from the normal chase position.
+      const radius = Math.hypot(dist, height);
+      const elev = Math.atan2(height, dist) + orbitPitch;
+      const cy = Math.cos(orbitYaw), sy = Math.sin(orbitYaw);
+      const fx = dir.x * cy + dir.z * sy, fz = dir.z * cy - dir.x * sy;
+      desired.set(focus.x - fx * radius * Math.cos(elev), focus.y + radius * Math.sin(elev), focus.z - fz * radius * Math.cos(elev));
 
       // Follow relative to the bike so the gap comes from "dist", not from filter lag.
       if (b.state !== 'crashed') pos.addScaledVector(b.vel, dt * .92);
-      const rate = b.state === 'crashed' ? 3 : 7;
+      const orbiting = dragging || Math.abs(orbitYaw) + Math.abs(orbitPitch) > .02;
+      const rate = orbiting ? 14 : b.state === 'crashed' ? 3 : 7;
       pos.x = damp(pos.x, desired.x, rate, dt);
       pos.z = damp(pos.z, desired.z, rate, dt);
       pos.y = damp(pos.y, desired.y, rate * .85, dt);
@@ -6615,15 +6710,18 @@ function updateBikeVisual(dt) {
     // slope, so wheels sit on the surface when entering ramps or crossing kinks.
     const fy = _p.copy(b.pos).addScaledVector(b.fwd, L), ry = _p2.copy(b.pos).addScaledVector(b.fwd, -L);
     const dF = Math.max(0, heightAt(fy.x, fy.z) - fy.y) * b.n.y, dR = Math.max(0, heightAt(ry.x, ry.z) - ry.y) * b.n.y;
-    const k = Math.abs(b.tilt) > .05 ? 0 : 1;
-    b.liftPitch = damp(b.liftPitch, k * Math.atan2(Math.min(dF, 1.2) - Math.min(dR, 1.2), 2 * L), 26, dt);
-    b.lift = damp(b.lift, k * Math.min((dF + dR) / 2, .7), 26, dt);
-    _rootQuat.multiply(_q.setFromAxisAngle(AX, b.liftPitch));
-    _rootPos.addScaledVector(b.n, b.lift);
+    // Each wheel follows the ground at once, and the chassis catches up through the springs.
+    const k = Math.abs(b.tilt) > .05 ? 0 : 1, wF = k * Math.min(dF, 1.2), wR = k * Math.min(dR, 1.2);
+    b.bodyF = Math.max(damp(b.bodyF, wF, 13, dt), wF - .3);
+    b.bodyR = Math.max(damp(b.bodyR, wR, 13, dt), wR - .3);
+    b.roadF = clamp(wF - b.bodyF, 0, .3);
+    b.roadR = clamp(wR - b.bodyR, 0, .3);
+    _rootQuat.multiply(_q.setFromAxisAngle(AX, Math.atan2(b.bodyF - b.bodyR, 2 * L)));
+    _rootPos.addScaledVector(b.n, (b.bodyF + b.bodyR) / 2);
 
     b.visQuat.slerp(_rootQuat, 1 - Math.exp(-20 * dt));
   } else {
-    b.lift = 0; b.liftPitch = 0;
+    b.bodyF = b.bodyR = b.roadF = b.roadR = 0;
     b.visQuat.slerp(b.quat, 1 - Math.exp(-38 * dt));
   }
 
@@ -6644,11 +6742,27 @@ function updateBikeVisual(dt) {
   M.root.position.add(b.visOffset);
   M.root.quaternion.copy(_visOut);
 
-  // Suspension: body sinks, swingarm and forks keep the wheels on the ground.
-  const c = b.suspC;
+  // Suspension. The chassis sinks and pitches on its springs, the wheels stay on the ground, and
+  // the swingarm, shock and forks all move to join the two.
+  const c = (b.suspF + b.suspR) / 2, bodyPitch = (b.suspR - b.suspF) / (2 * L);
   M.body.position.y = -c;
-  M.swing.rotation.x = Math.atan2(.21 - c, .6);
-  M.forkLower.position.y = c / Math.cos(M.rake);
+  M.body.rotation.x = bodyPitch;
+  M.rearWheel.position.y = CFG.WHEEL_R + b.roadR;
+  M.forkLower.position.y = (b.suspF + b.roadF) / Math.cos(M.rake);
+
+  // Aim the swingarm at the rear axle, working in the tilted chassis' own space.
+  const cp = Math.cos(bodyPitch), sp = Math.sin(bodyPitch), ay = CFG.WHEEL_R + b.roadR + c;
+  const dy = .55 - (ay * cp + L * sp), dz = (-ay * sp + L * cp) - .12;
+  const swingAngle = Math.atan2(dy, dz);
+  M.swing.rotation.x = swingAngle;
+  M.swing.scale.z = Math.hypot(dy, dz) / M.armLen;
+
+  // Stretch the shock between its top mount and the swingarm.
+  _v.set(0, .55 - SHOCK.LEVER * Math.sin(swingAngle), .12 + SHOCK.LEVER * Math.cos(swingAngle)).sub(SHOCK.TOP);
+  const shockLen = _v.length();
+  M.shock.quaternion.setFromUnitVectors(DOWN, _v.divideScalar(shockLen));
+  M.shockCoil.scale.y = shockLen / SHOCK.REST;
+  M.shockRod.position.y = -shockLen;
 
   // Wheels and bars
   const vf = b.state === 'ground' ? b.vel.dot(b.fwd) : b.state === 'air' ? (Input.state.up ? 34 : 12) : 0;
@@ -6755,6 +6869,29 @@ function onResize() {
 addEventListener('resize', onResize);
 onResize();
 
+/* ---- Left-click drag to look around ------------------------------------------------------------ */
+{
+  let lastX = 0, lastY = 0, held = false;
+  const stop = () => {
+    if (!held) return;
+    held = false; canvas.classList.remove('dragging'); CameraRig.endDrag();
+  };
+  canvas.addEventListener('pointerdown', e => {
+    if (e.button !== 0) return;
+    held = true; lastX = e.clientX; lastY = e.clientY;
+    canvas.classList.add('dragging'); CameraRig.startDrag();
+  });
+  // On the window, so a drag keeps working when the mouse crosses the HUD.
+  addEventListener('pointermove', e => {
+    if (!held) return;
+    CameraRig.drag(e.clientX - lastX, e.clientY - lastY);
+    lastX = e.clientX; lastY = e.clientY;
+  });
+  addEventListener('pointerup', stop);
+  addEventListener('pointercancel', stop);
+  addEventListener('blur', stop);
+}
+
 /* ---- Start screen ------------------------------------------------------------------------------ */
 const startEl = $('start');
 let started = false;
@@ -6802,9 +6939,6 @@ function frame(now) {
     }
     if (bike.state === 'crashed' && bike.crashT > CFG.RESPAWN_DELAY) respawn(false);
     Score.update(dt);
-  } else {
-    // Slowly idle the suspension behind the title screen.
-    bike.suspC = 0;
   }
 
   updateBikeVisual(dt);
@@ -6832,7 +6966,7 @@ function frame(now) {
 requestAnimationFrame(frame);
 
 // Small hook for tinkering from the browser console.
-window.RAMPYARD = { bike, camera, frame, CFG, ramps, Input, Score, stepPhysics, respawn, sampleGround, heightAt, predictLanding, begin, startFlip, startSpin, renderer };
+window.RAMPYARD = { bike, camera, CameraRig, frame, CFG, ramps, Input, Score, stepPhysics, respawn, sampleGround, heightAt, predictLanding, begin, startFlip, startSpin, renderer };
 </script>
 </body>
 </html>
