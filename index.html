@@ -430,6 +430,25 @@
   }
   .discrete-btn:hover{ transform:translate(-1px,-1px); box-shadow:5px 5px 0 var(--ink); }
 
+  /* ===== first-visit tip pointing at the Discrete Mode button ===== */
+  .topbar{ position:relative; }
+  .discrete-btn.pulse{ animation:dpulse 1.6s ease-in-out infinite; }
+  @keyframes dpulse{ 0%,100%{ box-shadow:var(--shadow-hard-sm), 0 0 0 0 rgba(255,255,255,.0);} 50%{ box-shadow:var(--shadow-hard-sm), 0 0 0 8px rgba(255,255,255,.55);} }
+  .discrete-tip{
+    position:absolute; top:calc(100% + 18px); right:0; z-index:60; width:min(330px, 88vw);
+    background:#fff; color:#1A1430; border:3px solid #1A1430; border-radius:16px; padding:14px 16px 14px;
+    box-shadow:6px 6px 0 #1A1430; font-weight:700; font-size:0.9rem; line-height:1.45; text-align:left;
+  }
+  .discrete-tip[hidden]{ display:none; }
+  .discrete-tip::before{   /* the arrow, pointing up at the button */
+    content:""; position:absolute; top:-13px; right:42px; width:20px; height:20px; background:#fff;
+    border-left:3px solid #1A1430; border-top:3px solid #1A1430; transform:rotate(45deg); border-radius:4px 0 0 0;
+  }
+  .discrete-tip b{ font-weight:900; }
+  .discrete-tip .tip-row{ display:flex; justify-content:flex-end; margin-top:10px; }
+  .discrete-tip button.ok{ cursor:pointer; font:inherit; font-weight:900; font-size:0.82rem; padding:6px 14px; border:3px solid #1A1430; border-radius:999px; background:#00C2A8; color:#1A1430; }
+  .discrete-tip .x{ position:absolute; top:6px; right:10px; cursor:pointer; background:none; border:0; font-size:1.3rem; line-height:1; color:#1A1430; }
+
   /* ===== DISCRETE MODE: looks like a school learning site ===== */
   body.discreet{
     --ink:#1f2a44; --panel:#ffffff; --panel-edge:#d6dcea;
@@ -519,6 +538,12 @@
   <div class="topbar" id="topbar">
     <span class="brand">📚 Learning Hub</span>
     <button class="discrete-btn" id="discreteBtn" type="button" aria-pressed="false">Discrete Mode</button>
+    <div class="discrete-tip" id="discreteTip" role="dialog" aria-label="Discrete Mode tip" hidden>
+      <button class="x" id="tipX" type="button" aria-label="Dismiss">&times;</button>
+      <b>👀 Need to look busy?</b><br>
+      Click <b>Discrete Mode</b> to turn this page into a fake educational website. Every game tab will look like schoolwork too.
+      <div class="tip-row"><button class="ok" id="tipOk" type="button">Got it</button></div>
+    </div>
   </div>
 
   <header class="hero">
@@ -1075,7 +1100,16 @@
     const open = panel.hidden;
     panel.hidden = !open; b.setAttribute("aria-expanded", String(open));
   });
+  // first-visit popup with an arrow pointing at the Discrete Mode button
+  const tip = document.getElementById("discreteTip"), dBtn = document.getElementById("discreteBtn");
+  const hideTip = () => { tip.hidden = true; dBtn.classList.remove("pulse"); try{ localStorage.setItem("zd.discreetTip", "1"); }catch(_){} };
+  let tipSeen = false; try{ tipSeen = localStorage.getItem("zd.discreetTip") === "1"; }catch(_){}
+  if (!tipSeen && !discreet){ tip.hidden = false; dBtn.classList.add("pulse"); }
+  document.getElementById("tipOk").addEventListener("click", hideTip);
+  document.getElementById("tipX").addEventListener("click", hideTip);
+
   document.getElementById("discreteBtn").addEventListener("click", () => {
+    hideTip();
     discreet = !discreet;
     try{ localStorage.setItem("zd.discreet", discreet ? "1" : "0"); }catch(_){}
     applyMode();
