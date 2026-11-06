@@ -252,6 +252,7 @@
     white-space:nowrap;
   }
 
+  .card p.desc b.credit{ font-weight:900; color:#1f1a33; }
   .card p.desc{
     font-size:0.92rem;
     font-weight:700;
@@ -764,17 +765,17 @@
     },
     "planezzz.html": {
       title: "Planezzz", tagline: "Sleepy Skies, Speedy Cargo",
-      desc: "A chill low-poly cargo pilot game. Fly jobs between airports, grease your landings, earn cash and upgrade your hangar \u2014 sleepy skies, speedy cargo. Credits to Josh.",
+      desc: "A chill low-poly cargo pilot game. Fly jobs between airports, grease your landings, earn cash and upgrade your hangar \u2014 sleepy skies, speedy cargo.",
       emoji: "\u2708\ufe0f", genre: "3D / Flight",
       tagBg: "#4F46E5", artBg: "linear-gradient(135deg,#C7D2FE,#4F46E5)",
-      community: true
+      community: true, credit: "Credits to Josh for the game idea."
     },
     "spike-arena.html": {
       title: "Spike Arena 3D", tagline: "Set. Spike. Win.",
-      desc: "Full 3D beach-style volleyball \u2014 serve, set and spike against bots, a friend on one keyboard, or online with a room code. Pick 1v1 or 2v2 and play to the final point. Credits to Josh.",
+      desc: "Full 3D beach-style volleyball \u2014 serve, set and spike against bots, a friend on one keyboard, or online with a room code. Pick 1v1 or 2v2 and play to the final point.",
       emoji: "\ud83c\udfd0", genre: "Sports / 3D",
       tagBg: "#2563EB", artBg: "linear-gradient(135deg,#93C5FD,#F97316)",
-      community: true
+      community: true, credit: "Credits to Josh for the game idea."
     },
     "scrapyard-siege.html": {
       title: "Scrapyard Siege", tagline: "A Tower Defence That Learns",
@@ -924,7 +925,7 @@
             <span class="genre-tag" style="background:${d.sub.chip}; color:${d.sub.fg};">${escapeHtml(d.subject)}</span>
           </div>
           <p class="desc">${escapeHtml(d.blurb)}</p>
-          <div class="info-panel" hidden><b>This activity is the game \u201c${escapeHtml(game.title)}\u201d.</b> ${escapeHtml(game.desc)}</div>
+          <div class="info-panel" hidden><b>This activity is the game \u201c${escapeHtml(game.title)}\u201d.</b> ${escapeHtml(game.desc)}${game.credit ? ` <b>${escapeHtml(game.credit)}</b>` : ""}</div>
           ${mode ? `<div class="mp-row"><span class="mp-badge">${mode}</span>${mode2 ? `<span class="mp-badge">${mode2}</span>` : ""}</div>` : ""}
           <div class="card-foot">
             <span class="meta-bits">Self-paced \u00b7 Ages 10+</span>
@@ -946,7 +947,7 @@
             <h3>${escapeHtml(game.title)}</h3>
             <span class="genre-tag" style="background:${game.tagBg}; color:#FFFDF7;">${escapeHtml(game.genre)}</span>
           </div>
-          <p class="desc">${escapeHtml(game.desc)}</p>
+          <p class="desc">${escapeHtml(game.desc)}${game.credit ? ` <b class="credit">${escapeHtml(game.credit)}</b>` : ""}</p>
           ${mpBadges(game)}
           ${game.author ? `<div class="author-tag">\u2605 Made by ${escapeHtml(game.author)}</div>` : ""}
           ${game.community ? `<div class="author-tag">\ud83d\udca1 Suggested by the public</div>` : ""}
