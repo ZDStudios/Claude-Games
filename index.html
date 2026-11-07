@@ -1,6 +1,16 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+<script>
+  // This repo is also published to GitHub Pages, but the real, always-current
+  // library lives at games.zdstudios.network (it needs this server's
+  // /api/games endpoint, which GitHub Pages can't run). Bounce straight there,
+  // keeping whatever path/query/hash the visitor came in on.
+  if (location.hostname.endsWith(".github.io")) {
+    var path = location.pathname.replace(/^\/Claude-Games\/?/, "/");
+    location.replace("https://games.zdstudios.network" + path + location.search + location.hash);
+  }
+</script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>ZD STUDIOS — Game Library</title>
