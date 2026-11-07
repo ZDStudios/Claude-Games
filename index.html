@@ -595,9 +595,6 @@
 
 <script>
 (function(){
-  const OWNER = "ZDStudios";
-  const REPO = "Claude-Games";
-  const BRANCH = "main";
   const SELF_FILES = new Set(["index.html","mini-arcade.html"]); // never list itself
   const EXTERNAL_GAMES = ["https://lucal2889l-coder.github.io/Mow-Town/"];   // hosted elsewhere; the card links straight to them
 
@@ -1026,26 +1023,23 @@
   }
 
   async function loadGames(){
-    // The repo listing keeps the page honest when new games land, but the page
-    // must still work when the API is rate-limited or offline \u2014 so the known
-    // library is the fallback rather than an error screen.
+    // The games are served from this same server, so the file list comes
+    // from its own /api/games endpoint rather than GitHub's API \u2014 no
+    // rate limits, and it works even if GitHub is unreachable. The known
+    // library is still the fallback rather than an error screen.
     let names = null;
     try{
-      const res = await fetch(`https://api.github.com/repos/${OWNER}/${REPO}/contents/?ref=${BRANCH}`, {
-        headers: { "Accept": "application/vnd.github+json" }
-      });
+      const res = await fetch("/api/games");
       if(res.ok){
-        const files = await res.json();
-        if (Array.isArray(files)){
-          names = files
-            .filter(f => f.type === "file")
-            .filter(f => /\.html?$/i.test(f.name))
-            .filter(f => !SELF_FILES.has(f.name.toLowerCase()))
-            .map(f => f.name);
+        const data = await res.json();
+        if (Array.isArray(data.files)){
+          names = data.files
+            .filter(f => /\.html?$/i.test(f))
+            .filter(f => !SELF_FILES.has(f.toLowerCase()));
         }
       }
     }catch(err){
-      console.warn("Repo listing unavailable, using the built-in library.", err);
+      console.warn("Game listing unavailable, using the built-in library.", err);
     }
     if (!names || !names.length) names = Object.keys(GAME_INFO);
     // Games hosted on their own pages are listed alongside the ones in this repo.
