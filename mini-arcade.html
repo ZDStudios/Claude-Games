@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <title>Mini Arcade</title>
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
-<meta name="description" content="Mini Arcade: Snake, Pong, Pac-Man, Breakout, Space Invaders, Tetris, Flappy and Crossy Road — arcade classics in one page.">
+<meta name="description" content="Mini Arcade: Snake, Pong, Pac-Man, Breakout, Space Invaders, Tetris, Flappy, Crossy Road, Block Blast and Minesweeper — arcade classics in one page.">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%2307071a'/%3E%3Ccircle cx='28' cy='32' r='16' fill='%23ffd23f'/%3E%3Cpath d='M28 32l16-9v18z' fill='%2307071a'/%3E%3Ccircle cx='50' cy='32' r='4' fill='%23fff'/%3E%3C/svg%3E">
 <style>
 :root{ --bg:#07071a; --panel:#10123a; --line:#2b2f7a; --text:#eef1ff; --dim:#8f95d6; --yellow:#ffd23f; --pink:#ff4fa3; --cyan:#35e0ff; --green:#5dff7a; }
@@ -929,6 +929,332 @@ function Crossy(){
   reset();
   return g;
 }
+/* =====================================================  BLOCK BLAST  */
+function Blast(){
+  var N = 8, C = 46, GX = 56, GY = 56, TY = 436, LIFT = 52;
+  var COLS = ['#ff4f5e','#ff9a3d','#ffd23f','#5dff7a','#35e0ff','#7a7bff','#ff4fa3'];
+  var BASE = ['#','##','###','####','#####','##/##','###/###/###','###/###','#./##','#../#../###','#./#./##','.#/.#/##','###/.#.','.##/##.','##./.##'];
+  var SHAPES = [];
+  function parse(s){ var cells = [], rows = s.split('/'); for(var r=0;r<rows.length;r++) for(var c=0;c<rows[r].length;c++) if(rows[r].charAt(c)==='#') cells.push([r,c]); return cells; }
+  function norm(cells){
+    var mr = 99, mc = 99;
+    cells.forEach(function(p){ mr = Math.min(mr,p[0]); mc = Math.min(mc,p[1]); });
+    return cells.map(function(p){ return [p[0]-mr, p[1]-mc]; }).sort(function(a,b){ return a[0]-b[0] || a[1]-b[1]; });
+  }
+  function rot(cells){ return norm(cells.map(function(p){ return [p[1], -p[0]]; })); }
+  BASE.forEach(function(s, bi){
+    var cells = norm(parse(s)), seen = {};
+    for(var k=0;k<4;k++){
+      var key = JSON.stringify(cells);
+      if(!seen[key]){
+        seen[key] = 1; var w = 0, h = 0;
+        cells.forEach(function(p){ h = Math.max(h, p[0]+1); w = Math.max(w, p[1]+1); });
+        SHAPES.push({ cells:cells, w:w, h:h, col:bi % COLS.length });
+      }
+      cells = rot(cells);
+    }
+  });
+  var g = { score:0, over:false };
+  var grid, pieces, score, combo, drag, kb, fx;
+  function fits(p, r, c){
+    for(var i=0;i<p.cells.length;i++){
+      var rr = r + p.cells[i][0], cc = c + p.cells[i][1];
+      if(rr<0 || cc<0 || rr>=N || cc>=N || grid[rr][cc]) return false;
+    }
+    return true;
+  }
+  function placeable(p){ for(var r=0;r<N;r++) for(var c=0;c<N;c++) if(fits(p,r,c)) return true; return false; }
+  function anyFit(){ return pieces.some(function(p){ return p && placeable(p); }); }
+  function deal(){
+    var tries = 0;
+    do { pieces = [0,1,2].map(function(){ return SHAPES[rint(0, SHAPES.length-1)]; }); tries++; } while(!anyFit() && tries < 30);
+  }
+  function firstPiece(from){ for(var k=0;k<3;k++){ var i = (from+k) % 3; if(pieces[i]) return i; } return 0; }
+  function reset(){
+    grid = []; for(var r=0;r<N;r++){ grid.push([]); for(var c=0;c<N;c++) grid[r].push(0); }
+    score = 0; combo = 0; drag = null; kb = null; fx = []; g.score = 0; g.over = false; deal();
+  }
+  function fullLines(){
+    var rows = [], cols = [], a, b, full;
+    for(a=0;a<N;a++){
+      full = true; for(b=0;b<N;b++) if(!grid[a][b]){ full = false; break; } if(full) rows.push(a);
+      full = true; for(b=0;b<N;b++) if(!grid[b][a]){ full = false; break; } if(full) cols.push(a);
+    }
+    return { rows:rows, cols:cols };
+  }
+  function place(i, r, c){
+    var p = pieces[i], k;
+    for(k=0;k<p.cells.length;k++) grid[r+p.cells[k][0]][c+p.cells[k][1]] = p.col + 1;
+    score += p.cells.length;
+    var f = fullLines(), n = f.rows.length + f.cols.length;
+    if(n){
+      var kill = {};
+      f.rows.forEach(function(rr){ for(var x=0;x<N;x++) kill[rr+','+x] = 1; });
+      f.cols.forEach(function(cc){ for(var y=0;y<N;y++) kill[y+','+cc] = 1; });
+      Object.keys(kill).forEach(function(key){
+        var q = key.split(','), rr = +q[0], cc = +q[1];
+        fx.push({ r:rr, c:cc, col:grid[rr][cc]-1, t:0 }); grid[rr][cc] = 0;
+      });
+      combo++;
+      score += Math.round(10*n*n*(1 + 0.5*(combo-1)));
+      beep(500 + n*120, .18, 'triangle', .05);
+    } else { combo = 0; beep(240, .06, 'square', .03); }
+    pieces[i] = null;
+    if(!pieces[0] && !pieces[1] && !pieces[2]) deal();
+    g.score = score;
+    if(!anyFit()){ g.over = true; beep(110, .5, 'sawtooth', .05); }
+  }
+  function anchor(p, x, y){ return { r:Math.round((y - LIFT - p.h*C/2 - GY)/C), c:Math.round((x - p.w*C/2 - GX)/C) }; }
+  g.restart = reset;
+  g.ptr = function(type, x, y){
+    if(type === 'down'){
+      kb = null;
+      if(y >= TY - 6){ var s = clamp(Math.floor(x/(W/3)), 0, 2); if(pieces[s]) drag = { i:s, x:x, y:y }; }
+    } else if(type === 'move'){
+      if(drag){ drag.x = x; drag.y = y; }
+    } else if(type === 'up'){
+      if(drag){
+        var p = pieces[drag.i], a = anchor(p, x, y);
+        if(p && fits(p, a.r, a.c)) place(drag.i, a.r, a.c);
+        drag = null;
+      }
+    }
+  };
+  g.key = function(code, down, rep){
+    if(!down) return;
+    if(!kb) kb = { sel:firstPiece(0), r:3, c:3 };
+    var p;
+    if(code==='ArrowLeft'||code==='KeyA') kb.c--;
+    else if(code==='ArrowRight'||code==='KeyD') kb.c++;
+    else if(code==='ArrowUp'||code==='KeyW') kb.r--;
+    else if(code==='ArrowDown'||code==='KeyS') kb.r++;
+    else if(code==='Digit1'||code==='Digit2'||code==='Digit3'){ var i = +code.slice(5) - 1; if(pieces[i]) kb.sel = i; }
+    else if((code==='KeyQ'||code==='KeyE') && !rep){
+      var step = code==='KeyE' ? 1 : 2;
+      for(var k=1;k<=3;k++){ var j = (kb.sel + step*k) % 3; if(pieces[j]){ kb.sel = j; break; } }
+    }
+    else if((code==='Space'||code==='Enter') && !rep){
+      p = pieces[kb.sel];
+      if(p && fits(p, kb.r, kb.c)){ place(kb.sel, kb.r, kb.c); if(!g.over) kb.sel = firstPiece(kb.sel); }
+    }
+    p = pieces[kb.sel];
+    if(p){ kb.r = clamp(kb.r, 0, N-p.h); kb.c = clamp(kb.c, 0, N-p.w); }
+  };
+  g.update = function(dt){
+    for(var i=fx.length-1;i>=0;i--){ fx[i].t += dt; if(fx[i].t > .4) fx.splice(i,1); }
+  };
+  function block(x, y, s, ci, a){
+    ctx.globalAlpha = a == null ? 1 : a;
+    rrect(x+1, y+1, s-2, s-2, Math.max(3, s*0.16), COLS[ci]);
+    ctx.fillStyle = 'rgba(255,255,255,.3)'; ctx.fillRect(x+4, y+4, s-8, Math.max(2, s*0.13));
+    ctx.globalAlpha = 1;
+  }
+  g.draw = function(hi){
+    ctx.fillStyle = '#070722'; ctx.fillRect(0, 0, W, H);
+    hud(score, hi, combo > 1 ? 'COMBO x' + combo : '');
+    rrect(GX-6, GY-6, N*C+12, N*C+12, 10, '#1a1d5a');
+    var r, c;
+    for(r=0;r<N;r++) for(c=0;c<N;c++){
+      if(grid[r][c]) block(GX+c*C, GY+r*C, C, grid[r][c]-1);
+      else rrect(GX+c*C+1, GY+r*C+1, C-2, C-2, 5, '#0d0f33');
+    }
+    // placement preview (dragged piece or keyboard cursor)
+    var gp = null, ga = null;
+    if(drag && pieces[drag.i]){ gp = pieces[drag.i]; ga = anchor(gp, drag.x, drag.y); }
+    else if(kb && pieces[kb.sel]){ gp = pieces[kb.sel]; ga = { r:kb.r, c:kb.c }; }
+    if(gp){
+      var ok = fits(gp, ga.r, ga.c), k;
+      if(ok){
+        for(k=0;k<gp.cells.length;k++) grid[ga.r+gp.cells[k][0]][ga.c+gp.cells[k][1]] = -1;
+        var f = fullLines();
+        for(k=0;k<gp.cells.length;k++) grid[ga.r+gp.cells[k][0]][ga.c+gp.cells[k][1]] = 0;
+        ctx.fillStyle = 'rgba(255,255,255,.2)';
+        f.rows.forEach(function(rr){ ctx.fillRect(GX, GY+rr*C, N*C, C); });
+        f.cols.forEach(function(cc){ ctx.fillRect(GX+cc*C, GY, C, N*C); });
+        for(k=0;k<gp.cells.length;k++) block(GX+(ga.c+gp.cells[k][1])*C, GY+(ga.r+gp.cells[k][0])*C, C, gp.col, .5);
+      } else if(kb && !drag){
+        ctx.strokeStyle = '#ff4f5e'; ctx.lineWidth = 3;
+        ctx.strokeRect(GX+ga.c*C+1, GY+ga.r*C+1, gp.w*C-2, gp.h*C-2);
+      }
+    }
+    for(var i=0;i<fx.length;i++){
+      var e = fx[i], a = 1 - e.t/.4;
+      block(GX+e.c*C, GY+e.r*C, C, e.col, a);
+      ctx.fillStyle = 'rgba(255,255,255,' + (a*0.85).toFixed(2) + ')';
+      ctx.fillRect(GX+e.c*C+2, GY+e.r*C+2, C-4, C-4);
+    }
+    // tray
+    for(var s=0;s<3;s++){
+      var sx = s*(W/3);
+      rrect(sx+8, TY, W/3-16, 96, 12, 'rgba(255,255,255,.05)');
+      var p = pieces[s];
+      if(kb && !drag && kb.sel === s && p){ ctx.strokeStyle = '#ffd23f'; ctx.lineWidth = 3; ctx.strokeRect(sx+9, TY+1, W/3-18, 94); }
+      if(!p || (drag && drag.i === s)) continue;
+      var ts = Math.min(24, 84/p.h, 130/p.w), ox = sx + (W/3)/2 - p.w*ts/2, oy = TY + 48 - p.h*ts/2;
+      for(var q=0;q<p.cells.length;q++) block(ox + p.cells[q][1]*ts, oy + p.cells[q][0]*ts, ts, p.col);
+    }
+    if(drag && pieces[drag.i]){
+      var dp = pieces[drag.i], x0 = drag.x - dp.w*C/2, y0 = drag.y - LIFT - dp.h*C/2;
+      for(var m=0;m<dp.cells.length;m++) block(x0 + dp.cells[m][1]*C, y0 + dp.cells[m][0]*C, C, dp.col, .95);
+    }
+  };
+  g.hint = 'Drag a piece onto the grid · fill a row or column to clear it · keys: 1-3 pick, arrows move, Space place';
+  reset();
+  return g;
+}
+/* =====================================================  MINESWEEPER  */
+function Mines(){
+  var COLS = 9, ROWS = 9, MINES = 10, C = 48, GX = 24, GY = 96;
+  var NUMCOL = [null,'#4aa3ff','#5dff7a','#ff4f5e','#b56bff','#ff9a3d','#35e0ff','#ffffff','#9aa0d6'];
+  var g = { score:0, over:false };
+  var cells, started, state, time, endT, flags, opened, press, kb, mode, boom, t;
+  function reset(){
+    cells = [];
+    for(var r=0;r<ROWS;r++){ var row = []; for(var c=0;c<COLS;c++) row.push({ m:false, n:0, o:false, f:false }); cells.push(row); }
+    started = false; state = 'play'; time = 0; endT = 0; flags = 0; opened = 0; press = null; kb = null; mode = 'dig'; boom = null; t = 0;
+    g.score = 0; g.over = false; g.overTitle = null; g.overColor = null;
+  }
+  function each(r, c, fn){
+    for(var dr=-1;dr<=1;dr++) for(var dc=-1;dc<=1;dc++){
+      if(!dr && !dc) continue;
+      var rr = r+dr, cc = c+dc;
+      if(rr>=0 && cc>=0 && rr<ROWS && cc<COLS) fn(rr, cc, cells[rr][cc]);
+    }
+  }
+  function placeMines(sr, sc){
+    var pool = [], r, c;
+    for(r=0;r<ROWS;r++) for(c=0;c<COLS;c++) if(Math.abs(r-sr) > 1 || Math.abs(c-sc) > 1) pool.push([r,c]);
+    for(var i=0;i<MINES;i++){ var k = rint(0, pool.length-1), q = pool.splice(k,1)[0]; cells[q[0]][q[1]].m = true; }
+    for(r=0;r<ROWS;r++) for(c=0;c<COLS;c++){
+      var n = 0; each(r, c, function(rr, cc, x){ if(x.m) n++; }); cells[r][c].n = n;
+    }
+  }
+  function lose(r, c){ state = 'lose'; boom = { r:r, c:c }; endT = 0; beep(90, .6, 'sawtooth', .06); }
+  function checkWin(){
+    if(state === 'play' && opened === ROWS*COLS - MINES){
+      state = 'win'; endT = 0;
+      for(var r=0;r<ROWS;r++) for(var c=0;c<COLS;c++) if(cells[r][c].m && !cells[r][c].f){ cells[r][c].f = true; flags++; }
+      g.score = opened*10 + Math.max(100, Math.round(1500 - time*10));
+      beep(660, .12, 'triangle', .05); setTimeout(function(){ beep(880, .2, 'triangle', .05); }, 120);
+    }
+  }
+  function reveal(r, c){
+    if(state !== 'play') return;
+    var cl = cells[r][c]; if(cl.o || cl.f) return;
+    if(!started){ started = true; placeMines(r, c); }
+    if(cl.m){ lose(r, c); return; }
+    var stack = [[r,c]];
+    while(stack.length){
+      var q = stack.pop(), x = cells[q[0]][q[1]];
+      if(x.o || x.f) continue;
+      x.o = true; opened++;
+      if(x.n === 0) each(q[0], q[1], function(rr, cc, y){ if(!y.o && !y.f) stack.push([rr,cc]); });
+    }
+    g.score = opened*10; beep(520, .04, 'square', .03);
+    checkWin();
+  }
+  function chord(r, c){
+    var cl = cells[r][c]; if(!cl.o || cl.n === 0) return;
+    var fl = 0; each(r, c, function(rr, cc, x){ if(x.f) fl++; });
+    if(fl !== cl.n) return;
+    each(r, c, function(rr, cc, x){ if(state === 'play' && !x.o && !x.f) reveal(rr, cc); });
+  }
+  function toggleFlag(r, c){
+    if(state !== 'play') return;
+    var cl = cells[r][c]; if(cl.o) return;
+    cl.f = !cl.f; flags += cl.f ? 1 : -1; beep(cl.f ? 700 : 450, .05, 'triangle', .04);
+  }
+  function at(x, y){
+    var c = Math.floor((x - GX)/C), r = Math.floor((y - GY)/C);
+    return (r<0 || c<0 || r>=ROWS || c>=COLS) ? null : { r:r, c:c };
+  }
+  function act(r, c){ if(cells[r][c].o) chord(r, c); else reveal(r, c); }
+  g.restart = reset;
+  g.ptr = function(type, x, y, e){
+    if(state !== 'play') return;
+    if(type === 'down'){
+      kb = null;
+      if(y < GY - 4){ if(x >= 170 && x <= 310 && y >= 44 && y <= 84){ mode = mode === 'dig' ? 'flag' : 'dig'; beep(600, .04); } return; }
+      var p = at(x, y); if(!p) return;
+      if(e && e.button === 2){ toggleFlag(p.r, p.c); return; }
+      press = { r:p.r, c:p.c, t0:t, long:false };
+    } else if(type === 'move'){
+      if(press){ var p2 = at(x, y); if(!p2 || p2.r !== press.r || p2.c !== press.c) press = null; }
+    } else if(type === 'up'){
+      if(press && !press.long){
+        var r = press.r, c = press.c; press = null;
+        if(mode === 'flag' && !cells[r][c].o) toggleFlag(r, c); else act(r, c);
+      } else press = null;
+    }
+  };
+  g.key = function(code, down, rep){
+    if(!down || state !== 'play') return;
+    if(!kb) kb = { r:4, c:4 };
+    if(code==='ArrowLeft'||code==='KeyA') kb.c = Math.max(0, kb.c-1);
+    else if(code==='ArrowRight'||code==='KeyD') kb.c = Math.min(COLS-1, kb.c+1);
+    else if(code==='ArrowUp'||code==='KeyW') kb.r = Math.max(0, kb.r-1);
+    else if(code==='ArrowDown'||code==='KeyS') kb.r = Math.min(ROWS-1, kb.r+1);
+    else if((code==='Space'||code==='Enter') && !rep) act(kb.r, kb.c);
+    else if((code==='KeyF'||code==='KeyX') && !rep) toggleFlag(kb.r, kb.c);
+  };
+  g.update = function(dt){
+    t += dt;
+    if(state === 'play'){
+      if(started) time += dt;
+      if(press && !press.long && t - press.t0 > .42){
+        press.long = true; toggleFlag(press.r, press.c);
+        try{ if(navigator.vibrate) navigator.vibrate(20); }catch(e){}
+      }
+    } else {
+      endT += dt;
+      if(endT > (state === 'win' ? .7 : 1.3) && !g.over){
+        g.over = true;
+        g.overTitle = state === 'win' ? 'YOU WIN!' : 'BOOM!';
+        g.overColor = state === 'win' ? '#5dff7a' : '#ff4f5e';
+      }
+    }
+  };
+  function flagIcon(x, y){
+    ctx.fillStyle = '#eef1ff'; ctx.fillRect(x+C/2-1, y+10, 3, C-22);
+    ctx.fillStyle = '#ff4fa3'; ctx.beginPath(); ctx.moveTo(x+C/2+2, y+10); ctx.lineTo(x+C/2+18, y+18); ctx.lineTo(x+C/2+2, y+26); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = '#eef1ff'; ctx.fillRect(x+C/2-9, y+C-13, 19, 4);
+  }
+  function mineIcon(x, y){
+    var cx = x+C/2, cy = y+C/2;
+    ctx.strokeStyle = '#eef1ff'; ctx.lineWidth = 2;
+    for(var a=0;a<4;a++){ var an = a*Math.PI/4; ctx.beginPath(); ctx.moveTo(cx-Math.cos(an)*13, cy-Math.sin(an)*13); ctx.lineTo(cx+Math.cos(an)*13, cy+Math.sin(an)*13); ctx.stroke(); }
+    circle(cx, cy, 9, '#10112a'); circle(cx-3, cy-3, 2.5, '#fff');
+  }
+  g.draw = function(hi){
+    ctx.fillStyle = '#070b1f'; ctx.fillRect(0, 0, W, H);
+    hud(g.score, hi, '');
+    text('MINES ' + (MINES - flags), GX, 63, 17, '#ff4fa3');
+    text('TIME ' + Math.floor(time), W-GX, 63, 17, '#35e0ff', 'right');
+    rrect(170, 44, 140, 38, 9, mode === 'dig' ? '#2b2f7a' : '#7a2b55');
+    text(mode === 'dig' ? 'DIG' : 'FLAG', 240, 64, 18, '#fff', 'center');
+    for(var r=0;r<ROWS;r++) for(var c=0;c<COLS;c++){
+      var cl = cells[r][c], x = GX + c*C, y = GY + r*C;
+      var lost = state === 'lose', showMine = cl.m && lost && !cl.f;
+      if(cl.o || showMine){
+        rrect(x+1, y+1, C-2, C-2, 6, (boom && boom.r === r && boom.c === c) ? '#a3192b' : '#0e1030');
+        if(showMine) mineIcon(x, y);
+        else if(cl.n > 0) text(String(cl.n), x+C/2, y+C/2+2, 28, NUMCOL[cl.n], 'center');
+      } else {
+        var pressed = press && press.r === r && press.c === c;
+        rrect(x+1, y+1, C-2, C-2, 6, pressed ? '#454bc2' : '#2f3490');
+        ctx.fillStyle = 'rgba(255,255,255,.13)'; ctx.fillRect(x+5, y+4, C-10, 4);
+        if(cl.f){
+          flagIcon(x, y);
+          if(lost && !cl.m){ ctx.strokeStyle = '#ff4f5e'; ctx.lineWidth = 4; ctx.beginPath(); ctx.moveTo(x+8, y+8); ctx.lineTo(x+C-8, y+C-8); ctx.moveTo(x+C-8, y+8); ctx.lineTo(x+8, y+C-8); ctx.stroke(); }
+        }
+      }
+    }
+    if(kb){ ctx.strokeStyle = '#ffd23f'; ctx.lineWidth = 3; ctx.strokeRect(GX+kb.c*C+2, GY+kb.r*C+2, C-4, C-4); }
+  };
+  g.hint = 'Tap / click to dig · long-press or right-click to flag · tap DIG/FLAG to switch · keys: arrows, Space dig, F flag';
+  reset();
+  return g;
+}
 /* =====================================================  ENGINE + MENU  */
 var GAMES = [
   { id:'snake',    name:'SNAKE',          em:'🐍', desc:'Eat the apples, grow longer, don’t crash.', make:Snake },
@@ -938,7 +1264,9 @@ var GAMES = [
   { id:'invaders', name:'SPACE INVADERS', em:'👾', desc:'Hold the line against the descending aliens.', make:Invaders },
   { id:'tetris',   name:'TETRIS',         em:'🧩', desc:'Stack the falling blocks and clear lines.', make:Tetris },
   { id:'flappy',   name:'FLAPPY',         em:'🐦', desc:'Flap through the pipes. Harder than it looks.', make:Flappy },
-  { id:'crossy',   name:'CROSSY ROAD',    em:'\ud83d\udc14', desc:'Hop across roads, rivers and rails. How far can you go?', make:Crossy }
+  { id:'crossy',   name:'CROSSY ROAD',    em:'\ud83d\udc14', desc:'Hop across roads, rivers and rails. How far can you go?', make:Crossy },
+  { id:'blast',    name:'BLOCK BLAST',    em:'\ud83d\udca5', desc:'Drag blocks onto the grid and clear full rows and columns.', make:Blast },
+  { id:'mines',    name:'MINESWEEPER',    em:'\ud83d\udca3', desc:'Clear the field without hitting a mine. Flag the dangerous squares.', make:Mines }
 ];
 var cur = null, curDef = null, paused = false, last = 0, hi = 0, running = false;
 
@@ -976,7 +1304,7 @@ function loop(now){
   $('hi').textContent = 'BEST ' + Math.max(hi, cur.score);
   if(cur.over){
     ctx.fillStyle = 'rgba(0,0,0,.62)'; ctx.fillRect(0, H/2-62, W, 124);
-    text('GAME OVER', W/2, H/2-26, 34, '#ff4f5e', 'center');
+    text(cur.overTitle || 'GAME OVER', W/2, H/2-26, 34, cur.overColor || '#ff4f5e', 'center');
     text('SCORE ' + cur.score + (cur.score >= hi && cur.score > 0 ? '  ★ NEW BEST' : ''), W/2, H/2+10, 18, '#ffd23f', 'center');
     text('Enter / tap to play again · Esc = menu', W/2, H/2+40, 14, '#fff', 'center');
   } else if(paused){
@@ -1003,9 +1331,10 @@ cv.addEventListener('pointerdown', function(e){
   if(!cur) return;
   if(cur.over){ cur.restart(); return; }
   if(paused){ paused = false; return; }
-  var p = canvasXY(e); if(cur.ptr) cur.ptr('down', p.x, p.y);
+  var p = canvasXY(e); if(cur.ptr) cur.ptr('down', p.x, p.y, e);
   try{ cv.setPointerCapture(e.pointerId); }catch(_){}
 });
+cv.addEventListener('contextmenu', function(e){ e.preventDefault(); });
 cv.addEventListener('pointermove', function(e){ if(cur && !cur.over && !paused && cur.ptr){ var p = canvasXY(e); cur.ptr('move', p.x, p.y); } });
 cv.addEventListener('pointerup', function(e){ if(cur && cur.ptr) { var p = canvasXY(e); cur.ptr('up', p.x, p.y); } });
 /* on-screen pad */
