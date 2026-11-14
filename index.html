@@ -15,10 +15,21 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>ZD STUDIOS — Game Library</title>
 <script>
-  /* CHRISTMAS THEME SWITCH: set to true to turn the Christmas look on (colours, snow, lights, snow-capped cards, festive text).
-     All the code stays in this file; false = normal look. */
+  /* ===== SEASONAL THEME SWITCHES =====
+     Set ONE of these to true to turn that seasonal look on (colours, decorations, festive text).
+     All false = the normal look. If more than one is true the priority is Halloween, then Christmas, then Easter.
+     All the theme code stays in this file whether or not a theme is on. */
+  window.ZD_HALLOWEEN = false;
   window.ZD_CHRISTMAS = false;
-  if (window.ZD_CHRISTMAS){ document.documentElement.classList.add("xmas"); document.title = "🎄 " + document.title; }
+  window.ZD_EASTER    = false;
+  (function(){
+    var t = window.ZD_HALLOWEEN ? "halloween" : window.ZD_CHRISTMAS ? "xmas" : window.ZD_EASTER ? "easter" : "";
+    window.ZD_THEME = t;
+    if (!t) return;
+    var c = document.documentElement.classList;
+    c.add(t, "themed"); if (t !== "easter") c.add("tdark");
+    document.title = ({ xmas:"🎄 ", halloween:"🎃 ", easter:"🐣 " })[t] + document.title;
+  })();
 </script>
 <link rel="icon" type="image/png" sizes="32x32" href="data:image/png;base64,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">
 <link rel="icon" type="image/png" sizes="16x16" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAC00lEQVR4AWxRW0hUURRd51wdVLS0ITK1sbJS0RwfQYSIjxEJCqXXiBaGmaapRF+BmH4oIfZhEwwR4Uf044M+lL5yTPpJMUtBx1GHIYseosxIifmamdM+15khostdd+179l5r73MOBz2mfL2xpzh9Zqg0020pyxCWq4Rr6cJSQbhOqCRU6YXlpl4MVevdvRVp06ZLqUaSgktxdizvKT3OUwp1UAw6BkM8YDhMfAQwHJUQMCQQHxMo1AUrxlhtanaspsdkTDXygxGsJesAY5CzSCgCauxnTv8KaI1Y5r+S+1IMsngMi45g9/m+UJ6kCmTSL/Lzv2KFjDTbAAOg2YE2HMkcXCiqgeLr4Of/ieVawmcgaQGI/wap5aqbX+RnWahQF8mc+O84yAuEbwC+Wk4u8E/g2hLochyCmV2BGWUwe8thdpfDtG5Ey6dCdE3Hw7VJhtJYkSylaofd8buXE1H35AVO5RtQ2ViD+nt3UH33NrQuDfLebSP7RjO6HcmATwwmqLc0ILghsBWXhcePnqO+thUtzV3UAhh5M4qU8gI0Ra+h4ONbrIalwC0zcgrScekit6EEA9PvP+BWXRmKzuYgN++0LINOF4P+13PYiatFFd8Lx5wVShBNrE4hfBPQD+MCYuMXBgcsuHCxCCvLLvz4vozIyD2IiwIyQyaRHhwGsbUGRvWyKanp5YAgbCscjSeXMD8ygP7WGmgnH2L8wXmMd5xDrK0DUfancIy+QuMZ9fpASsgb5PTxDGoT0KTLRWjqfrRnzaKz2IOSNIESvRcl6cQZAp2X3WjPm0FOIp0AB9RrZMLDnZvC5gwOBTjDqiYEakIW0JYCpx2Iae8yp+yy8zez8ZV1b9sJ66yodk6iYH0RkAUBAXUKxLsif4OJRSZWfqKNN7yc6Zv64i6dmnBZR+zwDNuBYTvD8AJhnuJ54jliGzHBYmWe3jFuHbOz0oZns31/AAAA///wivIiAAAABklEQVQDAL1rDNQw84ApAAAAAElFTkSuQmCC">
@@ -524,50 +535,97 @@
   body.discreet .idea-box h3{ font-weight:700; }
   body.discreet .idea-row button.go{ background:#2f6fed; color:#fff; box-shadow:none; }
 
-  /* ===== CHRISTMAS THEME: only active when ZD_CHRISTMAS = true (adds class "xmas" to <html>); Discrete Mode hides the decorations ===== */
-  .x-on{ display:none; }
-  html.xmas .x-on{ display:inline; }
-  html.xmas{
-    --bg-1:#E5383B; --bg-2:#2FA866; --accent-pink:#FFD166; --accent-teal:#2FB872;
-  }
-  html.xmas .s1{ background:#1F8F4E; }
-  html.xmas .s2{ background:#D62839; }
-  html.xmas .s3{ background:#FFD166; }
-  html.xmas .s4{ background:#ffffff; }
+  /* ===== SEASONAL THEMES: Halloween / Christmas / Easter =====
+     Only active when one of the ZD_* flags near the top of this file is true. The script puts a class on <html>
+     (halloween | xmas | easter, plus "themed", and "tdark" for the dark-background ones). Discrete Mode hides every decoration. */
+  html.themed body:not(.discreet) .wrap{ padding-top:86px; }
+  @media (max-width: 520px){ html.themed body:not(.discreet) .wrap{ padding-top:70px; } }
+
+  /* colours */
+  html.xmas{ --bg-1:#E5383B; --bg-2:#2FA866; --accent-pink:#FFD166; --accent-teal:#2FB872; --cap:#fff; }
+  html.halloween{ --bg-1:#FF7A18; --bg-2:#4B1D7A; --accent-pink:#FF9F1C; --accent-teal:#8BE04E; --cap:#8BE04E; }
+  html.easter{ --bg-1:#FFB3D9; --bg-2:#9BE7C4; --accent-pink:#FFE066; --accent-teal:#5CCFAE; --accent-purple:#B79CFF; --cap:#7AD99A; }
+  html.xmas .s1{ background:#1F8F4E; }      html.xmas .s2{ background:#D62839; }      html.xmas .s3{ background:#FFD166; }      html.xmas .s4{ background:#ffffff; }
+  html.halloween .s1{ background:#FF7A18; } html.halloween .s2{ background:#8B5CF6; } html.halloween .s3{ background:#8BE04E; } html.halloween .s4{ background:#111111; }
+  html.easter .s1{ background:#FF9ACB; }    html.easter .s2{ background:#FFE066; }    html.easter .s3{ background:#B79CFF; }    html.easter .s4{ background:#7ED6B5; }
   html.xmas .device-note .pc{ color:#157A43; }
-  html.xmas body:not(.discreet) .wrap{ padding-top:86px; }
-  @media (max-width: 520px){ html.xmas body:not(.discreet) .wrap{ padding-top:70px; } }
-  .xmas-row{ display:none; font-size:clamp(1.4rem,4vw,2rem); letter-spacing:0.28em; margin:-4px 0 18px; filter:drop-shadow(2px 3px 0 rgba(26,20,48,.3)); }
-  html.xmas .xmas-row{ display:block; }
-  .xmas-snow, .xmas-lights{ pointer-events:none; }
-  .xmas-snow{ position:fixed; inset:0; overflow:hidden; z-index:0; }
-  .xmas-snow i{
-    position:absolute; top:-12px; left:var(--x); width:var(--s); height:var(--s); border-radius:50%;
-    background:#fff; opacity:var(--o); will-change:transform;
-    animation:snowfall var(--d) linear var(--dl) infinite;
-  }
-  @keyframes snowfall{
-    0%{ transform:translate3d(0,-5vh,0); }
-    50%{ transform:translate3d(var(--sw),52vh,0); }
-    100%{ transform:translate3d(0,108vh,0); }
-  }
-  .xmas-lights{ position:absolute; top:0; left:0; right:0; height:32px; z-index:3; display:flex; justify-content:space-between; padding:0 8px; overflow:hidden; }
-  .xmas-lights::before{ content:""; position:absolute; left:0; right:0; top:4px; height:3px; background:#1A1430; opacity:.85; }
-  .xmas-lights b{
-    position:relative; width:13px; height:18px; margin-top:7px; border-radius:50% 50% 50% 50%/62% 62% 38% 38%;
-    background:var(--c); box-shadow:0 0 12px 3px var(--c); animation:twinkle 1.8s ease-in-out var(--dl) infinite;
-  }
-  .xmas-lights b::before{ content:""; position:absolute; left:50%; top:-5px; width:7px; height:6px; margin-left:-3.5px; background:#1A1430; border-radius:2px 2px 0 0; }
-  @keyframes twinkle{ 0%,100%{ opacity:1; } 50%{ opacity:.35; } }
-  /* snow caps on the cards */
-  html.xmas body:not(.discreet) .card-art::before{
+  html.halloween .device-note .pc{ color:#6D28D9; }
+  html.tdark body:not(.discreet) #status, html.tdark body:not(.discreet) footer, html.tdark body:not(.discreet) footer a{ color:var(--panel); opacity:1; }
+  html.tdark body:not(.discreet) .spinner{ border-color:rgba(255,255,255,.35); border-top-color:#fff; }
+
+  /* festive text (pseudo-elements, so Discrete Mode's text swapping never touches them) */
+  .theme-row{ display:none; font-size:clamp(1.4rem,4vw,2rem); letter-spacing:0.28em; margin:-4px 0 18px; filter:drop-shadow(2px 3px 0 rgba(26,20,48,.3)); }
+  html.themed .theme-row{ display:block; }
+  html.xmas .theme-row::before{ content:"🎄 🎁 ⛄ 🎅 ⛄ 🎁 🎄"; }
+  html.halloween .theme-row::before{ content:"🎃 👻 🦇 🕸️ 🦇 👻 🎃"; }
+  html.easter .theme-row::before{ content:"🐣 🥚 🐰 🌷 🐰 🥚 🐣"; }
+  html.xmas .badge::before{ content:"🎅 Merry Christmas · "; }        html.xmas .badge::after{ content:" 🎄"; }
+  html.halloween .badge::before{ content:"🎃 Happy Halloween · "; }    html.halloween .badge::after{ content:" 🦇"; }
+  html.easter .badge::before{ content:"🐰 Happy Easter · "; }          html.easter .badge::after{ content:" 🐣"; }
+  html.xmas .subtitle::after{ content:" Happy holidays! 🎁"; }
+  html.halloween .subtitle::after{ content:" Spooky season! 👻"; }
+  html.easter .subtitle::after{ content:" Hoppy Easter! 🥚"; }
+
+  /* card toppers: snow (Christmas), slime drips (Halloween), grass (Easter) */
+  html.themed body:not(.discreet) .card-art::before{
     content:""; position:absolute; left:0; right:0; top:0; height:22px; z-index:2; opacity:.96;
-    background:linear-gradient(#fff,#fff) 0 0/100% 8px no-repeat, radial-gradient(circle at 14px 8px,#fff 0 13px,transparent 14px) 0 0/28px 22px repeat-x;
+    background:linear-gradient(var(--cap),var(--cap)) 0 0/100% 8px no-repeat, radial-gradient(circle at 14px 8px,var(--cap) 0 13px,transparent 14px) 0 0/28px 22px repeat-x;
   }
-  html.xmas body:not(.discreet) #status, html.xmas body:not(.discreet) footer, html.xmas body:not(.discreet) footer a{ color:var(--panel); opacity:1; }
-  html.xmas body:not(.discreet) .spinner{ border-top-color:var(--panel); border-color:rgba(255,255,255,.35); border-top-color:#fff; }
-  html body.discreet .xmas-snow, html body.discreet .xmas-lights, html body.discreet .xmas-row, html body.discreet .card-art::before{ display:none; }
-  @media (prefers-reduced-motion: reduce){ .xmas-snow{ display:none; } .xmas-lights b{ animation:none; } }
+
+  /* decoration layers (created by the script at the end of the page) */
+  .fx-layer{ position:fixed; inset:0; overflow:hidden; z-index:0; pointer-events:none; }
+  .fx-layer.front{ z-index:4; }
+  .fx-flake{ position:absolute; top:-12px; left:var(--x); opacity:var(--o); will-change:transform; animation:fxfall var(--d) linear var(--dl) infinite; }
+  .fx-flake.dot{ width:var(--s); height:var(--s); border-radius:50%; background:#fff; }
+  .fx-flake.glyph{ font-size:var(--s); line-height:1; font-style:normal; }
+  @keyframes fxfall{
+    0%{ transform:translate3d(0,-5vh,0) rotate(0deg); }
+    50%{ transform:translate3d(var(--sw),52vh,0) rotate(var(--rot,0deg)); }
+    100%{ transform:translate3d(0,108vh,0) rotate(0deg); }
+  }
+  .fx-rise{ position:absolute; bottom:-60px; left:var(--x); font-size:var(--s); line-height:1; opacity:var(--o); will-change:transform; animation:fxrise var(--d) linear var(--dl) infinite; }
+  @keyframes fxrise{
+    0%{ transform:translate3d(0,0,0); }
+    50%{ transform:translate3d(var(--sw),-58vh,0); }
+    100%{ transform:translate3d(0,-118vh,0); }
+  }
+  .fx-fly{ position:absolute; left:-80px; top:var(--y); font-size:var(--s); line-height:1; will-change:transform; animation:fxfly var(--d) linear var(--dl) infinite; }
+  @keyframes fxfly{
+    0%{ transform:translate3d(0,0,0); }
+    25%{ transform:translate3d(25vw,-22px,0); }
+    50%{ transform:translate3d(50vw,14px,0); }
+    75%{ transform:translate3d(75vw,-18px,0); }
+    100%{ transform:translate3d(calc(100vw + 160px),0,0); }
+  }
+  .fx-egg{
+    position:absolute; left:var(--x); top:var(--y); width:var(--s); height:calc(var(--s)*1.28); opacity:.55;
+    border-radius:50% 50% 50% 50%/62% 62% 38% 38%;
+    background:linear-gradient(rgba(255,255,255,.8),rgba(255,255,255,.8)) 0 42%/100% 10% no-repeat, linear-gradient(rgba(255,255,255,.8),rgba(255,255,255,.8)) 0 68%/100% 10% no-repeat, var(--c);
+    animation:fxbob 5s ease-in-out var(--dl) infinite;
+  }
+  @keyframes fxbob{ 0%,100%{ transform:translateY(0) rotate(-4deg); } 50%{ transform:translateY(-14px) rotate(4deg); } }
+  .fx-top{ position:absolute; top:0; left:0; right:0; height:0; z-index:3; pointer-events:none; }
+  .fx-top.wire::before{ content:""; position:absolute; left:0; right:0; top:4px; height:3px; background:#1A1430; opacity:.85; }
+  .fx-top .bulb{
+    position:absolute; left:var(--lx); top:7px; width:13px; height:18px; margin-left:-6px; border-radius:50% 50% 50% 50%/62% 62% 38% 38%;
+    background:var(--c); box-shadow:0 0 12px 3px var(--c); animation:fxtwinkle 1.8s ease-in-out var(--dl) infinite;
+  }
+  .fx-top .bulb::before{ content:""; position:absolute; left:50%; top:-5px; width:7px; height:6px; margin-left:-3.5px; background:#1A1430; border-radius:2px 2px 0 0; }
+  @keyframes fxtwinkle{ 0%,100%{ opacity:1; } 50%{ opacity:.35; } }
+  .fx-top .flag{
+    position:absolute; left:var(--lx); top:5px; width:0; height:0; margin-left:-13px; border-left:13px solid transparent; border-right:13px solid transparent;
+    border-top:24px solid var(--c); transform-origin:50% 0; animation:fxsway 3s ease-in-out var(--dl) infinite;
+  }
+  @keyframes fxsway{ 0%,100%{ transform:rotate(-5deg); } 50%{ transform:rotate(5deg); } }
+  .fx-top .spider{ position:absolute; left:var(--lx); top:0; width:1px; height:var(--len); background:rgba(255,255,255,.7); transform-origin:50% 0; animation:fxdangle 4s ease-in-out var(--dl) infinite; }
+  .fx-top .spider::after{ content:"🕷️"; position:absolute; left:50%; top:100%; transform:translate(-50%,-30%); font-size:20px; line-height:1; }
+  @keyframes fxdangle{ 0%,100%{ transform:rotate(-4deg); } 50%{ transform:rotate(4deg); } }
+  .fx-web{ position:absolute; top:0; width:120px; height:120px; z-index:2; pointer-events:none; opacity:.5; }
+  .fx-web.l{ left:0; } .fx-web.r{ right:0; transform:scaleX(-1); }
+
+  html body.discreet .fx-layer, html body.discreet .fx-top, html body.discreet .fx-web, html body.discreet .theme-row,
+  html body.discreet .badge::before, html body.discreet .badge::after, html body.discreet .subtitle::after, html body.discreet .card-art::before{ display:none; }
+  @media (prefers-reduced-motion: reduce){ .fx-layer{ display:none; } .fx-top *{ animation:none !important; } }
 </style>
 </head>
 <body>
@@ -609,10 +667,10 @@
   </div>
 
   <header class="hero">
-    <span class="badge"><span class="x-on">🎅 Merry Christmas · </span>★ No installs · No accounts · Just play ★<span class="x-on"> 🎄</span></span>
+    <span class="badge">★ No installs · No accounts · Just play ★</span>
     <h1 class="title">ZD STUDIOS<br>GAME LIBRARY</h1>
-    <div class="xmas-row" aria-hidden="true">🎄 🎁 ⛄ 🎅 ⛄ 🎁 🎄</div>
-    <p class="subtitle">A growing arcade of browser games — built scrappy, played instantly.<span class="x-on"> Happy holidays! 🎁</span></p>
+    <div class="theme-row" aria-hidden="true"></div>
+    <p class="subtitle">A growing arcade of browser games — built scrappy, played instantly.</p>
     <div class="stat-row" id="statRow" hidden>
       <div class="stat-pill">🎮 <strong id="gameCount">0</strong> games live</div>
       <div class="stat-pill">⚡ 100% browser-based</div>
@@ -1273,32 +1331,62 @@ const IDEA_KEY = "fb-copper-nutmeg-iris-4360";   // send-only key (cannot read a
 </script>
 
 <script>
-/* Christmas decorations: falling snow + a string of lights (only built when ZD_CHRISTMAS is true; hidden in Discrete Mode by CSS) */
+/* Seasonal decorations. Built only when a theme flag near the top of this file is true (window.ZD_THEME is set there).
+   Everything here is hidden in Discrete Mode by CSS. */
 (function(){
-  if (!window.ZD_CHRISTMAS) return;
-  var snow = document.createElement("div"); snow.className = "xmas-snow"; snow.setAttribute("aria-hidden","true");
-  var n = window.innerWidth < 600 ? 26 : 46, i, f;
-  for (i = 0; i < n; i++){
-    f = document.createElement("i");
-    f.style.cssText = "--x:" + (Math.random()*100).toFixed(1) + "%;--s:" + (3 + Math.random()*5).toFixed(1) + "px;--o:" + (0.45 + Math.random()*0.5).toFixed(2) +
-      ";--d:" + (9 + Math.random()*11).toFixed(1) + "s;--dl:-" + (Math.random()*20).toFixed(1) + "s;--sw:" + (Math.round(Math.random()*80) - 40) + "px";
-    snow.appendChild(f);
-  }
-  document.body.insertBefore(snow, document.body.firstChild);
-  var lights = document.createElement("div"); lights.className = "xmas-lights"; lights.setAttribute("aria-hidden","true");
-  document.body.insertBefore(lights, document.body.firstChild);
-  var COLORS = ["#ff3b3b","#ffd166","#3bff8a","#4cc3ff"], t;
-  function build(){
-    lights.textContent = "";
-    var count = Math.max(8, Math.round(window.innerWidth / 46)), b;
-    for (var k = 0; k < count; k++){
-      b = document.createElement("b");
-      b.style.cssText = "--c:" + COLORS[k % COLORS.length] + ";--dl:-" + (Math.random()*1.8).toFixed(2) + "s";
-      lights.appendChild(b);
+  var T = window.ZD_THEME; if (!T) return;
+  var body = document.body, R = Math.random, small = window.innerWidth < 600;
+  function el(tag, cls, css, parent){ var e = document.createElement(tag); if (cls) e.className = cls; if (css) e.style.cssText = css; if (parent) parent.appendChild(e); return e; }
+  function layer(cls){ var l = el("div", "fx-layer" + (cls ? " " + cls : "")); l.setAttribute("aria-hidden", "true"); body.insertBefore(l, body.firstChild); return l; }
+  function pick(a){ return a[Math.floor(R() * a.length)]; }
+  function between(a, b){ return a + R() * (b - a); }
+  // things that drift down the page: dots (snow) or emoji (petals)
+  function fall(l, n, o){
+    for (var i = 0; i < n; i++){
+      var f = el("i", "fx-flake " + (o.glyphs ? "glyph" : "dot"),
+        "--x:" + between(0, 100).toFixed(1) + "%;--s:" + between(o.s[0], o.s[1]).toFixed(1) + "px;--o:" + between(o.o[0], o.o[1]).toFixed(2) +
+        ";--d:" + between(o.d[0], o.d[1]).toFixed(1) + "s;--dl:-" + (R() * 20).toFixed(1) + "s;--sw:" + (Math.round(R() * 80) - 40) + "px;--rot:" + Math.round(R() * 360) + "deg", l);
+      if (o.glyphs) f.textContent = pick(o.glyphs);
     }
   }
-  build();
-  window.addEventListener("resize", function(){ clearTimeout(t); t = setTimeout(build, 200); });
+  // the decorated strip along the top edge (lights / bunting / hanging spiders), rebuilt when the window width changes
+  var strip, LIGHTS = ["#ff3b3b", "#ffd166", "#3bff8a", "#4cc3ff"], FLAGS = ["#ff8fc7", "#ffe066", "#8be0c0", "#b79cff", "#ffb38a"];
+  function buildStrip(){
+    if (!strip){ strip = el("div", "fx-top" + (T === "halloween" ? "" : " wire")); strip.setAttribute("aria-hidden", "true"); body.insertBefore(strip, body.firstChild); }
+    strip.textContent = "";
+    var w = window.innerWidth, gap = T === "halloween" ? 120 : (T === "easter" ? 40 : 46), count = Math.max(6, Math.round(w / gap)), k, x;
+    for (k = 0; k < count; k++){
+      x = (k + 0.5) * w / count;
+      if (T === "xmas") el("b", "bulb", "--lx:" + x.toFixed(0) + "px;--c:" + LIGHTS[k % LIGHTS.length] + ";--dl:-" + (R() * 1.8).toFixed(2) + "s", strip);
+      else if (T === "easter") el("b", "flag", "--lx:" + x.toFixed(0) + "px;--c:" + FLAGS[k % FLAGS.length] + ";--dl:-" + (R() * 3).toFixed(2) + "s", strip);
+      else el("b", "spider", "--lx:" + (x + (R() - 0.5) * 40).toFixed(0) + "px;--len:" + (10 + Math.round(R() * 22)) + "px;--dl:-" + (R() * 4).toFixed(2) + "s", strip);
+    }
+  }
+  buildStrip();
+  var rt; window.addEventListener("resize", function(){ clearTimeout(rt); rt = setTimeout(buildStrip, 200); });
+
+  if (T === "xmas"){
+    fall(layer(), small ? 26 : 46, { s: [3, 8], o: [0.45, 0.95], d: [9, 20] });
+  } else if (T === "halloween"){
+    var web = '<svg viewBox="0 0 120 120" width="120" height="120"><g stroke="#fff" stroke-width="1.3" fill="none"><path d="M0 0L120 0M0 0L110 45M0 0L85 85M0 0L45 110M0 0L0 120"/><path d="M30 0Q22 22 0 30M60 0Q45 45 0 60M90 0Q68 68 0 90"/></g></svg>';
+    ["l", "r"].forEach(function(side){ var w = el("div", "fx-web " + side); w.setAttribute("aria-hidden", "true"); w.innerHTML = web; body.insertBefore(w, body.firstChild); });
+    var rise = layer(), i, g;
+    for (i = 0; i < (small ? 5 : 9); i++){
+      g = el("span", "fx-rise", "--x:" + between(2, 96).toFixed(1) + "%;--s:" + between(26, 44).toFixed(0) + "px;--o:" + between(0.15, 0.35).toFixed(2) + ";--d:" + between(16, 30).toFixed(1) + "s;--dl:-" + (R() * 30).toFixed(1) + "s;--sw:" + (Math.round(R() * 70) - 35) + "px", rise);
+      g.textContent = "\uD83D\uDC7B";
+    }
+    var bats = layer("front");
+    for (i = 0; i < (small ? 3 : 5); i++){
+      g = el("span", "fx-fly", "--y:" + between(6, 70).toFixed(0) + "%;--s:" + between(22, 34).toFixed(0) + "px;--d:" + between(14, 26).toFixed(1) + "s;--dl:-" + (R() * 26).toFixed(1) + "s", bats);
+      g.textContent = "\uD83E\uDD87";
+    }
+  } else if (T === "easter"){
+    var eggs = layer(), EGG = ["#ff8fc7", "#ffe066", "#8be0c0", "#b79cff", "#ffb38a", "#8ecbff"], e;
+    for (var n = 0; n < (small ? 6 : 11); n++){
+      el("div", "fx-egg", "--x:" + between(1, 95).toFixed(1) + "%;--y:" + between(8, 88).toFixed(1) + "%;--s:" + between(34, 58).toFixed(0) + "px;--c:" + pick(EGG) + ";--dl:-" + (R() * 5).toFixed(1) + "s", eggs);
+    }
+    fall(layer(), small ? 12 : 20, { glyphs: ["\uD83C\uDF38", "\uD83C\uDF3C"], s: [14, 22], o: [0.6, 0.9], d: [10, 18] });
+  }
 })();
 </script>
 </body>
