@@ -178,6 +178,9 @@ body.playing #hud{opacity:1}
   box-shadow:0 5px 0 var(--coral-d),0 10px 20px rgba(120,40,20,.25);display:flex;flex-direction:column;align-items:center;justify-content:center}
 .burst small{font-size:9px;opacity:.85}
 .burst.cool{filter:grayscale(.6)}
+.burst.xray{background:radial-gradient(#9fe6ff,#1a8db5);box-shadow:0 5px 0 var(--aqua-d),0 10px 20px rgba(20,70,110,.25)}
+.burst.xray.on{background:radial-gradient(#ff8fc4,#d63384);box-shadow:0 5px 0 #a3255f,0 0 0 4px rgba(255,120,190,.45)}
+@media (max-width:640px){.burst{width:60px;height:60px;font-size:11px}}
 .rangebox{background:rgba(255,255,255,.9);border-radius:16px;padding:8px 12px;box-shadow:0 6px 16px rgba(30,50,80,.15);font-size:11px;font-weight:900;letter-spacing:.12em;color:var(--ink-soft);text-align:center}
 .rot{display:flex;gap:6px;margin-top:6px}.round.sm{width:40px;height:40px;font-size:18px}
 #nogl{position:fixed;inset:0;display:none;align-items:center;justify-content:center;z-index:60;background:#d9f1fb;padding:24px;text-align:center;font-weight:800;font-size:18px}
@@ -247,6 +250,7 @@ window.addEventListener("pageshow",apply);document.addEventListener("visibilityc
   <div class="hud-bc pe" id="nozBar"></div>
   <div class="hud-br">
     <div class="rangebox pe"><span id="distLbl">2.0 m</span><div class="rot"><button class="round sm" id="rotL" aria-label="Rotate left">⟲</button><button class="round sm" id="zoomIn" aria-label="Move closer">+</button><button class="round sm" id="zoomOut" aria-label="Step back">−</button><button class="round sm" id="rotR" aria-label="Rotate right">⟳</button></div></div>
+    <button class="burst xray pe" id="btnXray" aria-label="X-ray: show missed spots">X-RAY<small>X</small></button>
     <button class="burst pe" id="btnBurst" aria-label="High-pressure burst">BURST<small>SHIFT</small></button>
   </div>
 </div>
@@ -265,7 +269,7 @@ window.addEventListener("pageshow",apply);document.addEventListener("visibilityc
       <button class="btn ghost" id="mSettings">Settings</button>
     </div>
     <div class="menu-stats"><span class="coinpill" id="mCoins"></span><span class="coinpill" id="mStars"></span></div>
-    <div class="hint">Hold left mouse to spray · <kbd>Right-drag</kbd> or <kbd>A</kbd>/<kbd>D</kbd> to walk around · <kbd>Scroll</kbd> to step closer · <kbd>Shift</kbd> burst · <kbd>1</kbd>–<kbd>4</kbd> nozzles · <kbd>Esc</kbd> pause<br>Touch: one finger sprays, two fingers rotate and pinch.</div>
+    <div class="hint">Hold left mouse to spray · <kbd>Right-drag</kbd> or <kbd>A</kbd>/<kbd>D</kbd> to walk around · <kbd>Scroll</kbd> to step closer · <kbd>Shift</kbd> burst · <kbd>X</kbd> X-ray missed spots · <kbd>1</kbd>–<kbd>4</kbd> nozzles · <kbd>Esc</kbd> pause<br>Touch: one finger sprays, two fingers rotate and pinch.</div>
   </div>
 </section>
 
@@ -810,7 +814,7 @@ class MB {
     return this.charts.length - 1;
   }
   begin() { this._s = this.nv; }
-  end() { if (this.nv > this._s) this.prims.push([this._s, this.nv]); }
+  end(closed) { if (this.nv > this._s) this.prims.push([this._s, this.nv, !!closed]); }  // closed = watertight (used for hidden-face tests)
 
   box(o, sx, sy, sz, T) {
     T = T || ID_T;
@@ -830,7 +834,7 @@ class MB {
       const C = [0, 0, 1, 0, 1, 1, 0, 0, 1, 1, 0, 1];
       for (let c = 0; c < 6; c++) { param(C[c * 2], C[c * 2 + 1], _P, _N); this.vert(T, _P, _N, o, C[c * 2], C[c * 2 + 1], ch); }
     }
-    this.end();
+    this.end(true);
   }
   // Extrude a CCW (x,y) outline along z, centred, with caps.
   extrude(o, pts, depth, T) {
@@ -863,7 +867,7 @@ class MB {
         this.vert(T, _P, _N, o, e[5], e[6], ch);
       }
     }
-    this.end();
+    this.end(true);
   }
   // Revolve an (r,y) profile around the y axis. Profile order: bottom -> outside -> top.
   lathe(o, prof, segs, T) {
@@ -875,6 +879,7 @@ class MB {
       P[0] = _SG[0] * c; P[1] = _SG[1]; P[2] = _SG[0] * s; N[0] = _SG[2] * c; N[1] = _SG[3]; N[2] = _SG[2] * s; return true;
     };
     const ch = this.chart(TAU * maxR * k, PR.total * k, o, T, param);
+    if (ch >= 0) this.charts[ch].lathe = maxR;
     this.begin();
     for (const g of PR.S) {
       const v0 = g.s0 / PR.total, v1 = (g.s0 + g.len) / PR.total;
@@ -888,7 +893,7 @@ class MB {
         }
       }
     }
-    this.end();
+    this.end(prof[0] < 1e-6 && prof[prof.length - 2] < 1e-6);
   }
   sphere(o, r, T, segs) {
     const n = 8, p = [];
@@ -1418,7 +1423,7 @@ uniform vec3 uCam; uniform vec3 uSun; uniform vec3 uSunCol; uniform vec3 uSkyAmb
 uniform vec3 uZenith; uniform vec3 uHorizon; uniform vec3 uGroundSky; uniform float uFog; uniform float uTime;
 uniform float uDirt; uniform sampler2D uDirtA; uniform sampler2D uDirtB; uniform sampler2D uDirtC;
 uniform vec3 uGC[6]; uniform float uGA[6];
-uniform vec4 uRing; uniform float uRingMode; uniform float uShine; uniform vec4 uShadow; uniform vec4 uTint; uniform float uFade;
+uniform vec4 uRing; uniform float uRingMode; uniform float uShine; uniform vec4 uShadow; uniform vec4 uTint; uniform float uFade; uniform float uXray;
 float h31(vec3 p){ p = fract(p * 0.3183099 + 0.1); p *= 17.0; return fract(p.x * p.y * p.z * (p.x + p.y + p.z)); }
 float vn(vec3 x){
   vec3 i = floor(x), f = fract(x); f = f * f * (3.0 - 2.0 * f);
@@ -1432,6 +1437,15 @@ vec3 sky(vec3 d){
 float gm(float m, float n){ return clamp((m - n * 0.32) * 2.3, 0.0, 1.0) * uFade; }
 void main(){
   vec3 N = normalize(vN), V = normalize(uCam - vW);
+  if (uXray > 0.0) {
+    // X-ray: faint ghost outline of the model, missed grime glowing through it
+    vec4 A = texture2D(uDirtA, vUV), B = texture2D(uDirtB, vUV);
+    float d = max(max(max(A.r, A.g), max(A.b, A.a)), max(B.r, B.g));
+    float m = smoothstep(0.06, 0.22, d), fres = pow(1.0 - abs(dot(N, V)), 2.0);
+    float pulse = 0.7 + 0.3 * sin(uTime * 6.0);
+    gl_FragColor = vec4(mix(vec3(0.55, 0.85, 1.0), vec3(1.0, 0.2, 0.6), m), max(fres * 0.25, m * 0.9 * pulse) * uXray);
+    return;
+  }
   if (dot(N, V) < 0.0) N = -N;
   vec3 alb = mix(vC, uTint.rgb, uTint.a);
   float spec = vM.x, kind = vM.y;
@@ -1612,6 +1626,8 @@ const Mat = {
      soft falloff, and re-uploads only the touched rectangles. */
 const LAYER_CH = { dust: [0, 0], mud: [0, 1], moss: [0, 2], patina: [0, 3], oil: [1, 0], crust: [1, 1] };
 const HASH_SIZE = 1 << 17;
+const SEE_HIT = { t:0, x:0, y:0, z:0, nx:0, ny:0, nz:0 };
+const SEE_DIRS = (() => { const a = []; for (let k = 0; k < 40; k++) { const t = k * 2.399963, z = 1 - 2 * (k + 0.5) / 40, r = Math.sqrt(1 - z * z); a.push(Math.cos(t) * r, z, Math.sin(t) * r); } return new Float32Array(a); })();
 const NEAR = new Int32Array(60000);
 class Surface {
   constructor(L, seed) {
@@ -1639,11 +1655,14 @@ class Surface {
     const px = new Float32Array(N), py = new Float32Array(N), pz = new Float32Array(N);
     const nx = new Float32Array(N), ny = new Float32Array(N), nz = new Float32Array(N);
     const tchart = new Int32Array(N).fill(-1), mat = new Uint8Array(N), counted = new Uint8Array(N), edge = new Uint8Array(N);
+    const areaW = new Float32Array(N).fill(1);
     const P = [0, 0, 0], Nn = [0, 0, 0], TP = [0, 0, 0], TN = [0, 0, 0];
     charts.forEach((c, ci) => {
       for (let gy = 0; gy < c.h; gy++) for (let gx = 0; gx < c.w; gx++) {
         const cu = clamp((gx - 0.5) / c.cw, 0, 1), cv = clamp((gy - 0.5) / c.chh, 0, 1);
         const inside = c.param(cu, cv, P, Nn);
+        // lathe texels bunch up near the axis; weight them by the true area they cover
+        if (c.lathe) areaW[(c.y + gy) * AW + c.x + gx] = Math.min(1, Math.hypot(P[0], P[2]) / c.lathe);
         xp(c.T, P, TP); xn(c.T, Nn, TN);
         const i = (c.y + gy) * AW + c.x + gx;
         px[i] = TP[0]; py[i] = TP[1]; pz[i] = TP[2]; nx[i] = TN[0]; ny[i] = TN[1]; nz[i] = TN[2];
@@ -1666,11 +1685,37 @@ class Surface {
       x0 = Math.min(x0, a); x1 = Math.max(x1, a); y0 = Math.min(y0, b); y1 = Math.max(y1, b); z0 = Math.min(z0, cc); z1 = Math.max(z1, cc);
     }
     this.bb = { x0, y0, z0, x1, y1, z1, cx: (x0 + x1) / 2, cy: (y0 + y1) / 2, cz: (z0 + z1) / 2, size: Math.hypot(x1 - x0, y1 - y0, z1 - z0) };
-    this.prims = mb.prims.map(([s, e]) => {
+    this.prims = mb.prims.map(([s, e, closed]) => {
       let a0 = 1e9, b0 = 1e9, c0 = 1e9, a1 = -1e9, b1 = -1e9, c1 = -1e9;
       for (let i = s; i < e; i++) { const a = this.tri[i * 3], b = this.tri[i * 3 + 1], c = this.tri[i * 3 + 2]; a0 = Math.min(a0, a); a1 = Math.max(a1, a); b0 = Math.min(b0, b); b1 = Math.max(b1, b); c0 = Math.min(c0, c); c1 = Math.max(c1, c); }
-      return [s, e, a0 - 1e-4, b0 - 1e-4, c0 - 1e-4, a1 + 1e-4, b1 + 1e-4, c1 + 1e-4];
+      return [s, e, a0 - 1e-4, b0 - 1e-4, c0 - 1e-4, a1 + 1e-4, b1 + 1e-4, c1 + 1e-4, closed];
     });
+    // 4b. unreachable texels never get grime and don't count toward progress
+    const hidden = new Uint8Array(N), isCar = L.cat === 'Cars';
+    for (const c of charts) for (let gy = 0; gy < c.h; gy += 2) for (let gx = 0; gx < c.w; gx += 2) {
+      const i = (c.y + gy) * AW + c.x + gx;
+      const h = this.insideClosed(px[i] + nx[i] * 0.02, py[i] + ny[i] * 0.02, pz[i] + nz[i] * 0.02) ||
+                this.insideClosed(px[i] + nx[i] * 0.06, py[i] + ny[i] * 0.06, pz[i] + nz[i] * 0.06) ? 1 : 0;
+      if (!h) continue;
+      for (let by = gy; by < Math.min(gy + 2, c.h); by++) for (let bx = gx; bx < Math.min(gx + 2, c.w); bx++) hidden[(c.y + by) * AW + c.x + bx] = 1;
+    }
+    for (let i = 0; i < N; i++) {
+      if (tchart[i] < 0) continue;
+      const m = mat[i], wheel = m === MAT.TIRE || m === MAT.RIM || m === MAT.CHROME;
+      if (py[i] < 0.04) hidden[i] = 1;                                              // touching the ground
+      else if (py[i] < 0.8 && ny[i] < (wheel ? -0.85 : -0.35)) hidden[i] = 1;          // undersides (car floor, bases)
+      else if (isCar && wheel && Math.abs(pz[i]) > 0.3 && nz[i] * Math.sign(pz[i]) < -0.4) hidden[i] = 1; // wheel faces pointing under the car
+      if (hidden[i]) counted[i] = 0;
+    }
+    // Line-of-sight test (3x3 texel blocks): a patch the nozzle can't see from any open spot above ground is excluded.
+    for (const c of charts) for (let gy = 1; gy <= c.chh; gy += 3) for (let gx = 1; gx <= c.cw; gx += 3) {
+      const i = (c.y + gy) * AW + c.x + gx;
+      if (!counted[i] || this.canSee(px[i], py[i], pz[i], nx[i], ny[i], nz[i])) continue;
+      for (let by = gy; by < Math.min(gy + 3, c.chh + 1); by++) for (let bx = gx; bx < Math.min(gx + 3, c.cw + 1); bx++) {
+        const j = (c.y + by) * AW + c.x + bx; hidden[j] = 1; counted[j] = 0;
+      }
+    }
+    this.hidden = hidden;
     // 5. spatial hash over texels
     this.HC = Math.max(0.1, TX * 5);
     const slot = new Int32Array(N), cnt = new Int32Array(HASH_SIZE + 1);
@@ -1693,11 +1738,47 @@ class Surface {
     this.fxOn = new Uint8Array(nc); this.fxList = new Int32Array(nc); this.nFx = 0;
     // 7. progress sampling (every 3rd counted texel)
     const samp = []; let k = 0;
-    for (let i = 0; i < N; i++) if (counted[i] && (k++ % 3) === 0) samp.push(i);
+    for (let i = 0; i < N; i++) if (counted[i] && (k++ % 3) === 0 && hash2(i, 7, 3) < areaW[i]) samp.push(i);
     this.samples = Int32Array.from(samp);
-    this.countedList = []; for (let i = 0; i < N; i += 7) if (counted[i]) this.countedList.push(i);
+    this.countedList = []; for (let i = 0; i < N; i += 7) if (counted[i] && hash2(i, 9, 3) < areaW[i]) this.countedList.push(i);
+    this.areaW = areaW;
     this.removed = 0; this.grimeAlpha = 1;
     this.initial = this.sampleRemaining();
+  }
+  // Is a point inside any watertight part? (ray parity test against parts whose box contains it)
+  insideClosed(qx, qy, qz) {
+    const T = this.tri, dx = 0.3141, dy = 0.9327, dz = 0.1773;
+    for (const p of this.prims) {
+      if (!p[8] || qx < p[2] || qx > p[5] || qy < p[3] || qy > p[6] || qz < p[4] || qz > p[7]) continue;
+      let hits = 0;
+      for (let v = p[0]; v < p[1]; v += 3) {
+        const a = v * 3;
+        const e1x = T[a + 3] - T[a], e1y = T[a + 4] - T[a + 1], e1z = T[a + 5] - T[a + 2];
+        const e2x = T[a + 6] - T[a], e2y = T[a + 7] - T[a + 1], e2z = T[a + 8] - T[a + 2];
+        const hx = dy * e2z - dz * e2y, hy = dz * e2x - dx * e2z, hz = dx * e2y - dy * e2x;
+        const det = e1x * hx + e1y * hy + e1z * hz;
+        if (det > -1e-12 && det < 1e-12) continue;
+        const f = 1 / det, sx = qx - T[a], sy = qy - T[a + 1], sz = qz - T[a + 2];
+        const u = f * (sx * hx + sy * hy + sz * hz); if (u < 0 || u > 1) continue;
+        const ox = sy * e1z - sz * e1y, oy = sz * e1x - sx * e1z, oz = sx * e1y - sy * e1x;
+        const w = f * (dx * ox + dy * oy + dz * oz); if (w < 0 || u + w > 1) continue;
+        if (f * (e2x * ox + e2y * oy + e2z * oz) > 1e-6) hits++;
+      }
+      if (hits & 1) return true;
+    }
+    return false;
+  }
+  // Can a nozzle sitting in open air (above the ground) see this point head-on enough to clean it?
+  canSee(x, y, z, nx, ny, nz) {
+    const ox = x + nx * 0.015, oy = y + ny * 0.015, oz = z + nz * 0.015, D = SEE_DIRS;
+    for (let k = -1; k < D.length; k += 3) {
+      let dx, dy, dz;
+      if (k < 0) { dx = nx; dy = ny; dz = nz; } else { dx = D[k]; dy = D[k + 1]; dz = D[k + 2]; }
+      const f = dx * nx + dy * ny + dz * nz;
+      if (f < 0.15 || oy + dy * 0.9 < 0.1) continue;
+      if (!this.raycast(ox, oy, oz, dx, dy, dz, SEE_HIT) || SEE_HIT.t > 0.9) return true;
+    }
+    return false;
   }
   slotOf(x, y, z) {
     const h = this.HC, ix = Math.floor(x / h), iy = Math.floor(y / h), iz = Math.floor(z / h);
@@ -1734,7 +1815,7 @@ class Surface {
       const wts = new Float32Array(21); for (const m in spec.mats) wts[MAT[m]] = spec.mats[m];
       const n1 = fields[k % 2], n2 = FC, cover = spec.cover || 0, thick = spec.thick || 1, hy = bb.y1 - bb.y0 || 1;
       if (cover > 0) for (let i = 0; i < N; i++) {
-        if (this.tchart[i] < 0) continue;
+        if (this.tchart[i] < 0 || this.hidden[i]) continue;
         const w = wts[this.mat[i]]; if (!w) continue;
         const yf = (this.py[i] - bb.y0) / hy;
         let m = 1;
@@ -1750,7 +1831,7 @@ class Surface {
       const stamp = (cx, cy, cz, Rr) => {
         const n = this.query(cx, cy, cz, Rr);
         for (let q = 0; q < n; q++) {
-          const i = NEAR[q], w = wts[this.mat[i]]; if (!w) continue;
+          const i = NEAR[q], w = wts[this.mat[i]]; if (!w || this.hidden[i]) continue;
           const dx = this.px[i] - cx, dy = this.py[i] - cy, dz = this.pz[i] - cz, d2 = (dx * dx + dy * dy + dz * dz) / (Rr * Rr);
           const v = Math.min(1, (1 - d2) * 2.5) * w * thick;
           if (v > amt[i]) amt[i] = v;
@@ -1914,13 +1995,14 @@ class Surface {
     for (let i = 0; i < this.N; i++) {
       if (!this.counted[i]) continue;
       let m = 0;
+      const aw = this.areaW[i];
       for (const L of this.layers) {
         const a = L.amt[i]; if (a <= 0) continue;
         let h = L.hard;
         if (L.needsFoam) { h = L.hard / (1.7 * 2.2) + 0.8; foam = true; }
         if (a * h > m) m = a * h;
       }
-      w += m;
+      w += m * aw;
     }
     return { work: w * this.TX * this.TX, foam };
   }
@@ -2079,16 +2161,21 @@ function packPoints(withFx) {
 
 /* ----------------------------- 10. INPUT & CAMERA ----------------------------- */
 let W = 0, H = 0, DPR = 1, renderScale = 1;
-const Cam = { yaw:0.6, pitch:0.3, dist:6, tyaw:0.6, tpitch:0.3, tdist:6, minD:3, maxD:10, tx:0, ty:0.8, tz:0, fov:0.87,
+const CHIT = { t:0, x:0, y:0, z:0, nx:0, ny:0, nz:0 };
+const Cam = { gx:0, gy:0.8, gz:0, cx0:0, cy0:0.8, cz0:0, yaw:0.6, pitch:0.3, dist:6, tyaw:0.6, tpitch:0.3, tdist:6, minD:3, maxD:10, tx:0, ty:0.8, tz:0, fov:0.87,
   eye:[0, 0, 0], fwd:[0, 0, 1], right:[1, 0, 0], up:[0, 1, 0], back:[0, 0, 1], tanY:0.45, tanX:0.6 };
 const VIEW = new Float32Array(16), PROJ = new Float32Array(16), VP = new Float32Array(16), MODEL = new Float32Array(16);
 function updateCamera(dt) {
   const k = dt > 0 ? 1 - Math.exp(-dt * 9) : 1;
-  Cam.tpitch = clamp(Cam.tpitch, 0.04, 1.15); Cam.tdist = clamp(Cam.tdist, Cam.minD, Cam.maxD);
+  Cam.tpitch = clamp(Cam.tpitch, -0.45, 1.15); Cam.tdist = clamp(Cam.tdist, Cam.minD, Cam.maxD);
   Cam.yaw += (Cam.tyaw - Cam.yaw) * k; Cam.pitch += (Cam.tpitch - Cam.pitch) * k; Cam.dist += (Cam.tdist - Cam.dist) * k;
-  const cp = Math.cos(Cam.pitch), d = Cam.dist * (Game.fin ? Game.zoomK : 1);
+  Cam.tx += (Cam.gx - Cam.tx) * k; Cam.ty += (Cam.gy - Cam.ty) * k; Cam.tz += (Cam.gz - Cam.tz) * k;
+  const cp = Math.cos(Cam.pitch), ox = cp * Math.sin(Cam.yaw), oy = Math.sin(Cam.pitch), oz = cp * Math.cos(Cam.yaw);
+  let d = Cam.dist * (Game.fin ? Game.zoomK : 1);
+  // keep the eye outside the model: the orbit centre sits inside it, so push out past the exit point
+  if (Game.surf && Game.surf.insideClosed(Cam.tx, Cam.ty, Cam.tz) && Game.surf.raycast(Cam.tx, Cam.ty, Cam.tz, ox, oy, oz, CHIT)) d = Math.max(d, CHIT.t + 0.18);
   const e = Cam.eye;
-  e[0] = Cam.tx + d * cp * Math.sin(Cam.yaw); e[1] = Math.max(0.25, Cam.ty + d * Math.sin(Cam.pitch)); e[2] = Cam.tz + d * cp * Math.cos(Cam.yaw);
+  e[0] = Cam.tx + d * ox; e[1] = Math.max(0.08, Cam.ty + d * oy); e[2] = Cam.tz + d * oz;
   e[0] += Game.shx; e[1] += Game.shy;
   let fx = Cam.tx - e[0], fy = Cam.ty - e[1], fz = Cam.tz - e[2]; const fl = Math.hypot(fx, fy, fz) || 1; fx /= fl; fy /= fl; fz /= fl;
   let rx = -fz, rz = fx; const rl = Math.hypot(rx, rz) || 1; rx /= rl; rz /= rl;
@@ -2139,7 +2226,7 @@ canvas.addEventListener('pointermove', e => {
     if (Input.touches.size >= 2) {
       const t = [...Input.touches.values()];
       const gx = (t[0].x + t[1].x) / 2, gy = (t[0].y + t[1].y) / 2, p = Math.hypot(t[0].x - t[1].x, t[0].y - t[1].y);
-      if (playing()) { Cam.tyaw -= (gx - Input.gx) * 0.008; Cam.tpitch += (gy - Input.gy) * 0.006; if (Input.pinch > 10 && p > 10) Cam.tdist *= Input.pinch / p; }
+      if (playing()) { Cam.tyaw -= (gx - Input.gx) * 0.008; Cam.tpitch += (gy - Input.gy) * 0.006; if (Input.pinch > 10 && p > 10) zoomStep(Input.pinch / p, 0.08); }
       Input.gx = gx; Input.gy = gy; Input.pinch = p;
       return;
     }
@@ -2160,7 +2247,19 @@ canvas.addEventListener('pointerup', endPointer);
 canvas.addEventListener('pointercancel', endPointer);
 canvas.addEventListener('pointerleave', e => { if (e.pointerType === 'mouse' && !Input.mouseDown) Input.has = false; });
 canvas.addEventListener('contextmenu', e => e.preventDefault());
-canvas.addEventListener('wheel', e => { if (playing()) { Cam.tdist *= e.deltaY > 0 ? 1.1 : 0.9; e.preventDefault(); } }, { passive:false });
+// Zooming in pulls the orbit centre toward the spot under the cursor (just inside the surface);
+// zooming out drifts it back to the middle of the model.
+function zoomStep(f, amt) {
+  const G = Game;
+  Cam.tdist *= f;
+  if (f < 1 && G.hitObj) {
+    Cam.gx = lerp(Cam.gx, G.aimX - G.anx * 0.06, amt); Cam.gy = lerp(Cam.gy, G.aimY - G.any * 0.06, amt); Cam.gz = lerp(Cam.gz, G.aimZ - G.anz * 0.06, amt);
+  } else if (f > 1) {
+    Cam.gx = lerp(Cam.gx, Cam.cx0, amt); Cam.gy = lerp(Cam.gy, Cam.cy0, amt); Cam.gz = lerp(Cam.gz, Cam.cz0, amt);
+  }
+}
+function recenter() { Cam.gx = Cam.cx0; Cam.gy = Cam.cy0; Cam.gz = Cam.cz0; }
+canvas.addEventListener('wheel', e => { if (playing()) { zoomStep(e.deltaY > 0 ? 1.12 : 0.88, 0.3); e.preventDefault(); } }, { passive:false });
 window.addEventListener('pointerdown', () => Sound.init(), { once:true });
 window.addEventListener('keydown', e => {
   Sound.init();
@@ -2176,6 +2275,7 @@ window.addEventListener('keydown', e => {
   else if (k === 'Shift') Input.burstReq = true;
   else if (k >= '1' && k <= '4') selectNozzle(NOZZLE_KEYS[+k - 1]);
   else if (k === 'r' || k === 'R') Input.refillKey = true;
+  else if (k === 'x' || k === 'X') toggleXray();
   else { Input.keys[k.toLowerCase()] = true; if (k.startsWith('Arrow')) e.preventDefault(); }
 });
 window.addEventListener('keyup', e => {
@@ -2193,7 +2293,7 @@ const Game = {
   aimX:0, aimY:0, aimZ:0, anx:0, any:1, anz:0, tip:[0, 0, 0], burst:0, burstCd:0, overPad:false, removedRate:0,
   progress:0, shown:0, milestone:0, sampleT:0, fxT:0, audioT:0, plinkT:0, pushK:0,
   shake:0, shx:0, shy:0, zoomK:1, fin:null, fade:1, shine:-99, parTime:60, parWater:40, needsFoam:false,
-  stats:null, pigeons:[], butterflies:[], demoT:0, before:null, after:null, startPose:null, tipShown:0, emptyWarned:false,
+  xray:0, xrayK:0, stats:null, pigeons:[], butterflies:[], demoT:0, before:null, after:null, startPose:null, tipShown:0, emptyWarned:false,
 };
 const HIT = { t:0, x:0, y:0, z:0, nx:0, ny:1, nz:0 }, tmpPt = { x:0, y:0, z:0 };
 function stats() {
@@ -2210,7 +2310,7 @@ function aimFromScreen(px, py) {
   G.anx = 0; G.any = 1; G.anz = 0;
   if (G.surf && G.surf.raycast(ox, oy, oz, dx, dy, dz, HIT)) { t = HIT.t; obj = true; G.anx = HIT.nx; G.any = HIT.ny; G.anz = HIT.nz; }
   if (dy < -1e-4) { const tg = -oy / dy; if (tg < t) { t = tg; obj = false; G.anx = 0; G.any = 1; G.anz = 0; } }
-  G.aimX = ox + dx * t; G.aimY = oy + dy * t; G.aimZ = oz + dz * t; G.hitObj = obj;
+  G.aimX = ox + dx * t; G.aimY = oy + dy * t; G.aimZ = oz + dz * t; G.hitObj = obj; G.rdx = dx; G.rdy = dy; G.rdz = dz;
   G.overPad = !obj && !G.demo && Math.hypot(G.aimX - G.pad[0], G.aimZ - G.pad[2]) < 0.65;
 }
 function updateTip(dt) {
@@ -2225,7 +2325,8 @@ function updateTip(dt) {
   const wd = G.wandDir, k = 1 - Math.exp(-dt * 30);
   wd[0] += (dx - wd[0]) * k; wd[1] += (dy - wd[1]) * k; wd[2] += (dz - wd[2]) * k;
   const wl = Math.hypot(wd[0], wd[1], wd[2]) || 1; wd[0] /= wl; wd[1] /= wl; wd[2] /= wl;
-  G.tip[0] = G.wandBase[0] + wd[0] * 0.69; G.tip[1] = G.wandBase[1] + wd[1] * 0.69; G.tip[2] = G.wandBase[2] + wd[2] * 0.69;
+  G.wandLen = clamp(l - 0.1, 0.25, 0.69);   // pull the lance back when right up against the surface
+  G.tip[0] = G.wandBase[0] + wd[0] * G.wandLen; G.tip[1] = G.wandBase[1] + wd[1] * G.wandLen; G.tip[2] = G.wandBase[2] + wd[2] * G.wandLen;
   G.reach = Math.hypot(G.aimX - G.tip[0], G.aimY - G.tip[1], G.aimZ - G.tip[2]);
 }
 // Shared spray step: brush, particles, drips.
@@ -2237,9 +2338,10 @@ function doSpray(dt, noz) {
   G.radius = radius;
   let dx = G.aimX - G.tip[0], dy = G.aimY - G.tip[1], dz = G.aimZ - G.tip[2]; const l = Math.hypot(dx, dy, dz) || 1; dx /= l; dy /= l; dz /= l;
   const surf = G.surf, j = radius * 0.2;
+  const sdx = G.rdx, sdy = G.rdy, sdz = G.rdz;   // cleaning direction: along the aim ray
   let rem = 0;
   if (G.hitObj) {
-    G.hit = surf.spray(G.aimX + (Math.random() - 0.5) * j, G.aimY + (Math.random() - 0.5) * j, G.aimZ + (Math.random() - 0.5) * j, dx, dy, dz,
+    G.hit = surf.spray(G.aimX + (Math.random() - 0.5) * j, G.aimY + (Math.random() - 0.5) * j, G.aimZ + (Math.random() - 0.5) * j, sdx, sdy, sdz,
       radius * (0.9 + Math.random() * 0.2), power, noz.soak, dt) > 0;
     rem = surf.removed;
   } else G.hit = false;
@@ -2276,8 +2378,8 @@ function buildLevel(i, demo) {
   Game.grassMesh = uploadMesh(buildGrass(L.scene, bb, Game.pad));
   Game.scene = SCENES[L.scene];
   Sound.outdoor = Game.scene.outdoor;
-  Cam.tx = bb.cx; Cam.ty = bb.y0 + (bb.y1 - bb.y0) * 0.42; Cam.tz = bb.cz;
-  Cam.minD = L.dist * 0.4; Cam.maxD = L.dist * 1.6;
+  Cam.cx0 = Cam.tx = Cam.gx = bb.cx; Cam.cy0 = Cam.ty = Cam.gy = bb.y0 + (bb.y1 - bb.y0) * 0.42; Cam.cz0 = Cam.tz = Cam.gz = bb.cz;
+  Cam.minD = 0.3; Cam.maxD = L.dist * 1.6;
   Cam.tyaw = Cam.yaw = 0.62; Cam.tpitch = Cam.pitch = 0.28; Cam.tdist = Cam.dist = L.dist;
   const rnd = mulberry32(L.seed + 5);
   Game.pigeons = [];
@@ -2291,7 +2393,7 @@ function buildLevel(i, demo) {
 function resetRun() {
   const G = Game;
   G.stats = stats(); G.time = 0; G.water = 0; G.tank = G.stats.tank; G.idle = 1; G.burst = 0; G.burstCd = 0;
-  G.progress = 0; G.shown = 0; G.milestone = 0; G.sampleT = 0; G.zoomK = 1; G.fin = null; G.emptyWarned = false; G.fade = 1; G.shine = -99;
+  G.xray = 0; G.xrayK = 0; G.xrayHinted = false; G.progress = 0; G.shown = 0; G.milestone = 0; G.sampleT = 0; G.zoomK = 1; G.fin = null; G.emptyWarned = false; G.fade = 1; G.shine = -99;
   if (!Save.data.noz[Save.data.nozzle]) Save.data.nozzle = 'std';
   const est = G.surf.workEstimate();
   G.needsFoam = est.foam;
@@ -2319,7 +2421,7 @@ function startLevel(i) {
     toast(L.name, (L.cat === 'Cars' ? 'Driveway job' : L.cat === 'Houses' ? 'House job' : 'Statue job') + ' · Par ' + fmtTime(Game.parTime));
     if (Game.needsFoam && !Save.data.noz.foam) setTimeout(() => toast('Stubborn crust spotted!', 'Soap Foam (shop) melts it fast'), 2600);
     else if (Game.needsFoam) setTimeout(() => toast('Crust needs foam', 'Foam it (4), then rinse'), 2600);
-    if (i === 0 && Save.starsOf('c1') === 0) showTip('Hold left mouse to spray · Right-drag or A/D to walk around · Scroll to step closer', 8);
+    if (i === 0 && Save.starsOf('c1') === 0) showTip('Hold left mouse to spray · Right-drag to walk around · Scroll in toward a spot (even under the car) · X shows missed spots', 9);
   }, 300);
 }
 function startDemo() {
@@ -2337,7 +2439,7 @@ function resumeGame() { if (Game.mode !== 'paused') return; UI.hideAll(); Game.m
 function restartLevel() {
   UI.hideAll();
   Game.surf.restore(); resetRun();
-  Cam.tyaw = Game.startPose[0]; Cam.tpitch = Game.startPose[1]; Cam.tdist = Game.startPose[2];
+  Cam.tyaw = Game.startPose[0]; Cam.tpitch = Game.startPose[1]; Cam.tdist = Game.startPose[2]; recenter();
   Game.mode = 'play'; refreshHUD();
   toast(Game.level.name, 'Fresh start');
 }
@@ -2347,6 +2449,16 @@ function goMenu() {
   startDemo();
   UI.show('scr-menu'); refreshMenu();
 }
+// X-ray: highlight every patch of grime still left, visible through the model, for a few seconds.
+function toggleXray() {
+  const G = Game;
+  if (G.mode !== 'play') return;
+  if (G.xray > 0) { G.xray = 0; return; }
+  G.xray = 6;
+  Sound.ding(2);
+  const left = Math.max(0, Math.round((1 - G.progress) * 100 - (100 - FINISH_AT * 100)));
+  toast('X-ray on', left > 0 ? 'Pink glow = missed grime · about ' + left + '% to go' : 'Just a few specks left!');
+}
 function selectNozzle(k) {
   if (!Save.data.noz[k]) { Sound.error(); toast('Locked nozzle', 'Buy it in the shop'); return; }
   if (Save.data.nozzle !== k) { Save.data.nozzle = k; Save.save(); Sound.click(); }
@@ -2355,13 +2467,15 @@ function selectNozzle(k) {
 function updatePlay(dt) {
   const G = Game, st = G.stats, noz = NOZZLES[Save.data.nozzle], ks = Input.keys;
   G.time += dt;
+  if (G.xray > 0) G.xray -= dt;
+  G.xrayK += ((G.xray > 0 ? 1 : 0) - G.xrayK) * Math.min(1, dt * 8);
   // keyboard: arrows move the aim cursor, A/D/W/S orbit, Q/E zoom; HUD buttons too
   const kx = (ks.arrowright ? 1 : 0) - (ks.arrowleft ? 1 : 0), ky = (ks.arrowdown ? 1 : 0) - (ks.arrowup ? 1 : 0);
   if (kx || ky) { Input.px = clamp(Input.px + kx * 520 * dt, 0, W); Input.py = clamp(Input.py + ky * 520 * dt, 0, H); Input.has = true; }
   Cam.tyaw += (((ks.a ? 1 : 0) - (ks.d ? 1 : 0)) * 1.6 + Input.rotHold * 1.6) * dt;
   Cam.tpitch += ((ks.w ? 1 : 0) - (ks.s ? 1 : 0)) * 0.9 * dt;
   const zq = (ks.e ? 1 : 0) - (ks.q ? 1 : 0) + Input.zoomHold;
-  if (zq) Cam.tdist *= Math.exp(-zq * 1.2 * dt);
+  if (zq) zoomStep(Math.exp(-zq * 1.2 * dt), 1 - Math.exp(-dt * 2));
   aimFromScreen(Input.has ? Input.px : W / 2, Input.has ? Input.py : H / 2);
   if (Input.burstReq) {
     Input.burstReq = false;
@@ -2409,6 +2523,7 @@ function updatePlay(dt) {
       toast(['', 'Quarter clean!', 'Halfway there!', 'Almost sparkling!'][m]);
     }
     if (G.progress >= FINISH_AT) startFinish();
+    else if (G.progress > 0.9 && !G.xrayHinted) { G.xrayHinted = true; setTimeout(() => { if (Game.mode === 'play' && Game.progress < FINISH_AT) toast('Nearly there!', 'Press X-ray to find the spots you missed'); }, 1500); }
     if (G.tipShown > 0 && G.progress > 0.15) hideTip();
   }
 }
@@ -2418,8 +2533,8 @@ function updateDemo(dt) {
   const t = G.demoT;
   Cam.tyaw = 0.62 + t * 0.12; Cam.tpitch = 0.26 + Math.sin(t * 0.2) * 0.08; Cam.tdist = G.level.dist * 1.15;
   const off = W >= 900 ? Cam.dist * 0.24 : 0;
-  Cam.tx = bb.cx - Cam.right[0] * off; Cam.tz = bb.cz - Cam.right[2] * off;
-  if (W < 900) Cam.ty = bb.y0 + (bb.y1 - bb.y0) * 0.42 + Cam.dist * 0.18;
+  Cam.gx = bb.cx - Cam.right[0] * off; Cam.gz = bb.cz - Cam.right[2] * off;
+  Cam.gy = Cam.cy0 + (W < 900 ? Cam.dist * 0.18 : 0);
   worldToScreen(lerp(bb.x0, bb.x1, 0.5 + 0.42 * Math.sin(t * 0.9)), lerp(bb.y0, bb.y1, 0.5 + 0.38 * Math.sin(t * 0.37 + 1.3)), lerp(bb.z0, bb.z1, 0.5 + 0.42 * Math.cos(t * 0.6)), tmpPt);
   aimFromScreen(tmpPt.x, tmpPt.y);
   G.spraying = true;
@@ -2436,7 +2551,8 @@ function updateDemo(dt) {
 }
 function startFinish() {
   const G = Game;
-  G.mode = 'finish'; G.fin = { t:0, stage:0 }; G.spraying = false; G.progress = 1;
+  G.mode = 'finish'; G.fin = { t:0, stage:0 }; G.spraying = false; G.progress = 1; G.xray = 0;
+  recenter(); Cam.tdist = G.level.dist; Cam.tpitch = Math.max(Cam.tpitch, 0.22);
   Input.mouseDown = false; Input.keyDown = false;
   Sound.spray(false, 0, false, 0, false);
   hideTip();
@@ -2458,6 +2574,7 @@ function updateFinish(dt) {
       for (let k = 0, n = 90 * fxScale(); k < n; k++) if (G.surf.randomPoint(tmpPt)) Pt.spawn(PK.SPARK, tmpPt.x, tmpPt.y, tmpPt.z, (Math.random() - 0.5) * 1.2, Math.random() * 1.2, (Math.random() - 0.5) * 1.2, 0.8 + Math.random() * 1.2, 0.12 + Math.random() * 0.18 * G.level.brush, 2);
     }
   }
+  G.xrayK = Math.max(0, G.xrayK - dt * 4);
   if (f.stage >= 1) {
     const s = clamp((f.t - 0.45) / 1.2, 0, 1);
     G.shine = s < 1 ? lerp(f.lo, f.hi, easeOut(s)) : -99;
@@ -2555,7 +2672,7 @@ function render(snap) {
   gl.uniform4f(u.uShadow, bb.cx, bb.cz, (bb.x1 - bb.x0) * 0.62 + 0.3, (bb.z1 - bb.z0) * 0.62 + 0.3);
   gl.uniform4f(u.uPush, G.aimX, G.aimZ, G.pushK * (G.aimY < 0.6 ? 1 : 0.4), 0);
   gl.uniform4f(u.uTint, 0, 0, 0, 0);
-  gl.uniform1f(u.uRingMode, 0); gl.uniform1f(u.uShine, -99); gl.uniform1f(u.uDirt, 0); gl.uniform1f(u.uFade, 1);
+  gl.uniform1f(u.uRingMode, 0); gl.uniform1f(u.uShine, -99); gl.uniform1f(u.uDirt, 0); gl.uniform1f(u.uFade, 1); gl.uniform1f(u.uXray, 0);
   gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, R.blank); gl.uniform1i(u.uDirtA, 0);
   gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, R.blank); gl.uniform1i(u.uDirtB, 1);
   gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, R.blank); gl.uniform1i(u.uDirtC, 2);
@@ -2594,6 +2711,12 @@ function render(snap) {
   }
   gl.uniform1f(u.uShine, G.shine);
   drawMesh(G.surf.mesh);
+  if (!snap && G.xrayK > 0.01) {
+    gl.uniform1f(u.uRingMode, 0); gl.uniform1f(u.uXray, G.xrayK);
+    gl.disable(gl.DEPTH_TEST); gl.enable(gl.BLEND); gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA); gl.depthMask(false);
+    drawMesh(G.surf.mesh);
+    gl.depthMask(true); gl.disable(gl.BLEND); gl.enable(gl.DEPTH_TEST); gl.uniform1f(u.uXray, 0);
+  }
   gl.uniform1f(u.uRingMode, 0); gl.uniform1f(u.uDirt, 0); gl.uniform1f(u.uShine, -99);
   gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, R.blank);
   gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, R.blank);
@@ -2622,7 +2745,7 @@ function render(snap) {
     let xx = z[2], xz = -z[0]; const xl = Math.hypot(xx, xz) || 1; xx /= xl; xz /= xl;
     // y = z × x keeps the basis right-handed (handle points down)
     WX[0] = xx; WX[1] = 0; WX[2] = xz; WY[0] = z[1] * xz; WY[1] = z[2] * xx - z[0] * xz; WY[2] = -z[1] * xx;
-    Mat.basis(MODEL, WX, WY, z, G.wandBase, 1);
+    Mat.basis(MODEL, WX, WY, z, G.wandBase, (G.wandLen || 0.69) / 0.69);
     drawMesh(R.wand, MODEL);
     const nc = NOZ_RGB[G.demo ? 'std' : Save.data.nozzle];
     gl.uniform4f(u.uTint, nc[0], nc[1], nc[2], 0.85);
@@ -2711,7 +2834,7 @@ function thumb(L, done) {
   const sc = SCENES.lawn; setSceneUniforms(P, sc);
   gl.uniform3fv(u.uSkyAmb, hexRGB(sc.skyAmb)); gl.uniform3fv(u.uGndAmb, hexRGB(sc.gndAmb)); gl.uniform1f(u.uFog, 0);
   gl.uniform4f(u.uShadow, 0, 0, 0.001, 0.001); gl.uniform4f(u.uPush, 0, 0, 0, 0); gl.uniform1f(u.uRingMode, 0); gl.uniform1f(u.uShine, -99);
-  gl.uniform1f(u.uDirt, 0); gl.uniform1f(u.uFade, 1);
+  gl.uniform1f(u.uDirt, 0); gl.uniform1f(u.uFade, 1); gl.uniform1f(u.uXray, 0);
   gl.uniform4f(u.uTint, 0.48, 0.38, 0.24, done ? 0 : 0.55);
   drawMesh(m);
   gl.uniform4f(u.uTint, 0, 0, 0, 0);
@@ -2830,6 +2953,7 @@ function showResults() {
   delete thumbCache[L.obj + '0'];
   const pose = [Cam.yaw, Cam.pitch, Cam.dist, Cam.tyaw, Cam.tpitch, Cam.tdist, G.zoomK];
   Cam.yaw = Cam.tyaw = G.startPose[0]; Cam.pitch = Cam.tpitch = G.startPose[1]; Cam.dist = Cam.tdist = G.startPose[2]; G.zoomK = 1;
+  Cam.tx = Cam.cx0; Cam.ty = Cam.cy0; Cam.tz = Cam.cz0;
   G.after = snapshot();
   [Cam.yaw, Cam.pitch, Cam.dist, Cam.tyaw, Cam.tpitch, Cam.tdist, G.zoomK] = pose;
   $('rName').textContent = L.name;
@@ -2929,6 +3053,7 @@ function updateHUD(dt) {
   }
   const ts = Math.floor(G.time);
   if (ts !== hud.lastTime) { hud.time.textContent = fmtTime(ts); hud.time.style.color = G.time > G.parTime ? '#b9472a' : ''; hud.lastTime = ts; }
+  const xo = G.xray > 0; if (xo !== hud.xrayOn) { hud.xrayOn = xo; $('btnXray').classList.toggle('on', xo); }
   const dm = Math.round(G.reach * 10);
   if (dm !== hud.lastDist) { hud.dist.textContent = (dm / 10).toFixed(1) + ' m'; hud.lastDist = dm; }
   const cd = G.burstCd > 0 ? Math.round((1 - G.burstCd / 7) * 100) : 100;
@@ -2941,6 +3066,7 @@ for (const [id, key, v] of [['rotL', 'rotHold', 1], ['rotR', 'rotHold', -1], ['z
   for (const ev of ['pointerup', 'pointercancel', 'pointerleave']) b.addEventListener(ev, () => { Input[key] = 0; });
 }
 $('btnBurst').addEventListener('pointerdown', e => { Sound.init(); Input.burstReq = true; e.preventDefault(); });
+$('btnXray').addEventListener('click', () => { Sound.init(); toggleXray(); });
 $('tank').addEventListener('pointerdown', e => { Input.refillKey = true; e.preventDefault(); });
 ['pointerup', 'pointercancel', 'pointerleave'].forEach(ev => $('tank').addEventListener(ev, () => { Input.refillKey = false; }));
 document.addEventListener('visibilitychange', () => { if (document.hidden) { if (Game.mode === 'play') pauseGame(); Sound.spray(false, 0, false, 0, false); } });
