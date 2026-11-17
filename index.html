@@ -429,7 +429,7 @@
   }
 
   /* ===== GAME IDEA BOX ===== */
-  .idea-fab{position:fixed; right:18px; bottom:18px; z-index:50; cursor:pointer; font-family:var(--font-display); font-size:1rem; letter-spacing:.02em;
+  .idea-fab{cursor:pointer; font-family:var(--font-display); font-size:1rem; letter-spacing:.02em;
     background:#7CFF4F; color:var(--ink); border:3px solid var(--ink); border-radius:999px; padding:12px 18px; box-shadow:4px 4px 0 var(--ink);}
   .idea-fab:hover{transform:translate(-1px,-1px); box-shadow:6px 6px 0 var(--ink);}
   .idea-modal{position:fixed; inset:0; z-index:100; display:none; align-items:center; justify-content:center; padding:16px; background:rgba(8,2,16,.78);}
@@ -447,6 +447,46 @@
   .idea-msg.ok{color:#0E8F3E;} .idea-msg.err{color:#C0182B;}
   .idea-count{font-size:.75rem; font-weight:800; opacity:.6; text-align:right; margin:-6px 2px 8px;}
   .hp{position:absolute; left:-9999px; width:1px; height:1px; opacity:0;}
+
+  /* ===== feedback box: kind picker + replies chat ===== */
+  .fab-wrap{position:fixed; right:18px; bottom:18px; z-index:50;}
+  .fab-wrap .fb-badge{position:absolute; top:-9px; right:-7px;}
+  .fb-badge{min-width:22px; height:22px; padding:0 6px; border-radius:999px; background:#E5383B; color:#fff; font-weight:900; font-size:.74rem; line-height:18px; text-align:center; border:2px solid var(--ink);}
+  .idea-box [hidden], .fab-wrap [hidden]{display:none !important;}
+  .fb-tabs{display:flex; gap:8px; margin-bottom:14px;}
+  .fb-tab{cursor:pointer; font:inherit; font-weight:900; font-size:.82rem; padding:7px 14px; border:3px solid var(--ink); border-radius:999px; background:#fff; color:var(--ink);}
+  .fb-tab.on{background:var(--ink); color:#fff;}
+  .fb-label{font-weight:900; font-size:.74rem; letter-spacing:.12em; margin:2px 0 8px; opacity:.75;}
+  .fb-kinds{display:flex; flex-wrap:wrap; gap:8px; margin-bottom:12px;}
+  .fb-kind{cursor:pointer; font:inherit; font-weight:900; font-size:.9rem; padding:8px 14px; border:3px solid var(--ink); border-radius:14px; background:#fff; color:var(--ink);}
+  .fb-kind[aria-pressed="true"]{background:#7CFF4F; box-shadow:3px 3px 0 var(--ink);}
+  .fb-privacy{font-weight:700; font-size:.76rem; opacity:.75; margin:0 0 12px; line-height:1.4;}
+  .fb-row{display:block; width:100%; text-align:left; cursor:pointer; font:inherit; background:#fff; color:var(--ink); border:3px solid var(--ink); border-radius:14px; padding:10px 12px; margin-bottom:10px;}
+  .fb-row:hover{box-shadow:3px 3px 0 var(--ink);}
+  .fb-row .t{font-weight:900; display:flex; gap:8px; align-items:center; justify-content:space-between;}
+  .fb-row .p{font-weight:700; font-size:.82rem; opacity:.75; margin-top:3px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  .fb-row .tag{font-size:.68rem; font-weight:900; letter-spacing:.06em; text-transform:uppercase; padding:2px 8px; border:2px solid var(--ink); border-radius:999px; background:#E5E1EE;}
+  .fb-dot{width:11px; height:11px; border-radius:50%; background:#E5383B; flex:none;}
+  .fb-back{cursor:pointer; font:inherit; font-weight:900; font-size:.82rem; background:none; border:0; color:var(--ink); padding:0 0 8px; text-decoration:underline;}
+  .fb-thead{font-family:var(--font-display); font-size:1.2rem; margin-bottom:8px; overflow-wrap:anywhere;}
+  .fb-chat{display:flex; flex-direction:column; gap:8px; max-height:38vh; overflow:auto; margin-bottom:10px; padding:2px;}
+  .fb-msg{max-width:86%; padding:8px 12px; border:3px solid var(--ink); border-radius:14px; font-weight:700; font-size:.9rem; line-height:1.4; white-space:pre-wrap; overflow-wrap:anywhere;}
+  .fb-msg small{display:block; font-weight:800; font-size:.68rem; opacity:.65; margin-bottom:2px; letter-spacing:.04em; text-transform:uppercase;}
+  .fb-msg.admin{align-self:flex-start; background:#fff;}
+  .fb-msg.user{align-self:flex-end; background:#7DD3FC;}
+  .fb-note{font-weight:800; font-size:.88rem; padding:10px 12px; border:3px dashed var(--ink); border-radius:12px; margin-bottom:10px;}
+  .fb-replybox{display:flex; gap:8px; align-items:flex-end; margin-bottom:6px;}
+  .fb-replybox textarea{min-height:52px; margin:0; resize:vertical;}
+  .fb-replybox button, .fb-newbtn{cursor:pointer; font:inherit; font-weight:900; padding:10px 18px; border:3px solid var(--ink); border-radius:12px; background:var(--accent-pink); color:var(--ink); box-shadow:3px 3px 0 var(--ink);}
+  .fb-replybox button:disabled{opacity:.5; cursor:default;}
+  .fb-newbtn{margin-bottom:8px;}
+  body.discreet .fb-kind[aria-pressed="true"]{background:#e8eefb; box-shadow:none; border-color:#2f6fed;}
+  body.discreet .fb-kind, body.discreet .fb-tab{border:1px solid #cfd6e6; font-weight:600;}
+  body.discreet .fb-tab.on{background:#2f6fed; border-color:#2f6fed;}
+  body.discreet .fb-msg{border:1px solid #d6dcea;}
+  body.discreet .fb-msg.user{background:#e8eefb;}
+  body.discreet .fb-replybox button, body.discreet .fb-newbtn{background:#2f6fed; color:#fff; box-shadow:none; border:0;}
+  body.discreet .fb-row{border:1px solid #d6dcea; box-shadow:none;}
 
   /* ===== top bar + Discrete Mode ===== */
   .topbar{ display:flex; align-items:center; justify-content:flex-end; gap:12px; margin:-28px 0 18px; min-height:40px; }
@@ -636,21 +676,55 @@
 <div class="shape s4 circle"></div>
 
 
-<button class="idea-fab" id="ideaBtn" type="button">💡 Got a game idea?</button>
+<div class="fab-wrap">
+  <button class="idea-fab" id="ideaBtn" type="button">💬 Feedback</button>
+  <span class="fb-badge" id="fbFabBadge" hidden>0</span>
+</div>
 <div class="idea-modal" id="ideaModal" role="dialog" aria-modal="true" aria-labelledby="ideaTitle">
-  <form class="idea-box" id="ideaForm" autocomplete="off">
-    <h3 id="ideaTitle">💡 Got a game idea?</h3>
-    <p>Tell us what game you&#8217;d love to see in the arcade and hit send!</p>
-    <input id="ideaTopic" maxlength="80" placeholder="Game idea title (e.g. Space Racer)" required>
-    <textarea id="ideaText" maxlength="1000" placeholder="Describe your game idea&#8230; (and your name if you want credit)" required></textarea>
-    <div class="idea-count"><span id="ideaN">0</span> / 1000</div>
-    <input class="hp" id="ideaHp" tabindex="-1" aria-hidden="true" placeholder="Leave empty">
-    <div class="idea-row">
-      <span class="idea-msg" id="ideaMsg" role="status"></span>
-      <button type="button" id="ideaCancel">Close</button>
-      <button type="submit" class="go" id="ideaSend">Send</button>
+  <div class="idea-box" id="fbBox">
+    <div class="fb-tabs" id="fbTabs" hidden>
+      <button type="button" class="fb-tab on" id="fbTabSend" aria-pressed="true">Send feedback</button>
+      <button type="button" class="fb-tab" id="fbTabReplies" aria-pressed="false" hidden>Replies <span class="fb-badge" id="fbTabBadge" hidden>0</span></button>
     </div>
-  </form>
+    <form id="ideaForm" autocomplete="off">
+      <h3 id="ideaTitle">💬 Send feedback</h3>
+      <p>Got a game idea, found a bug, or think something feels off? Tell us and hit send!</p>
+      <div class="fb-label">WHAT KIND IS IT?</div>
+      <div class="fb-kinds" id="fbKinds" role="group" aria-label="What kind is it?">
+        <button type="button" class="fb-kind" data-k="Idea" aria-pressed="true">💡 Idea</button>
+        <button type="button" class="fb-kind" data-k="Bug" aria-pressed="false">🐞 Bug</button>
+        <button type="button" class="fb-kind" data-k="Balance" aria-pressed="false">⚖️ Balance</button>
+        <button type="button" class="fb-kind" data-k="Other" aria-pressed="false">💭 Other</button>
+      </div>
+      <input id="ideaTopic" maxlength="70" placeholder="Short title (e.g. Space Racer)" required>
+      <textarea id="ideaText" maxlength="1000" placeholder="Tell us more&#8230; (and your name if you want credit for an idea)" required></textarea>
+      <div class="idea-count"><span id="ideaN">0</span> / 1000</div>
+      <input id="fbContact" maxlength="120" placeholder="Contact (optional) — email or Discord">
+      <input class="hp" id="ideaHp" tabindex="-1" aria-hidden="true" placeholder="Leave empty">
+      <div class="fb-privacy">We save your IP address and a random device ID so we can reply to you.</div>
+      <div class="idea-row">
+        <span class="idea-msg" id="ideaMsg" role="status"></span>
+        <button type="button" id="ideaCancel">Close</button>
+        <button type="submit" class="go" id="ideaSend">Send</button>
+      </div>
+    </form>
+    <div id="fbReplies" hidden>
+      <div id="fbList"></div>
+      <div id="fbThread" hidden>
+        <button type="button" class="fb-back" id="fbBack">&larr; All conversations</button>
+        <div class="fb-thead" id="fbThTitle"></div>
+        <div class="fb-chat" id="fbChat"></div>
+        <div class="fb-note" id="fbNote" hidden></div>
+        <div class="fb-replybox" id="fbReplyBox">
+          <textarea id="fbReplyText" maxlength="1000" placeholder="Write a reply&#8230;"></textarea>
+          <button type="button" class="go" id="fbReplySend">Send</button>
+        </div>
+        <button type="button" class="fb-newbtn" id="fbNew" hidden>Send a new message</button>
+        <div class="idea-msg" id="fbReplyMsg" role="status"></div>
+      </div>
+      <div class="idea-row"><button type="button" id="fbClose2">Close</button></div>
+    </div>
+  </div>
 </div>
 
 <div class="wrap">
@@ -1323,41 +1397,178 @@
   loadGames();
 })();
 
-// ===== Game idea box =====
-// Posts {topic, description, source} to the ZD Studios feedback server.
-const IDEA_URL = "https://feedback.zdstudios.network/api/feedback";
-const IDEA_KEY = "fb-copper-nutmeg-iris-4360";   // send-only key (cannot read anything)
+// ===== Feedback box (ZD Studios Feedback Hub) =====
+// Send feedback (idea / bug / balance / other) + a mini chat for replies from the team.
+// Whether a visitor can reply is decided by the server (canReply / closed); this code only obeys it.
 (function(){
+  const FB = { url:"https://feedback.zdstudios.network", key:"fb-copper-nutmeg-iris-4360", source:"game-library" };   // public client key
   const $ = id => document.getElementById(id);
   const modal=$("ideaModal"), form=$("ideaForm"), txt=$("ideaText"), msg=$("ideaMsg"), send=$("ideaSend");
-  const say=(t,c)=>{ msg.textContent=t; msg.className="idea-msg "+(c||""); };
-  const open=()=>{ modal.classList.add("open"); say(""); setTimeout(()=>txt.focus(),30); };
+  const say=(el,t,c)=>{ el.textContent=t; el.className="idea-msg "+(c||""); };
+
+  // ----- device id: random, stored in localStorage, never from personal data -----
+  let memId = "";
+  function makeId(){
+    const A="ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_-", b=new Uint8Array(32);
+    (window.crypto||window.msCrypto).getRandomValues(b);
+    let o=""; for(let i=0;i<b.length;i++) o+=A[b[i]&63]; return o;
+  }
+  const okId = d => typeof d==="string" && /^[A-Za-z0-9_-]{22,64}$/.test(d);
+  function deviceId(){
+    try{
+      let d=localStorage.getItem("fbh_device");
+      if(!okId(d)){ d=makeId(); localStorage.setItem("fbh_device",d); }
+      return d;
+    }catch(_){ return memId || (memId=makeId()); }
+  }
+  async function api(path, method, body){
+    const ctl=new AbortController(), t=setTimeout(()=>ctl.abort(),15000);
+    try{
+      const r=await fetch(FB.url+path,{method:method||"GET",signal:ctl.signal,
+        headers:{"Content-Type":"application/json","X-API-Key":FB.key,"X-Device-Id":deviceId()},
+        body:body?JSON.stringify(body):undefined});
+      let data=null; try{ data=await r.json(); }catch(_){}
+      return {ok:r.ok,status:r.status,data};
+    } finally { clearTimeout(t); }
+  }
+
+  // ----- open / close / tabs -----
+  const tabSend=$("fbTabSend"), tabRep=$("fbTabReplies"), pane=$("fbReplies");
+  function show(which){
+    const rep = which==="replies";
+    form.hidden = rep; pane.hidden = !rep;
+    tabSend.classList.toggle("on",!rep); tabRep.classList.toggle("on",rep);
+    tabSend.setAttribute("aria-pressed",String(!rep)); tabRep.setAttribute("aria-pressed",String(rep));
+    if(rep){ $("fbThread").hidden=true; $("fbList").hidden=false; renderList(); }
+  }
+  const open=()=>{
+    modal.classList.add("open"); say(msg,""); refresh();
+    if(unread>0 && threads.length){ show("replies"); } else { show("send"); setTimeout(()=>txt.focus(),30); }
+  };
   const close=()=>modal.classList.remove("open");
-  $("ideaBtn").onclick=open; $("ideaCancel").onclick=close;
+  $("ideaBtn").onclick=open; $("ideaCancel").onclick=close; $("fbClose2").onclick=close;
   modal.addEventListener("click",e=>{ if(e.target===modal) close(); });
   document.addEventListener("keydown",e=>{ if(e.key==="Escape") close(); });
+  tabSend.onclick=()=>show("send"); tabRep.onclick=()=>show("replies");
   txt.addEventListener("input",()=>{ $("ideaN").textContent=txt.value.length; });
+
+  // ----- kind picker -----
+  let kind="Idea";
+  $("fbKinds").addEventListener("click",e=>{
+    const b=e.target.closest(".fb-kind"); if(!b) return;
+    kind=b.getAttribute("data-k");
+    document.querySelectorAll(".fb-kind").forEach(x=>x.setAttribute("aria-pressed",String(x===b)));
+  });
+
+  // ----- send feedback -----
   form.addEventListener("submit",async e=>{
     e.preventDefault();
-    const idea=txt.value.trim();
-    if(idea.length<5){ say("Tell us a bit more!","err"); return; }
-    if($("ideaHp").value){ say("Sent!","ok"); return; }            // bot trap
-    if(!IDEA_URL){ say("Ideas aren\u2019t switched on yet \u2014 check back soon!","err"); return; }
+    const text=txt.value.trim();
+    if(text.length<5){ say(msg,"Tell us a bit more!","err"); return; }
+    if($("ideaHp").value){ say(msg,"Sent!","ok"); return; }            // bot trap
     let last=0; try{ last=+localStorage.getItem("ideaLast")||0; }catch(_){}
-    if(Date.now()-last<30000){ say("Slow down \u2014 try again in a few seconds.","err"); return; }
-    send.disabled=true; say("Sending\u2026");
+    if(Date.now()-last<30000){ say(msg,"Slow down — try again in a few seconds.","err"); return; }
+    send.disabled=true; say(msg,"Sending…");
     try{
-      const ctl=new AbortController(), t=setTimeout(()=>ctl.abort(),15000);
-      const r=await fetch(IDEA_URL,{method:"POST",headers:{"Content-Type":"application/json","X-API-Key":IDEA_KEY},signal:ctl.signal,
-        body:JSON.stringify({topic:$("ideaTopic").value.trim().slice(0,80)||"Game idea",description:idea,source:"game-library"})});
-      clearTimeout(t);
+      const topic="["+kind+"] "+($("ideaTopic").value.trim().slice(0,70)||kind);
+      const body={topic:topic.slice(0,80),description:text,source:FB.source};
+      const contact=$("fbContact").value.trim(); if(contact) body.contact=contact;
+      const r=await api("/api/feedback","POST",body);
       if(!r.ok) throw new Error("HTTP "+r.status);
+      if(r.data && okId(r.data.deviceId)){ try{ localStorage.setItem("fbh_device",r.data.deviceId); }catch(_){ memId=r.data.deviceId; } }
       try{ localStorage.setItem("ideaLast",String(Date.now())); }catch(_){}
-      txt.value=""; $("ideaTopic").value=""; $("ideaN").textContent="0"; say("Thanks! Your idea was sent \ud83c\udf83","ok");
+      txt.value=""; $("ideaTopic").value=""; $("fbContact").value=""; $("ideaN").textContent="0";
+      say(msg,"Thanks! Your "+kind.toLowerCase()+" was sent 🎉","ok");
+      refresh();
       setTimeout(close,1800);
-    }catch(err){ say("Couldn\u2019t send \u2014 please try again later.","err"); }
+    }catch(err){ say(msg,"Couldn’t send — please try again later.","err"); }
     send.disabled=false;
   });
+
+  // ----- threads (replies from the team) -----
+  let threads=[], unread=0;
+  function setBadges(){
+    unread = threads.reduce((n,t)=>n+(typeof t.unread==="number"?t.unread:(t.unread?1:0)),0) || 0;
+    ["fbFabBadge","fbTabBadge"].forEach(id=>{ const b=$(id); b.textContent=unread>99?"99+":String(unread); b.hidden=!(unread>0); });
+    tabRep.hidden = !threads.length; $("fbTabs").hidden = !threads.length;   // empty list => replies are off: show nothing
+  }
+  async function refresh(){
+    if(document.hidden && modal.classList.contains("open")===false) return;
+    try{
+      const r=await api("/api/threads?source="+encodeURIComponent(FB.source));
+      if(!r.ok || !r.data || !Array.isArray(r.data.threads)) return;
+      threads=r.data.threads; setBadges();
+      if(modal.classList.contains("open") && !pane.hidden && $("fbThread").hidden) renderList();
+    }catch(_){}
+  }
+  const fmt=at=>{ const d=new Date(at); return isNaN(d)?"":d.toLocaleString([], {month:"short",day:"numeric",hour:"numeric",minute:"2-digit"}); };
+  function renderList(){
+    const box=$("fbList"); box.textContent="";
+    if(!threads.length){ const n=document.createElement("div"); n.className="fb-note"; n.textContent="No conversations yet."; box.appendChild(n); return; }
+    threads.forEach(t=>{
+      const row=document.createElement("button"); row.type="button"; row.className="fb-row";
+      const top=document.createElement("div"); top.className="t";
+      const name=document.createElement("span"); name.textContent=t.topic||"Feedback"; top.appendChild(name);
+      const right=document.createElement("span"); right.style.cssText="display:flex;gap:8px;align-items:center";
+      if(t.closed){ const g=document.createElement("span"); g.className="tag"; g.textContent="Closed"; right.appendChild(g); }
+      if(t.unread){ const d=document.createElement("span"); d.className="fb-dot"; d.title="Unread"; right.appendChild(d); }
+      top.appendChild(right); row.appendChild(top);
+      const msgs=t.messages||[], lastM=msgs.length?msgs[msgs.length-1]:null;
+      const p=document.createElement("div"); p.className="p"; p.textContent=lastM?lastM.text:(t.description||""); row.appendChild(p);
+      row.onclick=()=>openThread(t.id);
+      box.appendChild(row);
+    });
+  }
+  function bubble(from,text,at){
+    const b=document.createElement("div"); b.className="fb-msg "+(from==="admin"?"admin":"user");
+    const who=document.createElement("small"); who.textContent=(from==="admin"?"ZD Studios":"You")+(fmt(at)?" · "+fmt(at):""); b.appendChild(who);
+    b.appendChild(document.createTextNode(text||"")); $("fbChat").appendChild(b); $("fbChat").scrollTop=$("fbChat").scrollHeight;
+  }
+  let cur=null;
+  function lockReply(note,showNew){
+    $("fbReplyBox").hidden=true; $("fbNew").hidden=!showNew;
+    const n=$("fbNote"); n.textContent=note; n.hidden=false;
+  }
+  function openThread(id){
+    const t=threads.find(x=>x.id===id); if(!t) return; cur=t;
+    $("fbList").hidden=true; $("fbThread").hidden=false;
+    $("fbThTitle").textContent=t.topic||"Feedback"; $("fbChat").textContent=""; say($("fbReplyMsg"),"");
+    $("fbNote").hidden=true; $("fbNew").hidden=true; $("fbReplyBox").hidden=false; $("fbReplyText").value=""; $("fbReplyText").disabled=false; $("fbReplySend").disabled=false;
+    if(t.description) bubble("user",t.description);
+    (t.messages||[]).forEach(m=>bubble(m.from,m.text,m.at));
+    if(t.closed) lockReply("This conversation is closed",true);
+    else if(!t.canReply) lockReply("This was a one-way message from the team",false);
+    if(t.unread){
+      t.unread=0; setBadges(); renderListQuiet();
+      api("/api/threads/"+encodeURIComponent(t.id)+"/seen","POST").catch(()=>{});
+    }
+  }
+  function renderListQuiet(){ /* list is rebuilt when we go back to it */ }
+  $("fbBack").onclick=()=>{ $("fbThread").hidden=true; $("fbList").hidden=false; renderList(); };
+  $("fbNew").onclick=()=>{ show("send"); setTimeout(()=>txt.focus(),30); };
+  async function sendReply(){
+    if(!cur || cur.closed || !cur.canReply) return;
+    const box=$("fbReplyText"), text=box.value.trim(); if(!text) return;
+    $("fbReplySend").disabled=true; say($("fbReplyMsg"),"Sending…");
+    try{
+      const r=await api("/api/threads/"+encodeURIComponent(cur.id)+"/reply","POST",{text});
+      if(r.status===403){                                              // server says no: show it, lock the box, never retry
+        const d=r.data||{};
+        if(d.closed){ cur.closed=true; lockReply("This conversation is closed",true); say($("fbReplyMsg"),"Your reply wasn’t sent — the team closed this conversation.","err"); }
+        else { cur.canReply=false; lockReply("This was a one-way message from the team",false); say($("fbReplyMsg"),"Your reply wasn’t sent — replies are turned off for this conversation.","err"); }
+        box.disabled=true;
+        return;
+      }
+      if(!r.ok) throw new Error("HTTP "+r.status);
+      (cur.messages=cur.messages||[]).push({from:"user",text,at:new Date().toISOString()});
+      bubble("user",text,new Date().toISOString()); box.value=""; say($("fbReplyMsg"),"");
+    }catch(_){ say($("fbReplyMsg"),"Couldn’t send — please try again.","err"); }
+    if(!$("fbReplyBox").hidden) $("fbReplySend").disabled=false;
+  }
+  $("fbReplySend").onclick=sendReply;
+  $("fbReplyText").addEventListener("keydown",e=>{ if(e.key==="Enter" && (e.ctrlKey||e.metaKey)){ e.preventDefault(); sendReply(); } });
+
+  refresh(); setInterval(refresh,60000);                              // on load, then about once a minute
 })();
 </script>
 
