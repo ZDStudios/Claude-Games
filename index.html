@@ -88,7 +88,7 @@
   .wrap{
     position:relative;
     z-index:1;
-    max-width:1180px;
+    max-width:2200px;
     margin:0 auto;
     padding: 56px 24px 80px;
   }
@@ -198,15 +198,15 @@
   /* GRID */
   .grid{
     display:grid;
-    grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
-    gap: 28px;
+    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));   /* ~4 per row on a laptop, up to 7-8 on big screens */
+    gap: 20px;
   }
 
   .card{
     background:var(--panel);
-    border:4px solid var(--ink);
-    border-radius:22px;
-    box-shadow: var(--shadow-hard);
+    border:3px solid var(--ink);
+    border-radius:18px;
+    box-shadow: 5px 5px 0 var(--panel-edge);
     overflow:hidden;
     display:flex;
     flex-direction:column;
@@ -215,7 +215,7 @@
   }
   .card:hover{
     transform: translate(-4px,-4px);
-    box-shadow: 10px 10px 0 var(--panel-edge);
+    box-shadow: 8px 8px 0 var(--panel-edge);
   }
   .card:focus-within{
     outline: 3px solid var(--accent-blue);
@@ -223,16 +223,16 @@
   }
 
   .card-art{
-    height:170px;
+    height:118px;
     position:relative;
     display:flex;
     align-items:center;
     justify-content:center;
-    border-bottom:4px solid var(--ink);
+    border-bottom:3px solid var(--ink);
     overflow:hidden;
   }
   .card-art .emoji{
-    font-size:4.4rem;
+    font-size:3.2rem;
     filter: drop-shadow(3px 4px 0 rgba(0,0,0,0.18));
     transform: rotate(-4deg);
   }
@@ -246,44 +246,48 @@
   }
 
   .card-body{
-    padding:20px 20px 22px;
+    padding:14px 14px 16px;
     display:flex;
     flex-direction:column;
-    gap:10px;
+    gap:8px;
     flex:1;
   }
 
   .card-top-row{
     display:flex;
+    flex-wrap:wrap;
     align-items:flex-start;
     justify-content:space-between;
-    gap:10px;
+    gap:6px 10px;
   }
 
   .card h3{
     font-family:var(--font-display);
-    font-size:1.32rem;
-    line-height:1.1;
+    font-size:1.08rem;
+    line-height:1.12;
     letter-spacing:0.01em;
   }
 
   .genre-tag{
     flex-shrink:0;
-    font-size:0.68rem;
+    font-size:0.6rem;
     font-weight:900;
     text-transform:uppercase;
-    letter-spacing:0.06em;
-    padding:5px 10px;
+    letter-spacing:0.05em;
+    padding:4px 8px;
     border-radius:999px;
     border:2.5px solid var(--ink);
     white-space:nowrap;
+    max-width:100%;
+    overflow:hidden;
+    text-overflow:ellipsis;
   }
 
   .card p.desc b.credit{ font-weight:900; color:#1f1a33; }
   .card p.desc{
-    font-size:0.92rem;
+    font-size:0.8rem;
     font-weight:700;
-    line-height:1.45;
+    line-height:1.4;
     color:#4a4360;
     flex:1;
   }
@@ -299,15 +303,15 @@
   .meta-bits{
     display:flex;
     gap:6px;
-    font-size:0.72rem;
+    font-size:0.66rem;
     font-weight:800;
     color:#6b6480;
   }
 
-  .mp-row{ display:flex; flex-wrap:wrap; gap:6px; margin-top:10px; }
+  .mp-row{ display:flex; flex-wrap:wrap; gap:5px; margin-top:6px; }
   .mp-badge{
-    display:inline-flex; align-items:center; gap:5px; padding:3px 10px;
-    font-size:0.7rem; font-weight:900; letter-spacing:0.05em; text-transform:uppercase;
+    display:inline-flex; align-items:center; gap:4px; padding:2px 8px;
+    font-size:0.62rem; font-weight:900; letter-spacing:0.05em; text-transform:uppercase;
     border:2.5px solid var(--ink); border-radius:999px; background:var(--panel); color:var(--ink);
   }
   .mp-badge.online{ background:#7DD3FC; }
@@ -315,8 +319,8 @@
   .mp-badge.none{ background:#E5E1EE; color:#6b6480; }
   .author-tag{
     display:inline-flex; align-items:center; gap:6px; align-self:flex-start;
-    margin-top:12px; padding:4px 11px;
-    font-size:0.72rem; font-weight:900; letter-spacing:0.06em; text-transform:uppercase;
+    margin-top:8px; padding:3px 9px;
+    font-size:0.64rem; font-weight:900; letter-spacing:0.06em; text-transform:uppercase;
     background:var(--accent-teal); color:var(--ink);
     border:2.5px solid var(--ink); border-radius:999px;
   }
@@ -346,13 +350,13 @@
   .arcade-sub{ display:block; font-family:inherit; font-weight:800; font-size:0.78rem; opacity:0.8; margin-top:6px; }
   .play-btn{
     font-family:var(--font-display);
-    font-size:0.92rem;
+    font-size:0.82rem;
     letter-spacing:0.03em;
     background:var(--ink);
     color:var(--panel);
     border:3px solid var(--ink);
-    border-radius:12px;
-    padding:9px 18px;
+    border-radius:11px;
+    padding:7px 14px;
     text-decoration:none;
     box-shadow: 3px 3px 0 var(--accent-teal);
     transition: transform 0.12s ease, box-shadow 0.12s ease;
