@@ -460,6 +460,9 @@
   .fb-kinds{display:flex; flex-wrap:wrap; gap:8px; margin-bottom:12px;}
   .fb-kind{cursor:pointer; font:inherit; font-weight:900; font-size:.9rem; padding:8px 14px; border:3px solid var(--ink); border-radius:14px; background:#fff; color:var(--ink);}
   .fb-kind[aria-pressed="true"]{background:#7CFF4F; box-shadow:3px 3px 0 var(--ink);}
+  .fb-select{width:100%; font:inherit; font-weight:700; padding:10px 12px; margin-bottom:6px; background:#fff; color:var(--ink); border:3px solid var(--ink); border-radius:12px;}
+  .fb-hint{font-weight:700; font-size:.78rem; opacity:.7; margin:0 2px 10px; line-height:1.35;}
+  .fb-hint.err{color:#C0182B; opacity:1;}
   .fb-privacy{font-weight:700; font-size:.76rem; opacity:.75; margin:0 0 12px; line-height:1.4;}
   .fb-row{display:block; width:100%; text-align:left; cursor:pointer; font:inherit; background:#fff; color:var(--ink); border:3px solid var(--ink); border-radius:14px; padding:10px 12px; margin-bottom:10px;}
   .fb-row:hover{box-shadow:3px 3px 0 var(--ink);}
@@ -486,6 +489,7 @@
   body.discreet .fb-msg{border:1px solid #d6dcea;}
   body.discreet .fb-msg.user{background:#e8eefb;}
   body.discreet .fb-replybox button, body.discreet .fb-newbtn{background:#2f6fed; color:#fff; box-shadow:none; border:0;}
+  body.discreet .fb-select{border:1px solid #cfd6e6; border-radius:10px; font-weight:500;}
   body.discreet .fb-row{border:1px solid #d6dcea; box-shadow:none;}
 
   /* ===== top bar + Discrete Mode ===== */
@@ -696,7 +700,10 @@
         <button type="button" class="fb-kind" data-k="Balance" aria-pressed="false">⚖️ Balance</button>
         <button type="button" class="fb-kind" data-k="Other" aria-pressed="false">💭 Other</button>
       </div>
-      <input id="ideaTopic" maxlength="70" placeholder="Short title (e.g. Space Racer)" required>
+      <div class="fb-label">WHICH GAME?</div>
+      <select class="fb-select" id="fbGame" aria-label="Which game is it about?"><option value="">General (not about one game)</option></select>
+      <div class="fb-hint" id="fbGameHint">Leave it on General if it&#8217;s an idea for a brand-new game.</div>
+      <input id="ideaTopic" maxlength="70" placeholder="Short title (optional if you picked a game)">
       <textarea id="ideaText" maxlength="1000" placeholder="Tell us more&#8230; (and your name if you want credit for an idea)" required></textarea>
       <div class="idea-count"><span id="ideaN">0</span> / 1000</div>
       <input id="fbContact" maxlength="120" placeholder="Contact (optional) — email or Discord">
@@ -1177,6 +1184,8 @@
     "hyperkick.html": ["Collisions & Trajectory Physics", "Science", "Investigate collisions and trajectories in a fast, hands-on experiment. Predict where the ball will go and test your prediction."]
   };
   const dInfo = g => { const d = DISCRETE[g.file] || ["Interactive Activity", "Science", "A short, self-paced activity with hands-on tasks."]; return { title:d[0], subject:d[1], blurb:d[2], sub:SUBJECTS[d[1]] || SUBJECTS["Science"] }; };
+  // game list for the feedback box's "Which game?" picker (real title + the Discrete Mode name)
+  window.ZD_GAME_CHOICES = () => ALL_GAMES.map(g => ({ file:g.file, title:g.title, fake:dInfo(g).title }));
   const gkey = g => discreet ? dInfo(g).subject : g.genre;
   let discreet = false;
   try{ discreet = localStorage.getItem("zd.discreet") === "1"; }catch(_){}
@@ -1275,6 +1284,7 @@
     }
 
     ALL_GAMES = games;
+    document.dispatchEvent(new Event("zd:games"));
     document.getElementById("gameCount").textContent = games.length;
     statRow.hidden = false;
     document.getElementById("filterBar").hidden = false;
@@ -1451,32 +1461,59 @@
   tabSend.onclick=()=>show("send"); tabRep.onclick=()=>show("replies");
   txt.addEventListener("input",()=>{ $("ideaN").textContent=txt.value.length; });
 
-  // ----- kind picker -----
+  // ----- kind picker + game picker -----
   let kind="Idea";
+  const gameSel=$("fbGame"), gameHint=$("fbGameHint");
+  const needsGame=()=>kind==="Bug"||kind==="Balance";
+  function updateHint(err){
+    gameHint.classList.toggle("err",!!err);
+    gameHint.textContent = err ? "Pick which game it\u2019s about." :
+      needsGame() ? "Pick the game this is about." :
+      kind==="Idea" ? "Leave it on General if it\u2019s an idea for a brand-new game." : "Pick a game if it\u2019s about one, or leave it on General.";
+  }
   $("fbKinds").addEventListener("click",e=>{
     const b=e.target.closest(".fb-kind"); if(!b) return;
     kind=b.getAttribute("data-k");
     document.querySelectorAll(".fb-kind").forEach(x=>x.setAttribute("aria-pressed",String(x===b)));
+    updateHint(false);
   });
+  gameSel.addEventListener("change",()=>{ updateHint(false); say(msg,""); });
+  // every game in the library + the Mini Arcade; in Discrete Mode the list shows the fake activity names, but the report still carries the real name
+  function buildGames(){
+    const keep=gameSel.value, disc=document.body.classList.contains("discreet");
+    const list=(window.ZD_GAME_CHOICES?window.ZD_GAME_CHOICES():[]).concat([{file:"mini-arcade.html",title:"Mini Arcade",fake:"Quick Practice"}]);
+    list.forEach(g=>{ g.label = disc ? g.fake : g.title; });
+    list.sort((a,b)=>a.label.localeCompare(b.label));
+    gameSel.textContent="";
+    const o0=document.createElement("option"); o0.value=""; o0.textContent="General (not about one game)"; gameSel.appendChild(o0);
+    list.forEach(g=>{ const o=document.createElement("option"); o.value=g.file; o.textContent=g.label; o.dataset.title=g.title; gameSel.appendChild(o); });
+    gameSel.value=keep; if(gameSel.value!==keep) gameSel.value="";
+  }
+  document.addEventListener("zd:games",buildGames);
+  new MutationObserver(buildGames).observe(document.body,{attributes:true,attributeFilter:["class"]});
+  buildGames();
 
   // ----- send feedback -----
   form.addEventListener("submit",async e=>{
     e.preventDefault();
     const text=txt.value.trim();
+    const opt=gameSel.selectedOptions[0], gameTitle=gameSel.value?(opt.dataset.title||opt.textContent):"", title=$("ideaTopic").value.trim();
+    if(needsGame() && !gameSel.value){ updateHint(true); say(msg,"Pick which game it\u2019s about.","err"); gameSel.focus(); return; }
+    if(!gameTitle && !title){ say(msg,"Add a short title.","err"); $("ideaTopic").focus(); return; }
     if(text.length<5){ say(msg,"Tell us a bit more!","err"); return; }
     if($("ideaHp").value){ say(msg,"Sent!","ok"); return; }            // bot trap
     let last=0; try{ last=+localStorage.getItem("ideaLast")||0; }catch(_){}
     if(Date.now()-last<30000){ say(msg,"Slow down — try again in a few seconds.","err"); return; }
     send.disabled=true; say(msg,"Sending…");
     try{
-      const topic="["+kind+"] "+($("ideaTopic").value.trim().slice(0,70)||kind);
+      const topic="["+kind+"] "+(gameTitle?gameTitle+(title?": "+title:""):title);
       const body={topic:topic.slice(0,80),description:text,source:FB.source};
       const contact=$("fbContact").value.trim(); if(contact) body.contact=contact;
       const r=await api("/api/feedback","POST",body);
       if(!r.ok) throw new Error("HTTP "+r.status);
       if(r.data && okId(r.data.deviceId)){ try{ localStorage.setItem("fbh_device",r.data.deviceId); }catch(_){ memId=r.data.deviceId; } }
       try{ localStorage.setItem("ideaLast",String(Date.now())); }catch(_){}
-      txt.value=""; $("ideaTopic").value=""; $("fbContact").value=""; $("ideaN").textContent="0";
+      txt.value=""; $("ideaTopic").value=""; $("fbContact").value=""; $("ideaN").textContent="0"; gameSel.value=""; updateHint(false);
       say(msg,"Thanks! Your "+kind.toLowerCase()+" was sent 🎉","ok");
       refresh();
       setTimeout(close,1800);
