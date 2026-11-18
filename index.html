@@ -1243,11 +1243,25 @@
       </article>`;
   }
 
+  // Standard view filters by how you can play (the same modes the card badges show); Discrete Mode filters by school subject.
+  const MODE_CHIPS = [["single", "\ud83d\udc64 Single player"], ["online", "\ud83c\udf10 Online multiplayer"], ["local", "\ud83c\udfae Local multiplayer"]];
+  function modesOf(g){
+    const m = MULTIPLAYER[g.file] || {};
+    if (m.unknown) return [];
+    const r = [];
+    if (m.single) r.push("single");
+    if (m.online) r.push("online");
+    if (m.local)  r.push("local");
+    if (!r.length) r.push("single");
+    return r;
+  }
+  const matchesFilter = g => activeGenre === "All" || (discreet ? gkey(g) === activeGenre : modesOf(g).includes(activeGenre));
+
   function applyFilters(){
     const grid = document.getElementById("grid");
     const q = query.trim().toLowerCase();
     const shown = ALL_GAMES.filter(g => {
-      if (activeGenre !== "All" && gkey(g) !== activeGenre) return false;
+      if (!matchesFilter(g)) return false;
       if (!q) return true;
       return (g.title + " " + g.genre + " " + g.tagline + " " + g.desc + " " + (g.author || "") + (discreet ? " " + dInfo(g).title + " " + dInfo(g).subject : "")).toLowerCase().includes(q);
     });
@@ -1263,10 +1277,13 @@
   }
 
   function buildChips(){
-    const genres = ["All", ...new Set(ALL_GAMES.map(gkey))].slice(0, discreet ? 14 : 9);
+    const chips = discreet
+      ? ["All", ...new Set(ALL_GAMES.map(gkey))].slice(0, 14).map(g => [g, g])
+      : [["All", "All"], ...MODE_CHIPS];
+    const genres = chips.map(c => c[0]);
     const box = document.getElementById("chips");
-    box.innerHTML = genres.map(g =>
-      `<button class="chip" type="button" aria-pressed="${g === activeGenre}">${escapeHtml(g)}</button>`).join("");
+    box.innerHTML = chips.map(([key, label]) =>
+      `<button class="chip" type="button" aria-pressed="${key === activeGenre}">${escapeHtml(label)}</button>`).join("");
     [...box.children].forEach((el, i) => el.onclick = () => {
       activeGenre = genres[i];
       [...box.children].forEach((e2, j) => e2.setAttribute("aria-pressed", String(j === i)));
