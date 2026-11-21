@@ -22,6 +22,10 @@
   window.ZD_HALLOWEEN = false;
   window.ZD_CHRISTMAS = false;
   window.ZD_EASTER    = false;
+  /* MAINTENANCE MODE: set to true to show an "under maintenance, back online as soon as possible" notice under the title
+     and hide the game list. Works on its own or together with a seasonal theme. false = the normal library. */
+  window.ZD_MAINTENANCE = false;
+  if (window.ZD_MAINTENANCE){ document.documentElement.classList.add("maint"); document.title = "🛠️ Maintenance — " + document.title; }
   (function(){
     var t = window.ZD_HALLOWEEN ? "halloween" : window.ZD_CHRISTMAS ? "xmas" : window.ZD_EASTER ? "easter" : "";
     window.ZD_THEME = t;
@@ -583,6 +587,23 @@
   body.discreet .idea-box h3{ font-weight:700; }
   body.discreet .idea-row button.go{ background:#2f6fed; color:#fff; box-shadow:none; }
 
+  /* ===== MAINTENANCE MODE (only active when ZD_MAINTENANCE = true: adds class "maint" to <html>) ===== */
+  .maint-box{ display:none; max-width:640px; margin:0 auto 26px; background:var(--panel); border:4px solid var(--ink); border-radius:20px;
+    box-shadow:var(--shadow-hard); padding:0 24px 22px; text-align:center; overflow:hidden; }
+  .maint-box::before{ content:""; display:block; height:16px; margin:0 -24px 18px;
+    background:repeating-linear-gradient(135deg,#FFD166 0 16px,#1A1430 16px 32px); border-bottom:3px solid var(--ink); }
+  html.maint .maint-box{ display:block; }
+  .maint-icon{ font-size:2.6rem; line-height:1; margin-bottom:6px; }
+  .maint-title{ font-family:var(--font-display); font-weight:400; font-size:clamp(1.6rem,4.5vw,2.3rem); line-height:1.05; margin-bottom:8px; }
+  .maint-text{ font-weight:800; font-size:1rem; line-height:1.5; color:#4a4360; }
+  html.maint .stat-row, html.maint .device-note, html.maint .arcade-btn, html.maint .arcade-sub,
+  html.maint #filterBar, html.maint #status, html.maint #grid, html.maint #communitySection{ display:none !important; }
+  html.maint .subtitle{ display:none; }
+  body.discreet .maint-box{ border:1px solid #d6dcea; border-radius:12px; box-shadow:0 1px 3px rgba(16,24,40,.08); background:#fff; }
+  body.discreet .maint-box::before{ background:#2f6fed; height:6px; margin-bottom:20px; border-bottom:0; }
+  body.discreet .maint-title{ font-weight:700; font-size:1.5rem; }
+  body.discreet .maint-text{ font-weight:400; color:#55627f; }
+
   /* ===== SEASONAL THEMES: Halloween / Christmas / Easter =====
      Only active when one of the ZD_* flags near the top of this file is true. The script puts a class on <html>
      (halloween | xmas | easter, plus "themed", and "tdark" for the dark-background ones). Discrete Mode hides every decoration. */
@@ -754,6 +775,11 @@
     <span class="badge">★ No installs · No accounts · Just play ★</span>
     <h1 class="title">ZD STUDIOS<br>GAME LIBRARY</h1>
     <div class="theme-row" aria-hidden="true"></div>
+    <div class="maint-box" id="maintBox" role="status">
+      <div class="maint-icon" aria-hidden="true">🛠️</div>
+      <h2 class="maint-title">Under maintenance</h2>
+      <p class="maint-text">We&#8217;re away for a little while making fixes and improvements. The game library will be back online as fast as possible &mdash; thanks for your patience!</p>
+    </div>
     <p class="subtitle">A growing arcade of browser games — built scrappy, played instantly.</p>
     <div class="stat-row" id="statRow" hidden>
       <div class="stat-pill">🎮 <strong id="gameCount">0</strong> games live</div>
@@ -1357,6 +1383,8 @@
     [".hero .badge",   "Grades 5–12 · Self-paced · No sign-up needed"],
     [".hero h1.title", "Interactive Learning Activities"],
     [".hero .subtitle","Explore hands-on, self-paced activities across science, maths, history and more."],
+    [".maint-title",   "Scheduled maintenance"],
+    [".maint-text",    "This site is temporarily unavailable while we carry out some updates. It will be back online as soon as possible."],
     [".arcade-btn",    "📝 Quick Practice"],
     [".arcade-sub",    "Short warm-up drills for focus, logic and reaction time"],
     ["#communitySection .section-head h2", "Recommended by Learners"],
