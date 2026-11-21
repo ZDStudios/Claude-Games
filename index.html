@@ -459,6 +459,11 @@
   /* ===== feedback box: kind picker + replies chat ===== */
   .fab-wrap{position:fixed; right:18px; bottom:18px; z-index:50;}
   .fab-wrap .fb-badge{position:absolute; top:-9px; right:-7px;}
+  .fb-off{position:absolute; right:0; bottom:calc(100% + 12px); white-space:nowrap; background:#fff; color:var(--ink); border:3px solid var(--ink); border-radius:14px; padding:9px 14px; font-weight:900; font-size:.85rem; box-shadow:4px 4px 0 var(--ink);}
+  .fb-off::after{content:""; position:absolute; right:26px; bottom:-9px; width:14px; height:14px; background:#fff; border-right:3px solid var(--ink); border-bottom:3px solid var(--ink); transform:rotate(45deg);}
+  html.maint .idea-fab{opacity:.65; cursor:not-allowed;}
+  body.discreet .fb-off{border:1px solid #d6dcea; border-radius:10px; box-shadow:0 4px 14px rgba(16,24,40,.15); font-weight:600;}
+  body.discreet .fb-off::after{border-right:1px solid #d6dcea; border-bottom:1px solid #d6dcea;}
   .fb-badge{min-width:22px; height:22px; padding:0 6px; border-radius:999px; background:#E5383B; color:#fff; font-weight:900; font-size:.74rem; line-height:18px; text-align:center; border:2px solid var(--ink);}
   .idea-box [hidden], .fab-wrap [hidden]{display:none !important;}
   .fb-tabs{display:flex; gap:8px; margin-bottom:14px;}
@@ -706,6 +711,7 @@
 
 
 <div class="fab-wrap">
+  <div class="fb-off" id="fbOff" role="status" hidden>Feedback is temporarily disabled</div>
   <button class="idea-fab" id="ideaBtn" type="button">💬 Feedback</button>
   <span class="fb-badge" id="fbFabBadge" hidden>0</span>
 </div>
@@ -1383,6 +1389,7 @@
     [".hero .badge",   "Grades 5–12 · Self-paced · No sign-up needed"],
     [".hero h1.title", "Interactive Learning Activities"],
     [".hero .subtitle","Explore hands-on, self-paced activities across science, maths, history and more."],
+    [".fb-off",        "Suggestions are temporarily unavailable"],
     [".maint-title",   "Scheduled maintenance"],
     [".maint-text",    "This site is temporarily unavailable while we carry out some updates. It will be back online as soon as possible."],
     [".arcade-btn",    "📝 Quick Practice"],
@@ -1504,7 +1511,11 @@
     if(unread>0 && threads.length){ show("replies"); } else { show("send"); setTimeout(()=>txt.focus(),30); }
   };
   const close=()=>modal.classList.remove("open");
-  $("ideaBtn").onclick=open; $("ideaCancel").onclick=close; $("fbClose2").onclick=close;
+  // While maintenance mode is on, the feedback system is switched off: the button just says so and nothing is sent or fetched.
+  const FB_OFF = !!window.ZD_MAINTENANCE;
+  let offT;
+  function showOff(){ const m=$("fbOff"); m.hidden=false; clearTimeout(offT); offT=setTimeout(()=>{ m.hidden=true; },3500); }
+  $("ideaBtn").onclick = FB_OFF ? showOff : open; $("ideaCancel").onclick=close; $("fbClose2").onclick=close;
   modal.addEventListener("click",e=>{ if(e.target===modal) close(); });
   document.addEventListener("keydown",e=>{ if(e.key==="Escape") close(); });
   tabSend.onclick=()=>show("send"); tabRep.onclick=()=>show("replies");
@@ -1653,7 +1664,7 @@
   $("fbReplySend").onclick=sendReply;
   $("fbReplyText").addEventListener("keydown",e=>{ if(e.key==="Enter" && (e.ctrlKey||e.metaKey)){ e.preventDefault(); sendReply(); } });
 
-  refresh(); setInterval(refresh,60000);                              // on load, then about once a minute
+  if(!FB_OFF){ refresh(); setInterval(refresh,60000); }              // on load, then about once a minute
 })();
 </script>
 
