@@ -19,12 +19,12 @@
      Set ONE of these to true to turn that seasonal look on (colours, decorations, festive text).
      All false = the normal look. If more than one is true the priority is Halloween, then Christmas, then Easter.
      All the theme code stays in this file whether or not a theme is on. */
-  window.ZD_HALLOWEEN = true;
+  window.ZD_HALLOWEEN = false;
   window.ZD_CHRISTMAS = true;
-  window.ZD_EASTER    = true;
+  window.ZD_EASTER    = false;
   /* MAINTENANCE MODE: set to true to show an "under maintenance, back online as soon as possible" notice under the title
      and hide the game list. Works on its own or together with a seasonal theme. false = the normal library. */
-  window.ZD_MAINTENANCE = false;
+  window.ZD_MAINTENANCE = true;
   if (window.ZD_MAINTENANCE){ document.documentElement.classList.add("maint"); document.title = "🛠️ Maintenance — " + document.title; }
   (function(){
     var t = window.ZD_HALLOWEEN ? "halloween" : window.ZD_CHRISTMAS ? "xmas" : window.ZD_EASTER ? "easter" : "";
