@@ -24836,9 +24836,13 @@ function _wldBuilding(cfg) {
   const fwx = _wldP.x, fwz = _wldP.z;
   _wldB(trimMat, fwx, y + 0.28 + doorH + 0.18, fwz, doorW + 0.9, 0.36, t + 0.3, dry);
 
+  // Give the player a half-step before the raised floor reaches the capsule.
+  _wldBS(trimMat, fwx + Math.sin(dry) * 0.85, y + 0.07,
+    fwz + Math.cos(dry) * 0.85, doorW + 0.4, 0.14, 1.4, dry, 0.35);
   const doorWorld = new THREE.Vector3(fwx, y + 1.2, fwz);
   WLD_addInteractable({
-    pos: doorWorld, radius: 2.6, label: (cfg.name || 'Door'), type: 'door',
+    pos: doorWorld, radius: 2.6, type: 'door',
+    label: function () { return (doorRec.open ? 'Close ' : 'Open ') + doorRec.name; },
     onUse: function () { _wldToggleDoor(doorRec); }
   });
 
@@ -28116,7 +28120,7 @@ function _qstMarkPoi(id, dy, ox, oz) {
   return _qstMarkAt(xz[0] + (ox || 0), xz[1] + (oz || 0), dy);
 }
 /** The longhouse sits just north of the town centre; the jarl never leaves it. */
-function _qstMarkJarl() { return _qstMarkPoi('ravenrock', 3.0, 0, -14); }
+function _qstMarkJarl() { return _qstMarkPoi('ravenrock', 2.2, 0, -28); }
 /** Underground objectives have no surface position worth pointing at. */
 function _qstMarkDungeon() {
   if (G.flags && G.flags.inDungeon) {
