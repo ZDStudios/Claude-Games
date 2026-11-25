@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-11-25T22:59:55.313Z",
+  "generated_at": "2026-11-25T23:10:08.727Z",
   "name": "ZD Studios Game Library",
   "description": "A growing collection of free browser games. No installs, no accounts. Every game is a single standalone HTML file that runs in the browser. Games were built with heavy use of AI plus a lot of human direction and effort.",
   "urls": {
@@ -40,9 +40,9 @@
     ]
   },
   "stats": {
-    "games_in_repo": 40,
-    "games_total_including_external": 41,
-    "suggested_by_the_public": 10,
+    "games_in_repo": 41,
+    "games_total_including_external": 42,
+    "suggested_by_the_public": 11,
     "with_online_multiplayer": 14,
     "with_local_multiplayer": 4
   },
@@ -904,8 +904,8 @@
         "external_resources": [],
         "discrete_mode_integrated": true
       },
-      "last_changed": null,
-      "last_commit": null
+      "last_changed": "2026-11-25T22:59:55+00:00",
+      "last_commit": "7941400"
     },
     {
       "id": "grow-a-garden",
@@ -1692,6 +1692,54 @@
       },
       "last_changed": "2026-11-17T11:28:01+00:00",
       "last_commit": "14d45fb"
+    },
+    {
+      "id": "retro-afl",
+      "title": "Retro AFL",
+      "tagline": "Touchline Arcade",
+      "description": "An arcade Aussie rules football game. Kick, mark, handball and tackle your way through a career of seasons — climb the ladder, make the finals and chase the premiership.",
+      "genre": "Sports / Arcade",
+      "emoji": "🏉",
+      "play": {
+        "url": "https://games.zdstudios.network/retro-afl.html",
+        "single_player": true,
+        "online_multiplayer": false,
+        "local_multiplayer": false
+      },
+      "origin": {
+        "section": "suggested-by-the-public",
+        "author": null,
+        "credit": null
+      },
+      "source": {
+        "file": "retro-afl.html",
+        "raw_url": "https://raw.githubusercontent.com/ZDStudios/Claude-Games/main/retro-afl.html",
+        "github_url": "https://github.com/ZDStudios/Claude-Games/blob/main/retro-afl.html"
+      },
+      "page_title": "RETRO AFL · Touchline Arcade",
+      "code": {
+        "language": "HTML + CSS + JavaScript, one standalone file",
+        "entry": "retro-afl.html",
+        "size_bytes": 156885,
+        "lines": 4653,
+        "line_endings": "LF",
+        "rendering": [
+          "Canvas 2D"
+        ],
+        "libraries": [],
+        "audio": "Web Audio API",
+        "networking": [],
+        "save_data": null,
+        "input": [
+          "keyboard + mouse"
+        ],
+        "fonts_embedded": false,
+        "works_offline": true,
+        "external_resources": [],
+        "discrete_mode_integrated": true
+      },
+      "last_changed": null,
+      "last_commit": null
     },
     {
       "id": "skyhook-run",

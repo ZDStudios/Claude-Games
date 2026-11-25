@@ -1,0 +1,4652 @@
+<!doctype html>
+<html lang="en-AU">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+    <meta name="theme-color" content="#10171b" />
+    <title>RETRO AFL · Touchline Arcade</title>
+    <link
+      rel="icon"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath fill='%23ff755e' d='M2 8h2V5h3V3h6v2h1v4h-2v3H9v2H3v-2H2z'/%3E%3C/svg%3E"
+    />
+    <style>
+      * {
+        box-sizing: border-box;
+      }
+      html {
+        color-scheme: dark;
+      }
+      body {
+        margin: 0;
+        background: #101719;
+        color: #efe9d2;
+        font:
+          13px/1.4 'Courier New',
+          monospace;
+        min-height: 100svh;
+      }
+      body:before {
+        content: '';
+        position: fixed;
+        inset: 0;
+        z-index: -1;
+        opacity: 0.16;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='8'%3E%3Cpath fill='%23556562' d='M1 1h1v1H1z'/%3E%3C/svg%3E");
+      }
+      button {
+        border-radius: 0;
+        font: inherit;
+        color: inherit;
+        cursor: pointer;
+        touch-action: manipulation;
+      }
+      button:focus-visible,
+      input:focus-visible {
+        outline: 3px solid #ffd563;
+        outline-offset: 3px;
+      }
+      header {
+        background: #131b1d;
+        border-bottom: 2px solid #2b3737;
+      }
+      .bar,
+      .wrap {
+        width: min(1060px, calc(100% - 56px));
+        margin: auto;
+      }
+      .bar {
+        height: 75px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+      }
+      .brand,
+      .tools,
+      .hardware,
+      .legend,
+      .legend span,
+      .tool,
+      .mode {
+        display: flex;
+        align-items: center;
+      }
+      .brand {
+        gap: 12px;
+      }
+      .brand canvas,
+      .tool canvas,
+      canvas.mark {
+        image-rendering: pixelated;
+      }
+      .brandword {
+        width: 165px;
+        height: 18px;
+      }
+      .brandicon {
+        width: 36px;
+        height: 32px;
+      }
+      .tools {
+        gap: 12px;
+      }
+      .tool {
+        gap: 9px;
+        background: #172124;
+        border: 1px solid #485552;
+        padding: 9px 12px;
+        font-size: 12px;
+        letter-spacing: 1px;
+        font-weight: bold;
+      }
+      .tool:hover {
+        background: #25312f;
+      }
+      .tool canvas {
+        width: 16px;
+        height: 16px;
+      }
+      .wrap {
+        padding: 31px 0 22px;
+      }
+      @media (min-width: 1050px) and (min-height: 621px) {
+        .bar,
+        .wrap {
+          width: 994px;
+        }
+      }
+      .hardware {
+        justify-content: space-between;
+        margin-bottom: 11px;
+        color: #a8b6aa;
+        font-size: 11px;
+        letter-spacing: 1.5px;
+        font-weight: bold;
+      }
+      .mode {
+        gap: 9px;
+      }
+      .light {
+        width: 7px;
+        height: 7px;
+        display: inline-block;
+        background: #91d6a7;
+      }
+      .case {
+        position: relative;
+        background: #253130;
+        border: 2px solid #52605b;
+        padding: 12px;
+        box-shadow:
+          inset 0 -4px #192221,
+          0 5px #080e10;
+      }
+      .bezel {
+        border: 3px solid #0b1012;
+        background: #11191d;
+        position: relative;
+        isolation: isolate;
+      }
+      .case i {
+        position: absolute;
+        background: #738077;
+        width: 4px;
+        height: 4px;
+      }
+      .case i:nth-child(1) {
+        left: 4px;
+        top: 4px;
+      }
+      .case i:nth-child(2) {
+        right: 4px;
+        top: 4px;
+      }
+      .case i:nth-child(3) {
+        bottom: 5px;
+        left: 4px;
+      }
+      .case i:nth-child(4) {
+        bottom: 5px;
+        right: 4px;
+      }
+      #game {
+        width: 100%;
+        height: auto;
+        display: block;
+        image-rendering: pixelated;
+        touch-action: none;
+        outline: 0;
+      }
+      .bezel.crt:after {
+        box-shadow:
+          inset 2px 0 #172328,
+          inset -2px 0 #172328,
+          inset 0 -2px #15222b;
+        content: '';
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+        opacity: 0.105;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='4' height='4'%3E%3Cpath fill='%230a1722' d='M0 3h4v1H0z'/%3E%3C/svg%3E");
+        border: 1px solid #394438;
+      }
+      .legend {
+        gap: 22px;
+        color: #a3afa8;
+        font-size: 11px;
+        letter-spacing: 0.6px;
+        margin-top: 20px;
+        flex-wrap: wrap;
+      }
+      .legend span {
+        gap: 7px;
+      }
+      kbd {
+        font: 11px monospace;
+        font-weight: bold;
+        border: 1px solid #50605a;
+        border-bottom-width: 2px;
+        color: #ced4c5;
+        padding: 2px 6px;
+      }
+      .local {
+        margin-left: auto;
+      }
+      .local b {
+        color: #89c7a2;
+      }
+      .sr,
+      .access {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+        clip-path: inset(50%);
+        white-space: nowrap;
+      }
+      .access button {
+        display: block;
+      }
+      #naming {
+        background: #172629;
+        border: 3px solid #819589;
+        color: #edeacf;
+        padding: 20px;
+        max-width: 92vw;
+      }
+      #naming::backdrop {
+        background: #091015db;
+      }
+      #naming label {
+        display: block;
+        font-weight: bold;
+        letter-spacing: 2px;
+      }
+      #naming input {
+        display: block;
+        margin: 14px 0;
+        border: 2px solid #759689;
+        background: #0d191c;
+        padding: 10px;
+        color: #ffda70;
+        text-transform: uppercase;
+        font: 18px monospace;
+        width: 100%;
+      }
+      #naming button {
+        background: #334443;
+        border: 1px solid #7a8e81;
+        padding: 6px 12px;
+      }
+      @media (max-width: 670px) {
+        .bar,
+        .wrap {
+          width: calc(100% - 20px);
+        }
+        .bar {
+          height: 58px;
+        }
+        .brand {
+          gap: 6px;
+        }
+        .brandword {
+          width: 118px;
+          height: 13px;
+        }
+        .brandicon {
+          width: 25px;
+          height: 23px;
+        }
+        .tools {
+          gap: 5px;
+        }
+        .tool {
+          padding: 7px;
+          font-size: 10px;
+          gap: 5px;
+          letter-spacing: 0;
+        }
+        .tool canvas {
+          width: 14px;
+          height: 14px;
+        }
+        .wrap {
+          padding-top: 18px;
+        }
+        .case {
+          padding: 6px;
+        }
+        .case i {
+          width: 2px;
+          height: 2px;
+        }
+        .bezel {
+          border-width: 2px;
+        }
+        .hardware {
+          font-size: 9px;
+          letter-spacing: 1px;
+        }
+        .legend {
+          gap: 10px;
+          margin-top: 14px;
+          font-size: 10px;
+        }
+        .legend .desk {
+          display: none;
+        }
+        .local {
+          margin-left: auto;
+        }
+      }
+      @media (max-height: 620px) and (min-width: 671px) {
+        .wrap {
+          max-width: min(1000px, 150vh);
+          padding-top: 10px;
+        }
+        .bar {
+          height: 45px;
+        }
+        .legend {
+          margin-top: 10px;
+        }
+      }
+    </style>
+  <script data-zd-discreet>/* Discrete Mode: follows the switch on the game library page (shared browser storage) */
+(function(){var FAKE="Sport Strategy & Statistics | Learning Hub",ICON="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2064%2064%22%3E%3Crect%20width%3D%2264%22%20height%3D%2264%22%20rx%3D%2214%22%20fill%3D%22%232f6fed%22/%3E%3Cpath%20d%3D%22M14%2018h16c3%200%205%202%205%205v23c0-3-2-5-5-5H14zM50%2018H34c-3%200-5%202-5%205v23c0-3%202-5%205-5h16z%22%20fill%3D%22%23fff%22/%3E%3C/svg%3E",KEY="zd.discreet",real=null,made=null,saved=[],busy=false;
+function on(){try{return localStorage.getItem(KEY)==="1";}catch(e){return false;}}
+function links(){return document.querySelectorAll('link[rel~="icon"],link[rel="apple-touch-icon"]');}
+function apply(){if(busy)return;busy=true;try{var d=on();
+ if(d){if(document.title!==FAKE){real=document.title;document.title=FAKE;}
+  var ls=links(),i;if(!saved.length&&ls.length){for(i=0;i<ls.length;i++){if(!ls[i].hasAttribute("data-zd")){saved.push([ls[i],ls[i].getAttribute("href")]);}}}
+  for(i=0;i<ls.length;i++){if(ls[i]!==made){ls[i].setAttribute("href",ICON);ls[i].removeAttribute("type");}}
+  if(!ls.length&&!made&&document.head){made=document.createElement("link");made.rel="icon";made.setAttribute("data-zd","1");made.href=ICON;document.head.appendChild(made);}
+ }else{if(real!==null&&document.title===FAKE){document.title=real;}real=null;
+  for(var j=0;j<saved.length;j++){if(saved[j][1]===null)saved[j][0].removeAttribute("href");else saved[j][0].setAttribute("href",saved[j][1]);}saved=[];
+  if(made&&made.parentNode){made.parentNode.removeChild(made);}made=null;}
+}catch(e){}busy=false;}
+apply();
+document.addEventListener("DOMContentLoaded",function(){apply();var t=document.querySelector("title");if(t&&window.MutationObserver){new MutationObserver(apply).observe(t,{childList:true,characterData:true,subtree:true});}});
+window.addEventListener("storage",function(e){if(e.key===KEY||e.key===null)apply();});
+window.addEventListener("pageshow",apply);document.addEventListener("visibilitychange",apply);window.addEventListener("focus",apply);
+})();</script>
+  </head>
+  <body>
+    <header>
+      <div class="bar">
+        <div class="brand" aria-label="Touchline Arcade">
+          <canvas class="brandicon" id="brandIcon" width="18" height="16" aria-hidden="true"></canvas
+          ><canvas class="brandword" id="brandWord" width="82" height="9" aria-hidden="true"></canvas>
+        </div>
+        <div class="tools">
+          <button class="tool" id="sound">
+            <canvas id="volumeIcon" width="12" height="12"></canvas><span>SOUND ON</span></button
+          ><button class="tool" id="options"><canvas id="gearIcon" width="12" height="12"></canvas>SETTINGS</button>
+        </div>
+      </div>
+    </header>
+    <main class="wrap">
+      <div class="hardware">
+        <span class="mode"><i class="light"></i><span id="location">ARCADE CABINET</span></span
+        ><span>SPORTS SERIES &nbsp;/&nbsp; NO. 01</span>
+      </div>
+      <div class="case">
+        <i></i><i></i><i></i><i></i>
+        <div class="bezel crt" id="bezel">
+          <canvas id="game" width="480" height="268" tabindex="0" aria-label="Retro AFL game screen"></canvas>
+          <div class="access" id="actions" aria-label="Game menu"></div>
+        </div>
+      </div>
+      <div class="legend" id="legend">
+        <span class="desk"><kbd>↑ ↓ ← →</kbd> NAVIGATE</span><span class="desk"><kbd>ENTER</kbd> SELECT</span
+        ><span class="desk"><kbd>ESC</kbd> BACK / PAUSE</span><span id="touchHint">TOUCH SUPPORTED</span
+        ><span class="local"><b>▣</b> LOCAL SAVE</span>
+      </div>
+      <p class="sr" id="announce" aria-live="polite"></p>
+    </main>
+    <dialog id="naming">
+      <form method="dialog">
+        <label id="nameLabel" for="nameEntry">COACH INITIALS</label
+        ><input id="nameEntry" autocomplete="off" spellcheck="false" /><button value="ok">SAVE</button>
+        <button value="cancel">CANCEL</button>
+      </form>
+    </dialog>
+    <script>
+      'use strict';
+      // RETRO AFL cartridge
+      // Tuning: CFG (timers, salary cap and squad sizes), C (palette), CLUBS (kits and ratings).
+      // Season engine: fixture, balanceVenues, result, advance, expand and rollSeason.
+      // Match engine: newMatch and stepMatch. Input is translated into actions at the end of this script.
+      // Art, sound, rosters and fixtures are generated locally. No network or build step is required.
+      const CFG = {
+        quarter: 90,
+        quarters: [30, 60, 90, 120],
+        cap: 1800,
+        squad: 14,
+        protected: 5,
+        save: 'touchline.afl.career.1',
+        prefs: 'touchline.afl.options.1',
+        records: 'touchline.afl.records.1',
+      };
+      const C = {
+        ink: '#10191e',
+        black: '#101420',
+        panel: '#1a272b',
+        line: '#435753',
+        muted: '#a5b6a7',
+        paper: '#fff0d2',
+        mint: '#9ddab0',
+        gold: '#ffd052',
+        orange: '#f8884f',
+        coral: '#f57563',
+        dark: '#242233',
+        white: '#fff5df',
+      };
+      const $ = (id) => document.getElementById(id),
+        game = $('game');
+      let ctx = game.getContext('2d', { alpha: false }),
+        W = 480,
+        H = 268,
+        compact = false;
+      const clamp = (n, a, b) => Math.min(b, Math.max(a, n)),
+        ri = (a, b) => Math.floor(a + Math.random() * (b - a + 1)),
+        pick = (a) => a[ri(0, a.length - 1)],
+        sum = (a) => a.reduce((x, y) => x + y, 0),
+        mix = (a, b, k) => a + (b - a) * k;
+      function seeded(n) {
+        return () => {
+          n = (Math.imul(n, 1664525) + 1013904223) >>> 0;
+          return n / 4294967296;
+        };
+      }
+      function shuffle(a) {
+        for (let i = a.length - 1; i > 0; i--) {
+          let j = ri(0, i);
+          [a[i], a[j]] = [a[j], a[i]];
+        }
+        return a;
+      }
+      function read(key, fallback) {
+        try {
+          return JSON.parse(localStorage.getItem(key)) ?? fallback;
+        } catch {
+          return fallback;
+        }
+      }
+      let storeOK = true;
+      function write(key, value) {
+        try {
+          localStorage.setItem(key, JSON.stringify(value));
+        } catch {
+          storeOK = false;
+          document.querySelector('.local').textContent = 'SAVE UNAVAILABLE';
+        }
+      }
+      let prefs = Object.assign(
+        { sound: true, crt: true, difficulty: 1, quarter: CFG.quarter, defend: false, expansion: true },
+        read(CFG.prefs, {}),
+      );
+      let career = read(CFG.save, null),
+        records = read(CFG.records, [
+          { tag: 'BAZ', score: 5000, club: 'RIC', year: 0 },
+          { tag: 'KEZ', score: 3600, club: 'FRE', year: 0 },
+          { tag: 'MAC', score: 2200, club: 'ADE', year: 0 },
+        ]);
+      function save() {
+        if (career) write(CFG.save, career);
+      }
+      // Each hexadecimal row describes five pixels of the cartridge's 5 x 7 character ROM.
+      const glyphs = {
+        A: '0e 11 11 1f 11 11 11',
+        B: '1e 11 11 1e 11 11 1e',
+        C: '0f 10 10 10 10 10 0f',
+        D: '1e 11 11 11 11 11 1e',
+        E: '1f 10 10 1e 10 10 1f',
+        F: '1f 10 10 1e 10 10 10',
+        G: '0f 10 10 17 11 11 0f',
+        H: '11 11 11 1f 11 11 11',
+        I: '1f 04 04 04 04 04 1f',
+        J: '07 02 02 02 12 12 0c',
+        K: '11 12 14 18 14 12 11',
+        L: '10 10 10 10 10 10 1f',
+        M: '11 1b 15 15 11 11 11',
+        N: '11 19 19 15 13 13 11',
+        O: '0e 11 11 11 11 11 0e',
+        P: '1e 11 11 1e 10 10 10',
+        Q: '0e 11 11 11 15 12 0d',
+        R: '1e 11 11 1e 14 12 11',
+        S: '0f 10 10 0e 01 01 1e',
+        T: '1f 04 04 04 04 04 04',
+        U: '11 11 11 11 11 11 0e',
+        V: '11 11 11 11 11 0a 04',
+        W: '11 11 11 15 15 1b 11',
+        X: '11 11 0a 04 0a 11 11',
+        Y: '11 11 0a 04 04 04 04',
+        Z: '1f 01 02 04 08 10 1f',
+        0: '0e 11 13 15 19 11 0e',
+        1: '04 0c 04 04 04 04 0e',
+        2: '0e 11 01 06 08 10 1f',
+        3: '1e 01 01 0e 01 01 1e',
+        4: '02 06 0a 12 1f 02 02',
+        5: '1f 10 10 1e 01 01 1e',
+        6: '0e 10 10 1e 11 11 0e',
+        7: '1f 01 02 04 08 08 08',
+        8: '0e 11 11 0e 11 11 0e',
+        9: '0e 11 11 0f 01 01 0e',
+        ':': '00 04 04 00 04 04 00',
+        '.': '00 00 00 00 00 06 06',
+        '-': '00 00 00 1f 00 00 00',
+        '/': '01 01 02 04 08 10 10',
+        '%': '19 1a 02 04 08 0b 13',
+        '!': '04 04 04 04 04 00 04',
+        '+': '00 04 04 1f 04 04 00',
+        '>': '10 08 04 02 04 08 10',
+        '<': '01 02 04 08 04 02 01',
+        '?': '0e 11 01 06 04 00 04',
+        "'": '04 04 08 00 00 00 00',
+        '#': '0a 1f 0a 0a 1f 0a 00',
+        '&': '0c 12 14 08 15 12 0d',
+        '=': '00 00 1f 00 1f 00 00',
+        ' ': '00 00 00 00 00 00 00',
+      };
+      const font = Object.fromEntries(
+        Object.entries(glyphs).map(([k, v]) => [k, v.split(' ').map((i) => parseInt(i, 16))]),
+      );
+      function rect(x, y, w, h, col) {
+        ctx.fillStyle = col;
+        ctx.fillRect(Math.round(x), Math.round(y), Math.round(w), Math.round(h));
+      }
+      function box(x, y, w, h, fill, edge) {
+        rect(x, y, w, h, edge);
+        rect(x + 1, y + 1, w - 2, h - 2, fill);
+      }
+      const tw = (s, z = 1) => (String(s).length * 6 - 1) * z;
+      function txt(str, x, y, col = C.paper, z = 1, align = 'left') {
+        str = String(str).toUpperCase();
+        x = Math.round(x - (align === 'center' ? tw(str, z) / 2 : align === 'right' ? tw(str, z) : 0));
+        for (const ch of str) {
+          let rows = font[ch] || font['?'];
+          for (let r = 0; r < 7; r++) {
+            let bits = rows[r];
+            for (let c = 0; c < 5; c++) if (bits & (16 >> c)) rect(x + c * z, y + r * z, z, z, col);
+          }
+          x += 6 * z;
+        }
+      }
+      function line(x, y, u, v, col) {
+        x = Math.round(x);
+        y = Math.round(y);
+        u = Math.round(u);
+        v = Math.round(v);
+        const dx = Math.abs(u - x),
+          dy = -Math.abs(v - y),
+          sx = x < u ? 1 : -1,
+          sy = y < v ? 1 : -1;
+        let e = dx + dy;
+        while (true) {
+          rect(x, y, 1, 1, col);
+          if (x === u && y === v) break;
+          let e2 = 2 * e;
+          if (e2 >= dy) {
+            e += dy;
+            x += sx;
+          }
+          if (e2 <= dx) {
+            e += dx;
+            y += sy;
+          }
+        }
+      }
+      // Scanline polygons keep every diagonal on the pixel grid.
+      function poly(points, col) {
+        let lo = Math.ceil(Math.min(...points.map((p) => p[1]))),
+          hi = Math.ceil(Math.max(...points.map((p) => p[1])));
+        for (let y = lo; y < hi; y++) {
+          let cuts = [];
+          for (let i = 0, j = points.length - 1; i < points.length; j = i++) {
+            let a = points[i],
+              b = points[j],
+              s = y + 0.5;
+            if (a[1] > s !== b[1] > s) cuts.push(a[0] + ((s - a[1]) * (b[0] - a[0])) / (b[1] - a[1]));
+          }
+          cuts.sort((a, b) => a - b);
+          for (let i = 0; i + 1 < cuts.length; i += 2)
+            rect(Math.round(cuts[i]), y, Math.round(cuts[i + 1]) - Math.round(cuts[i]), 1, col);
+        }
+      }
+      function ellipse(x, y, rx, ry, col) {
+        for (let i = -Math.floor(ry); i <= ry; i++) {
+          let w = Math.round(rx * Math.sqrt(Math.max(0, 1 - (i * i) / (ry * ry))));
+          rect(x - w, y + i, 2 * w + 1, 1, col);
+        }
+      }
+      function onCanvas(canvas, fn) {
+        let old = ctx;
+        ctx = canvas.getContext('2d');
+        ctx.imageSmoothingEnabled = false;
+        fn();
+        ctx = old;
+      }
+      function art(w, h, fn) {
+        let can = document.createElement('canvas');
+        can.width = w;
+        can.height = h;
+        onCanvas(can, fn);
+        return can;
+      }
+      function drawIcon(kind, x, y, c = C.mint) {
+        const patterns = {
+          pad: [
+            '  ##########  ',
+            ' ##++++++++## ',
+            '##++++++++++##',
+            '##++#++++++o##',
+            '##+###++o+++##',
+            '##++#+++++++##',
+            ' #####++##### ',
+            ' ####    #### ',
+          ],
+          sound: [
+            '     #     ',
+            '   ###  #  ',
+            ' #####   # ',
+            ' ##### # # ',
+            ' #####   # ',
+            '   ###  #  ',
+            '     #     ',
+          ],
+          gear: [
+            '   ## ##   ',
+            '  #######  ',
+            '####   ####',
+            ' ##     ## ',
+            '####   ####',
+            '  #######  ',
+            '   ## ##   ',
+          ],
+          ball: ['      ####  ', '   ######## ', '  ##+++#### ', ' ##++++###  ', ' ########   ', '  ####      '],
+          book: [
+            '###########',
+            '#    #    #',
+            '# ## # ## #',
+            '#    #    #',
+            '# ## # ## #',
+            '#    #    #',
+            '###########',
+          ],
+          cup: [
+            ' ######### ',
+            '## ##### ##',
+            '## ##### ##',
+            ' ##### ### ',
+            '   #####   ',
+            '    ###    ',
+            '     #     ',
+            '   #####   ',
+          ],
+          play: ['#     ', '###   ', '##### ', '######', '##### ', '###   ', '#     '],
+        };
+        const pat = patterns[kind];
+        for (let j = 0; j < pat.length; j++)
+          for (let i = 0; i < pat[j].length; i++) {
+            let v = pat[j][i];
+            if (v !== ' ') rect(x + i, y + j, 1, 1, v === '+' ? C.ink : v === 'o' ? C.coral : c);
+          }
+      }
+      onCanvas($('brandIcon'), () => {
+        drawIcon('pad', 2, 4, C.mint);
+        line(7, 2, 10, 2, C.mint);
+        line(10, 1, 13, 1, C.mint);
+      });
+
+      $('brandWord').width = 94;
+      onCanvas($('brandWord'), () => {
+        txt('TOUCHLINE', 0, 1, C.paper);
+        txt('ARCADE', 58, 1, C.mint);
+      });
+      onCanvas($('gearIcon'), () => drawIcon('gear', 0, 2, C.muted));
+      function syncPrefs() {
+        write(CFG.prefs, prefs);
+        $('bezel').classList.toggle('crt', prefs.crt);
+        $('sound').querySelector('span').textContent = prefs.sound ? 'SOUND ON' : 'SOUND OFF';
+        $('sound').setAttribute('aria-pressed', String(prefs.sound));
+        onCanvas($('volumeIcon'), () => {
+          ctx.clearRect(0, 0, 12, 12);
+          drawIcon('sound', 0, 2, prefs.sound ? C.mint : C.muted);
+          if (!prefs.sound) line(0, 11, 11, 0, C.coral);
+        });
+      }
+      syncPrefs();
+      // Two melodic voices and a reusable white-noise channel.
+      let audio = null,
+        noiseBuffer,
+        master,
+        musicAt = 0,
+        noteIndex = 0;
+      function unlock() {
+        if (!prefs.sound) return;
+        try {
+          if (!audio) {
+            audio = new (window.AudioContext || window.webkitAudioContext)();
+            master = audio.createGain();
+            master.gain.value = 0.22;
+            master.connect(audio.destination);
+            noiseBuffer = audio.createBuffer(1, audio.sampleRate, audio.sampleRate);
+            let a = noiseBuffer.getChannelData(0);
+            for (let i = 0; i < a.length; i++) a[i] = Math.random() * 2 - 1;
+          }
+          if (audio.state === 'suspended') audio.resume().catch(() => {});
+        } catch {}
+      }
+      function tone(f, d, type = 'square', v = 0.12, delay = 0, end = f) {
+        if (!audio || !prefs.sound) return;
+        let t = audio.currentTime + delay,
+          src = type === 'noise' ? audio.createBufferSource() : audio.createOscillator(),
+          g = audio.createGain();
+        if (type === 'noise') {
+          src.buffer = noiseBuffer;
+          src.loop = true;
+        } else {
+          src.type = type;
+          src.frequency.setValueAtTime(f, t);
+          src.frequency.exponentialRampToValueAtTime(Math.max(1, end), t + d);
+        }
+        g.gain.setValueAtTime(0.0001, t);
+        g.gain.linearRampToValueAtTime(v, t + 0.008);
+        g.gain.exponentialRampToValueAtTime(0.0001, t + d);
+        src.connect(g).connect(master);
+        src.start(t);
+        src.stop(t + d + 0.01);
+      }
+      function sfx(k) {
+        if (k === 'kick') {
+          tone(130, 0.12, 'triangle', 0.8, 0, 30);
+          tone(0, 0.04, 'noise', 0.25);
+        } else if (k === 'goal') {
+          [0, 4, 7, 12, 7, 12].forEach((n, i) => tone(330 * 2 ** (n / 12), 0.18, 'square', 0.16, i * 0.09));
+          tone(0, 0.8, 'noise', 0.5);
+        } else if (k === 'siren') {
+          tone(166, 0.95, 'square', 0.28, 0, 151);
+          tone(249, 0.97, 'triangle', 0.48, 0, 230);
+        } else if (k === 'whistle') {
+          tone(1650, 0.17, 'square', 0.09, 0, 1950);
+        } else tone(k === 'move' ? 160 : 420, 0.08, 'square', 0.15, 0, k === 'move' ? 220 : 650);
+      }
+      const melody = [
+        0, 7, 12, -1, 10, 7, 3, 5, 0, 7, 12, 15, 14, 10, 7, -1, 5, 9, 12, 14, 12, 9, 5, 2, 3, 7, 10, 7, 5, 2, 0, -1,
+      ];
+      function music(t) {
+        if (!audio || audio.state !== 'running' || !prefs.sound || screen !== 'title' || t < musicAt) return;
+        musicAt = t + 0.18;
+        let i = noteIndex++ % 32,
+          n = melody[i];
+        if (n >= 0) tone(196 * 2 ** (n / 12), 0.15, 'square', 0.07);
+        if (i % 2 === 0) tone([98, 78, 87, 73][Math.floor(i / 8)], 0.28, 'triangle', 0.35);
+        if (i % 4 === 2) tone(0, 0.045, 'noise', 0.12);
+      }
+
+      // Club colours, jumper design, home ground and fictional starting strength (A/M/D/R).
+      const CLUBS = [
+        ['Adelaide Crows', 'ADE', '#182948', '#f34447', '#ffcd50', 'hoops3', 'Adelaide Oval', 82, 80, 78, 77],
+        ['Brisbane Lions', 'BRI', '#812547', '#226497', '#ffcc55', 'yoke', 'The Gabba', 90, 89, 84, 82],
+        ['Carlton', 'CAR', '#172946', '#f1edda', '#172946', 'plain', 'Princes Park', 84, 83, 79, 83],
+        ['Collingwood', 'COL', '#171b24', '#f4efe0', '#171b24', 'stripes', 'MCG', 85, 86, 88, 82],
+        ['Essendon', 'ESS', '#191c26', '#ed354c', '#171b24', 'sash', 'Docklands', 76, 80, 76, 78],
+        ['Fremantle', 'FRE', '#4e367f', '#f2edda', '#4e367f', 'chevrons', 'Perth Stadium', 82, 86, 85, 85],
+        ['Geelong Cats', 'GEE', '#1d354e', '#f6f0db', '#1d354e', 'hoops', 'Kardinia Park', 88, 85, 87, 78],
+        ['Gold Coast Suns', 'GCS', '#d8343d', '#f8ca48', '#c62841', 'sun', 'Carrara Oval', 84, 85, 81, 86],
+        ['GWS Giants', 'GWS', '#f17937', '#3c454b', '#e9e6d8', 'side', 'Sydney Showground', 87, 84, 82, 82],
+        ['Hawthorn', 'HAW', '#713c29', '#f9c445', '#713c29', 'stripes', 'MCG', 86, 85, 82, 79],
+        ['Melbourne', 'MEL', '#1d2b50', '#df3848', '#1d2b50', 'vee', 'MCG', 77, 80, 82, 87],
+        ['North Melbourne', 'NTH', '#f3efdf', '#2f6db2', '#f3efdf', 'stripes', 'Docklands', 78, 77, 73, 81],
+        ['Port Adelaide', 'PTA', '#19272b', '#29aaa7', '#eee9d6', 'doublevee', 'Adelaide Oval', 80, 85, 80, 78],
+        ['Richmond', 'RIC', '#202026', '#ffcc45', '#202026', 'sash', 'MCG', 73, 74, 74, 78],
+        ['St Kilda', 'STK', '#171e28', '#f0eddf', '#e9454c', 'thirds', 'Docklands', 77, 80, 82, 82],
+        ['Sydney Swans', 'SYD', '#e83b49', '#f6f0dc', '#e83b49', 'vee', 'Sydney Cricket Ground', 86, 86, 82, 80],
+        ['West Coast Eagles', 'WCE', '#244ba0', '#f9c33d', '#244ba0', 'wings', 'Perth Stadium', 73, 74, 73, 77],
+        ['Western Bulldogs', 'WBD', '#244f9f', '#e24651', '#f4efdf', 'bands', 'Docklands', 89, 87, 79, 82],
+      ];
+      const TAS = ['Tasmania Devils', 'TAS', '#145a40', '#edb73f', '#d4383c', 'devil', 'Hobart Oval', 65, 68, 66, 65];
+      const NEWCLUBS = [
+        [
+          'Northern Territory Crocs',
+          'NTC',
+          '#20785c',
+          '#ffae51',
+          '#183e3c',
+          'chevrons',
+          'Darwin Oval',
+          67,
+          66,
+          65,
+          67,
+        ],
+        ['Darwin Thunder', 'DAR', '#39395d', '#ffcc4d', '#f5ede3', 'sash', 'Darwin Oval', 66, 68, 65, 65],
+        ['Territory Firebirds', 'FIR', '#9e3845', '#ffb64f', '#422952', 'wings', 'Alice Springs Oval', 68, 65, 66, 65],
+      ];
+      const firstNames =
+        'Angus Bailey Lachie Flynn Heath Darby Jye Riley Fraser Ned Hamish Kieran Toby Mitch Clancy Rhys Zac Nash Callum Darcy Quinn Louie Banjo Cooper Max Sonny Arlo Dusty Lenny Tully Jonty Hugh Reuben Paddy Ollie Blake Finn Jesse Oscar'.split(
+          ' ',
+        );
+      const surnames =
+        'Birchall Kestrell Wattleby Pember Caddell Wickham Gumley Doolan Kelbrook Murney Wandin Marwick Huxford Brindle Carraway Thornby Redfern Blythe Fenmore Tallow Kirwan Westaway Mallee Brearley Gellibrand Gumnall Lowrie Wattleford Bridger Crowhurst Kemball Oatley Cambourne Winton Rubery Bellgrove Ellery'.split(
+          ' ',
+        );
+      const POS = ['FWD', 'MID', 'DEF', 'RUCK'],
+        profileIndex = { FWD: 0, MID: 1, DEF: 2, RUCK: 3 },
+        slots = ['FWD', 'MID', 'DEF', 'RUCK', 'FWD', 'MID', 'DEF', 'MID', 'FWD', 'DEF', 'RUCK', 'MID', 'FWD', 'DEF'];
+      const payFor = (r) => Math.max(36, Math.round((r - 48) * 3.5));
+      function player(c, pos, r, young = false) {
+        return {
+          id: c.nextId++,
+          name: pick(firstNames) + ' ' + pick(surnames),
+          pos,
+          r: clamp(r, 44, 97),
+          age: young ? ri(18, 20) : ri(19, 32),
+          deal: young ? 2 : ri(1, 4),
+          pay: young ? 54 : payFor(r),
+          mood: ri(65, 90),
+          hurt: 0,
+          goals: 0,
+          votes: 0,
+          merit: 0,
+        };
+      }
+      function freshClub(c, data) {
+        let t = {
+          id: c.teams.length,
+          name: data[0],
+          abbr: data[1],
+          kit: data.slice(2, 6),
+          ground: data[6],
+          base: data.slice(7),
+          list: [],
+          fac: [0, 0, 0, 0],
+        };
+        t.list = slots.map((pos) => player(c, pos, t.base[profileIndex[pos]] + ri(-8, 7)));
+        while (payroll(t) > CFG.cap) {
+          let p = t.list.reduce((a, b) => (a.pay > b.pay ? a : b));
+          p.pay--;
+        }
+        return t;
+      }
+      const payroll = (t) => sum(t.list.map((p) => p.pay));
+      function ratings(t) {
+        return POS.map((pos, i) => {
+          let list = t.list
+            .filter((p) => p.pos === pos && !p.hurt)
+            .sort((a, b) => b.r - a.r)
+            .slice(0, pos === 'RUCK' ? 1 : 3);
+          return list.length
+            ? Math.round(sum(list.map((p) => p.r + (p.mood - 75) / 16)) / list.length)
+            : Math.max(45, t.base[i] - 18);
+        });
+      }
+      function fixture(n) {
+        let ring = shuffle(Array.from({ length: n }, (_, i) => i));
+        if (n % 2) ring.push(-1);
+        let rounds = [],
+          size = ring.length;
+        for (let r = 0; r < size - 1; r++) {
+          let pairs = [];
+          for (let i = 0; i < size / 2; i++) {
+            let a = ring[i],
+              b = ring[size - 1 - i];
+            if (a !== -1 && b !== -1) pairs.push((i + r) % 2 ? [a, b] : [b, a]);
+          }
+          rounds.push(pairs);
+          ring.splice(1, 0, ring.pop());
+        }
+        if (n % 2) {
+          let spill = [],
+            order = shuffle(Array.from({ length: n }, (_, i) => i));
+          for (let d = 1; d <= 2; d++) {
+            let circuit = Array.from({ length: n }, (_, i) => order[(i * d + (d === 2 ? 5 : 0)) % n]);
+            let a = [],
+              b = [];
+            for (let i = 0; i < n - 1; i++) (i % 2 ? b : a).push([circuit[i], circuit[i + 1]]);
+            rounds.push(a, b);
+            spill.push([circuit[n - 1], circuit[0]]);
+          }
+          rounds.push(spill);
+        } else {
+          let base = rounds.slice();
+          for (let i = 0; rounds.length < 22; i++) rounds.push(base[i].map(([a, b]) => [b, a]));
+          let split = rounds[10].splice(Math.ceil(rounds[10].length / 2));
+          rounds.splice(11, 0, split);
+        }
+        return balanceVenues(rounds, n);
+      }
+      // A reciprocal pair already gives both clubs one home date. The remaining
+      // graph has even degree at each club, so closed walks give exactly 11 home games.
+      function balanceVenues(rounds, n) {
+        if (n % 2) {
+          const last = rounds.at(-1),
+            occupied = new Set(last.flat());
+          while (last.length < Math.floor(n / 2)) {
+            let choice = null;
+            for (const r of shuffle(rounds.slice(0, -1)).sort((a, b) => b.length - a.length)) {
+              const i = r.findIndex(([a, b]) => !occupied.has(a) && !occupied.has(b));
+              if (i >= 0) {
+                choice = [r, i];
+                break;
+              }
+            }
+            if (!choice) break;
+            const [r, i] = choice,
+              edge = r.splice(i, 1)[0];
+            last.push(edge);
+            edge.forEach((id) => occupied.add(id));
+          }
+        }
+        const fixtures = rounds.map((r) => r.map(([h, a]) => ({ h, a }))),
+          pairs = new Map(),
+          edges = Array.from({ length: n }, () => []);
+        for (const g of fixtures.flat()) {
+          const key = Math.min(g.h, g.a) * n + Math.max(g.h, g.a),
+            first = pairs.get(key);
+          if (first) {
+            g.h = first.a;
+            g.a = first.h;
+            pairs.delete(key);
+          } else pairs.set(key, g);
+        }
+        for (const g of pairs.values()) {
+          edges[g.h].push(g);
+          edges[g.a].push(g);
+        }
+        edges.forEach(shuffle);
+        const visited = new Set();
+        for (let start = 0; start < n; start++) {
+          let at = start;
+          while (edges[at].length) {
+            const g = edges[at].pop();
+            if (visited.has(g)) continue;
+            visited.add(g);
+            const next = g.h === at ? g.a : g.h;
+            g.h = at;
+            g.a = next;
+            at = next;
+          }
+        }
+        return fixtures;
+      }
+      function seasonStart(c) {
+        c.fixture = fixture(c.teams.length);
+        c.table = c.teams.map((t) => ({ id: t.id, w: 0, d: 0, l: 0, pf: 0, pa: 0, pts: 0 }));
+        c.round = 0;
+        c.phase = 'home';
+        c.finals = [];
+        c.week = 0;
+        c.champ = null;
+        c.recap = null;
+        c.teams.forEach((t) =>
+          t.list.forEach((p) => {
+            p.goals = p.merit = p.votes = 0;
+          }),
+        );
+        c.market = [];
+        c.retired = [];
+      }
+      function newCareer(id, initials) {
+        let c = {
+          version: 1,
+          nextId: 1,
+          teams: [],
+          club: id,
+          initials,
+          year: 1,
+          credits: 6,
+          history: [],
+          flags: 0,
+          wins: 0,
+          exp: { tas: false, nt: false },
+          protected: [],
+          news: '',
+        };
+        CLUBS.forEach((d) => c.teams.push(freshClub(c, d)));
+        seasonStart(c);
+        career = c;
+        save();
+        return c;
+      }
+      const percent = (r) => (r.pa ? (100 * r.pf) / r.pa : r.pf ? 999.9 : 0);
+      const ladder = (c) =>
+        c.table.slice().sort((a, b) => b.pts - a.pts || percent(b) - percent(a) || b.pf - a.pf || a.id - b.id);
+      const slate = (c) => (c.phase === 'home' ? c.fixture[c.round] : c.phase === 'finals' ? c.finals[c.week] : []);
+      const myGame = (c) => slate(c).find((g) => g.h === c.club || g.a === c.club);
+      const points = (s) => 6 * s[0] + s[1],
+        won = (g) => (points(g.score[0]) > points(g.score[1]) ? g.h : g.a),
+        lost = (g) => (won(g) === g.h ? g.a : g.h);
+      const weeks = ['OPENING FINALS', 'SEMI FINALS', 'PRELIM FINALS', 'GRAND FINAL'];
+      const period = (c) =>
+        c.phase === 'home'
+          ? 'ROUND ' + (c.round + 1) + ' / ' + c.fixture.length
+          : c.phase === 'finals'
+            ? weeks[c.week]
+            : 'OFF-SEASON';
+      function simulate(c, g) {
+        let h = ratings(c.teams[g.h]),
+          a = ratings(c.teams[g.a]);
+        function score(us, them, home) {
+          let chances = clamp(
+              Math.round(
+                22 +
+                  (us[0] + us[1] - them[2] - them[1]) * 0.22 +
+                  (us[3] - them[3]) * 0.06 +
+                  (Math.random() + Math.random() - 1) * 15 +
+                  home,
+              ),
+              8,
+              40,
+            ),
+            goals = 0;
+          for (let i = 0; i < chances; i++) if (Math.random() < 0.54 + (us[0] - them[2]) * 0.003) goals++;
+          return [goals, chances - goals];
+        }
+        return [score(h, a, 1), score(a, h, 0)];
+      }
+      function result(c, g, s, scorers = {}) {
+        if (g.score) return;
+        if (c.phase === 'finals' && points(s[0]) === points(s[1])) {
+          s[ri(0, 1)][ri(0, 1)]++;
+          g.extra = true;
+        }
+        g.score = s;
+        let awards = [];
+        [g.h, g.a].forEach((id, i) => {
+          let t = c.teams[id],
+            pf = points(s[i]),
+            pa = points(s[1 - i]),
+            w = pf > pa,
+            d = pf === pa;
+          if (c.phase === 'home') {
+            let r = c.table[id];
+            r.w += +w;
+            r.d += +d;
+            r.l += +(pf < pa);
+            r.pf += pf;
+            r.pa += pa;
+            r.pts += w ? 4 : d ? 2 : 0;
+          }
+          if (id === c.club) {
+            c.credits += w ? 3 + Math.floor(t.fac[3] / 2) : 1;
+            if (w) c.wins++;
+          }
+          let fit = t.list.filter((p) => !p.hurt);
+          if (!fit.length) fit = t.list;
+          let fw = fit.filter((p) => p.pos === 'FWD');
+          if (!fw.length) fw = fit;
+          let given = 0,
+            goals = {};
+          for (let p of fit) {
+            let count = Math.min(s[i][0] - given, scorers[p.id] || 0);
+            goals[p.id] = count;
+            given += count;
+          }
+          for (let k = given; k < s[i][0]; k++) {
+            let p = pick(Math.random() < 0.75 ? fw : fit);
+            goals[p.id]++;
+          }
+          for (let p of fit) {
+            let contribution = ri(2, 14) + (goals[p.id] || 0) * 2 + (p.r - 65) * 0.09 + (w ? 2 : 0);
+            p.goals += goals[p.id] || 0;
+            p.merit += Math.round(contribution);
+            p.mood = clamp(p.mood + (w ? 2 : -1), 35, 99);
+            awards.push([p, contribution + Math.random()]);
+          }
+          for (let p of t.list) if (p.hurt) p.hurt--;
+          if (Math.random() < 0.17 - t.fac[1] * 0.023 && fit.length > 6) pick(fit).hurt = ri(1, 3);
+        });
+        if (c.phase === 'home')
+          awards
+            .sort((a, b) => b[1] - a[1])
+            .slice(0, 3)
+            .forEach(([p], i) => (p.votes += 3 - i));
+      }
+      function pair(h, a, label) {
+        return { h, a, label };
+      }
+      function advance(c) {
+        if (slate(c).some((g) => !g.score)) return;
+        if (c.phase === 'home') {
+          c.round++;
+          if (c.round === c.fixture.length) {
+            let s = ladder(c).map((r) => r.id);
+            c.finals = [
+              [pair(s[0], s[3], 'QF 1'), pair(s[1], s[2], 'QF 2'), pair(s[4], s[7], 'EF 1'), pair(s[5], s[6], 'EF 2')],
+            ];
+            c.phase = 'finals';
+            c.week = 0;
+          }
+        } else if (c.phase === 'finals') {
+          let first = c.finals[0],
+            r = c.finals[c.week];
+          if (c.week === 0)
+            c.finals.push([pair(lost(first[0]), won(first[2]), 'SF 1'), pair(lost(first[1]), won(first[3]), 'SF 2')]);
+          else if (c.week === 1)
+            c.finals.push([pair(won(first[0]), won(r[1]), 'PF 1'), pair(won(first[1]), won(r[0]), 'PF 2')]);
+          else if (c.week === 2) c.finals.push([pair(won(r[0]), won(r[1]), 'GF')]);
+          else {
+            c.champ = won(r[0]);
+            c.phase = 'recap';
+            let t = c.teams[c.club],
+              best = (list, k) => list.reduce((a, b) => (a[k] >= b[k] ? a : b)),
+              bf = best(t.list, 'merit'),
+              boot = best(t.list, 'goals'),
+              medal = best(
+                c.teams.flatMap((t) => t.list),
+                'votes',
+              );
+            let rec = {
+              year: c.year,
+              club: t.name,
+              champ: c.teams[c.champ].name,
+              finish: ladder(c).findIndex((r) => r.id === c.club) + 1,
+              bf: bf.name,
+              boot: boot.name,
+              goals: boot.goals,
+              medal: medal.name,
+              votes: medal.votes,
+            };
+            c.history.push(rec);
+            c.recap = rec;
+            if (c.champ === c.club) {
+              c.flags++;
+              c.credits += 8;
+            }
+            let score = c.wins * 100 + c.flags * 5000;
+            records.push({ tag: c.initials, score, club: t.abbr, year: c.year });
+            records.sort((a, b) => b.score - a.score);
+            records = records.slice(0, 8);
+            write(CFG.records, records);
+            return;
+          }
+          c.week++;
+        }
+      }
+      function finishRound(manual, scorers) {
+        let c = career,
+          g = myGame(c);
+        for (let item of slate(c))
+          result(c, item, item === g && manual ? manual : simulate(c, item), item === g ? scorers : {});
+        let games = slate(c).slice(),
+          playing = new Set(games.flatMap((f) => [f.h, f.a]));
+        for (let t of c.teams) if (!playing.has(t.id)) for (let p of t.list) if (p.hurt) p.hurt--;
+        let last = { period: period(c), games, me: g || null };
+        advance(c);
+        save();
+        return last;
+      }
+      function defaultProtected(t) {
+        return t.list
+          .slice()
+          .sort((a, b) => b.r - a.r)
+          .slice(0, CFG.protected)
+          .map((p) => p.id);
+      }
+      function expand(c, choices, variant, coach) {
+        let created = [],
+          nextCoach = c.club;
+        let donors = c.teams.slice(),
+          used = new Set();
+        for (let key of choices) {
+          if (c.exp[key]) continue;
+          let t = freshClub(c, key === 'tas' ? TAS : NEWCLUBS[variant]);
+          const available = new Set(t.list.map((p) => p.id));
+          for (let donor of shuffle(donors.slice())
+            .filter((d) => !used.has(d.id))
+            .slice(0, 5)) {
+            let keep = donor.id === c.club ? c.protected : defaultProtected(donor),
+              pool = donor.list.filter(
+                (p) => !keep.includes(p.id) && t.list.some((q) => available.has(q.id) && q.pos === p.pos),
+              );
+            if (!pool.length) continue;
+            let p = pick(pool),
+              i = t.list.findIndex((q) => q.pos === p.pos && available.has(q.id));
+            let rookie = t.list[i];
+            available.delete(rookie.id);
+            donor.list[donor.list.indexOf(p)] = rookie;
+            t.list[i] = p;
+            rookie.pay = Math.min(rookie.pay, p.pay);
+            p.pay = Math.min(p.pay, CFG.cap - payroll(t) + p.pay);
+            used.add(donor.id);
+          }
+          c.teams.push(t);
+          c.exp[key] = true;
+          created.push(t);
+          if (coach === key) nextCoach = t.id;
+        }
+        c.club = nextCoach;
+        c.protected = [];
+        return created;
+      }
+      function offseason(c) {
+        c.phase = 'draft';
+        c.retired = [];
+        for (let t of c.teams) {
+          let kept = [];
+          for (let p of t.list) {
+            p.age++;
+            p.deal = Math.max(0, p.deal - 1);
+            p.hurt = 0;
+            p.r = clamp(
+              p.r + (p.age < 25 ? ri(0, 3) + Math.floor(t.fac[0] / 2) : p.age > 30 ? -ri(0, 3) : ri(-1, 1)),
+              45,
+              97,
+            );
+            if (p.age >= 35 || (p.age >= 32 && Math.random() < 0.2)) {
+              if (t.id === c.club) c.retired.push(p.name);
+              continue;
+            }
+            kept.push(p);
+          }
+          t.list = kept;
+          if (t.id !== c.club) {
+            for (let p of t.list.filter((p) => !p.deal).sort((a, b) => b.r - a.r)) {
+              let offer = payFor(p.r),
+                room = CFG.cap - payroll(t) + p.pay - 36 * (CFG.squad - t.list.length);
+              if (offer <= room && Math.random() < 0.86) {
+                p.pay = offer;
+                p.deal = ri(2, 4);
+              }
+            }
+            settleTeam(c, t);
+          }
+        }
+        let t = c.teams[c.club];
+        c.market = Array.from({ length: 5 }, (_, i) => player(c, POS[i % 4], ri(58, 74) + t.fac[2] * 2, true));
+        c.pickUsed = false;
+      }
+      function settleTeam(c, t) {
+        t.list = t.list.filter((p) => p.deal > 0);
+        while (t.list.length < CFG.squad) {
+          let missing =
+            slots.find((pos) => t.list.filter((p) => p.pos === pos).length < slots.filter((s) => s === pos).length) ||
+            'MID';
+          let p = player(c, missing, ri(55, 72) + t.fac[2], true);
+          p.pay = Math.min(54, Math.floor((CFG.cap - payroll(t)) / (CFG.squad - t.list.length)));
+          t.list.push(p);
+        }
+      }
+      function rollSeason(c) {
+        settleTeam(c, c.teams[c.club]);
+        c.year++;
+        seasonStart(c);
+        save();
+      }
+
+      // Cover illustration, painted on a small pixel grid and cached like a cartridge tile map.
+      const hero = art(150, 153, () => {
+        const k = '#292438',
+          deep = '#453443',
+          shade = '#a95848',
+          mid = '#db845a',
+          skin = '#f2ad76',
+          sun = '#ffd59a',
+          navy = '#25394a',
+          blue = '#3e5961',
+          gold = '#e3a53e',
+          light = '#ffda67';
+        function P(c, ...a) {
+          poly(
+            Array.from({ length: a.length / 2 }, (_, i) => [a[i * 2], a[i * 2 + 1]]),
+            c,
+          );
+        }
+        // Trailing boot, striped sock and bent rear leg.
+        P(
+          k,
+          74,
+          91,
+          89,
+          90,
+          100,
+          101,
+          112,
+          117,
+          123,
+          109,
+          130,
+          102,
+          138,
+          103,
+          139,
+          107,
+          146,
+          108,
+          148,
+          113,
+          145,
+          117,
+          136,
+          119,
+          131,
+          123,
+          115,
+          136,
+          108,
+          138,
+          101,
+          134,
+          87,
+          121,
+          76,
+          114,
+        );
+        P(shade, 77, 95, 88, 94, 101, 109, 112, 123, 126, 112, 130, 115, 113, 134, 107, 134, 96, 124, 81, 111);
+        P(skin, 86, 96, 93, 102, 105, 118, 112, 124, 119, 119, 113, 129, 108, 130, 97, 120, 84, 109);
+        P(mid, 82, 94, 88, 95, 91, 106, 103, 122, 94, 118, 81, 107);
+        P(navy, 116, 119, 131, 105, 138, 105, 139, 113, 124, 128, 119, 129, 114, 125);
+        P(gold, 118, 117, 122, 114, 128, 121, 124, 125);
+        P(light, 120, 116, 123, 114, 127, 118, 125, 120);
+        P(blue, 130, 106, 135, 104, 136, 110, 132, 115, 128, 114);
+        P(k, 131, 105, 129, 100, 133, 95, 138, 95, 140, 99, 139, 104, 146, 107, 148, 112, 143, 115, 138, 113);
+        rect(134, 97, 3, 3, '#819194');
+        rect(137, 107, 7, 2, blue);
+        rect(143, 113, 3, 2, '#a48d81');
+        // Forward thigh, lifted knee and near boot.
+        P(
+          k,
+          75,
+          87,
+          82,
+          99,
+          77,
+          107,
+          68,
+          114,
+          52,
+          111,
+          44,
+          109,
+          40,
+          123,
+          33,
+          136,
+          29,
+          144,
+          29,
+          149,
+          25,
+          152,
+          16,
+          151,
+          12,
+          147,
+          15,
+          140,
+          17,
+          134,
+          20,
+          129,
+          22,
+          123,
+          25,
+          112,
+          28,
+          101,
+          34,
+          93,
+          43,
+          90,
+          55,
+          91,
+          65,
+          94,
+        );
+        P(
+          shade,
+          68,
+          93,
+          76,
+          97,
+          75,
+          102,
+          67,
+          109,
+          51,
+          107,
+          41,
+          104,
+          37,
+          119,
+          31,
+          131,
+          24,
+          130,
+          26,
+          114,
+          30,
+          103,
+          35,
+          96,
+          42,
+          94,
+          55,
+          95,
+          65,
+          98,
+        );
+        P(
+          skin,
+          67,
+          96,
+          74,
+          98,
+          70,
+          103,
+          60,
+          105,
+          45,
+          101,
+          39,
+          101,
+          35,
+          106,
+          32,
+          117,
+          27,
+          120,
+          30,
+          107,
+          33,
+          100,
+          40,
+          95,
+          51,
+          96,
+          60,
+          100,
+        );
+        P(sun, 38, 96, 48, 96, 54, 98, 42, 98, 34, 102);
+        P(mid, 50, 102, 60, 104, 66, 103, 62, 106, 53, 106);
+        P(navy, 24, 117, 36, 121, 32, 132, 28, 140, 20, 138, 18, 134);
+        P(light, 25, 116, 37, 120, 35, 124, 24, 121);
+        P(gold, 23, 124, 34, 128, 32, 131, 22, 128);
+        P(blue, 20, 131, 25, 133, 23, 139, 19, 138);
+        P(k, 19, 134, 26, 137, 29, 144, 28, 149, 25, 152, 15, 151, 11, 148, 12, 144, 16, 141);
+        P(blue, 15, 143, 20, 139, 23, 140, 21, 145, 15, 147);
+        rect(13, 148, 12, 2, '#697878');
+        rect(16, 150, 2, 2, k);
+        rect(23, 150, 2, 2, k);
+        // Far arm swings back, with hand and individual fingers.
+        P(
+          k,
+          83,
+          51,
+          92,
+          53,
+          98,
+          59,
+          105,
+          67,
+          114,
+          64,
+          122,
+          60,
+          124,
+          55,
+          128,
+          53,
+          128,
+          59,
+          134,
+          55,
+          137,
+          56,
+          136,
+          59,
+          141,
+          57,
+          142,
+          60,
+          138,
+          64,
+          142,
+          63,
+          141,
+          66,
+          131,
+          71,
+          123,
+          71,
+          109,
+          79,
+          102,
+          80,
+          96,
+          76,
+          85,
+          67,
+        );
+        P(
+          shade,
+          88,
+          54,
+          94,
+          57,
+          104,
+          70,
+          112,
+          69,
+          124,
+          63,
+          127,
+          57,
+          127,
+          62,
+          138,
+          58,
+          133,
+          64,
+          139,
+          61,
+          134,
+          66,
+          127,
+          68,
+          121,
+          68,
+          109,
+          76,
+          103,
+          77,
+          97,
+          73,
+          89,
+          64,
+        );
+        P(skin, 91, 55, 97, 62, 104, 69, 109, 69, 120, 64, 117, 69, 105, 74, 101, 73, 93, 65);
+        P(sun, 94, 58, 101, 66, 103, 68, 98, 66);
+        P(mid, 126, 63, 136, 59, 132, 64, 127, 66);
+        // Front arm extends to the footy. Stepped highlights define the bicep, wrist and knuckles.
+        P(
+          k,
+          61,
+          51,
+          70,
+          54,
+          70,
+          62,
+          65,
+          70,
+          58,
+          69,
+          48,
+          62,
+          40,
+          53,
+          33,
+          47,
+          29,
+          39,
+          22,
+          29,
+          17,
+          23,
+          15,
+          18,
+          17,
+          14,
+          20,
+          14,
+          20,
+          10,
+          23,
+          9,
+          25,
+          13,
+          28,
+          10,
+          30,
+          12,
+          29,
+          18,
+          33,
+          15,
+          35,
+          17,
+          32,
+          23,
+          31,
+          26,
+          37,
+          35,
+          41,
+          42,
+          47,
+          46,
+          54,
+          47,
+        );
+        P(
+          shade,
+          61,
+          53,
+          66,
+          56,
+          66,
+          63,
+          62,
+          66,
+          56,
+          65,
+          47,
+          58,
+          37,
+          47,
+          33,
+          43,
+          29,
+          34,
+          21,
+          25,
+          18,
+          20,
+          18,
+          16,
+          23,
+          18,
+          24,
+          13,
+          27,
+          15,
+          27,
+          21,
+          32,
+          17,
+          29,
+          24,
+          28,
+          27,
+          34,
+          36,
+          39,
+          43,
+          47,
+          49,
+          55,
+          49,
+        );
+        P(
+          skin,
+          60,
+          52,
+          65,
+          55,
+          66,
+          59,
+          61,
+          63,
+          55,
+          62,
+          47,
+          56,
+          41,
+          48,
+          34,
+          43,
+          31,
+          35,
+          23,
+          24,
+          22,
+          19,
+          26,
+          17,
+          26,
+          24,
+          32,
+          33,
+          38,
+          42,
+          47,
+          47,
+          55,
+          50,
+        );
+        P(sun, 53, 50, 60, 52, 62, 55, 57, 56, 50, 52, 43, 50, 39, 46, 45, 47);
+        P(mid, 43, 52, 50, 54, 56, 61, 51, 59);
+        P(sun, 25, 25, 29, 29, 34, 36, 35, 40, 31, 36);
+        // Shorts and sleeveless guernsey with an ochre sash.
+        P(k, 63, 77, 83, 74, 88, 85, 95, 95, 92, 102, 85, 109, 79, 108, 74, 102, 69, 107, 56, 102, 54, 96, 59, 87);
+        P(navy, 62, 82, 84, 80, 87, 89, 92, 96, 89, 101, 84, 105, 78, 100, 73, 96, 68, 102, 59, 99, 59, 94);
+        P(blue, 65, 85, 76, 84, 71, 90, 63, 95, 60, 95);
+        P('#567073', 73, 88, 77, 85, 74, 91, 68, 94);
+        P('#152c3b', 73, 95, 79, 88, 83, 91, 84, 98, 89, 100, 84, 105);
+        P(C.paper, 58, 97, 71, 101, 68, 104, 57, 100);
+        P('#bbcab6', 81, 105, 91, 98, 92, 100, 84, 108);
+        P(
+          k,
+          59,
+          47,
+          65,
+          44,
+          74,
+          46,
+          80,
+          46,
+          88,
+          50,
+          93,
+          56,
+          89,
+          63,
+          90,
+          72,
+          87,
+          81,
+          88,
+          86,
+          81,
+          90,
+          68,
+          89,
+          58,
+          86,
+          59,
+          79,
+          60,
+          70,
+          56,
+          65,
+          59,
+          57,
+        );
+        P(
+          navy,
+          61,
+          49,
+          68,
+          47,
+          75,
+          49,
+          82,
+          48,
+          89,
+          52,
+          89,
+          57,
+          85,
+          63,
+          87,
+          71,
+          83,
+          80,
+          85,
+          85,
+          79,
+          87,
+          65,
+          85,
+          61,
+          83,
+          63,
+          74,
+          59,
+          65,
+          63,
+          57,
+        );
+        P(blue, 64, 53, 68, 50, 72, 52, 67, 62, 63, 68, 60, 64);
+        P('#51656d', 74, 55, 81, 52, 78, 57, 70, 64);
+        P(gold, 82, 48, 89, 52, 88, 58, 81, 64, 70, 75, 62, 81, 62, 72, 69, 64, 77, 56);
+        P(light, 82, 50, 86, 52, 83, 57, 76, 63, 69, 71, 62, 76, 64, 71, 73, 62);
+        P('#b88a3d', 69, 72, 76, 66, 73, 72, 64, 80, 62, 80);
+        P(blue, 73, 78, 84, 70, 82, 76, 76, 79);
+        P('#647578', 77, 81, 84, 77, 83, 79);
+        P('#293b45', 68, 82, 77, 79, 72, 84);
+        P(light, 59, 83, 68, 85, 83, 85, 84, 87, 71, 88, 60, 86);
+        // Face in profile, ear, dark curls and neckline.
+        P(
+          k,
+          67,
+          45,
+          67,
+          40,
+          62,
+          39,
+          61,
+          35,
+          57,
+          34,
+          59,
+          29,
+          60,
+          24,
+          60,
+          19,
+          65,
+          14,
+          73,
+          13,
+          82,
+          16,
+          85,
+          23,
+          84,
+          31,
+          81,
+          37,
+          78,
+          41,
+          80,
+          47,
+          76,
+          52,
+          70,
+          52,
+        );
+        P(shade, 67, 32, 79, 27, 82, 30, 78, 38, 76, 42, 79, 47, 74, 49, 68, 46, 70, 40);
+        P(skin, 63, 23, 74, 21, 78, 25, 78, 32, 74, 36, 70, 40, 65, 39, 64, 35, 60, 33, 63, 29);
+        P(sun, 63, 24, 70, 23, 70, 26, 65, 27, 63, 30, 61, 32, 65, 32, 64, 34, 62, 33);
+        P(mid, 72, 28, 77, 25, 78, 28, 74, 32, 73, 37, 69, 39, 66, 38, 70, 33);
+        P(
+          k,
+          60,
+          25,
+          59,
+          21,
+          61,
+          17,
+          62,
+          14,
+          66,
+          13,
+          67,
+          10,
+          71,
+          11,
+          74,
+          9,
+          78,
+          11,
+          81,
+          11,
+          83,
+          14,
+          86,
+          16,
+          85,
+          20,
+          87,
+          21,
+          85,
+          27,
+          82,
+          29,
+          81,
+          33,
+          77,
+          34,
+          78,
+          29,
+          75,
+          27,
+          74,
+          22,
+          68,
+          21,
+          65,
+          24,
+        );
+        P('#57403e', 62, 18, 65, 14, 71, 14, 73, 12, 78, 12, 81, 15, 74, 15, 70, 18, 67, 17, 63, 21);
+        rect(77, 17, 5, 2, '#6c4c42');
+        P(skin, 76, 27, 79, 25, 81, 26, 80, 30, 77, 32);
+        rect(78, 27, 2, 2, shade);
+        rect(63, 27, 4, 1, k);
+        rect(64, 28, 2, 1, k);
+        rect(63, 35, 5, 1, deep);
+        rect(66, 37, 3, 1, mid);
+        P(gold, 65, 45, 69, 46, 73, 49, 78, 45, 79, 47, 75, 52, 71, 53, 64, 48);
+        // Stitched red leather ball, held in the raised hand.
+        P(k, 9, 16, 9, 11, 12, 7, 19, 3, 26, 1, 31, 2, 34, 5, 33, 11, 28, 16, 21, 20, 14, 21, 10, 19);
+        P('#ac3f42', 11, 15, 12, 10, 19, 5, 27, 3, 31, 4, 32, 7, 29, 13, 22, 18, 15, 19, 12, 18);
+        P('#e95943', 12, 14, 15, 9, 23, 5, 29, 4, 30, 6, 27, 11, 21, 15, 15, 17);
+        P('#ff9b5c', 14, 11, 18, 7, 25, 5, 27, 5, 23, 7, 18, 9, 16, 12);
+        line(18, 13, 26, 7, '#752f39');
+        for (let i = 0; i < 3; i++) line(19 + i * 2, 10 - i, 20 + i * 2, 12 - i, C.paper);
+        rect(17, 17, 2, 3, skin);
+        rect(20, 16, 2, 4, sun);
+        rect(23, 15, 2, 4, skin);
+      });
+      const logoFont = {
+        R: ['111110', '111111', '110011', '111110', '111100', '110110', '110011'],
+        E: ['111111', '111111', '110000', '111110', '110000', '111111', '111111'],
+        T: ['111111', '111111', '001100', '001100', '001100', '001100', '001100'],
+        O: ['011110', '111111', '110011', '110011', '110011', '111111', '011110'],
+        A: ['0011100', '0111110', '1110111', '1100011', '1111111', '1100011', '1100011'],
+        F: ['111111', '111111', '110000', '111110', '111110', '110000', '110000'],
+        L: ['110000', '110000', '110000', '110000', '110000', '111111', '111111'],
+      };
+      function logoWord(s, sx, sy, gold) {
+        let base = art(260, 80, () => {
+          let x = 1;
+          for (let ch of s) {
+            let rows = logoFont[ch];
+            for (let j = 0; j < 7; j++)
+              for (let k = 0; k < rows[j].length; k++)
+                if (rows[j][k] === '1')
+                  for (let t = 0; t < sy; t++) {
+                    let lean = Math.floor((7 * sy - j * sy - t) * 0.2);
+                    rect(x + k * sx + lean, j * sy + t, sx, 1, '#fff');
+                  }
+            x += (rows[0].length + 1) * sx;
+          }
+        });
+        let width =
+          1 + Array.from(s).reduce((n, ch) => n + (logoFont[ch][0].length + 1) * sx, 0) + Math.floor(sy * 1.4);
+        let h = 7 * sy;
+        let layer = (col, offset = 0) =>
+            art(width, h, () => {
+              ctx.drawImage(base, 0, 0);
+              ctx.globalCompositeOperation = 'source-in';
+              rect(0, 0, width, h, col);
+              ctx.globalCompositeOperation = 'source-atop';
+              if (offset) {
+                rect(0, 0, width, 2, gold ? '#fff1a5' : '#fffbea');
+                rect(0, h - 4, width, 4, gold ? '#f6ac3f' : '#ded6c3');
+              }
+              ctx.globalCompositeOperation = 'source-over';
+            }),
+          dark = layer('#282438'),
+          red = layer('#af5147'),
+          face = layer(gold ? '#ffd053' : '#fff1d3', 1);
+        return art(width + 13, h + 13, () => {
+          for (let d = 7; d >= 0; d--) {
+            ctx.drawImage(dark, 3 + d, 3 + d);
+            ctx.drawImage(dark, d, 3 + d);
+            ctx.drawImage(dark, 3 + d, d);
+          }
+          ctx.drawImage(red, 5, 6);
+          ctx.drawImage(dark, 2, 4);
+          ctx.drawImage(face, 2, 2);
+        });
+      }
+      const retroLogo = logoWord('RETRO', 5, 5, false),
+        aflLogo = logoWord('AFL', 7, 7, true);
+      function flood(x, y, scale, flip) {
+        let s = scale,
+          dx = flip ? -1 : 1;
+        const L = (a, b, c, d, color) => line(x + a * s * dx, y + b * s, x + c * s * dx, y + d * s, color);
+        L(0, 0, 10, 78, '#3c3b50');
+        L(4, 0, 16, 78, '#433d52');
+        for (let i = 0; i < 7; i++) {
+          L(i * 1.4, 7 + i * 10, 5 + (i + 1) * 1.5, 16 + i * 10, '#53465b');
+          L(5 + i * 1.5, 6 + i * 10, (i + 1) * 1.4, 16 + i * 10, '#615367');
+        }
+        for (let j = 0; j < 3; j++)
+          for (let i = 0; i < 7; i++) {
+            let a = x + (i - 3) * 3 * s,
+              b = y + j * 3 * s - Math.floor(i / 3);
+            rect(a - 1, b - 1, 4 * s, 4 * s, '#443d50');
+            rect(a, b, 2 * s, 2 * s, j === 2 ? '#e8ba85' : '#fff1ba');
+          }
+      }
+      function stadium(w, h) {
+        return art(w, h, () => {
+          const rnd = seeded(1989),
+            horizon = Math.floor(h * 0.58);
+          rect(0, 0, w, h, '#817691');
+          [
+            ['#968399', 0.15],
+            ['#ab8c9c', 0.29],
+            ['#c09aa0', 0.38],
+            ['#dea69e', 0.46],
+            ['#f1b495', 0.54],
+          ].forEach(([c, y]) => rect(0, h * y, w, h * (1 - y), c));
+          let sx = w * 0.68,
+            sy = h * 0.45,
+            rad = h * 0.21;
+          for (let i = -Math.floor(rad); i <= rad; i++) {
+            if (i > 5 && (i + 60) % 8 < Math.floor((i + 4) / 10)) continue;
+            let rw = Math.floor(Math.sqrt(Math.max(0, rad * rad - i * i)));
+            rect(sx - rw, sy + i, rw * 2, 1, i < 0 ? '#ffdf9b' : '#ffd08a');
+          }
+          for (let j = 0; j < 21; j++) {
+            let x = rnd() * w,
+              y = 10 + rnd() * h * 0.4,
+              n = 5 + rnd() * 28;
+            rect(x, y, n, 1, '#cda4a6');
+            if (j % 3 === 0) rect(x + 5, y - 2, n * 0.5, 2, '#b99aa8');
+          }
+          let hill = [];
+          for (let x = -8; x < w + 12; x += 8) hill.push([x, horizon - 5 - 5 * Math.sin(x * 0.04) - 4 * rnd()]);
+          poly([...hill, [w + 10, horizon + 3], [-10, horizon + 3]], '#987b89');
+          for (let i = 0; i < w; i += 3 + Math.floor(rnd() * 4)) {
+            let ht = 3 + Math.floor(rnd() * 12);
+            if (i > w * 0.45 && i < w * 0.66) ht += Math.floor(rnd() * 20);
+            rect(i, horizon - ht, 3 + rnd() * 6, ht, '#79667d');
+            if (ht > 20) {
+              rect(i + 1, horizon - ht - 3, 2, 4, '#79667d');
+              for (let k = 3; k < ht - 3; k += 4) rect(i + 2, horizon - ht + k, 1, 1, '#c69a91');
+            }
+          }
+          flood(w * 0.51, h * 0.35, 0.8, false);
+          flood(w * 0.96, h * 0.25, 1.05, true);
+          // Curved terraces with rails, pennants, aisles and a seeded three-tier crowd.
+          for (let x = 0; x < w; x++) {
+            let curve = Math.pow((x - w / 2) / (w / 2), 2),
+              top = horizon + 6 - Math.round(13 * curve);
+            rect(x, top, 1, h, C.dark);
+            rect(x, top, 1, 2, '#514759');
+            rect(x, top + 2, 1, 1, '#b29891');
+            rect(x, top + 6, 1, 2, '#776572');
+            rect(x, top + 13, 1, 2, '#9a8281');
+            rect(x, top + 23, 1, 3, '#bd9c8c');
+            rect(x, top + 26, 1, 3, '#615969');
+          }
+          for (let i = 0; i < w * 2; i++) {
+            let x = rnd() * w,
+              y = rnd() * 22,
+              top = horizon + 6 - Math.round(13 * Math.pow((x - w / 2) / (w / 2), 2));
+            if (Math.floor(x / 3) % 13 === 0) continue;
+            rect(x, top + 3 + y, 1 + rnd() * 2, 1, ['#806c77', '#c18e80', '#caab8e', '#626279', '#9b7b83'][i % 5]);
+          }
+          for (let x = 9; x < w; x += 35) {
+            let y = horizon + 5 - 13 * Math.pow((x - w / 2) / (w / 2), 2);
+            rect(x, y - 6, 1, 7, '#5f5467');
+            poly(
+              [
+                [x + 1, y - 6],
+                [x + 7, y - 5],
+                [x + 1, y - 3],
+              ],
+              x % 2 ? '#c55d59' : '#d4a962',
+            );
+          }
+          let grass = horizon + 35;
+          for (let y = grass - 14; y < h; y++) {
+            for (let x = 0; x < w; x++) {
+              let curve = 13 * Math.pow((x - w / 2) / (w / 2), 2);
+              let depth = y - grass + curve;
+              if (depth < 0) continue;
+              let shade = Math.floor((depth + 2) / 9) % 2;
+              rect(x, y, 1, 1, depth < 3 ? '#89986b' : shade ? '#6f996a' : '#779e6e');
+            }
+          }
+          for (let i = 0; i < w; i += 2) {
+            let u = (i - w * 0.5) / (w * 0.5);
+            let y = grass + 7 - 9 * u * u;
+            rect(i, y, 2, 1, '#b8c396');
+            let q = (i - w * 0.5) / (w * 0.47);
+            if (Math.abs(q) < 1) {
+              rect(i, grass + 25 + Math.sqrt(1 - q * q) * 17, 2, 1, '#b0c391');
+            }
+          }
+          for (let i = 0; i < 170; i++) {
+            let x = rnd() * w,
+              y = grass + 5 + rnd() * (h - grass);
+            rect(x, y, 1 + rnd() * 2, 1, i % 3 ? '#85a474' : '#648d67');
+          }
+          for (let [x, dy] of [
+            [0.065, 0],
+            [0.09, -4],
+            [0.117, -3],
+            [0.144, 1],
+          ]) {
+            let y = grass + 8 + (x - 0.1) * 30;
+            rect(w * x, y - 27 + dy, 1, 27 - dy, '#fff0d1');
+            rect(w * x + 1, y - 27 + dy, 1, 27 - dy, '#a59783');
+            rect(w * x - 1, y - 4, 3, 5, '#c97b65');
+          }
+        });
+      }
+
+      // Distances are in world pixels. Cameras follow play at a fixed scale on both screen sizes.
+      const oval = { rx: 288, ry: 72, cy: 80, leftGoal: 8 };
+      oval.cx = oval.leftGoal + oval.rx;
+      oval.rightGoal = oval.cx + oval.rx;
+      const pitchWidth = oval.rightGoal + 32; // Includes the stands beyond both goals.
+      const dist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
+      const held = new Set();
+      let match = null,
+        drag = null,
+        touchDir = null,
+        chargeKey = '',
+        lastRound = null,
+        simDemo = null;
+      function fieldClamp(p) {
+        let u = (p.x - oval.cx) / oval.rx,
+          v = (p.y - oval.cy) / oval.ry,
+          k = Math.hypot(u, v);
+        if (k > 1) {
+          p.x = oval.cx + (oval.rx * u) / k;
+          p.y = oval.cy + (oval.ry * v) / k;
+        }
+        return p;
+      }
+      function near(list, target) {
+        return list.reduce((a, b) => (dist(a, target) < dist(b, target) ? a : b));
+      }
+      function move(p, x, y, s) {
+        let d = Math.hypot(x - p.x, y - p.y);
+        if (!d) return;
+        let f = Math.min(1, s / d);
+        p.x += (x - p.x) * f;
+        p.y += (y - p.y) * f;
+        fieldClamp(p);
+      }
+      function spawnPlayers(m) {
+        let lanes = [
+          [-12, 0],
+          [-0.50 * oval.rx, -30],
+          [-0.52 * oval.rx, 35],
+          [20, -44],
+          [36, 39],
+          [0.52 * oval.rx, -20],
+          [0.625 * oval.rx, 25],
+        ];
+        m.players = [];
+        for (let side = 0; side < 2; side++) {
+          let team = m.teams[side],
+            fit = team.list.filter((p) => !p.hurt),
+            selected = [],
+            wanted = ['RUCK', 'DEF', 'DEF', 'MID', 'MID', 'FWD', 'FWD'];
+          for (let j = 0; j < 7; j++) {
+            let pool = fit.filter((p) => !selected.includes(p.id));
+            let p = pool.find((p) => p.pos === wanted[j]) || pool[0] || team.list[j];
+            selected.push(p.id);
+            let [dx, dy] = lanes[j],
+              dir = side ? -1 : 1;
+            m.players.push({
+              id: m.players.length,
+              pid: p.id,
+              side,
+              rating: p.r,
+              x: oval.cx + dir * dx,
+              y: 80 + dy * dir,
+              homeX: oval.cx + dir * dx,
+              homeY: 80 + dy * dir,
+              pose: 0,
+              anim: 'run',
+            });
+          }
+        }
+      }
+      function newMatch(teams, final = false, demo = false) {
+        let m = {
+          teams,
+          fieldRadius: oval.rx,
+          splits: [],
+          big: false,
+          ratings: teams.map(ratings),
+          final,
+          demo,
+          score: [
+            [0, 0],
+            [0, 0],
+          ],
+          scorers: {},
+          q: 1,
+          secleft: prefs.quarter,
+          duration: prefs.quarter,
+          players: [],
+          mode: 'ruck',
+          owner: -1,
+          ball: { x: oval.cx, y: oval.cy },
+          wind: ri(-8, 8),
+          mom: 0,
+          ai: 0,
+          protect: 0,
+          banner: 'CENTRE BOUNCE',
+          bannerT: 1.3,
+          wait: 1.8,
+          markTap: false,
+          matchTime: 0,
+          shake: 0,
+          flash: 0,
+          charge: 0,
+          charging: false,
+          aim: 0,
+          goalAim: false,
+          order: null,
+          saveIn: 4,
+          pressedRuck: false,
+        };
+        spawnPlayers(m);
+        return m;
+      }
+      function currentBall(m) {
+        return m.owner >= 0 ? m.players[m.owner] : m.ball;
+      }
+      function say(m, text, time = 1.2) {
+        m.banner = text;
+        m.bannerT = time;
+      }
+      function soundMatch(m, k) {
+        if (!m.demo) sfx(k);
+      }
+      function possession(m, p, protect = 0.65) {
+        m.owner = p.id;
+        m.mode = 'play';
+        m.ball = { x: p.x, y: p.y };
+        m.protect = protect;
+        m.ai = 0.35 + Math.random() * 0.7;
+        m.charging = false;
+        m.charge = 0;
+        m.goalAim = false;
+        m.order = null;
+        m.aim = p.side ? Math.PI : 0;
+        m.markTap = false;
+        m.mom = clamp(m.mom + (p.side ? -0.035 : 0.035), -1, 1);
+      }
+      function centre(m, delay = 1.5) {
+        m.owner = -1;
+        m.mode = 'ruck';
+        m.wait = delay;
+        m.ball = { x: oval.cx, y: oval.cy };
+        m.pressedRuck = false;
+        m.charging = false;
+        spawnPlayers(m);
+      }
+      function award(m, side, goal, rushed = false) {
+        m.score[side][goal ? 0 : 1]++;
+        if (goal && m.lastKicker != null) {
+          let p = m.players[m.lastKicker];
+          if (p.side === side) m.scorers[p.pid] = (m.scorers[p.pid] || 0) + 1;
+        }
+        say(m, goal ? 'GOAL!' : rushed ? 'RUSHED BEHIND!' : 'BEHIND!', 1.8);
+        m.flash = 0.22;
+        m.shake = goal ? 0.4 : 0.12;
+        m.mom = clamp(m.mom + (side ? -1 : 1) * (goal ? 0.22 : 0.06), -1, 1);
+        soundMatch(m, goal ? 'goal' : 'whistle');
+        m.mode = goal ? 'celebrate' : 'kickin';
+        m.wait = 1.7;
+        m.restart = 1 - side;
+        m.owner = -1;
+        m.charging = false;
+      }
+      function throwBall(m, target, type = 'kick', power = 0.72) {
+        if (m.owner < 0) return;
+        let p = m.players[m.owner];
+        m.lastKicker = p.id;
+        p.anim = 'kick';
+        p.pose = 0.34;
+        let distance = dist(p, target),
+          time = type === 'hand' ? clamp(distance / 130, 0.25, 0.72) : clamp(distance / 105, 0.5, 1.6);
+        m.flight = {
+          from: { x: p.x, y: p.y },
+          to: target,
+          t: 0,
+          duration: time,
+          type,
+          side: p.side,
+          power,
+          height: type === 'hand' ? 5 : 15 + power * 16,
+        };
+        m.ball = { x: p.x, y: p.y, z: 0 };
+        m.owner = -1;
+        m.mode = 'flight';
+        m.charging = false;
+        m.charge = 0;
+        m.markTap = false;
+        m.goalAim = false;
+        soundMatch(m, 'kick');
+      }
+      function passTarget(m, p) {
+        let dir = p.side ? -1 : 1,
+          options = m.players.filter((q) => q.side === p.side && q !== p);
+        return options.sort((a, b) => quality(b) - quality(a))[0];
+        function quality(q) {
+          return (
+            Math.min(40, (q.x - p.x) * dir) * 0.6 -
+            Math.abs(dist(q, p) - 33) * 0.7 +
+            Math.min(
+              15,
+              dist(
+                q,
+                near(
+                  m.players.filter((e) => e.side !== p.side),
+                  q,
+                ),
+              ),
+            )
+          );
+        }
+      }
+      function handball(m, target) {
+        if (m.mode !== 'play') return;
+        let p = m.players[m.owner],
+          q = target || passTarget(m, p);
+        let d = dist(p, q),
+          f = Math.min(1, 62 / Math.max(1, d));
+        throwBall(m, { x: p.x + (q.x - p.x) * f, y: p.y + (q.y - p.y) * f }, 'hand', 0.3);
+      }
+      function kick(m, angle, power, shot = false) {
+        if (m.mode !== 'play') return;
+        let p = m.players[m.owner],
+          dir = p.side ? -1 : 1;
+        let range = 44 + power * 123 + (p.rating - 75) * 0.35 + m.mom * (p.side ? -1 : 1) * 4;
+        if (shot) {
+          let gx = dir > 0 ? oval.rightGoal + 4 : oval.leftGoal - 4;
+          angle =
+            Math.atan2(80 - p.y, gx - p.x) +
+            (p.side || m.demo
+              ? (Math.random() - 0.5) * (0.29 + Math.abs(p.y - 80) * 0.0018)
+              : Math.sin(m.matchTime * 3.3) * (0.082 + Math.abs(p.y - 80) * 0.0009));
+          range += 16;
+        }
+        let x = p.x + Math.cos(angle) * range,
+          y = p.y + Math.sin(angle) * range + m.wind * power * 0.7 + (Math.random() - 0.5) * (99 - p.rating) * 0.12;
+        throwBall(m, { x, y }, 'kick', power);
+      }
+      function contest(m) {
+        if (m.mode === 'ruck') {
+          if (!m.pressedRuck) {
+            m.pressedRuck = true;
+            m.ruckBonus = m.wait < 0.83 ? 0.3 : -0.08;
+            say(m, m.wait < 0.83 ? 'GREAT TAP!' : 'EARLY TAP', 0.6);
+          }
+          return;
+        }
+        if (m.mode === 'flight') {
+          m.markTap = m.flight.t / m.flight.duration > 0.56;
+          if (m.markTap) {
+            let p = near(
+              m.players.filter((p) => !p.side),
+              m.flight.to,
+            );
+            p.pose = 0.5;
+            p.anim = 'mark';
+          } else say(m, 'TOO EARLY', 0.45);
+          return;
+        }
+        if (m.mode !== 'play' || m.owner < 0) return;
+        let p = m.players[m.owner];
+        if (!p.side) {
+          handball(m);
+          return;
+        }
+        let d = near(
+          m.players.filter((e) => !e.side),
+          p,
+        );
+        if (dist(d, p) < 28 && m.protect < 0.15) {
+          move(d, p.x, p.y, 12);
+          tackle(m, d, p, true);
+        } else {
+          move(d, p.x, p.y, 8);
+          say(m, 'CHASE!', 0.5);
+        }
+      }
+      function tackle(m, d, p, manual = false) {
+        d.anim = 'tackle';
+        d.pose = 0.35;
+        p.anim = 'tackle';
+        p.pose = 0.35;
+        let win =
+          Math.random() <
+          clamp(
+            0.53 + (d.rating - p.rating) * 0.009 + (manual ? 0.18 : 0) + m.mom * (d.side ? -1 : 1) * 0.07,
+            0.22,
+            0.89,
+          );
+        if (win) {
+          if (Math.random() < 0.14 && Math.abs(p.x - (p.side ? oval.rightGoal - 2 : oval.leftGoal + 2)) < 23) {
+            award(m, 1 - p.side, false, true);
+            return;
+          }
+          possession(m, d, 1.05);
+          let free = Math.random() < 0.25;
+          say(m, free ? 'HOLDING THE BALL!' : 'TURNOVER!');
+          if (free) {
+            m.protect = 2;
+            soundMatch(m, 'whistle');
+          }
+        } else {
+          m.protect = 1;
+          say(m, 'BREAKS THE TACKLE!', 0.7);
+        }
+      }
+      function resolveFlight(m) {
+        let f = m.flight,
+          t = f.to,
+          side = f.side,
+          dir = side ? -1 : 1,
+          goalLine = side ? oval.leftGoal : oval.rightGoal;
+        if ((t.x - goalLine) * dir >= 0) {
+          let edgeY = m.ball.y;
+          if (Math.abs(edgeY - 80) <= 10) {
+            award(m, side, true);
+            return;
+          }
+          if (Math.abs(edgeY - 80) <= 23) {
+            award(m, side, false);
+            return;
+          }
+        }
+        let out = Math.hypot((t.x - oval.cx) / (oval.rx + 2), (t.y - 80) / 74) > 1.02;
+        if (out) {
+          fieldClamp(t);
+          let d = near(
+            m.players.filter((p) => p.side !== side),
+            t,
+          );
+          d.x = t.x;
+          d.y = t.y;
+          possession(m, d, 2);
+          say(m, 'OUT ON THE FULL!');
+          soundMatch(m, 'whistle');
+          return;
+        }
+        let a = near(
+            m.players.filter((p) => p.side === side),
+            t,
+          ),
+          b = near(
+            m.players.filter((p) => p.side !== side),
+            t,
+          ),
+          da = dist(a, t),
+          db = dist(b, t),
+          close = Math.abs(da - db) < 13,
+          bonus = m.markTap ? (side === 0 ? -0.35 : 0.35) : 0;
+        let p =
+          Math.random() < clamp(0.55 + (db - da) * 0.029 + (a.rating - b.rating) * 0.006 - bonus, 0.05, 0.96) ? a : b;
+        if (f.type === 'kick' && Math.min(da, db) < 28) {
+          if (Math.random() < (close ? 0.22 : 0.09) && !(m.markTap && !p.side)) {
+            m.mode = 'loose';
+            m.ball = { x: t.x, y: t.y, z: 0 };
+            m.wait = 0.52;
+            say(m, 'SPILLED MARK!', 0.7);
+            return;
+          }
+          let spectacular = close && m.markTap && !p.side;
+          p.x = t.x;
+          p.y = t.y;
+          possession(m, p, 2.2);
+          p.anim = 'mark';
+          p.pose = 0.48;
+          say(m, spectacular ? 'MARK OF THE YEAR!' : p.side !== side ? 'INTERCEPT MARK!' : 'MARK!', 1);
+          soundMatch(m, 'whistle');
+        } else {
+          possession(m, p);
+          if (p.side !== side) say(m, 'INTERCEPT!', 0.9);
+        }
+      }
+      function endQuarter(m) {
+        m.secleft = 0;
+        m.mode = 'break';
+        m.charging = false;
+        (m.splits ??= []).push(m.score.map(points));
+        let tied = points(m.score[0]) === points(m.score[1]);
+        m.finished = m.q >= 4 && (!m.final || !tied);
+        say(m, 'SIREN!', 2);
+        soundMatch(m, 'siren');
+        if (!m.demo && m === match) checkpoint();
+      }
+      function nextQuarter(m) {
+        m.q++;
+        m.secleft = m.q > 4 ? Math.max(15, Math.round(m.duration / 3)) : m.duration;
+        m.wind = ri(-8, 8);
+        m.mom *= 0.6;
+        centre(m);
+        say(m, m.q > 4 ? 'EXTRA TIME' : 'CENTRE BOUNCE');
+      }
+      function stepMatch(m, dt) {
+        if (m.mode === 'break') {
+          if (m.demo) {
+            if (m.finished) {
+              m.q = 0;
+              m.splits = [];
+              m.score = [
+                [0, 0],
+                [0, 0],
+              ];
+            }
+            nextQuarter(m);
+          }
+          return;
+        }
+        m.matchTime += dt;
+        m.secleft = Math.max(0, m.secleft - dt);
+        m.bannerT -= dt;
+        m.flash = Math.max(0, m.flash - dt);
+        m.shake = Math.max(0, m.shake - dt);
+        m.protect -= dt;
+        m.players.forEach((p) => (p.pose = Math.max(0, p.pose - dt)));
+        if (m.secleft <= 0) {
+          endQuarter(m);
+          return;
+        }
+        if (m.mode === 'celebrate' || m.mode === 'kickin') {
+          m.wait -= dt;
+          if (m.wait <= 0) {
+            if (m.mode === 'celebrate') centre(m);
+            else {
+              let q = m.players.find((p) => p.side === m.restart && p.id % 7 === 1);
+              q.x = q.side ? oval.rightGoal - 9 : oval.leftGoal + 9;
+              q.y = 80;
+              possession(m, q, 2);
+              say(m, 'KICK IN', 0.7);
+            }
+          }
+          return;
+        }
+        if (m.mode === 'ruck') {
+          m.wait -= dt;
+          if (m.wait <= 0) {
+            let chance =
+              clamp(0.5 + (m.ratings[0][3] - m.ratings[1][3]) * 0.01 + m.mom * 0.05, 0.22, 0.78) +
+              (m.pressedRuck ? m.ruckBonus : 0);
+            let side = Math.random() < chance ? 0 : 1;
+            let p = m.players[side * 7];
+            possession(m, p, 1.6);
+            say(m, side ? 'THEY WIN THE TAP' : 'YOU WIN THE TAP', 0.9);
+          }
+          return;
+        }
+        if (m.mode === 'loose') {
+          m.wait -= dt;
+          let p = near(m.players, m.ball);
+          move(p, m.ball.x, m.ball.y, 40 * dt);
+          if (m.wait <= 0) possession(m, p);
+          return;
+        }
+        if (m.mode === 'flight') {
+          let f = m.flight;
+          f.t += dt;
+          let u = clamp(f.t / f.duration, 0, 1);
+          m.ball = { x: mix(f.from.x, f.to.x, u), y: mix(f.from.y, f.to.y, u), z: Math.sin(Math.PI * u) * f.height };
+          for (let side = 0; side < 2; side++) {
+            let p = near(
+              m.players.filter((p) => p.side === side),
+              f.to,
+            );
+            move(p, f.to.x, f.to.y, dt * (side ? 17 : 21));
+          }
+          if ((f.side ? m.ball.x <= oval.leftGoal : m.ball.x >= oval.rightGoal) || u === 1) resolveFlight(m);
+          return;
+        }
+        let p = m.players[m.owner],
+          dir = p.side ? -1 : 1,
+          enemies = m.players.filter((q) => q.side !== p.side),
+          chaser = near(enemies, p),
+          auto = p.side === 1 || m.demo,
+          difficulty = m.demo ? 1 : prefs.difficulty;
+        for (let q of m.players) {
+          if (q === p) continue;
+          if (q === chaser) {
+            move(q, p.x, p.y, dt * (q.side ? 15 + difficulty * 3 : 19) + dt * (q.rating - 70) * 0.08);
+            continue;
+          }
+          let x = q.homeX + (p.x - oval.cx) * 0.5 + (q.side === p.side ? dir * 16 : 0);
+          let y = q.homeY + Math.sin(m.matchTime * 0.65 + q.id * 2) * 9 + (p.y - 80) * 0.21;
+          move(q, x, y, dt * (q.side === p.side ? 14 : 11));
+        }
+        if (!auto) {
+          let dx = +(held.has('arrowright') || held.has('d')) - +(held.has('arrowleft') || held.has('a')),
+            dy = +(held.has('arrowdown') || held.has('s')) - +(held.has('arrowup') || held.has('w'));
+          if (touchDir) {
+            dx += touchDir.x;
+            dy += touchDir.y;
+          }
+          if (dx || dy) {
+            m.aim = Math.atan2(dy, dx);
+            m.order = null;
+            if (!m.charging) move(p, p.x + dx * 20, p.y + dy * 20, dt * 27);
+          } else if (m.order && !m.charging) {
+            m.aim = Math.atan2(m.order.y - p.y, m.order.x - p.x);
+            move(p, m.order.x, m.order.y, dt * 27);
+          }
+        } else {
+          m.ai -= dt;
+          let gx = p.side ? oval.leftGoal : oval.rightGoal,
+            dg = Math.hypot(gx - p.x, 80 - p.y);
+          move(p, gx, 80 + Math.sin(m.matchTime * 1.5) * 10, dt * (19 + (p.rating - 70) * 0.1));
+          if (m.ai <= 0) {
+            if (dg < 125) kick(m, 0, clamp((dg + ri(2, 26) - 44) / 119, 0.25, 1), true);
+            else if (Math.random() < 0.57) {
+              let q = passTarget(m, p);
+              if ((q.x - p.x) * dir > 6 && dist(p, q) < 65) handball(m, q);
+              else kick(m, (p.side ? Math.PI : 0) + (Math.random() - 0.5) * 0.66, 0.35 + Math.random() * 0.36);
+            } else m.ai = 0.5 + Math.random() * 0.8;
+          }
+        }
+        if (m.mode === 'play' && m.owner === p.id) {
+          if (m.charging) m.charge = Math.min(1, m.charge + dt * 0.92);
+          if (dist(p, chaser) < 6 && m.protect <= 0) {
+            if (p.side && prefs.defend && !m.demo) {
+              m.protect = 0.45;
+              if (Math.random() < 0.22) tackle(m, chaser, p);
+            } else tackle(m, chaser, p);
+          }
+          if ((p.side ? oval.leftGoal - p.x : p.x - oval.rightGoal) > -2 && Math.abs(p.y - 80) < 20) {
+            award(m, p.side, false);
+          }
+        }
+      }
+      function checkpoint() {
+        if (match && career) {
+          let { teams, ...state } = match;
+          career.live = { state, year: career.year, period: period(career) };
+          save();
+        }
+      }
+      function startMatch() {
+        let c = career,
+          g = myGame(c);
+        if (!g) return;
+        let opp = g.h === c.club ? g.a : g.h,
+          teams = [c.teams[c.club], c.teams[opp]];
+        match =
+          c.live && c.live.year === c.year && c.live.period === period(c)
+            ? Object.assign({}, c.live.state, { teams })
+            : newMatch(teams, c.phase === 'finals');
+        // Preserve the relative positions in matches saved on the shorter oval.
+        const previousRadius = match.fieldRadius ?? 192;
+        if (previousRadius !== oval.rx) {
+          const resizeX = (x) => oval.leftGoal + (x - oval.leftGoal) * oval.rx / previousRadius;
+          for (const player of match.players) {
+            player.x = resizeX(player.x);
+            player.homeX = resizeX(player.homeX);
+          }
+          for (const point of [match.ball, match.order, match.flight?.from, match.flight?.to]) {
+            if (point) point.x = resizeX(point.x);
+          }
+          match.fieldRadius = oval.rx;
+        }
+        match.charging = false;
+        match.charge = 0;
+        match.big = c.phase === 'finals' && c.week === 3;
+        if (match.big && !c.live) {
+          say(match, 'GRAND FINAL!', 2.5);
+          tone(0, 1.2, 'noise', 0.42);
+          sfx('siren');
+        }
+        go('match');
+        checkpoint();
+      }
+      function finishPlayed() {
+        let c = career,
+          g = myGame(c),
+          s = match.score;
+        if (g.h !== c.club) s = [s[1], s[0]];
+        delete c.live;
+        lastRound = finishRound(s, match.scorers);
+        match = null;
+        go('result');
+      }
+      function simCurrent() {
+        if (match) {
+          let g = myGame(career),
+            s = simulate(career, g);
+          if (g.a === career.club) s.reverse();
+          let pending = ((4 - Math.min(match.q, 4)) * match.duration + match.secleft) / (4 * match.duration);
+          for (let i = 0; i < 2; i++) for (let j = 0; j < 2; j++) match.score[i][j] += Math.round(s[i][j] * pending);
+          if (match.final && points(match.score[0]) === points(match.score[1])) match.score[ri(0, 1)][0]++;
+          finishPlayed();
+        } else {
+          delete career.live;
+          lastRound = finishRound();
+          go('result');
+        }
+      }
+
+      // Canvas controls share hit regions, keyboard focus and an accessible button mirror.
+      let screen = 'title',
+        screenAt = 0,
+        now = 0,
+        buttons = [],
+        focus = 0,
+        over = -1,
+        accessSig = '',
+        oldScreen = '',
+        returnTo = 'title',
+        settingsFrom = 'title',
+        helpFrom = 'title',
+        clubPick = 0,
+        initials = 'AUS',
+        page = 0,
+        selectedPlayer = 0,
+        fixtureRound = 0,
+        tab = 0,
+        toast = '',
+        toastUntil = 0;
+      let expansions = { tas: false, nt: false, variant: 0, coach: 'stay' },
+        protectPage = 0,
+        draftPick = 0,
+        askAction = null,
+        askTitle = '',
+        askText = '',
+        askBack = 'hub';
+      const locations = {
+        title: 'ARCADE CABINET',
+        clubs: 'CLUB SELECT',
+        hub: 'COACH BOX',
+        match: 'MATCH DAY',
+        settings: 'SYSTEM SETTINGS',
+        controls: 'FIELD MANUAL',
+        records: 'ARCADE RECORDS',
+        expansion: 'LEAGUE OFFICE',
+        draft: 'RECRUITING DESK',
+      };
+      function legendFor(name) {
+        const legend = $('legend'),
+          active = name === 'match';
+        if (legend.dataset.match === String(active)) return;
+        legend.dataset.match = String(active);
+        legend.querySelectorAll('.desk').forEach((e) => e.remove());
+        const keys = active
+          ? [
+              ['ARROWS', 'MOVE'],
+              ['Z', 'PASS / MARK'],
+              ['SPACE', 'KICK'],
+              ['X', 'SHOT'],
+              ['ESC', 'PAUSE'],
+            ]
+          : [
+              ['↑ ↓ ← →', 'NAVIGATE'],
+              ['ENTER', 'SELECT'],
+              ['ESC', 'BACK / PAUSE'],
+            ];
+        for (let [key, action] of keys) {
+          let item = document.createElement('span'),
+            cap = document.createElement('kbd');
+          item.className = 'desk';
+          cap.textContent = key;
+          item.append(cap, ' ' + action);
+          legend.insertBefore(item, $('touchHint'));
+        }
+      }
+      function go(name) {
+        screen = name;
+        legendFor(name);
+        screenAt = now;
+        focus = 0;
+        over = -1;
+        buttons = [];
+        accessSig = '';
+        drag = null;
+        touchDir = null;
+        chargeKey = '';
+        held.clear();
+        $('location').textContent = locations[name] || name.toUpperCase();
+        $('announce').textContent = $('location').textContent;
+        draw();
+        game.focus({ preventScroll: true });
+      }
+      function notify(s) {
+        toast = s;
+        toastUntil = now + 2.6;
+        $('announce').textContent = s;
+      }
+      function menuRect(x, y, w, h, label, fn, style = '', icon = null) {
+        let idx = buttons.length;
+        buttons.push({ x, y, w, h, label, fn });
+        let active = idx === (over >= 0 ? over : focus),
+          primary = style === 'primary',
+          col = primary ? C.gold : style === 'selected' ? C.mint : active ? '#344640' : C.panel,
+          edge = primary ? '#f4b342' : active || style === 'selected' ? C.mint : '#576962',
+          fg = primary || style === 'selected' ? C.ink : C.paper;
+        rect(x, y + 2, w, h, '#0b1216');
+        box(x, y, w, h, col, edge);
+        rect(x + 1, y + 1, w - 2, 1, primary ? '#ffe6a1' : active ? '#81998a' : '#66766b');
+        let ix = icon ? 15 : 0;
+        let start = x + (w - tw(label) - ix) / 2;
+        if (icon && !(screen === 'title' && icon === 'play' && Math.floor(now * 1.6) % 4 === 3))
+          drawIcon(icon, start, y + Math.floor((h - 7) / 2), primary ? C.ink : C.mint);
+        txt(label, start + ix, y + Math.floor((h - 7) / 2), fg);
+        if (active && !primary) rect(x + 2, y + 4, 2, h - 8, C.gold);
+        if (active && primary) {
+          rect(x + 3, y + 3, 3, 1, C.ink);
+          rect(x + 3, y + 3, 1, 3, C.ink);
+        }
+      }
+      function target(x, y, w, h, label, fn) {
+        buttons.push({ x, y, w, h, label, fn });
+      }
+      function navRow(items, y, h = 21) {
+        let gap = 5,
+          w = Math.floor((W - 24 - gap * (items.length - 1)) / items.length);
+        items.forEach(([l, fn, st, ic], i) => menuRect(12 + i * (w + gap), y, w, h, l, fn, st, ic));
+      }
+      function head(title, sub) {
+        rect(0, 0, W, H, C.ink);
+        for (let x = 0; x < W; x += 5) rect(x, 0, 3, 2, '#57756a');
+        txt(title, 12, 12, C.paper, 2);
+        if (sub) txt(sub, 13, 32, C.mint);
+        rect(12, 44, W - 24, 1, C.line);
+      }
+      function label(s, x, y) {
+        txt(s, x, y, C.mint);
+      }
+      function backButton(fn = home) {
+        menuRect(12, H - 28, 62, 17, '< BACK', fn);
+      }
+      function home() {
+        if (!career) {
+          go('title');
+          return;
+        }
+        go(
+          career.phase === 'recap'
+            ? 'recap'
+            : career.phase === 'draft'
+              ? 'draft'
+              : career.phase === 'expansion'
+                ? 'expansion'
+                : career.phase === 'news'
+                  ? 'news'
+                  : 'hub',
+        );
+      }
+      function confirmBox(title, msg, back, fn) {
+        askTitle = title;
+        askText = msg;
+        askBack = back;
+        askAction = fn;
+        go('confirm');
+      }
+      function wrapText(s, x, y, max, col = C.muted, step = 12) {
+        let row = '';
+        for (let word of s.toUpperCase().split(' ')) {
+          if (row && tw(row + ' ' + word) > max) {
+            txt(row, x, y, col);
+            row = word;
+            y += step;
+          } else row += (row ? ' ' : '') + word;
+        }
+        if (row) txt(row, x, y, col);
+        return y + step;
+      }
+      function inputName(title, val, max, fn) {
+        let dialog = $('naming'),
+          input = $('nameEntry');
+        $('nameLabel').textContent = title;
+        input.value = val;
+        input.maxLength = max;
+        dialog.returnValue = '';
+        dialog.querySelector('form').onsubmit = (e) => {
+          if (e.submitter?.value !== 'cancel') {
+            let value = input.value
+              .toUpperCase()
+              .replace(/[^A-Z0-9 -]/g, '')
+              .trim();
+            if (value) fn(value);
+          }
+        };
+        dialog.onclose = () => game.focus({ preventScroll: true });
+        dialog.showModal();
+        input.select();
+      }
+      function openSettings() {
+        if (screen === 'settings') {
+          back();
+          return;
+        }
+        settingsFrom = screen === 'match' ? 'pause' : screen;
+        if (screen === 'controls' && helpFrom === 'settings') settingsFrom = returnTo;
+        if (screen === 'match') checkpoint();
+        go('settings');
+      }
+      function openHelp() {
+        if (screen === 'settings') returnTo = settingsFrom;
+        helpFrom = screen === 'match' ? 'pause' : screen;
+        page = 0;
+        go('controls');
+      }
+      $('sound').onclick = () => {
+        prefs.sound = !prefs.sound;
+        syncPrefs();
+        if (master) master.gain.value = prefs.sound ? 0.22 : 0;
+        unlock();
+        sfx('select');
+        game.focus({ preventScroll: true });
+      };
+      $('options').onclick = () => {
+        unlock();
+        openSettings();
+      };
+      let titleBG, pitchArt;
+      function resize() {
+        let mobile = window.innerWidth <= 670;
+        W = mobile ? 300 : 480;
+        H = mobile ? 326 : 268;
+        compact = mobile;
+        game.width = W;
+        game.height = H;
+        ctx.imageSmoothingEnabled = false;
+        titleBG = stadium(W, 191);
+        if (typeof screen === 'string') draw();
+      }
+      const demoTeams = [
+        {
+          id: 0,
+          name: 'Richmond',
+          abbr: 'RIC',
+          kit: CLUBS[13].slice(2, 6),
+          base: [82, 80, 79, 84],
+          list: slots.map((pos, i) => ({ id: i, pos, r: 80, mood: 80 })),
+        },
+        {
+          id: 1,
+          name: 'Geelong Cats',
+          abbr: 'GEE',
+          kit: CLUBS[6].slice(2, 6),
+          base: [81, 83, 80, 82],
+          list: slots.map((pos, i) => ({ id: i + 14, pos, r: 81, mood: 80 })),
+        },
+      ];
+      function smallPlayer(x, y, kit, side, t, pose = '', jump = 0) {
+        x = Math.round(x);
+        y = Math.round(y);
+        ellipse(x, y, 4, 1, '#476d55');
+        y -= Math.round(jump);
+        let run = Math.sin(t * 9) > 0 ? 1 : -1,
+          face = side ? -1 : 1;
+        rect(x - 2, y - 11, 4, 3, '#483c3c');
+        rect(x - 1, y - 10, 3, 3, '#e4a671');
+        rect(x - 2, y - 7, 5, 4, kit[0]);
+        let pattern = kit[3];
+        if (['hoops3', 'hoops', 'bands', 'chevrons', 'doublevee'].includes(pattern)) {
+          rect(x - 2, y - 6, 5, 1, kit[1]);
+          rect(x - 2, y - 4, 5, 1, kit[2] === kit[0] ? kit[1] : kit[2]);
+        } else if (pattern === 'sash' || pattern === 'wings') {
+          for (let i = 0; i < 4; i++) rect(x + 1 - i, y - 7 + i, 2, 1, kit[1]);
+        } else if (pattern === 'stripes' || pattern === 'thirds') {
+          rect(x - 1, y - 7, 1, 4, kit[1]);
+          rect(x + 1, y - 7, 1, 4, pattern === 'thirds' ? kit[2] : kit[1]);
+        } else if (pattern === 'vee' || pattern === 'yoke') rect(x - 2, y - 7, 5, 2, kit[1]);
+        else rect(x, y - 6, 2, 2, kit[1]);
+        rect(x + 2 * face, y - 7, 2, pose === 'mark' ? 1 : 3, '#e4a671');
+        if (pose === 'mark') {
+          rect(x - 3, y - 12, 1, 6, '#e4a671');
+          rect(x + 3, y - 12, 1, 6, '#e4a671');
+        }
+        rect(x - 2, y - 3, 5, 2, kit[0]);
+        rect(x - 2 - run, y - 2, 2, 2, '#dba779');
+        rect(x + run + 1, y - 2, 2, 2, '#dba779');
+        rect(x - 2 - run, y, 2, 1, kit[1]);
+        rect(x + run + 1, y, 2, 1, kit[1]);
+        rect(x - 2 - run + (pose === 'kick' ? 2 * face : 0), y + 1, 3, 1, '#222a36');
+        rect(x + run + 1, y + 1, 2, 1, '#232a32');
+      }
+      function titleScreen() {
+        let sh = 191,
+          age = now - screenAt,
+          cycle = Math.floor(age / 16) % 4;
+        ctx.drawImage(titleBG, 0, 0);
+        let demo = simDemo;
+        if (cycle === 3) {
+          drawField(demo, 0, 0, W, sh, true);
+          box(9, 30, compact ? 102 : 125, 18, C.dark, C.muted);
+          txt('DEMO MATCH', 16, 36, C.paper);
+        } else {
+          for (let p of demo.players) {
+            let x = 5 + (p.x / (2 * oval.cx)) * (W - 10),
+              y = 147 + p.y * 0.24;
+            smallPlayer(x, y, demo.teams[p.side].kit, p.side, now + p.id);
+          }
+          let bp = currentBall(demo);
+          rect(5 + (bp.x / (2 * oval.cx)) * (W - 10), 143 + bp.y * 0.24 - (bp.z || 0) * 0.4, 3, 2, C.coral);
+          let size = compact ? 0.82 : 1.12;
+          let px = compact ? 162 : Math.round(W * 0.6),
+            py = compact ? 61 : 20;
+          ctx.drawImage(hero, px, py, Math.floor(150 * size), Math.floor(153 * size));
+          let lx = compact ? 12 : 27,
+            ly = compact ? 44 : 32,
+            ls = compact ? 0.78 : 1.06;
+          // Offset racing stripes echo the slant of the two-tier 1980s wordmark.
+          ctx.drawImage(retroLogo, lx, ly, Math.round(retroLogo.width * ls), Math.round(retroLogo.height * ls));
+          let ly2 = ly + (compact ? 33 : 46);
+          ctx.drawImage(aflLogo, lx + 3, ly2, Math.round(aflLogo.width * ls), Math.round(aflLogo.height * ls));
+          let end = lx + aflLogo.width * ls + 1;
+          for (let i = 0; i < 3; i++)
+            poly(
+              [
+                [end + 3 - i * 2, ly2 + 21 + i * 6],
+                [end + 26 - i * 4, ly2 + 21 + i * 6],
+                [end + 23 - i * 4, ly2 + 24 + i * 6],
+                [end - i * 2, ly2 + 24 + i * 6],
+              ],
+              i === 0 ? '#ffdd67' : i === 1 ? '#f9b454' : '#db805e',
+            );
+          let tagY = compact ? 136 : 153;
+          rect(lx + 3, tagY, 153, 13, '#252537');
+          rect(lx + 3, tagY, 3, 13, C.coral);
+          txt('AUSTRALIAN RULES FOOTBALL', lx + 8, tagY + 3, C.paper);
+        }
+        let hs = records[0]?.score || 0;
+        rect(9, 8, 94, 13, '#2e303e');
+        rect(14, 12, 4, 4, Math.floor(now * 2) % 3 ? C.mint : '#6fa691');
+        txt('ATTRACT MODE', 23, 11, C.paper);
+        let right =
+          (cycle === 1 || cycle === 2) && records.length
+            ? records[(cycle - 1) % records.length].tag +
+              ' ' +
+              String(records[(cycle - 1) % records.length].score).padStart(6, '0')
+            : 'HI-SCORE ' + String(hs).padStart(6, '0');
+        rect(W - tw(right) - 15, 8, tw(right) + 7, 13, '#33313d');
+        txt(right, W - 12, 11, C.paper, 1, 'right');
+        rect(0, sh, W, H - sh, C.ink);
+        rect(0, sh, W, 2, '#849784');
+        let m = compact ? 11 : 15;
+        for (let i = 0; i < 3; i++) rect(m + i * 3, sh + 12, 2, 7, C.mint);
+        txt('MAIN MENU', m + 13, sh + 12, C.mint);
+        rect(m + 73, sh + 15, W - 2 * m - 73, 1, C.line);
+        let start = () => {
+          if (career) home();
+          else {
+            clubPick = 0;
+            go('clubs');
+          }
+        };
+        let first = career ? 'CONTINUE' : 'PRESS START';
+        if (compact) {
+          menuRect(11, sh + 28, W - 22, 32, first, start, 'primary', 'play');
+          menuRect(11, sh + 69, 136, 30, 'CONTROLS', openHelp, '', 'book');
+          menuRect(153, sh + 69, 136, 30, 'RECORDS', () => go('records'), '', 'cup');
+          txt('1 PLAYER', W / 2, sh + 113, C.muted, 1, 'center');
+        } else {
+          menuRect(15, sh + 29, 172, 34, first, start, 'primary', 'play');
+          menuRect(194, sh + 29, 132, 34, 'CONTROLS', openHelp, '', 'book');
+          menuRect(333, sh + 29, 132, 34, 'RECORDS', () => go('records'), '', 'cup');
+        }
+        if (Math.floor(now * 1.6) % 2 === 0) {
+          let x = compact ? W - 25 : 175;
+          rect(x, sh + (compact ? 43 : 45), 2, 2, '#996c32');
+        }
+      }
+      function kitArt(kit) {
+        let key = kit.join('|');
+        if (kitCache.has(key)) return kitCache.get(key);
+        let [a, b, c, pat] = kit,
+          can = art(34, 35, () => {
+            function inside(x, y) {
+              return (
+                y >= 2 &&
+                y <= 32 &&
+                x >= 5 &&
+                x <= 28 &&
+                !(y < 10 && (x <= 8 || x >= 25)) &&
+                !(y < 5 && x >= 13 && x <= 20) &&
+                !(y < 7 && x >= 15 && x <= 18)
+              );
+            }
+            for (let y = 0; y < 35; y++)
+              for (let x = 0; x < 34; x++) {
+                if (!inside(x, y)) continue;
+                let color = a,
+                  v = Math.abs(x - 16.5),
+                  band = Math.floor((y + 1) / 5);
+                switch (pat) {
+                  case 'stripes':
+                    if (Math.floor((x - 4) / 4) % 2) color = b;
+                    break;
+                  case 'hoops':
+                    if (band % 2) color = b;
+                    break;
+                  case 'hoops3':
+                    color = [a, b, a, c][band % 4];
+                    break;
+                  case 'sash':
+                    if (x + y > 26 && x + y < 35) color = b;
+                    break;
+                  case 'yoke':
+                    if (y < 14 - v * 0.28) color = b;
+                    if (y === 14 && !((x + y) % 3)) color = c;
+                    break;
+                  case 'vee':
+                    if (y < 20 - v * 0.65) color = b;
+                    break;
+                  case 'chevrons':
+                  case 'doublevee': {
+                    let k = y + v * 0.6;
+                    if ((k > 14 && k < 18) || (k > 21 && k < 25)) color = k < 18 ? b : pat === 'doublevee' ? c : b;
+                    break;
+                  }
+                  case 'thirds':
+                    color = x < 13 ? a : x < 21 ? b : c;
+                    break;
+                  case 'bands':
+                    if (y >= 17 && y < 21) color = b;
+                    if (y >= 21 && y < 24) color = c;
+                    break;
+                  case 'side':
+                    if (x > 20 + y * 0.13) color = b;
+                    break;
+                  case 'wings':
+                    if (y > 8 && y < 20 && v > (y - 7) * 0.72) color = b;
+                    break;
+                  case 'sun':
+                    if (Math.hypot(x - 17, y - 18) < 5) color = b;
+                    break;
+                  case 'devil':
+                    if (y > 13 && y < 24 && v < 6 - Math.abs(y - 18) * 0.5) color = c;
+                    if (y < 16 && y > 11 && v > 3 && v < 7) color = c;
+                    if (y === 17 && v > 1 && v < 4) color = b;
+                    break;
+                }
+                if (!inside(x - 1, y) || !inside(x + 1, y) || !inside(x, y - 1) || !inside(x, y + 1))
+                  color = '#b2ac94';
+                rect(x, y, 1, 1, color);
+              }
+            if (pat === 'plain') txt('C', 14, 16, b);
+          });
+        kitCache.set(key, can);
+        return can;
+      }
+      const kitCache = new Map();
+      function jumper(kit, x, y, w = 34) {
+        ctx.drawImage(kitArt(kit), Math.round(x), Math.round(y), w, Math.round((w * 35) / 34));
+      }
+      function clubScreen() {
+        head('CLUB SELECT', 'PICK YOUR CLUB  /  SEASON 01');
+        let cols = compact ? 6 : 9,
+          top = 51,
+          bw = Math.floor((W - 24) / cols);
+        CLUBS.forEach((c, i) => {
+          let x = 12 + (i % cols) * bw,
+            y = top + Math.floor(i / cols) * (compact ? 40 : 45),
+            selected = i === clubPick;
+          box(x, y, bw - 2, compact ? 37 : 42, selected ? '#374c42' : C.panel, selected ? C.gold : C.line);
+          jumper(c.slice(2, 6), x + (bw - 24) / 2, y + 1, 24);
+          txt(c[1], x + bw / 2 - 1, y + (compact ? 27 : 31), selected ? C.gold : C.muted, 1, 'center');
+          target(x, y, bw - 2, compact ? 37 : 42, c[0], () => {
+            clubPick = i;
+            focus = i;
+            draw();
+          });
+          if (i === focus && i !== clubPick) rect(x + 2, y + 2, 4, 2, C.mint);
+        });
+        let c = CLUBS[clubPick],
+          y = compact ? 178 : 147;
+        txt(c[0], 12, y, C.gold, compact ? 1 : 2);
+        txt(c[6], 12, y + (compact ? 13 : 21), C.muted);
+        let width = (W - 24) / 4;
+        ['ATK', 'MID', 'DEF', 'RUCK'].forEach((s, i) => {
+          let x = 12 + i * width;
+          txt(s + ' ' + c[i + 7], x, y + 38, C.paper);
+          rect(x, y + 50, width - 8, 3, C.line);
+          rect(x, y + 50, ((width - 8) * c[i + 7]) / 100, 3, C.mint);
+        });
+        menuRect(12, H - 51, compact ? 120 : 139, 19, 'COACH: ' + initials, () =>
+          inputName('COACH INITIALS', initials, 3, (v) => {
+            initials = v.padEnd(3, 'X');
+            draw();
+          }),
+        );
+        menuRect(
+          W - 141,
+          H - 51,
+          129,
+          39,
+          'START SEASON',
+          () => {
+            newCareer(clubPick, initials);
+            home();
+          },
+          'primary',
+          'play',
+        );
+        menuRect(12, H - 27, 65, 16, '< BACK', () => go('title'));
+      }
+      function hub() {
+        let c = career,
+          t = c.teams[c.club],
+          g = myGame(c),
+          opp = g ? c.teams[g.h === c.club ? g.a : g.h] : null;
+        head('COACH BOX', 'SEASON ' + String(c.year).padStart(2, '0') + '  /  ' + period(c));
+        txt(c.credits + ' CR', W - 12, 17, C.gold, 1, 'right');
+        let y = 51,
+          h = compact ? 112 : 90;
+        box(12, y, W - 24, h, C.panel, C.line);
+        let half = W / 2,
+          midY = y + (compact ? 48 : 35);
+        jumper(t.kit, half * 0.5 - 22, y + 5, 43);
+        if (opp) jumper(opp.kit, half * 1.5 - 22, y + 5, 43);
+        txt(opp ? 'VS' : 'BYE', half, midY - 7, C.gold, 1, 'center');
+        txt(t.abbr, half * 0.5, y + 54, C.paper, 2, 'center');
+        txt(opp ? opp.abbr : 'REST', half * 1.5, y + 54, C.paper, 2, 'center');
+        txt(
+          g ? (c.phase === 'finals' && c.week === 3 ? 'MCG / GRAND FINAL' : c.teams[g.h].ground) : 'NO CLUB FIXTURE',
+          half,
+          y + h - 12,
+          C.muted,
+          1,
+          'center',
+        );
+        let play = g ? (c.live ? 'RESUME MATCH' : 'PLAY MATCH') : 'ADVANCE ROUND';
+        navRow(
+          [
+            [play, g ? startMatch : simCurrent, 'primary', 'play'],
+            [
+              'SIM ROUND',
+              () => {
+                if (c.live) {
+                  startMatch();
+                  simCurrent();
+                } else simCurrent();
+              },
+            ],
+          ],
+          y + h + 8,
+          26,
+        );
+        let k = y + h + 43;
+        navRow(
+          [
+            [
+              'ROSTER',
+              () => {
+                page = 0;
+                go('roster');
+              },
+            ],
+            [
+              'LADDER',
+              () => {
+                page = 0;
+                go('ladder');
+              },
+            ],
+            [
+              'FIXTURE',
+              () => {
+                fixtureRound = c.phase === 'home' ? c.round : c.fixture.length + c.week;
+                go('fixture');
+              },
+            ],
+          ],
+          k,
+          20,
+        );
+        navRow(
+          [
+            ['FACILITIES', () => go('facilities')],
+            [
+              'CLUB FILE',
+              () => {
+                page = 0;
+                go('history');
+              },
+            ],
+            ['TITLE', () => go('title')],
+          ],
+          k + 27,
+          20,
+        );
+        let row = c.table[c.club];
+        txt('W ' + row.w + '   D ' + row.d + '   L ' + row.l, 12, H - 16, C.muted);
+        txt('COACH ' + c.initials, W - 12, H - 16, C.mint, 1, 'right');
+      }
+      function settings() {
+        head('SETTINGS', 'CABINET OPTIONS');
+        let vals = [
+          [
+            'DIFFICULTY',
+            ['ROOKIE', 'CLUB', 'LEGEND'][prefs.difficulty],
+            () => (prefs.difficulty = (prefs.difficulty + 1) % 3),
+          ],
+          [
+            'QUARTER LENGTH',
+            prefs.quarter + ' SEC',
+            () => (prefs.quarter = CFG.quarters[(CFG.quarters.indexOf(prefs.quarter) + 1) % CFG.quarters.length]),
+          ],
+          [
+            'SOUND',
+            prefs.sound ? 'ON' : 'OFF',
+            () => {
+              prefs.sound = !prefs.sound;
+              if (master) master.gain.value = prefs.sound ? 0.22 : 0;
+              unlock();
+            },
+          ],
+          ['CRT FILTER', prefs.crt ? 'ON' : 'OFF', () => (prefs.crt = !prefs.crt)],
+          ['TAP DEFENCE', prefs.defend ? 'ON' : 'AUTO', () => (prefs.defend = !prefs.defend)],
+          ['EXPANSION OFFER', prefs.expansion ? 'ON' : 'OFF', () => (prefs.expansion = !prefs.expansion)],
+        ];
+        vals.forEach(([k, v, fn], i) => {
+          let y = 51 + i * (compact ? 30 : 23);
+          rect(12, y, W - 24, compact ? 25 : 20, i % 2 ? C.panel : '#1d2c2e');
+          txt(k, 18, y + 6, C.paper);
+          txt('< ' + v + ' >', W - 18, y + 6, focus === i ? C.gold : C.mint, 1, 'right');
+          target(12, y, W - 24, compact ? 25 : 20, k + ' ' + v, () => {
+            fn();
+            syncPrefs();
+            draw();
+          });
+        });
+        txt('EXPANSION IS OFFERED BETWEEN SEASONS.', 12, compact ? 236 : 194, C.muted);
+        menuRect(12, H - 53, 114, 18, 'CONTROLS', openHelp);
+        if (career && settingsFrom === 'title')
+          menuRect(134, H - 53, 120, 18, 'NEW CAREER', () =>
+            confirmBox(
+              'NEW CAREER?',
+              'Starting a new career replaces your saved club. Your arcade records are kept.',
+              'settings',
+              () => {
+                clubPick = 0;
+                go('clubs');
+              },
+            ),
+          );
+        backButton(() => go(settingsFrom));
+      }
+      const helpPages = [
+        [
+          'BALL CONTROL',
+          [
+            ['MOVE', 'ARROWS / WASD OR TOUCH THE GRASS TO RUN THERE.'],
+            ['HANDBALL', 'Z OR TAP A TEAMMATE. LEAD A RUNNER INTO SPACE.'],
+            [
+              'KICK',
+              'HOLD SPACE TO BUILD POWER. AIM WITH ARROWS, THEN RELEASE. ON TOUCH, DRAG FROM THE FIELD TOWARDS YOUR TARGET AND LIFT.',
+            ],
+          ],
+        ],
+        [
+          'CONTESTS & GOALS',
+          [
+            ['RUCK / MARK', 'TAP THE BALL OR PRESS Z LATE IN THE BOUNCE OR FLIGHT.'],
+            [
+              'SHOT AT GOAL',
+              'HOLD X OR THE SHOT BUTTON. RELEASE WHEN AIM IS CENTRAL AND POWER CAN REACH THE POSTS. CHECK THE WIND.',
+            ],
+            ['DEFEND', 'WITH TAP DEFENCE ON, PRESS Z OR TAP TACKLE NEAR THE CARRIER.'],
+          ],
+        ],
+        [
+          'COACHING',
+          [
+            ['SEASON', 'WIN FOR 4 POINTS, DRAW FOR 2. PERCENTAGE BREAKS TIES. THE TOP EIGHT PLAY FINALS.'],
+            ['SQUAD', 'MANAGE CONTRACTS AND THE SALARY CAP. WINS EARN CREDITS FOR FACILITIES.'],
+            [
+              'EXPANSION',
+              'AFTER SEASON ONE, PROTECT FIVE PLAYERS AND CHOOSE WHICH CLUBS JOIN. YOU CAN COACH A NEW CLUB.',
+            ],
+          ],
+        ],
+      ];
+      function controls() {
+        page = clamp(page, 0, 2);
+        let [name, items] = helpPages[page];
+        head('CONTROLS', name + '  /  ' + (page + 1) + ' OF 3');
+        let y = 55;
+        for (let [k, v] of items) {
+          label(k, 12, y);
+          y = wrapText(v, 12, y + 14, W - 26, C.paper, 11) + 13;
+        }
+        backButton(() => go(helpFrom));
+        menuRect(W - 93, H - 29, 81, 19, page === 2 ? 'FIRST >' : 'NEXT >', () => {
+          page = (page + 1) % 3;
+          draw();
+        });
+      }
+      function recordsScreen() {
+        head('HIGH SCORES', 'COACH INITIALS  /  DYNASTY RECORDS');
+        txt('RANK   COACH   CLUB     SCORE', 18, 58, C.mint);
+        let list = records.length ? records : [{ tag: '---', club: '---', score: 0 }];
+        list.slice(0, 8).forEach((r, i) => {
+          let y = 77 + i * 16;
+          rect(12, y - 4, W - 24, 15, i % 2 ? C.ink : C.panel);
+          txt(
+            String(i + 1).padStart(2, '0') +
+              '     ' +
+              r.tag.padEnd(3) +
+              '     ' +
+              r.club +
+              '      ' +
+              String(r.score).padStart(6, '0'),
+            18,
+            y,
+            i === 0 ? C.gold : C.paper,
+          );
+        });
+        txt('WIN 100  /  PREMIERSHIP 5000', 12, H - 47, C.muted);
+        backButton(() => go('title'));
+      }
+
+      function pager(total, per, backFn = home) {
+        let max = Math.max(1, Math.ceil(total / per));
+        page = clamp(page, 0, max - 1);
+        backButton(backFn);
+        if (max > 1) {
+          menuRect(W - 125, H - 29, 30, 19, '<', () => {
+            page = (page + max - 1) % max;
+            draw();
+          });
+          txt(page + 1 + '/' + max, W - 69, H - 22, C.muted, 1, 'center');
+          menuRect(W - 42, H - 29, 30, 19, '>', () => {
+            page = (page + 1) % max;
+            draw();
+          });
+        }
+      }
+      function leagueTable() {
+        let sorted = ladder(career),
+          per = compact ? 12 : 10;
+        head('LADDER', 'SEASON ' + career.year + '  /  PREMIERSHIP TABLE');
+        let headers = ['#', 'CLUB', 'W', 'D', 'L', 'PTS', 'PCT'],
+          cols = compact ? [13, 35, 101, 128, 151, 184, 237] : [16, 48, 175, 217, 254, 313, 386];
+        headers.forEach((v, i) => txt(v, cols[i], 53, C.mint));
+        sorted.slice(page * per, page * per + per).forEach((r, i) => {
+          let y = 69 + i * (compact ? 17 : 15),
+            rank = page * per + i + 1,
+            t = career.teams[r.id];
+          rect(11, y - 4, W - 22, 14, r.id === career.club ? '#36493e' : i % 2 ? C.ink : C.panel);
+          [rank, t.abbr, r.w, r.d, r.l, r.pts, percent(r).toFixed(1)].forEach((v, j) =>
+            txt(v, cols[j], y, r.id === career.club ? C.gold : C.paper),
+          );
+          if (rank === 8) rect(12, y + 9, W - 24, 1, C.gold);
+        });
+        pager(sorted.length, per);
+      }
+      function fixtures() {
+        let c = career,
+          rounds = c.fixture.concat(c.finals);
+        fixtureRound = clamp(fixtureRound, 0, rounds.length - 1);
+        let round = rounds[fixtureRound],
+          name =
+            fixtureRound < c.fixture.length ? 'ROUND ' + (fixtureRound + 1) : weeks[fixtureRound - c.fixture.length];
+        head('FIXTURE', name + '  /  SEASON ' + c.year);
+        round.forEach((g, i) => {
+          let y = 55 + i * (compact ? 20 : 16);
+          rect(12, y - 3, W - 24, 14, i % 2 ? C.ink : C.panel);
+          let mine = g.h === c.club || g.a === c.club;
+          txt(c.teams[g.h].abbr + '  V  ' + c.teams[g.a].abbr, 18, y, mine ? C.gold : C.paper);
+          txt(
+            g.score ? points(g.score[0]) + ' - ' + points(g.score[1]) : g.label || 'UPCOMING',
+            W - 18,
+            y,
+            g.score ? C.paper : C.muted,
+            1,
+            'right',
+          );
+        });
+        if (fixtureRound < c.fixture.length) {
+          let byes = c.teams.filter((t) => !round.some((g) => g.h === t.id || g.a === t.id));
+          if (byes.length) wrapText('BYE: ' + byes.map((t) => t.abbr).join(' '), 12, H - 58, W - 24, C.mint);
+        }
+        backButton();
+        menuRect(W - 153, H - 29, 67, 19, '< PREV', () => {
+          fixtureRound = (fixtureRound + rounds.length - 1) % rounds.length;
+          draw();
+        });
+        menuRect(W - 79, H - 29, 67, 19, 'NEXT >', () => {
+          fixtureRound = (fixtureRound + 1) % rounds.length;
+          draw();
+        });
+      }
+      function roster() {
+        let t = career.teams[career.club],
+          per = 7;
+        head('ROSTER', t.abbr + '  /  SALARY ' + payroll(t) + ' OF ' + CFG.cap);
+        let x2 = compact ? 177 : 278,
+          x3 = compact ? 211 : 334,
+          x4 = compact ? 246 : 403;
+        txt('PLAYER', 16, 53, C.mint);
+        txt('POS', x2, 53, C.mint);
+        txt('RTG', x3, 53, C.mint);
+        txt('DEAL', x4, 53, C.mint);
+        t.list.slice(page * per, page * per + per).forEach((p, i) => {
+          let y = 68 + i * (compact ? 26 : 21),
+            h = compact ? 23 : 18;
+          rect(12, y, W - 24, h, i === focus ? '#344941' : i % 2 ? C.ink : C.panel);
+          txt(p.name, 16, y + 5, p.hurt ? C.coral : C.paper);
+          txt(p.pos, x2, y + 5, C.muted);
+          txt(p.r, x3, y + 5, C.gold);
+          txt(p.deal + 'Y', x4, y + 5, p.deal ? C.paper : C.coral);
+          target(12, y, W - 24, h, p.name, () => {
+            selectedPlayer = p.id;
+            go('player');
+          });
+        });
+        pager(t.list.length, per, home);
+      }
+      function playerCard() {
+        let c = career,
+          t = c.teams[c.club],
+          p = t.list.find((q) => q.id === selectedPlayer);
+        if (!p) {
+          go('roster');
+          return;
+        }
+        head('PLAYER FILE', t.name);
+        jumper(t.kit, 12, 54, 53);
+        txt(p.name, 76, 62, C.gold, compact ? 1 : 2);
+        txt(p.pos + '  /  AGE ' + p.age + '  /  RATING ' + p.r, 76, 86, C.paper);
+        let rows = [
+          ['SALARY', p.pay + ' CR'],
+          ['CONTRACT', p.deal ? p.deal + ' SEASONS' : 'EXPIRED'],
+          ['MORALE', p.mood + ' / 99'],
+          ['FITNESS', p.hurt ? 'INJURED ' + p.hurt + ' RDS' : 'MATCH FIT'],
+          ['SEASON GOALS', p.goals],
+        ];
+        rows.forEach(([k, v], i) => {
+          let y = 116 + i * (compact ? 21 : 16);
+          txt(k, 18, y, C.muted);
+          txt(v, W - 18, y, C.paper, 1, 'right');
+        });
+        let offer = payFor(p.r);
+        navRow(
+          [
+            [
+              'RE-SIGN ' + offer,
+              () => {
+                if (p.deal >= 3) {
+                  notify('ALREADY CONTRACTED FOR 3+ YEARS');
+                  return;
+                }
+                if (payroll(t) - p.pay + offer + 36 * Math.max(0, CFG.squad - t.list.length) > CFG.cap) {
+                  notify('SALARY CAP EXCEEDED');
+                  return;
+                }
+                p.pay = offer;
+                p.deal = 3;
+                p.mood = clamp(p.mood + 4, 0, 99);
+                save();
+                notify('SIGNED FOR THREE SEASONS');
+              },
+            ],
+            ['TRADE', () => offerTrade(t, p)],
+          ],
+          H - 61,
+          21,
+        );
+        backButton(() => go('roster'));
+      }
+      function offerTrade(t, p) {
+        let c = career,
+          candidates = [];
+        for (let other of c.teams) {
+          if (other === t) continue;
+          for (let q of other.list) {
+            if (
+              q.pos === p.pos &&
+              q.deal > 0 &&
+              Math.abs(q.r - p.r) <= 6 &&
+              payroll(t) - p.pay + q.pay <= CFG.cap &&
+              payroll(other) - q.pay + p.pay <= CFG.cap
+            )
+              candidates.push([other, q]);
+          }
+        }
+        if (!candidates.length) {
+          notify('NO MATCHING TRADE OFFER');
+          return;
+        }
+        let [other, q] = pick(candidates);
+        confirmBox(
+          'TRADE OFFER',
+          other.abbr +
+            ' offer ' +
+            q.name +
+            ' (' +
+            q.pos +
+            ', rating ' +
+            q.r +
+            ', salary ' +
+            q.pay +
+            ') for ' +
+            p.name +
+            '.',
+          'player',
+          () => {
+            t.list[t.list.indexOf(p)] = q;
+            other.list[other.list.indexOf(q)] = p;
+            selectedPlayer = q.id;
+            save();
+            go('player');
+            notify('TRADE COMPLETED');
+          },
+        );
+      }
+      const facilities = ['TRAINING', 'MEDICAL', 'RECRUITING', 'STADIUM'],
+        perks = [
+          'FASTER YOUTH DEVELOPMENT',
+          'FEWER MATCH INJURIES',
+          'STRONGER DRAFT PROSPECTS',
+          'MORE CREDITS FROM WINS',
+        ];
+      function facilitiesScreen() {
+        let t = career.teams[career.club];
+        head('FACILITIES', career.credits + ' COACH CREDITS AVAILABLE');
+        facilities.forEach((f, i) => {
+          let y = 53 + i * (compact ? 55 : 43),
+            lvl = t.fac[i],
+            price = 4 + lvl * 3;
+          box(12, y, W - 24, compact ? 49 : 37, C.panel, C.line);
+          txt(f, 18, y + 6, C.paper);
+          txt(perks[i], 18, y + 20, C.muted);
+          for (let j = 0; j < 4; j++) rect(W - 103 + j * 8, y + 6, 5, 4, j < lvl ? C.gold : C.line);
+          menuRect(W - 80, y + 13, 61, 18, lvl === 4 ? 'MAX' : price + ' CR', () => {
+            if (lvl === 4) {
+              notify('FACILITY AT MAXIMUM');
+              return;
+            }
+            if (career.credits < price) {
+              notify('MORE CREDITS NEEDED');
+              return;
+            }
+            career.credits -= price;
+            t.fac[i]++;
+            save();
+            notify(f + ' UPGRADED');
+          });
+        });
+        backButton();
+      }
+      function history() {
+        let c = career;
+        head('CLUB FILE', c.teams[c.club].name + '  /  COACH ' + c.initials);
+        txt(c.flags + ' FLAGS   ' + c.wins + ' CAREER WINS', 12, 60, C.gold);
+        let per = 5;
+        let list = c.history.slice().reverse();
+        if (!list.length)
+          wrapText(
+            'YOUR FIRST SEASON IS UNDERWAY. SEASON RECORDS ARE ADDED AFTER THE GRAND FINAL.',
+            12,
+            94,
+            W - 26,
+            C.muted,
+          );
+        list.slice(page * per, page * per + per).forEach((r, i) => {
+          txt('S' + r.year + '  ' + r.champ, 12, 85 + i * 27, C.paper);
+          txt('LADDER FINISH ' + r.finish, 12, 96 + i * 27, C.muted);
+        });
+        pager(list.length, per);
+      }
+      function drawCup(x, y, scale = 2) {
+        const a = [
+          '  ##         ##  ',
+          ' ########### ##  ',
+          '##  ######### ## ',
+          '##  ######### ## ',
+          ' ## ###########  ',
+          '  ### ##### ##   ',
+          '      #####      ',
+          '       ###       ',
+          '        #        ',
+          '      #####      ',
+          '     #######     ',
+        ];
+        a.forEach((r, j) =>
+          [...r].forEach((c, i) => {
+            if (c === '#')
+              rect(x + i * scale, y + j * scale, scale, scale, i % 5 === 0 ? '#fff1a3' : i < 9 ? C.gold : '#d9953f');
+          }),
+        );
+      }
+      function confetti() {
+        let rnd = seeded(77);
+        for (let i = 0; i < 64; i++) {
+          let x = rnd() * W,
+            y = (rnd() * H + now * (12 + rnd() * 16)) % H;
+          rect(x, y, 1 + (i % 3), 1 + (i % 2), [C.coral, C.mint, C.gold, '#a59cca'][i % 4]);
+        }
+      }
+      function resultScreen() {
+        let c = career,
+          big = lastRound?.period === 'GRAND FINAL',
+          g = lastRound?.me || (big ? lastRound?.games[0] : null);
+        head(big ? 'PREMIERSHIP' : 'ROUND RESULTS', lastRound?.period || 'FULL TIME');
+        let y = 55;
+        if (big) {
+          confetti();
+          drawCup(W / 2 - 16, y);
+          txt(c.teams[c.champ].name, W / 2, y + 29, C.gold, 1, 'center');
+          y += 51;
+        }
+        if (g) {
+          let win =
+            (g.h === c.club || g.a === c.club) &&
+            points(g.score[g.h === c.club ? 0 : 1]) > points(g.score[g.h === c.club ? 1 : 0]);
+          txt(
+            win ? 'VICTORY!' : points(g.score[0]) === points(g.score[1]) ? 'DRAW' : 'FULL TIME',
+            W / 2,
+            y + 1,
+            win ? C.gold : C.muted,
+            2,
+            'center',
+          );
+          y += 27;
+          [g.h, g.a].forEach((id, i) => {
+            let t = c.teams[id],
+              s = g.score[i];
+            box(12, y + i * 30, W - 24, 25, C.panel, C.line);
+            jumper(t.kit, 17, y + 2 + i * 30, 20);
+            txt(t.abbr, 45, y + 8 + i * 30, C.paper);
+            txt(
+              s[0] + '.' + s[1] + '  (' + points(s) + ')',
+              W - 21,
+              y + 8 + i * 30,
+              i === 0 ? C.gold : C.paper,
+              1,
+              'right',
+            );
+          });
+        } else {
+          wrapText('ROUND COMPLETE. ALL FIXTURES HAVE BEEN SIMULATED.', 12, y, W - 24, C.paper);
+        }
+        menuRect(12, H - 39, W - 24, 26, c.phase === 'recap' ? 'SEASON RECAP' : 'CONTINUE', home, 'primary', 'play');
+      }
+      function recap() {
+        let c = career,
+          r = c.recap;
+        head('SEASON RECAP', 'SEASON ' + c.year + '  /  ' + r.club);
+        let y = 55;
+        drawCup(14, y, 2);
+        txt('PREMIERS', 59, y + 2, C.mint);
+        txt(r.champ, 59, y + 16, C.gold, compact ? 1 : 2);
+        let rows = [
+          ['LADDER FINISH', '#' + r.finish + ' OF ' + c.teams.length],
+          ['BEST & FAIREST', r.bf],
+          ['LEADING GOALKICKER', r.boot + ' / ' + r.goals],
+          ['SOUTHERN MEDAL', r.medal + ' / ' + r.votes + ' VOTES'],
+        ];
+        rows.forEach(([k, v], i) => {
+          let y = 98 + i * (compact ? 39 : 29);
+          txt(k, 15, y, C.muted);
+          txt(v, 15, y + 12, C.paper);
+        });
+        menuRect(
+          12,
+          H - 38,
+          W - 24,
+          25,
+          'OFF-SEASON',
+          () => {
+            if ((c.year === 1 || prefs.expansion) && !(c.exp.tas && c.exp.nt)) {
+              expansions = { tas: false, nt: false, variant: 0, coach: 'stay' };
+              c.phase = 'expansion';
+              c.protected = defaultProtected(c.teams[c.club]);
+              save();
+              go('expansion');
+            } else {
+              offseason(c);
+              save();
+              go('draft');
+            }
+          },
+          'primary',
+          'play',
+        );
+      }
+      function expansion() {
+        let c = career;
+        head('AFL EXPANSION', 'ADMIT CLUBS FOR SEASON ' + (c.year + 1));
+        let y = 53;
+        for (let [i, key] of ['tas', 'nt'].entries()) {
+          let data = key === 'tas' ? TAS : NEWCLUBS[expansions.variant],
+            top = y + i * (compact ? 52 : 44);
+          box(12, top, W - 24, compact ? 47 : 39, C.panel, expansions[key] ? C.gold : C.line);
+          jumper(data.slice(2, 6), 16, top + 3, 30);
+          txt(data[0], 54, top + 6, C.paper);
+          txt(data[6], 54, top + 20, C.muted);
+          txt(c.exp[key] ? 'IN' : expansions[key] ? 'YES' : '+', W - 20, top + 16, C.gold, 1, 'right');
+          target(12, top, W - 24, compact ? 47 : 39, data[0], () => {
+            if (c.exp[key]) return;
+            expansions[key] = !expansions[key];
+            if (!expansions[expansions.coach]) expansions.coach = 'stay';
+            draw();
+          });
+        }
+        let k = compact ? 160 : 143;
+        menuRect(12, k, compact ? 126 : 175, 19, 'NT PRESET >', () => {
+          if (c.exp.nt) {
+            notify('CLUB ALREADY ADMITTED');
+            return;
+          }
+          expansions.variant = (expansions.variant + 1) % NEWCLUBS.length;
+          draw();
+        });
+        menuRect(compact ? 147 : 198, k, compact ? 141 : 190, 19, 'PROTECT LIST', () => {
+          protectPage = 0;
+          go('protect');
+        });
+        let name =
+          expansions.coach === 'stay'
+            ? c.teams[c.club].abbr
+            : expansions.coach === 'tas'
+              ? 'TAS'
+              : NEWCLUBS[expansions.variant][1];
+        menuRect(12, k + 26, W - 24, 21, 'COACH: ' + name + ' >', () => {
+          let o = ['stay', ...['tas', 'nt'].filter((k) => expansions[k])];
+          expansions.coach = o[(o.indexOf(expansions.coach) + 1) % o.length];
+          draw();
+        });
+        wrapText(
+          'SELECT EITHER CLUB, BOTH, OR NEITHER. FIVE PLAYERS PER EXISTING CLUB CAN BE PROTECTED.',
+          12,
+          k + 55,
+          W - 24,
+          C.muted,
+          10,
+        );
+        menuRect(
+          12,
+          H - 37,
+          W - 24,
+          24,
+          'CONFIRM LEAGUE',
+          () => {
+            let created = expand(
+              c,
+              ['tas', 'nt'].filter((k) => expansions[k]),
+              expansions.variant,
+              expansions.coach,
+            );
+            if (created.length) {
+              c.news = created.map((t) => t.name).join(' + ');
+              c.phase = 'news';
+              save();
+              sfx('goal');
+              go('news');
+            } else {
+              offseason(c);
+              save();
+              go('draft');
+            }
+          },
+          'primary',
+          'play',
+        );
+      }
+      function protectedList() {
+        let c = career,
+          t = c.teams[c.club];
+        head('PROTECT LIST', c.protected.length + ' / ' + CFG.protected + ' PROTECTED  -  TAP TO CHANGE');
+        t.list.slice(protectPage * 7, protectPage * 7 + 7).forEach((p, i) => {
+          let y = 54 + i * (compact ? 28 : 22),
+            keep = c.protected.includes(p.id);
+          menuRect(
+            12,
+            y,
+            W - 24,
+            compact ? 24 : 19,
+            (keep ? '+ ' : '- ') + p.name + '  ' + p.pos + ' ' + p.r,
+            () => {
+              if (keep) c.protected = c.protected.filter((n) => n !== p.id);
+              else if (c.protected.length < CFG.protected) c.protected.push(p.id);
+              else notify('REMOVE ONE PROTECTED PLAYER FIRST');
+              save();
+              draw();
+            },
+            keep ? 'selected' : '',
+          );
+        });
+        backButton(() => go('expansion'));
+        menuRect(W - 100, H - 28, 88, 18, 'PAGE >', () => {
+          protectPage = (protectPage + 1) % Math.ceil(t.list.length / 7);
+          draw();
+        });
+      }
+      function news() {
+        head('LEAGUE NEWS', 'SPECIAL BULLETIN');
+        confetti();
+        txt('EXPANSION', W / 2, 75, C.gold, 3, 'center');
+        txt('ANNOUNCED!', W / 2, 103, C.paper, 3, 'center');
+        wrapText(career.news + ' JOIN THE COMPETITION. THE ALLOCATION DRAFT IS COMPLETE.', 16, 153, W - 32, C.mint);
+        menuRect(
+          12,
+          H - 37,
+          W - 24,
+          24,
+          'TO THE DRAFT',
+          () => {
+            offseason(career);
+            save();
+            go('draft');
+          },
+          'primary',
+        );
+      }
+      function draft() {
+        let c = career,
+          t = c.teams[c.club];
+        head(
+          'NATIONAL DRAFT',
+          'SALARY ' + payroll(t) + ' / ' + CFG.cap + '  -  ' + (c.pickUsed ? 'PICK USED' : 'ONE SELECTION'),
+        );
+        let y = 52;
+        txt('PROSPECT', 15, y, C.mint);
+        txt('POS  RTG  PAY', W - 14, y, C.mint, 1, 'right');
+        c.market.forEach((p, i) => {
+          let y = 67 + i * (compact ? 25 : 20);
+          rect(12, y - 3, W - 24, compact ? 21 : 16, i === focus ? C.line : C.panel);
+          txt(p.name, 16, y, C.paper);
+          txt(p.pos.padEnd(4) + ' ' + p.r + '   ' + p.pay, W - 15, y, C.gold, 1, 'right');
+          target(12, y - 3, W - 24, 20, p.name, () => {
+            if (c.pickUsed) {
+              notify('DRAFT PICK ALREADY USED');
+              return;
+            }
+            let replace =
+              t.list.length >= CFG.squad ? t.list.slice().sort((a, b) => a.deal - b.deal || a.r - b.r)[0] : null;
+            if (payroll(t) - (replace?.pay || 0) + p.pay > CFG.cap) {
+              notify('SALARY CAP EXCEEDED');
+              return;
+            }
+            confirmBox(
+              'DRAFT ' + p.pos + '?',
+              'SIGN ' +
+                p.name +
+                ' FOR ' +
+                p.pay +
+                ' CREDITS PER SEASON.' +
+                (replace ? ' THIS RELEASES ' + replace.name + '.' : ''),
+              'draft',
+              () => {
+                if (replace) t.list = t.list.filter((q) => q !== replace);
+                t.list.push(p);
+                c.pickUsed = true;
+                c.market = [];
+                save();
+                go('draft');
+                notify('ROOKIE SIGNED');
+              },
+            );
+          });
+        });
+        let k = compact ? 205 : 173;
+        wrapText(
+          c.retired.length ? 'RETIRED: ' + c.retired.join(', ') : 'NO RETIREMENTS THIS SEASON.',
+          12,
+          k,
+          W - 24,
+          C.muted,
+          10,
+        );
+        txt('RE-SIGN EXPIRED DEALS BEFORE ADVANCING.', 12, H - 76, C.muted);
+        navRow(
+          [
+            [
+              'CONTRACTS',
+              () => {
+                page = 0;
+                go('roster');
+              },
+            ],
+            [
+              'NEXT SEASON',
+              () =>
+                confirmBox(
+                  'START SEASON ' + (c.year + 1) + '?',
+                  'EXPIRED PLAYERS WILL LEAVE. ROOKIES FILL ALL VACANCIES.',
+                  'draft',
+                  () => {
+                    rollSeason(c);
+                    home();
+                  },
+                ),
+              'primary',
+            ],
+          ],
+          H - 47,
+          28,
+        );
+      }
+      function confirmScreen() {
+        head(askTitle, 'CONFIRM SELECTION');
+        wrapText(askText, 15, 79, W - 30, C.paper, 15);
+        navRow(
+          [
+            ['CANCEL', () => go(askBack)],
+            ['CONFIRM', () => askAction(), 'primary'],
+          ],
+          H - 45,
+          26,
+        );
+      }
+
+      function makePitch() {
+        return art(pitchWidth, 184, () => {
+          const center = oval.cx + 12;
+          let rnd = seeded(73);
+          rect(0, 0, pitchWidth, 184, '#354247');
+          for (let y = 0; y < 184; y += 5) {
+            rect(0, y, pitchWidth, 1, '#6b6969');
+            for (let x = 0; x < pitchWidth; x += 4)
+              rect(
+                x + rnd() * 2,
+                y + 1 + rnd() * 2,
+                2,
+                1,
+                ['#94877c', '#8b6f6c', '#a19586', '#69807c'][Math.floor(rnd() * 4)],
+              );
+          }
+          ellipse(center, 92, oval.rx + 9, 79, '#b39a7a');
+          ellipse(center, 92, oval.rx + 7, 77, '#567e58');
+          ellipse(center, 92, oval.rx + 2, 73, '#c4d2a0');
+          ellipse(center, 92, oval.rx, 71, '#719e69');
+          for (let x = 1 - oval.rx; x < oval.rx; x++) {
+            let ry = 71 * Math.sqrt(1 - (x * x) / (oval.rx * oval.rx));
+            if (Math.floor((x + oval.cx) / 30) % 2 === 0) rect(center + x, 92 - ry, 1, 2 * ry, '#79a66e');
+          }
+          for (let i = 0; i < 530; i++) {
+            let x = (rnd() * 2 - 1) * oval.rx,
+              y = rnd() * 140 - 70;
+            if ((x * x) / (oval.rx * oval.rx) + (y * y) / (71 * 71) < 0.99)
+              rect(center + x, 92 + y, rnd() * 2 + 1, 1, i % 3 ? '#6c9966' : '#89af77');
+          }
+          const edge = '#c0d6a3';
+          for (let x = 0; x <= 360; x += 3) {
+            let a = (x * Math.PI) / 180,
+              b = ((x + 3) * Math.PI) / 180;
+            line(center + 15 * Math.cos(a), 92 + 9 * Math.sin(a), center + 15 * Math.cos(b), 92 + 9 * Math.sin(b), edge);
+          }
+          for (let [x, side] of [
+            [oval.leftGoal + 12, 1],
+            [oval.rightGoal + 12, -1],
+          ]) {
+            for (let i = -83; i < 83; i++) {
+              let a = (i * Math.PI) / 180,
+                b = ((i + 1) * Math.PI) / 180;
+              line(
+                x + side * 62 * Math.cos(a),
+                92 + 57 * Math.sin(a),
+                x + side * 62 * Math.cos(b),
+                92 + 57 * Math.sin(b),
+                edge,
+              );
+            }
+            line(x, 85, x + side * 14, 85, edge);
+            line(x, 99, x + side * 14, 99, edge);
+            line(x + side * 14, 85, x + side * 14, 99, edge);
+          }
+          line(center - 35, 71, center + 35, 71, edge);
+          line(center - 35, 113, center + 35, 113, edge);
+          line(center - 35, 71, center - 35, 113, edge);
+          line(center + 35, 71, center + 35, 113, edge);
+          rect(center - 2, 89, 4, 6, edge);
+        });
+      }
+      let fieldView = null;
+      function drawField(m, x, y, w, h, demo = false) {
+        let b = currentBall(m),
+          span = demo ? pitchWidth : compact ? 285 : 424,
+          left = clamp(b.x - span / 2, -12, pitchWidth - 12 - span),
+          sx = w / span,
+          sy = h / 184;
+        const X = (u) => x + (u - left) * sx,
+          Y = (v) => y + (v + 12) * sy;
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(x, y, w, h);
+        ctx.clip();
+        ctx.drawImage(pitchArt, left + 12, 0, span, 184, x, y, w, h);
+        if (!demo) fieldView = { x, y, w, h, left, sx, sy };
+        let posts = (nearSide) => {
+          for (let gx of [oval.leftGoal, oval.rightGoal])
+            for (let offs of nearSide ? [10, 23] : [-23, -10]) {
+              let px = X(gx) + Math.round(offs * 0.27),
+                py = Y(80 + offs),
+                height = Math.abs(offs) === 10 ? 26 : 17;
+              rect(px + 1, py - height, 1, height, '#717c70');
+              rect(px - 1, py - height, 2, height, '#fff1cf');
+              rect(px - 2, py - 5, 3, 6, '#c46c59');
+            }
+        };
+        posts(false);
+        if (m.mode === 'celebrate' || m.big) {
+          let phase = Math.floor(m.matchTime * 4);
+          for (let i = 0; i < (m.big ? 64 : 40); i++) {
+            let fx = (i * 47 + 7) % (2 * oval.cx),
+              dy = Math.sqrt(Math.max(0, 1 - ((fx - oval.cx) / (oval.rx + 9)) ** 2)) * 79,
+              fy = 80 + (i % 2 ? 1 : -1) * (dy + 3 + (i % 4));
+            rect(
+              X(fx),
+              Y(fy) - ((i + phase) % 3),
+              2,
+              2,
+              (i + phase) % 6 < 2 ? C.gold : i % 2 ? m.teams[0].kit[1] : m.teams[1].kit[1],
+            );
+          }
+        }
+        if (m.mode === 'play' && m.owner >= 0) {
+          let p = m.players[m.owner];
+          let px = X(p.x),
+            py = Y(p.y);
+          ellipse(px, py + 1, 7, 2, p.side ? C.coral : C.gold);
+          if (!p.side && !demo) {
+            let a = m.goalAim ? Math.atan2(80 - p.y, oval.rightGoal - p.x) + Math.sin(m.matchTime * 3.3) * 0.082 : m.aim;
+            let len = m.charging ? 40 + 85 * m.charge : 15;
+            for (let i = 5; i <= len; i += 5)
+              rect(X(p.x + Math.cos(a) * i), Y(p.y + Math.sin(a) * i) - 2, 2, 1, m.charging ? C.gold : C.paper);
+            poly(
+              [
+                [px - 3, py - 17],
+                [px + 3, py - 17],
+                [px, py - 14],
+              ],
+              C.gold,
+            );
+          }
+        }
+        for (let p of m.players.slice().sort((a, b) => a.y - b.y)) {
+          let px = X(p.x),
+            py = Y(p.y),
+            pose = p.pose > 0 ? p.anim : '',
+            jump = pose === 'mark' ? 4 : 0;
+          if (pose === 'tackle') {
+            rect(px - 4, py - 4, 8, 3, m.teams[p.side].kit[0]);
+            rect(px + 3, py - 5, 3, 3, '#e8aa79');
+          } else smallPlayer(px, py, m.teams[p.side].kit, p.side, m.matchTime + p.id, pose, jump);
+          if (p.id === m.owner) {
+            rect(px + (p.side ? -4 : 3), py - 7, 3, 2, '#9f3b39');
+            rect(px + (p.side ? -4 : 3), py - 7, 2, 1, '#ffa282');
+          }
+        }
+        if (m.mode === 'flight' || m.mode === 'loose' || m.mode === 'ruck') {
+          let z = m.mode === 'ruck' ? Math.sin(clamp((1.8 - m.wait) / 1.8, 0, 1) * Math.PI) * 24 : m.ball.z || 0;
+          ellipse(X(m.ball.x), Y(m.ball.y), 3, 1, '#527957');
+          ellipse(X(m.ball.x), Y(m.ball.y) - z - 3, 3, 2, '#a7413c');
+          rect(X(m.ball.x) - 1, Y(m.ball.y) - z - 4, 3, 1, '#ffd197');
+          if (m.mode === 'flight' && m.flight.t / m.flight.duration > 0.57 && !demo) {
+            txt('MARK!', X(m.ball.x), Y(m.ball.y) - z - 16, C.ink, 1, 'center');
+          }
+        }
+        posts(true);
+        ctx.restore();
+      }
+      function matchScreen() {
+        let m = match;
+        if (!m) return;
+        let grand = career.phase === 'finals' && career.week === 3;
+        rect(0, 0, W, H, C.ink);
+        rect(0, 0, W, 15, grand ? '#5b4131' : C.panel);
+        txt(grand ? 'GRAND FINAL' : period(career), 8, 4, grand ? C.gold : C.mint);
+        txt('ATTACK >', W - 8, 4, C.mint, 1, 'right');
+        let clock = Math.ceil(m.secleft),
+          tm = Math.floor(clock / 60) + ':' + String(clock % 60).padStart(2, '0'),
+          left = compact ? 8 : 13,
+          right = compact ? W - 7 : W - 13;
+        txt(m.teams[0].abbr + ' ' + points(m.score[0]), left, 21, C.gold, 2);
+        txt(m.teams[1].abbr + ' ' + points(m.score[1]), right, 21, C.paper, 2, 'right');
+        txt((m.q > 4 ? 'ET' : 'Q' + m.q) + ' ' + tm, W / 2, 23, C.mint, 1, 'center');
+        txt(m.score[0][0] + '.' + m.score[0][1], left, 40, C.muted);
+        txt(m.score[1][0] + '.' + m.score[1][1], right, 40, C.muted, 1, 'right');
+        txt('WIND ' + (m.wind >= 0 ? '+' : '') + m.wind, W / 2, 39, C.muted, 1, 'center');
+        let y = 53,
+          h = compact ? 177 : 151;
+        ctx.save();
+        if (m.shake) ctx.translate(Math.round(Math.sin(m.matchTime * 70) * 2), 0);
+        drawField(m, 0, y, W, h);
+        ctx.restore();
+        if (m.flash > 0.07) {
+          rect(0, y, W, 2, C.paper);
+          rect(0, y + h - 2, W, 2, C.paper);
+        }
+        if (m.bannerT > 0) {
+          let text = m.banner || '';
+          let ww = tw(text) + 13;
+          box((W - ww) / 2, y + 6, ww, 15, C.ink, C.muted);
+          txt(text, W / 2, y + 10, C.gold, 1, 'center');
+        }
+        let bar = y + h + 5,
+          p = m.owner >= 0 ? m.players[m.owner] : null,
+          me = p?.side === 0;
+        let hint =
+          m.mode === 'ruck'
+            ? 'TIME THE TAP'
+            : m.mode === 'flight'
+              ? 'WATCH THE DROP'
+              : m.charging
+                ? m.goalAim
+                  ? 'SHOT AT GOAL'
+                  : 'KICK POWER'
+                : me
+                  ? 'YOUR BALL'
+                  : p
+                    ? 'DEFENDING'
+                    : 'BALL IN PLAY';
+        txt(hint, 8, bar, C.mint);
+        let pw = compact ? 58 : 75,
+          x = W - pw - 8;
+        txt(m.charging ? 'POWER' : 'MOM', x - 5, bar, C.muted, 1, 'right');
+        box(x, bar, pw, 7, C.panel, C.line);
+        if (m.charging) {
+          rect(x + 1, bar + 1, (pw - 2) * m.charge, 5, C.gold);
+          if (m.goalAim) rect(x + (Math.sin(m.matchTime * 3.3) + 1) * 0.5 * (pw - 4), bar - 1, 2, 9, C.coral);
+        } else {
+          let mid = x + pw / 2;
+          rect(mid, bar + 1, 1, 5, C.paper);
+          rect(
+            m.mom > 0 ? mid : mid + (m.mom * pw) / 2,
+            bar + 1,
+            (Math.abs(m.mom) * pw) / 2,
+            5,
+            m.mom >= 0 ? C.gold : C.coral,
+          );
+        }
+        if (m.mode === 'break') {
+          let bw = Math.min(274, W - 24),
+            bh = 114,
+            xx = (W - bw) / 2,
+            yy = y + (h - bh) / 2;
+          box(xx, yy, bw, bh, C.ink, C.gold);
+          txt(
+            m.finished ? 'FULL TIME' : m.q === 2 ? 'HALF TIME' : m.q === 4 ? 'SCORES LEVEL' : 'SIREN!',
+            W / 2,
+            yy + 12,
+            C.gold,
+            2,
+            'center',
+          );
+          txt(
+            m.teams[0].abbr + ' ' + points(m.score[0]) + '  -  ' + points(m.score[1]) + ' ' + m.teams[1].abbr,
+            W / 2,
+            yy + 38,
+            C.paper,
+            1,
+            'center',
+          );
+          let ends = (m.splits || []).slice(-4),
+            width = (bw - 26) / Math.max(1, ends.length);
+          ends.forEach((s, i) => {
+            let xx2 = xx + 13 + width * (i + 0.5),
+              q = m.q - ends.length + i + 1;
+            txt(q > 4 ? 'ET' + (q - 4) : 'Q' + q, xx2, yy + 55, C.mint, 1, 'center');
+            txt(s.join('-'), xx2, yy + 67, C.paper, 1, 'center');
+          });
+          menuRect(
+            xx + 12,
+            yy + 85,
+            bw - 24,
+            22,
+            m.finished ? 'MATCH RESULT' : m.q >= 4 ? 'EXTRA TIME' : 'NEXT QUARTER',
+            () => {
+              if (m.finished) finishPlayed();
+              else {
+                nextQuarter(m);
+                checkpoint();
+              }
+            },
+            'primary',
+          );
+          return;
+        }
+        if (p) {
+          let who = m.teams[p.side].list.find((q) => q.id === p.pid);
+          if (who) txt(who.name.split(' ').at(-1), compact ? 8 : 110, compact ? bar + 14 : bar, C.paper);
+        }
+        let rowY = compact ? H - 59 : H - 39;
+        let primary = m.mode === 'ruck' ? 'RUCK' : m.mode === 'flight' ? 'MARK' : me ? 'PASS' : 'TACKLE';
+        navRow(
+          [
+            [primary, () => contest(m), 'primary'],
+            [
+              'KICK',
+              () => {
+                if (me) kick(m, m.aim, 0.65);
+              },
+            ],
+            [
+              'SHOT',
+              () => {
+                if (me) kick(m, m.aim, 0.72, true);
+              },
+            ],
+            ['PAUSE', pause],
+          ],
+          rowY,
+          compact ? 35 : 25,
+        );
+        if (compact) txt('TAP TO RUN  /  DRAG TO KICK', W / 2, H - 12, C.muted, 1, 'center');
+      }
+      function pause() {
+        if (!match) return;
+        match.charging = false;
+        checkpoint();
+        go('pause');
+      }
+      function pauseScreen() {
+        head('PAUSED', 'MATCH SAVED  /  ' + period(career));
+        let list = [
+          ['RESUME MATCH', () => go('match')],
+          ['CONTROLS', openHelp],
+          ['SETTINGS', openSettings],
+          ['SIM REMAINDER', simCurrent],
+          [
+            'COACH BOX',
+            () => {
+              checkpoint();
+              match = null;
+              go('hub');
+            },
+          ],
+        ];
+        list.forEach(([s, fn], i) =>
+          menuRect(22, 57 + i * (compact ? 43 : 34), W - 44, compact ? 31 : 25, s, fn, i === 0 ? 'primary' : ''),
+        );
+      }
+      const scenes = {
+        title: titleScreen,
+        clubs: clubScreen,
+        hub,
+        settings,
+        controls,
+        records: recordsScreen,
+        match: matchScreen,
+        pause: pauseScreen,
+        result: resultScreen,
+        roster,
+        player: playerCard,
+        facilities: facilitiesScreen,
+        ladder: leagueTable,
+        fixture: fixtures,
+        recap,
+        draft,
+        protect: protectedList,
+        expansion,
+        news,
+        history,
+        confirm: confirmScreen,
+      };
+      function draw() {
+        if (!titleBG || !simDemo) return;
+        buttons = [];
+        ctx.imageSmoothingEnabled = false;
+        scenes[screen]();
+        if (toastUntil > now && toast) {
+          let s = toast;
+          if (tw(s) > W - 14) s = s.slice(0, Math.floor((W - 25) / 6));
+          let w = tw(s) + 10;
+          box((W - w) / 2, H - 18, w, 15, C.black, C.gold);
+          txt(s, W / 2, H - 14, C.gold, 1, 'center');
+        }
+        crtCorners();
+        if (focus >= buttons.length) focus = 0;
+        let sig = screen + '|' + buttons.map((b) => b.label).join('|');
+        if (sig !== accessSig) {
+          accessSig = sig;
+          $('actions').replaceChildren(
+            ...buttons.map((b, i) => {
+              let el = document.createElement('button');
+              el.textContent = b.label;
+              el.tabIndex = -1;
+              el.onclick = () => activate(i);
+              return el;
+            }),
+          );
+        }
+      }
+      function activate(i) {
+        let b = buttons[i];
+        if (!b) return;
+        unlock();
+        sfx('select');
+        focus = i;
+        b.fn();
+        draw();
+      }
+      function back() {
+        if (screen === 'title') return;
+        if (screen === 'match') {
+          pause();
+          return;
+        }
+        if (screen === 'pause') {
+          go('match');
+          return;
+        }
+        if (screen === 'settings') {
+          go(settingsFrom);
+          return;
+        }
+        if (screen === 'controls') {
+          go(helpFrom);
+          return;
+        }
+        if (screen === 'player') {
+          go('roster');
+          return;
+        }
+        if (screen === 'protect') {
+          go('expansion');
+          return;
+        }
+        if (screen === 'clubs' || screen === 'records' || screen === 'hub') {
+          go('title');
+          return;
+        }
+        if (screen === 'confirm') {
+          go(askBack);
+          return;
+        }
+        if (['news', 'expansion', 'recap', 'draft'].includes(screen)) {
+          go('title');
+          return;
+        }
+        home();
+      }
+      function coordinates(e) {
+        let r = game.getBoundingClientRect();
+        return { x: ((e.clientX - r.left) * W) / r.width, y: ((e.clientY - r.top) * H) / r.height };
+      }
+      const hit = (p, b) => p.x >= b.x && p.x < b.x + b.w && p.y >= b.y && p.y < b.y + b.h;
+      function toField(p) {
+        let v = fieldView;
+        return { x: v.left + (p.x - v.x) / v.sx, y: (p.y - v.y) / v.sy - 12 };
+      }
+      function beginCharge(shot, key) {
+        let m = match;
+        if (m?.mode !== 'play' || m.owner < 0 || m.players[m.owner].side || m.charging) return false;
+        m.charging = true;
+        m.charge = 0.04;
+        m.goalAim = shot;
+        chargeKey = key;
+        return true;
+      }
+      function release(key) {
+        if (match?.charging && chargeKey === key) {
+          kick(match, match.aim, match.charge, match.goalAim);
+          chargeKey = '';
+        }
+      }
+      game.addEventListener('pointerdown', (e) => {
+        if (e.button !== 0 || !e.isPrimary) return;
+        unlock();
+        game.focus({ preventScroll: true });
+        game.setPointerCapture(e.pointerId);
+        let p = coordinates(e),
+          i = buttons.findIndex((b) => hit(p, b));
+        if (screen === 'match' && match.mode !== 'break' && i >= 0 && ['KICK', 'SHOT'].includes(buttons[i].label)) {
+          beginCharge(buttons[i].label === 'SHOT', 'pointer');
+          drag = { p, i, key: true };
+          return;
+        }
+        drag = { p, i, screen, id: e.pointerId };
+        if (
+          screen === 'match' &&
+          i < 0 &&
+          fieldView &&
+          hit(p, fieldView) &&
+          match.mode === 'play' &&
+          match.owner >= 0 &&
+          !match.players[match.owner].side
+        ) {
+          drag.field = true;
+          drag.owner = match.owner;
+          drag.time = now;
+        }
+        if (i >= 0) focus = i;
+      });
+      game.addEventListener('pointermove', (e) => {
+        let p = coordinates(e);
+        if (drag?.field && screen === 'match' && match.mode === 'play' && match.owner === drag.owner) {
+          let dx = p.x - drag.p.x,
+            dy = p.y - drag.p.y;
+          if (Math.hypot(dx, dy) > 5) {
+            match.charging = true;
+            match.goalAim = false;
+            match.aim = Math.atan2(dy / fieldView.sy, dx / fieldView.sx);
+            match.charge = clamp(Math.hypot(dx, dy) / (compact ? 71 : 91), 0.12, 1);
+            drag.aim = true;
+          }
+          return;
+        }
+        over = buttons.findIndex((b) => hit(p, b));
+        game.style.cursor = over >= 0 ? 'pointer' : screen === 'match' ? 'crosshair' : 'default';
+      });
+      game.addEventListener('pointerleave', () => {
+        over = -1;
+      });
+      game.addEventListener('pointerup', (e) => {
+        if (!e.isPrimary || !drag) return;
+        let d = drag,
+          p = coordinates(e);
+        drag = null;
+        if (d.key) {
+          release('pointer');
+          return;
+        }
+        if (d.screen !== screen) return;
+        if (d.i >= 0) {
+          if (buttons[d.i] && hit(p, buttons[d.i])) activate(d.i);
+          return;
+        }
+        if (screen !== 'match' || match.mode === 'break' || !fieldView || !hit(d.p, fieldView)) return;
+        let m = match;
+        if (d.aim && m.mode === 'play' && m.owner === d.owner) {
+          kick(m, m.aim, m.charge);
+          return;
+        }
+        if (m.mode === 'ruck' || m.mode === 'flight') {
+          contest(m);
+          return;
+        }
+        if (m.mode !== 'play') return;
+        let carrier = m.players[m.owner];
+        if (carrier.side) {
+          if (prefs.defend) contest(m);
+          return;
+        }
+        let dest = toField(p),
+          targetPlayer = near(
+            m.players.filter((q) => q !== carrier && !q.side),
+            { x: dest.x, y: dest.y + 4 },
+          );
+        if (dist(targetPlayer, { x: dest.x, y: dest.y + 4 }) < 13) handball(m, targetPlayer);
+        else {
+          m.order = fieldClamp(dest);
+          m.aim = Math.atan2(dest.y - carrier.y, dest.x - carrier.x);
+        }
+      });
+      game.addEventListener('pointercancel', () => {
+        drag = null;
+        if (match) {
+          match.charging = false;
+          match.charge = 0;
+        }
+        chargeKey = '';
+      });
+      function navigate(k) {
+        if (!buttons.length) return;
+        let dx = k === 'arrowleft' || k === 'a' ? -1 : k === 'arrowright' || k === 'd' ? 1 : 0,
+          dy = k === 'arrowup' || k === 'w' ? -1 : k === 'arrowdown' || k === 's' ? 1 : 0;
+        let b = buttons[focus] || buttons[0],
+          bx = b.x + b.w / 2,
+          by = b.y + b.h / 2,
+          candidates = buttons
+            .map((q, i) => {
+              let x = q.x + q.w / 2 - bx,
+                y = q.y + q.h / 2 - by;
+              let forward = x * dx + y * dy,
+                across = Math.abs(x * dy - y * dx);
+              return { i, forward, cost: forward + across * 3 };
+            })
+            .filter((q) => q.forward > 2)
+            .sort((a, b) => a.cost - b.cost);
+        focus = candidates.length
+          ? candidates[0].i
+          : (focus + (dx + dy > 0 ? 1 : -1) + buttons.length) % buttons.length;
+        over = -1;
+        sfx('move');
+        draw();
+      }
+      window.addEventListener('keydown', (e) => {
+        if ($('naming').open || e.ctrlKey || e.metaKey || e.altKey) return;
+        let k = e.key.toLowerCase();
+        if (
+          ![
+            ' ',
+            'enter',
+            'escape',
+            'arrowleft',
+            'arrowright',
+            'arrowup',
+            'arrowdown',
+            'w',
+            'a',
+            's',
+            'd',
+            'z',
+            'x',
+            'p',
+          ].includes(k)
+        )
+          return;
+        if (e.target instanceof HTMLButtonElement && e.target.closest('header') && (k === ' ' || k === 'enter'))
+          return;
+        e.preventDefault();
+        unlock();
+        if (k === 'escape' || k === 'p') {
+          if (!e.repeat) back();
+          return;
+        }
+        if (screen === 'match' && match.mode !== 'break') {
+          held.add(k);
+          if (e.repeat) return;
+          if (k === 'z' || (k === ' ' && ['ruck', 'flight'].includes(match.mode))) contest(match);
+          else if (k === ' ' || k === 'x') beginCharge(k === 'x', k);
+          return;
+        }
+        if (['enter', ' ', 'z'].includes(k)) {
+          if (!e.repeat) activate(focus);
+        } else if (k === 'x' && !e.repeat) back();
+        else if (['arrowleft', 'arrowright', 'arrowup', 'arrowdown', 'w', 'a', 's', 'd'].includes(k)) navigate(k);
+      });
+      window.addEventListener('keyup', (e) => {
+        let k = e.key.toLowerCase();
+        held.delete(k);
+        if (screen === 'match') release(k);
+      });
+      window.addEventListener('blur', () => {
+        held.clear();
+        if (screen === 'match' && match.mode !== 'break') pause();
+      });
+      window.addEventListener('pagehide', () => {
+        if (match) checkpoint();
+      });
+      document.addEventListener('visibilitychange', () => {
+        if (document.hidden && screen === 'match' && match.mode !== 'break') pause();
+      });
+      function crtCorners() {
+        if (!prefs.crt) return;
+        for (let j = 0; j < 4; j++) {
+          const x = j % 2 ? W - 1 : 0,
+            y = j < 2 ? 0 : H - 1,
+            dx = j % 2 ? -1 : 1,
+            dy = j < 2 ? 1 : -1;
+          for (let i = 0; i < 3; i++) {
+            rect(dx < 0 ? x - 2 + i : x, y + dy * i, 3 - i, 1, '#142026');
+          }
+        }
+      }
+      function init() {
+        simDemo = newMatch(demoTeams, false, true);
+        simDemo.duration = 30;
+        simDemo.secleft = 30;
+        pitchArt = makePitch();
+        resize();
+        window.addEventListener('resize', () => {
+          if (compact !== innerWidth <= 670) resize();
+        });
+        let previous = performance.now();
+        function frame(ts) {
+          let dt = Math.min(0.06, Math.max(0, (ts - previous) / 1000));
+          previous = ts;
+          now += dt;
+          if (screen === 'title') {
+            stepMatch(simDemo, dt);
+            music(now);
+          }
+          if (screen === 'match' && match) {
+            stepMatch(match, dt);
+            match.saveIn -= dt;
+            if (match.saveIn <= 0) {
+              match.saveIn = 5;
+              checkpoint();
+            }
+          }
+          let uiStamp = [screen, focus, over, toastUntil > now].join('|');
+          if (
+            ['title', 'match', 'news'].includes(screen) ||
+            (screen === 'result' && lastRound?.period === 'GRAND FINAL') ||
+            uiStamp !== oldScreen
+          ) {
+            draw();
+            oldScreen = uiStamp;
+          }
+          requestAnimationFrame(frame);
+        }
+        requestAnimationFrame(frame);
+      }
+      init();
+    </script>
+  </body>
+</html>
