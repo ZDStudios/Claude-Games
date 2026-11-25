@@ -891,12 +891,6 @@
       emoji: "\ud83c\udf0a", genre: "Racing",
       tagBg: "#0EA5E9", artBg: "linear-gradient(135deg,#7DD3FC,#0284C7)"
     },
-    "spaceship-fly.html": {
-      title: "Spaceship Fly", tagline: "Deep Field Expedition",
-      desc: "Thread your ship through the deep field, weaving debris and hazards the further out you push.",
-      emoji: "\ud83d\ude80", genre: "Arcade / Flight",
-      tagBg: "#6366F1", artBg: "linear-gradient(135deg,#A5B4FC,#4F46E5)"
-    },
     "minecraft.html": {
       title: "MiniCraft", tagline: "Blocky Sandbox",
       desc: "A voxel world with chunk meshing, water and a full block palette \u2014 mine it, place it, build whatever you want.",
@@ -1048,6 +1042,12 @@
       emoji: "\ud83c\udf0b", genre: "Sandbox / God Game",
       tagBg: "#B45309", artBg: "linear-gradient(135deg,#FDE68A,#7C2D12)"
     },
+    "galactic-wars.html": {
+      title: "Galactic Wars", tagline: "One War for the Whole System",
+      desc: "A 3D space combat game. Pick a faction, fly and fight across the system, capture planets and control points, and join an always-on online war with other pilots \u2014 or play a solo campaign, practice against AI, or just free-fly.",
+      emoji: "\ud83d\ude80", genre: "3D / Space Combat",
+      tagBg: "#0E7490", artBg: "linear-gradient(135deg,#67E8F9,#1E1B4B)"
+    },
     "ramp-yard.html": {
       title: "Ramp Yard", tagline: "Motorbike Stunt Sandbox",
       desc: "A 3D motorbike stunt sandbox \u2014 hit the ramps, boost off the crests and land backflips, 360s, no-handers and more. Chain tricks into big combos.",
@@ -1094,7 +1094,7 @@
   const FEATURED = ["everything.html","skyrim.html","cs2.html","bricks-of-the-dark-knight.html",
                     "neon-rush.html","pulsebound.html","matchday.html","abyss-ocean-simulator.html",
                     "haul-hard.html","reefkeeper.html","azure-rush.html",
-                    "hyperkick.html","scrapyard-siege.html","monster-mosh.html","golf-blitz.html","grow-a-garden.html","worldforge.html","power-wash-sim.html","john-pork-escape.html","https://lucal2889l-coder.github.io/mow-town/","spike-arena.html","planezzz.html","chase-lane.html","ramp-yard.html","karate-showdown.html","chef-shift.html","invade.html","front-lines.html","bunker-blitz.html","shadow-master-heist.html","skyhook-run.html","spaceship-fly.html","stickman-hook.html","terraria.html","minecraft.html"];
+                    "hyperkick.html","scrapyard-siege.html","monster-mosh.html","golf-blitz.html","grow-a-garden.html","worldforge.html","power-wash-sim.html","john-pork-escape.html","https://lucal2889l-coder.github.io/mow-town/","spike-arena.html","planezzz.html","chase-lane.html","ramp-yard.html","karate-showdown.html","chef-shift.html","invade.html","front-lines.html","bunker-blitz.html","shadow-master-heist.html","skyhook-run.html","galactic-wars.html","stickman-hook.html","terraria.html","minecraft.html"];
 
   const FALLBACK_PALETTE = [
     { tagBg:"#3B82F6", artBg:"linear-gradient(135deg,#93C5FD,#3B82F6)" },
@@ -1145,6 +1145,7 @@
     "grow-a-garden.html": { single: true, online: true },
     "invade.html": { online: true },
     "front-lines.html": { single: true, online: true },
+    "galactic-wars.html": { single: true, online: true },
     "bunker-blitz.html": { single: true, online: true },
     "karate-showdown.html": { online: true, local: true },
     "matchday.html":    { local: true },
@@ -1187,7 +1188,6 @@
     "bricks-of-the-dark-knight.html": ["Structures & Problem Solving", "Engineering", "Solve structure problems by thinking about balance, force and materials. Each stage adds a new design challenge."],
     "matchday.html": ["Sports Management & Statistics", "Mathematics", "Manage a team through a season and use match statistics to make better decisions. Great for practising averages and percentages."],
     "azure-rush.html": ["Waves & Speed: Fluid Dynamics", "Science", "See how waves, speed and surface tension interact. Learners test different approaches and record which ones work best."],
-    "spaceship-fly.html": ["Introduction to Flight & Orbits", "Science", "An introduction to flight, thrust and orbits. Control a craft step by step and see how small adjustments change its path."],
     "minecraft.html": ["Spatial Design Workshop", "Engineering", "A spatial design workshop: plan, build and revise structures block by block while practising 3D thinking."],
     "terraria.html": ["Resource Management & Crafting", "Economics", "Practise gathering, trading and managing resources to reach longer-term goals. Learners plan what to collect and what to craft."],
     "getting-over-it.html": ["Persistence & Precision Practice", "Life Skills", "A resilience and precision exercise. Learners practise steady, careful movement and learn from every attempt."],
@@ -1215,6 +1215,7 @@
     "pulsebound.html": ["Rhythm & Pattern Practice", "Music", "A rhythm and reaction activity. Learners follow a beat, spot repeating patterns and adjust their timing as the tempo and difficulty increase."],
     "shadow-master-heist.html": ["Observation & Stealth Skills", "Life Skills", "A planning and observation activity. Learners study patterns, choose the right tool for each situation and plan a route to complete a task without being noticed."],
     "worldforge.html": ["Ecosystems & Societies Lab", "Geography", "A simulation about landscapes, ecosystems and how societies grow. Learners shape terrain, introduce life and observe how climate and geography affect what thrives."],
+    "galactic-wars.html": ["Planetary Science & Strategy", "Science", "A space science and strategy activity. Learners explore a solar system, choose a team, plan how to reach each planet and work toward shared goals."],
     "spike-arena.html": ["Team Sports & Cooperation", "Physical Education", "A team sports activity that builds cooperation and coordination. Learners practise passing, timing and communicating with teammates."],
     "scrapyard-siege.html": ["Defensive Engineering Challenge", "Engineering", "A defensive engineering challenge: design, place and upgrade structures, then test how well they hold up."],
     "hyperkick.html": ["Collisions & Trajectory Physics", "Science", "Investigate collisions and trajectories in a fast, hands-on experiment. Predict where the ball will go and test your prediction."]
