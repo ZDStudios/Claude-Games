@@ -1,0 +1,855 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<title>Puttler · place the shapes, sink the hole</title>
+<style>
+:root{--base:#1e1e2e;--mantle:#181825;--crust:#11111b;--s0:#313244;--s1:#45475a;--s2:#585b70;--o0:#6c7086;--text:#cdd6f4;--sub:#a6adc8;--blue:#89b4fa;--green:#a6e3a1;--yellow:#f9e2af;--peach:#fab387;--red:#f38ba8;--mauve:#cba6f7;--pink:#f5c2e7;--teal:#94e2d5;--lav:#b4befe}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%;overflow:hidden;background:var(--crust);color:var(--text);font-family:'JetBrains Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,'Liberation Mono',monospace;-webkit-user-select:none;user-select:none;touch-action:none;font-size:14px}
+canvas{position:fixed;inset:0;display:block;touch-action:none;cursor:crosshair}
+button{font:inherit;color:var(--text);background:rgba(30,30,46,.88);border:2px solid var(--s1);border-radius:12px;padding:8px 14px;cursor:pointer;transition:transform .08s,background .15s,border-color .15s;backdrop-filter:blur(6px)}
+button:hover:not(:disabled){background:var(--s0);border-color:var(--lav)}
+button:active:not(:disabled){transform:scale(.95)}
+button:disabled{opacity:.4;cursor:default}
+button.big{background:linear-gradient(180deg,var(--green),#7ccf78);color:#11361a;border-color:#5aa656;font-weight:800;box-shadow:0 4px 0 #468a42}
+button.big:hover:not(:disabled){background:linear-gradient(180deg,#b9f0b4,#8ad986);border-color:#5aa656}
+.hidden{display:none!important}
+.dim{color:var(--sub)}
+#hud{position:fixed;left:0;right:0;top:0;padding:10px;display:flex;justify-content:space-between;align-items:flex-start;gap:10px;pointer-events:none;z-index:5}
+#hud>*{pointer-events:auto}
+#info{background:rgba(24,24,37,.86);border:2px solid var(--s1);border-radius:14px;padding:8px 14px;backdrop-filter:blur(6px);min-width:150px}
+#lvn{font-weight:800;color:var(--lav);font-size:13px;letter-spacing:.04em;text-transform:uppercase}
+#lvs{margin-top:2px;color:var(--sub);font-size:13px}#lvs b{color:var(--yellow);font-size:15px}
+#tb{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+#tb button{width:42px;height:42px;padding:0;font-size:18px;display:grid;place-items:center}
+#tb button.on{background:var(--mauve);color:#1e1e2e;border-color:#fff}
+#tray{position:fixed;left:50%;bottom:12px;transform:translateX(-50%);display:flex;gap:8px;z-index:5;max-width:96vw;overflow-x:auto;padding:6px;background:rgba(24,24,37,.78);border-radius:18px;border:2px solid var(--s0);backdrop-filter:blur(8px)}
+.tr{display:flex;flex-direction:column;align-items:center;gap:2px;width:78px;padding:6px 4px 4px;position:relative;font-size:10px;flex:none}
+.tr img{width:48px;height:48px}.tr b{position:absolute;right:4px;top:3px;background:var(--mauve);color:#1e1e2e;border-radius:9px;min-width:18px;padding:0 4px;font-size:11px}
+.tr.on{border-color:var(--yellow);background:var(--s0);box-shadow:0 0 0 3px rgba(249,226,175,.25)}
+#selbar{position:fixed;transform:translateX(-50%);z-index:6;display:flex;gap:6px}
+#selbar button{width:44px;height:44px;padding:0;font-size:20px;border-radius:50%}
+#tip{position:fixed;top:78px;left:50%;transform:translateX(-50%);z-index:5;background:rgba(249,226,175,.95);color:#2a2418;border-radius:14px;padding:10px 16px;max-width:min(560px,92vw);text-align:center;font-weight:700;box-shadow:0 6px 20px rgba(0,0,0,.3);pointer-events:none}
+#toast{position:fixed;left:50%;bottom:150px;transform:translate(-50%,20px);background:rgba(17,17,27,.94);border:2px solid var(--s1);padding:8px 16px;border-radius:12px;opacity:0;transition:.25s;z-index:30;pointer-events:none;max-width:90vw;text-align:center}
+#toast.on{opacity:1;transform:translate(-50%,0)}
+#sbp{position:fixed;left:10px;top:70px;bottom:10px;width:150px;z-index:5;overflow:auto;background:rgba(24,24,37,.88);border:2px solid var(--s1);border-radius:14px;padding:8px;backdrop-filter:blur(8px);display:flex;flex-direction:column;gap:6px;touch-action:pan-y}
+.sbh{font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--sub);margin-top:4px}
+.sbg{display:flex;flex-wrap:wrap;gap:4px}
+.sbt{width:40px;height:40px;padding:0;font-size:18px;display:grid;place-items:center;border-radius:10px}.sbt img{width:30px;height:30px}
+.sbt.on{background:var(--mauve);border-color:#fff}.sbt.on img{filter:none}
+.sbb{font-size:11px;padding:6px 8px;border-radius:8px}
+#sbp select,#sbp input{width:100%;background:var(--s0);color:var(--text);border:2px solid var(--s1);border-radius:8px;padding:4px;font:inherit}
+@media(max-width:700px){body.sb #bPlay{bottom:auto;top:128px;right:8px}#sbp{width:auto;left:8px;right:8px;top:auto;bottom:104px;height:auto;max-height:130px;flex-direction:row;flex-wrap:wrap;overflow:auto}#sbp .sbh{display:none}}
+#scr{position:fixed;inset:0;display:none;place-items:center;z-index:20;background:radial-gradient(ellipse at center,rgba(17,17,27,.55),rgba(17,17,27,.82));overflow:auto;padding:14px;touch-action:pan-y}
+#scr.on{display:grid}
+#scr.win{background:rgba(17,17,27,.55)}
+.panel{background:rgba(30,30,46,.96);border:2px solid var(--s1);border-radius:22px;padding:22px 26px;box-shadow:0 20px 60px rgba(0,0,0,.5);min-width:min(340px,92vw);max-width:96vw;text-align:center;animation:pop .22s ease-out}
+.panel.wide{width:min(940px,96vw);text-align:left}
+@keyframes pop{from{transform:scale(.92);opacity:0}to{transform:none;opacity:1}}
+.panel h2{margin:0 0 12px;color:var(--lav);letter-spacing:.04em}
+.hd{display:flex;align-items:center;gap:12px;margin-bottom:12px}.hd h2{margin:0;flex:1}
+.menu{display:flex;flex-direction:column;gap:10px}.menu button{padding:12px 18px}
+.row{display:flex;gap:10px;justify-content:center;margin-top:14px;flex-wrap:wrap}
+.title{text-align:center}
+.title h1{font-size:clamp(54px,12vw,120px);margin:0;letter-spacing:.06em;color:#fff;text-shadow:0 6px 0 var(--mauve),0 12px 30px rgba(0,0,0,.45);line-height:1}
+.title h1 span{color:var(--green);text-shadow:0 6px 0 #468a42,0 12px 30px rgba(0,0,0,.45)}
+.title p{color:var(--text);margin:14px 0 24px;text-shadow:0 2px 8px rgba(0,0,0,.7)}
+.title .menu{width:min(300px,86vw);margin:0 auto}
+.grid{display:grid;gap:10px}.courses{grid-template-columns:repeat(auto-fill,minmax(210px,1fr))}.lvls{grid-template-columns:repeat(auto-fill,minmax(96px,1fr))}
+.course{position:relative;text-align:left;padding:12px 14px;border-color:var(--c);overflow:hidden;display:flex;flex-direction:column;gap:4px}
+.course b{font-size:13px}.course span{font-size:11px;color:var(--sub)}.course i{position:absolute;left:0;bottom:0;height:4px;background:var(--c)}
+.course.lock{filter:grayscale(.8)}
+.lv{display:flex;flex-direction:column;align-items:center;padding:12px 4px;gap:2px}.lv b{font-size:22px}.lv small{color:var(--yellow);letter-spacing:.1em}
+.lv.lock{opacity:.4}
+.stars{display:flex;gap:10px;justify-content:center;font-size:62px;line-height:1;margin:6px 0}
+.star{color:var(--s1);transform:scale(.6);opacity:.5}.star.on{color:var(--yellow);text-shadow:0 0 22px rgba(249,226,175,.8);animation:starin .5s var(--d) both cubic-bezier(.3,1.8,.5,1)}
+@keyframes starin{from{transform:scale(0) rotate(-90deg)}to{transform:scale(1) rotate(0)}}
+.win h2{font-size:30px;color:var(--green)}
+.tog{display:flex;justify-content:space-between;align-items:center;padding:12px 16px}
+.tog i{width:42px;height:22px;border-radius:12px;background:var(--s1);position:relative;transition:.2s}.tog i:after{content:'';position:absolute;left:3px;top:3px;width:16px;height:16px;border-radius:50%;background:#fff;transition:.2s}
+.tog.on i{background:var(--green)}.tog.on i:after{left:23px}
+.danger{color:var(--red);border-color:#6b3040}
+.help .cols{display:grid;grid-template-columns:1fr 1fr;gap:20px}@media(max-width:760px){.help .cols{grid-template-columns:1fr}}
+.help h3{margin:10px 0 4px;color:var(--peach);font-size:14px}.help p{margin:0 0 6px;line-height:1.55;font-size:13px;color:var(--sub)}.help b{color:var(--text)}
+textarea{width:100%;height:220px;background:var(--crust);color:var(--green);border:2px solid var(--s1);border-radius:12px;padding:10px;font:12px/1.4 inherit;user-select:text;-webkit-user-select:text;resize:none}
+
+#tray{touch-action:pan-x}.tr{touch-action:pan-x;background:rgba(49,50,68,.6);border-radius:14px;border:2px solid var(--s1);color:var(--text)}.tr img{pointer-events:none}
+.tr.empty{opacity:.35}#tray.lock{opacity:.5;pointer-events:none}
+#bPlay{position:fixed;right:14px;bottom:100px;z-index:7;font-size:18px;padding:12px 22px;border-radius:16px}
+#bPlay.stop{background:linear-gradient(180deg,var(--red),#d9718b);color:#3a0f1d;border-color:#b24560;box-shadow:0 4px 0 #8f3550}
+.world{margin:0 0 16px;padding:10px 12px;border-radius:16px;background:rgba(49,50,68,.45);border-left:5px solid var(--c)}.wh{display:flex;justify-content:space-between;margin-bottom:8px;color:var(--c)}.wh span{color:var(--yellow)}
+.lv small i{font-style:normal;color:var(--s2)}.lvls{grid-template-columns:repeat(auto-fill,minmax(70px,1fr))}.panel.wide{max-height:92vh;overflow:auto}
+#scr:has(.title){background:rgba(10,16,40,.28)}
+.sbl{display:flex;flex-direction:column;gap:2px;font-size:10px;color:var(--sub);text-transform:uppercase}.sbl span{color:var(--yellow);float:right}
+#sbp .sbg{display:flex;flex-wrap:wrap;gap:4px}
+#hud{top:0}#tb{display:flex;gap:6px}
+@media(max-width:600px){#tb button{width:36px;height:36px;font-size:15px}#tb{gap:4px;max-width:210px;flex-wrap:wrap}#info{padding:6px 10px;min-width:0}#lvn{font-size:11px}#lvs{font-size:11px}.tr{width:62px;padding:4px 2px}.tr img{width:38px;height:38px}#bPlay{bottom:92px;right:8px;padding:10px 16px;font-size:16px}#tray{bottom:6px}}
+</style>
+<script data-zd-discreet>/* Discrete Mode: follows the switch on the game library page (shared browser storage) */
+(function(){var FAKE="Forces, Angles & Materials | Learning Hub",ICON="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2064%2064%22%3E%3Crect%20width%3D%2264%22%20height%3D%2264%22%20rx%3D%2214%22%20fill%3D%22%232f6fed%22/%3E%3Cpath%20d%3D%22M14%2018h16c3%200%205%202%205%205v23c0-3-2-5-5-5H14zM50%2018H34c-3%200-5%202-5%205v23c0-3%202-5%205-5h16z%22%20fill%3D%22%23fff%22/%3E%3C/svg%3E",KEY="zd.discreet",real=null,made=null,saved=[],busy=false;
+function on(){try{return localStorage.getItem(KEY)==="1";}catch(e){return false;}}
+function links(){return document.querySelectorAll('link[rel~="icon"],link[rel="apple-touch-icon"]');}
+function apply(){if(busy)return;busy=true;try{var d=on();
+ if(d){if(document.title!==FAKE){real=document.title;document.title=FAKE;}
+  var ls=links(),i;if(!saved.length&&ls.length){for(i=0;i<ls.length;i++){if(!ls[i].hasAttribute("data-zd")){saved.push([ls[i],ls[i].getAttribute("href")]);}}}
+  for(i=0;i<ls.length;i++){if(ls[i]!==made){ls[i].setAttribute("href",ICON);ls[i].removeAttribute("type");}}
+  if(!ls.length&&!made&&document.head){made=document.createElement("link");made.rel="icon";made.setAttribute("data-zd","1");made.href=ICON;document.head.appendChild(made);}
+ }else{if(real!==null&&document.title===FAKE){document.title=real;}real=null;
+  for(var j=0;j<saved.length;j++){if(saved[j][1]===null)saved[j][0].removeAttribute("href");else saved[j][0].setAttribute("href",saved[j][1]);}saved=[];
+  if(made&&made.parentNode){made.parentNode.removeChild(made);}made=null;}
+}catch(e){}busy=false;}
+apply();
+document.addEventListener("DOMContentLoaded",function(){apply();var t=document.querySelector("title");if(t&&window.MutationObserver){new MutationObserver(apply).observe(t,{childList:true,characterData:true,subtree:true});}});
+window.addEventListener("storage",function(e){if(e.key===KEY||e.key===null)apply();});
+window.addEventListener("pageshow",apply);document.addEventListener("visibilitychange",apply);window.addEventListener("focus",apply);
+})();</script>
+</head>
+<body>
+<canvas id="cv"></canvas>
+<div id="hud" class="hidden">
+ <div id="info"><div id="lvn"></div><div id="lvs"></div></div>
+ <div id="tb">
+  <button id="bMenu" title="Menu (Esc)">☰</button>
+  <button id="bClear" title="Clear pieces (C)">🗑</button>
+  <button id="bHint" title="Hint (H)">💡</button>
+  <button id="bPath" title="Show ball path preview">👁</button>
+  <button id="bFast" title="Fast forward (F)">⏩</button>
+ </div>
+</div>
+<div id="tray" class="hidden"></div>
+<button id="bPlay" class="big hidden">▶ PLAY</button>
+<div id="sbp" class="hidden"></div>
+<div id="selbar" class="hidden"><button data-s="l" title="Rotate left (Q)">↺</button><button data-s="r" title="Rotate right (E)">↻</button><button data-s="d" title="Delete (Del)">🗑</button></div>
+<div id="tip" class="hidden"></div>
+<div id="toast"></div>
+<div id="scr"></div>
+<script>
+'use strict';
+/* ===== PUTTLER CORE: deterministic physics engine ===== */
+const R=10,G=1400,DT=1/240,VMAX=1250,TAU=Math.PI*2,WATER=840,BASE=1250;
+// materials: e = bounciness, mu = friction
+const MATS=[{e:.42,mu:.2},{e:.06,mu:.95},{e:.5,mu:.012},{e:.93,mu:.4},{e:.3,mu:1.3},{e:.5,mu:.15},{e:.2,mu:.2},{e:.36,mu:.22}];
+const MAT_NAMES=['Grass','Sand','Ice','Rubber','Belt','Wood','Spring','Stone'];
+const clamp=(v,a,b)=>v<a?a:v>b?b:v,lerp=(a,b,t)=>a+(b-a)*t,rad=d=>d*Math.PI/180,deg=r=>r*180/Math.PI;
+function rng(seed){let s=seed>>>0;return()=>{s=(s+0x6D2B79F5)>>>0;let t=s;t=Math.imul(t^t>>>15,t|1);t^=t+Math.imul(t^t>>>7,t|61);return((t^t>>>14)>>>0)/4294967296}}
+function hash4(a,b,c,d){let h=2166136261>>>0;for(const v of[a,b,c,d]){h^=(v|0)+0x9e3779b9;h=Math.imul(h,16777619)>>>0;h^=h>>>13}return h>>>0}
+function area(pts){let a=0;for(let i=0;i<pts.length;i++){const p=pts[i],q=pts[(i+1)%pts.length];a+=p[0]*q[1]-q[0]*p[1]}return a/2}
+
+// piece catalogue (shared by game, editor and generator)
+const PIECES={
+ ramp:{label:'Plank',hl:60,th:6,sel:66},
+ block:{label:'Block',h:20,sel:34},
+ wedge:{label:'Wedge',h:30,sel:40},
+ bump:{label:'Bumper',r:26,sel:30},
+ spring:{label:'Spring',hl:36,th:5,k:1050,sel:44},
+ boost:{label:'Booster',hl:40,hw:16,sel:44},
+ belt:{label:'Belt',hl:70,th:6,belt:250,sel:76},
+ fan:{label:'Fan',len:230,hw:48,f:2500,sel:34},
+ pa:{label:'Portal A',r:22,sel:26},
+ pb:{label:'Portal B',r:22,sel:26}
+};
+const CELL=40;
+function shapeVerts(p){const D=PIECES[p.t],a=rad(p.a||0),c=Math.cos(a),s=Math.sin(a);let v;
+ if(p.t==='block')v=[[-D.h,-D.h],[D.h,-D.h],[D.h,D.h],[-D.h,D.h]];else v=[[-D.h,-D.h],[D.h,D.h],[-D.h,D.h]];
+ return v.map(q=>[p.x+q[0]*c-q[1]*s,p.y+q[0]*s+q[1]*c])}
+// footprint sample points of a piece (used for placement validity)
+function footprint(p){const D=PIECES[p.t],a=rad(p.a||0),c=Math.cos(a),s=Math.sin(a),o=[[p.x,p.y]];
+ const L=(hl,hw)=>{for(let u=-hl;u<=hl;u+=hl/3)for(const v of[-hw,0,hw])o.push([p.x+u*c-v*s,p.y+u*s+v*c])};
+ switch(p.t){case'ramp':case'spring':case'belt':L(D.hl,D.th);break;case'boost':L(D.hl,D.hw);break;case'bump':case'pa':case'pb':for(let k=0;k<8;k++)o.push([p.x+Math.cos(k*.785)*D.r,p.y+Math.sin(k*.785)*D.r]);break;
+  case'fan':L(14,34);break;default:for(const q of shapeVerts(p))o.push(q)}
+ return o}
+
+
+function gridSegs(lv){
+ const gw=lv.gw,gh=lv.gh,so=lv.solid,out=[],S=(x,y)=>x>=0&&y>=0&&x<gw&&y<gh&&so[y*gw+x]===1;
+ for(let y=0;y<=gh;y++){let st=0,x0=0;for(let x=0;x<=gw;x++){const t=x<gw?(S(x,y)&&!S(x,y-1)?1:(!S(x,y)&&S(x,y-1)?2:0)):0;
+  if(t!==st){if(st)out.push([x0*CELL,y*CELL,x*CELL,y*CELL]);st=t;x0=x}}}
+ for(let x=0;x<=gw;x++){let st=0,y0=0;for(let y=0;y<=gh;y++){const t=y<gh?(S(x,y)&&!S(x-1,y)?1:(!S(x,y)&&S(x-1,y)?2:0)):0;
+  if(t!==st){if(st)out.push([x*CELL,y0*CELL,x*CELL,y*CELL]);st=t;y0=y}}}
+ return out}
+function compile(lv,pcs){
+ const w={segs:[],mvs:[],circ:[],fans:[],boost:[],ports:[],hz:[],hole:lv.hole||null,water:lv.H+24,gs:lv.gs||1,x0:-160,x1:lv.W+160,top:-900,pa:null,pb:null};
+ const add=(x1,y1,x2,y2,m,th,o)=>{const s={x1,y1,x2,y2,bx1:x1,by1:y1,bx2:x2,by2:y2,mnx:Math.min(x1,x2),mxx:Math.max(x1,x2),mny:Math.min(y1,y2),mxy:Math.max(y1,y2),th:th||0,e:m.e,mu:m.mu,k:0,belt:0,ok:0,mv:null};if(o)Object.assign(s,o);w.segs.push(s);return s};
+ for(const g of (lv._g||(lv._g=gridSegs(lv))))add(g[0],g[1],g[2],g[3],MATS[7],0,{});
+ for(const p of (pcs||[]))addPiece(w,p,add);
+ if(w.pa&&w.pb)w.ports=[w.pa,w.pb];
+ return w;
+}
+function addPiece(w,p,add){
+ const a=rad(p.a||0),c=Math.cos(a),s=Math.sin(a),D=PIECES[p.t];
+ switch(p.t){
+  case'ramp':add(p.x-c*D.hl,p.y-s*D.hl,p.x+c*D.hl,p.y+s*D.hl,MATS[5],D.th,{ok:1});break;
+  case'spring':add(p.x-c*D.hl,p.y-s*D.hl,p.x+c*D.hl,p.y+s*D.hl,MATS[6],D.th,{ok:1,k:D.k});break;
+  case'belt':add(p.x-c*D.hl,p.y-s*D.hl,p.x+c*D.hl,p.y+s*D.hl,MATS[4],D.th,{ok:1,belt:D.belt});break;
+  case'block':case'wedge':{const v=shapeVerts(p);for(let i=0;i<v.length;i++){const q=v[(i+1)%v.length];add(v[i][0],v[i][1],q[0],q[1],MATS[7],0,{ok:1})}break}
+  case'bump':w.circ.push({x:p.x,y:p.y,r:D.r});break;
+  case'boost':w.boost.push({x:p.x,y:p.y,c,s,hl:D.hl,hw:D.hw});break;
+  case'fan':w.fans.push({x:p.x,y:p.y,c,s,len:D.len,hw:D.hw,f:D.f});break;
+  case'pa':w.pa={x:p.x,y:p.y,c,s,r:D.r};break;
+  case'pb':w.pb={x:p.x,y:p.y,c,s,r:D.r};break;
+ }
+}
+function updMovers(w,t){
+ for(const s of w.mvs){const m=s.mv;
+  if(m.k===1){const th=m.ph+m.om*t,c=Math.cos(th),sn=Math.sin(th);
+   s.x2=m.cx+(s.bx2-m.cx)*c-(s.by2-m.cy)*sn;s.y2=m.cy+(s.bx2-m.cx)*sn+(s.by2-m.cy)*c}
+  else{const q=TAU*t/m.per+m.ph,o=m.amp*Math.sin(q);m.vel=m.amp*TAU/m.per*Math.cos(q);
+   s.x1=s.bx1+m.ax*o;s.y1=s.by1+m.ay*o;s.x2=s.bx2+m.ax*o;s.y2=s.by2+m.ay*o}}
+}
+function mkSim(x,y){return{b:{x,y,vx:0,vy:0,cd:0,cb:0},t:0,st:'rest',rest:0,touch:0,ev:null,bad:0}}
+function launch(s,a,p){const v=p*VMAX;s.b.vx=Math.cos(rad(a))*v;s.b.vy=-Math.sin(rad(a))*v;s.st='fly';s.t=0;s.rest=0;s.touch=9;s.bad=0}
+
+function colSeg(b,s,sim){
+ if(!s.mv){const rr=R+s.th+1;if(b.x<s.mnx-rr||b.x>s.mxx+rr||b.y<s.mny-rr||b.y>s.mxy+rr)return false}
+ const dx=s.x2-s.x1,dy=s.y2-s.y1,l2=dx*dx+dy*dy;
+ let t=l2>0?((b.x-s.x1)*dx+(b.y-s.y1)*dy)/l2:0;t=t<0?0:t>1?1:t;
+ const cx=s.x1+t*dx,cy=s.y1+t*dy;let nx=b.x-cx,ny=b.y-cy;const rr=R+s.th,d2=nx*nx+ny*ny;
+ if(d2>=rr*rr)return false;
+ let d=Math.sqrt(d2);
+ if(d<1e-7){const l=Math.sqrt(l2)||1;nx=dy/l;ny=-dx/l;d=0}else{nx/=d;ny/=d}
+ const pen=rr-d;b.x+=nx*pen;b.y+=ny*pen;
+ let svx=0,svy=0;const m=s.mv;
+ if(m){if(m.k===1){svx=-m.om*(cy-m.cy);svy=m.om*(cx-m.cx)}else{svx=m.ax*m.vel;svy=m.ay*m.vel}}
+ if(s.belt){const l=Math.sqrt(l2)||1;svx+=dx/l*s.belt;svy+=dy/l*s.belt}
+ let rvx=b.vx-svx,rvy=b.vy-svy;const vn=rvx*nx+rvy*ny;
+ if(vn<0){
+  const e=-vn<45?0:s.e;let nv=-vn*e;if(s.k&&nv<s.k)nv=s.k;
+  const J=nv-vn;rvx+=nx*J;rvy+=ny*J;
+  const tx=-ny,ty=nx,vt=rvx*tx+rvy*ty,mf=s.mu*J,f=vt>mf?-mf:vt<-mf?mf:-vt;
+  rvx+=tx*f;rvy+=ty*f;b.vx=rvx+svx;b.vy=rvy+svy;
+  if(-vn>80){if(!s.ok)sim.bad++;if(sim.ev)sim.ev.push({x:b.x,y:b.y,v:-vn,k:s.k?'spring':s.e>.8?'rubber':s.belt?'belt':s.ok?'wood':'hit'})}
+ }
+ return true;
+}
+function step(w,sim){
+ const b=sim.b,dt=DT;
+ if(w.mvs.length)updMovers(w,sim.t);
+ b.vy+=G*w.gs*dt;
+ for(const f of w.fans){const u=(b.x-f.x)*f.c+(b.y-f.y)*f.s,v=-(b.x-f.x)*f.s+(b.y-f.y)*f.c;
+  if(u>0&&u<f.len&&v>-f.hw&&v<f.hw){const k=f.f*dt*(1-.35*u/f.len);b.vx+=f.c*k;b.vy+=f.s*k}}
+ b.x+=b.vx*dt;b.y+=b.vy*dt;
+ let touch=false;
+ for(let pass=0;pass<2;pass++)for(let i=0;i<w.segs.length;i++)if(colSeg(b,w.segs[i],sim))touch=true;
+ for(const c of w.circ){const dx=b.x-c.x,dy=b.y-c.y,rr=c.r+R,d2=dx*dx+dy*dy;
+  if(d2<rr*rr){const d=Math.sqrt(d2)||.001,nx=dx/d,ny=dy/d;b.x+=nx*(rr-d);b.y+=ny*(rr-d);
+   const vn=b.vx*nx+b.vy*ny;if(vn<0){const nv=Math.max(-vn*1.05,420);b.vx+=nx*(nv-vn);b.vy+=ny*(nv-vn);
+    if(sim.ev)sim.ev.push({x:b.x,y:b.y,v:-vn,k:'bump',cx:c.x,cy:c.y})}touch=true}}
+ if(b.cb>0)b.cb-=dt;else for(const p of w.boost){const dx=b.x-p.x,dy=b.y-p.y,u=dx*p.c+dy*p.s,v=-dx*p.s+dy*p.c;
+  if(u>-p.hl&&u<p.hl&&v>-p.hw-R*.5&&v<p.hw+R*.5){const al=b.vx*p.c+b.vy*p.s;if(al<900){b.vx+=p.c*(900-al);b.vy+=p.s*(900-al)}b.cb=.2;
+   if(sim.ev)sim.ev.push({x:p.x,y:p.y,v:900,k:'boost'})}}
+ if(b.cd>0)b.cd-=dt;else if(w.ports.length===2){for(let i=0;i<2;i++){const p=w.ports[i],dx=b.x-p.x,dy=b.y-p.y;
+  if(dx*dx+dy*dy<18*18){const q=w.ports[1-i],sp=Math.max(Math.hypot(b.vx,b.vy)*.97,430);
+   b.x=q.x+q.c*20;b.y=q.y+q.s*20;b.vx=q.c*sp;b.vy=q.s*sp;b.cd=.5;if(sim.ev)sim.ev.push({x:b.x,y:b.y,v:sp,k:'portal'});break}}}
+ const sp2=b.vx*b.vx+b.vy*b.vy;
+ if(sp2>3.8e6){const k=1950/Math.sqrt(sp2);b.vx*=k;b.vy*=k}
+ sim.t+=dt;sim.touch=touch?0:sim.touch+1;
+ if(b.y>w.water||b.x<w.x0||b.x>w.x1||b.y<w.top){sim.st='hazard';return}
+ for(const h of w.hz){const cx=clamp(b.x,h.x,h.x+h.w),cy=clamp(b.y,h.y,h.y+h.h),dx=b.x-cx,dy=b.y-cy;
+  if(dx*dx+dy*dy<(R*.8)*(R*.8)){sim.st='hazard';return}}
+ if(w.hole){const dx=b.x-w.hole.x,dy=b.y-w.hole.y;if(dx*dx<400&&dy*dy<256&&sp2<490000){sim.st='sunk';return}}
+ if(sim.touch<3&&sp2<144){sim.rest+=dt;if(sim.rest>.35){sim.st='rest';b.vx=b.vy=0}}else sim.rest=0;
+ if(sim.t>18){sim.st='rest';b.vx=b.vy=0}
+}
+// run a full shot, returns the finished sim
+function runShot(w,x,y,a,p,rec){
+ const s=mkSim(x,y);launch(s,a,p);let i=0;
+ while(s.st==='fly'){step(w,s);if(rec&&(i++&1)===0)rec.push({x:s.b.x,y:s.b.y,vx:s.b.vx,vy:s.b.vy,bad:s.bad,t:s.t})}
+ return s;
+}
+// short preview until first impact (for the aim guide)
+function preview(w,x,y,a,p,maxT){
+ const s=mkSim(x,y);launch(s,a,p);const pts=[];let i=0,hit=false;
+ s.ev=[];
+ while(s.st==='fly'&&s.t<maxT&&!hit){step(w,s);if((i++%6)===0)pts.push([s.b.x,s.b.y]);if(s.ev.length&&s.t>.03)hit=true}
+ return pts;
+}
+
+/* ===== PUTTLER 2 level generator (offline, solution-first by hill climbing) ===== */
+const WORLD_NAMES=['Meadow','Hilltop','Bounce Park','Springy Woods','Turbo Trail','Conveyor Cove','Windy Ridge','Portal Peaks','Mixed Mayhem','Grand Finale'];
+const WORLD_PIECES=[['ramp'],['block','wedge'],['bump'],['spring'],['boost'],['belt'],['fan'],['pa'],[],[]];
+const PER_WORLD=10;
+function allowedTypes(wi){const o=[];for(let k=0;k<=Math.min(wi,9);k++)for(const t of WORLD_PIECES[k]){o.push(t);if(t==='pa')o.push('pb')}
+ if(wi>=8)return['ramp','block','wedge','bump','spring','boost','belt','fan','pa','pb'];return o}
+
+function mkLevel(gw,gh){return{gw,gh,W:gw*CELL,H:gh*CELL,solid:new Uint8Array(gw*gh),gs:1,_g:null}}
+function cellSolid(lv,cx,cy){return cx>=0&&cy>=0&&cx<lv.gw&&cy<lv.gh&&lv.solid[cy*lv.gw+cx]===1}
+function rectFree(lv,x,y,w,h,m){for(let j=y-m;j<y+h+m;j++)for(let i=x-m;i<x+w+m;i++)if(cellSolid(lv,i,j))return false;return true}
+function fillRect(lv,x,y,w,h){for(let j=y;j<y+h;j++)for(let i=x;i<x+w;i++)if(i>=0&&j>=0&&i<lv.gw&&j<lv.gh)lv.solid[j*lv.gw+i]=1}
+const snap=(v,s)=>Math.round(v/s)*s;
+
+// ---- simulation helpers
+function runLevel(lv,pcs,rec){
+ const w=compile(lv,pcs),sp=lv.spawn,s=mkSim(sp.x,sp.y);s.b.vx=sp.vx||0;s.b.vy=sp.vy||0;s.st='fly';s.touch=9;
+ const tr=rec?[]:null;let i=0;
+ while(s.st==='fly'){step(w,s);if(tr&&(i++&1)===0)tr.push([s.b.x,s.b.y,s.b.vx,s.b.vy])}
+ return{st:s.st,t:s.t,tr,bad:s.bad}
+}
+function scoreRun(lv,r){
+ if(r.st==='sunk')return-100;let best=1e9;const h=lv.hole;
+ for(const p of r.tr){const d=Math.hypot(p[0]-h.x,p[1]-h.y),sp=Math.hypot(p[2],p[3]);const v=d+(sp>650?(sp-650)*.06:0);if(v<best)best=v}
+ return best}
+
+// ---- placement validity
+function pieceValid(lv,p,others,kk){
+ const D=PIECES[p.t];
+ for(const q of footprint(p)){
+  if(q[0]<14||q[0]>lv.W-14||q[1]<14||q[1]>lv.H-14)return false;
+  const e=10;for(const[dx,dy]of[[0,0],[e,0],[-e,0],[0,e],[0,-e]])if(cellSolid(lv,Math.floor((q[0]+dx)/CELL),Math.floor((q[1]+dy)/CELL)))return false}
+ const sp=lv.spawn;if(Math.hypot(p.x-sp.x,p.y-sp.y)<D.sel+22)return false;
+ if(Math.hypot(p.x-lv.hole.x,p.y-lv.hole.y)<D.sel+26)return false;
+ for(const o of others){const d=Math.hypot(p.x-o.x,p.y-o.y);if(d<(D.sel+PIECES[o.t].sel)*(kk||.85))return false}
+ return true}
+
+// ---- candidate generation around a trajectory point
+const ANG=(rnd,lo,hi,st)=>lo+Math.floor(rnd()*((hi-lo)/st+1))*st;
+function mkCand(lv,rnd,t,tr){
+ const i=Math.floor(rnd()*tr.length),P=tr[i],sp=Math.hypot(P[2],P[3])||1,vx=P[2]/sp,vy=P[3]/sp,h=lv.hole;
+ const toH=deg(Math.atan2(h.y-P[1],h.x-P[0]));
+ const J=(v,m)=>snap(v+(rnd()*2-1)*m,5);
+ switch(t){
+  case'ramp':return[{t,x:J(P[0],12),y:J(P[1]+6,12),a:ANG(rnd,-75,75,5)}];
+  case'spring':return[{t,x:J(P[0],12),y:J(P[1]+6,12),a:ANG(rnd,-60,60,5)}];
+  case'belt':return[{t,x:J(P[0],10),y:J(P[1]+16,10),a:ANG(rnd,-40,40,5)}];
+  case'block':{const d=30+rnd()*24;return[{t,x:J(P[0]+vx*d,10),y:J(P[1]+vy*d,10),a:ANG(rnd,0,85,5)}]}
+  case'wedge':{const d=30+rnd()*30;return[{t,x:J(P[0]+vx*d,10),y:J(P[1]+vy*d,10),a:ANG(rnd,0,355,15)}]}
+  case'bump':{const d=34+rnd()*18,o=(rnd()*2-1)*24;return[{t,x:J(P[0]+vx*d-vy*o,5),y:J(P[1]+vy*d+vx*o,5),a:0}]}
+  case'boost':return[{t,x:J(P[0],8),y:J(P[1],8),a:snap(toH+(rnd()*2-1)*45,5)}];
+  case'fan':{const a=snap(toH+(rnd()*2-1)*50,5),d=30+rnd()*90;return[{t,x:J(P[0]-Math.cos(rad(a))*d,5),y:J(P[1]-Math.sin(rad(a))*d,5),a}]}
+  case'pa':{const B={t:'pb',x:J(40+rnd()*(lv.W-80),5),y:J(40+rnd()*(lv.H-120),5),a:ANG(rnd,0,345,15)};
+   return[{t:'pa',x:J(P[0],4),y:J(P[1],4),a:0},B]}
+ }
+ return[]}
+
+function pickType(rnd,types,must,num){
+ const W={ramp:3,block:1.2,wedge:1.2,bump:1.5,spring:1.5,boost:1.6,belt:1.2,fan:1.3,pa:1.1};
+ const pool=types.filter(t=>t!=='pb');let tot=0;const ws=pool.map(t=>{let w=W[t]||1;if(must&&must.includes(t))w*=3.5;tot+=w;return w});
+ let r=rnd()*tot;for(let i=0;i<pool.length;i++){r-=ws[i];if(r<=0)return pool[i]}return pool[0]}
+
+function jitterSet(rnd,pcs,tol,atol){return pcs.map(p=>({t:p.t,x:p.x+(rnd()*2-1)*tol,y:p.y+(rnd()*2-1)*tol,a:(p.a||0)+(rnd()*2-1)*atol}))}
+function robust(lv,pcs,rnd,tol,atol,n,need){let ok=0;for(let k=0;k<n;k++){const r=runLevel(lv,jitterSet(rnd,pcs,tol,atol));if(r.st==='sunk')ok++}return ok>=need}
+
+function reduce(lv,pcs){ // drop redundant pieces
+ let cur=pcs.slice();
+ for(let i=cur.length-1;i>=0;i--){const t=cur.slice();t.splice(i,1);
+  // portals must be removed together
+  if(cur[i].t==='pa'||cur[i].t==='pb')continue;
+  if(runLevel(lv,t).st==='sunk')cur=t}
+ return cur}
+
+// hill-climb search on a fixed terrain
+function solve(lv,rnd,o){
+ const types=o.types,must=o.must;let pcs=[],cur=runLevel(lv,pcs,true);cur.score=scoreRun(lv,cur);
+ const maxP=o.maxPieces;
+ for(let it=0;it<maxP+2;it++){
+  let best=null;
+  for(let k=0;k<o.K;k++){
+   const t=pickType(rnd,types,must,pcs.length);
+   const cand=mkCand(lv,rnd,t,cur.tr);if(!cand.length)continue;
+   let ok=true;const acc=pcs.slice();for(const c of cand){if(!pieceValid(lv,c,acc)){ok=false;break}acc.push(c)}
+   if(!ok)continue;
+   const r=runLevel(lv,acc,true);r.score=scoreRun(lv,r);
+   if(r.st==='sunk'){
+    const red=reduce(lv,acc);
+    if(robust(lv,red,rnd,o.tol,o.atol,8,7))return red;
+    continue}
+   if(!best||r.score<best.score)best={pcs:acc,r}
+  }
+  if(!best)return null;
+  // refine existing pieces
+  pcs=best.pcs;cur=best.r;
+  for(let k=0;k<o.R;k++){
+   const j=Math.floor(rnd()*pcs.length),q=pcs[j];
+   const n={t:q.t,x:snap(q.x+(rnd()*2-1)*25,5),y:snap(q.y+(rnd()*2-1)*25,5),a:q.a};
+   if(rnd()<.6&&q.t!=='bump'&&q.t!=='pa'&&q.t!=='pb'&&q.t!=='block')n.a=snap((q.a||0)+(rnd()*2-1)*25,5);
+   const others=pcs.filter((_,i)=>i!==j);if(!pieceValid(lv,n,others))continue;
+   const np=pcs.slice();np[j]=n;const r=runLevel(lv,np,true);r.score=scoreRun(lv,r);
+   if(r.st==='sunk'){const red=reduce(lv,np);if(robust(lv,red,rnd,o.tol,o.atol,8,7))return red;continue}
+   if(r.score<cur.score){pcs=np;cur=r}
+  }
+  if(pcs.length>=maxP)break;
+ }
+ return null}
+
+// ---- terrain
+function genTerrain(rnd,E,wi,idx){
+ const gw=24,gh=14,lv=mkLevel(gw,gh);
+ const left=rnd()<.5,hw=3+Math.floor(rnd()*3),sr=1+Math.floor(rnd()*3);
+ const dx=Math.round(lerp(4,12,E)+rnd()*3-1);               // horizontal distance spawn -> hole (cells)
+ const lo=left?2:2+dx,hi=left?gw-3-dx:gw-3;
+ const sc=lo+Math.floor(rnd()*Math.max(1,hi-lo+1));
+ const vx=(wi>=1&&rnd()<.55)?(left?1:-1)*[110,190,270][Math.floor(rnd()*3)]:0;
+ lv.spawn={x:sc*CELL+20,y:sr*CELL+20,vx,vy:0};
+ const hr=clamp(sr+4+Math.floor(rnd()*(4+E*3)),6,12);
+ const hcC=left?sc+dx:sc-dx;let hc0=clamp(Math.round(hcC-hw/2),1,gw-1-hw);
+ fillRect(lv,hc0,hr,hw,1);
+ lv.hole={x:(hc0+hw/2)*CELL,y:hr*CELL-R};
+ // optional thicker base under the hole platform for visuals
+ if(rnd()<.5)fillRect(lv,hc0+1,hr+1,hw-2,1);
+ if(rnd()<E*1.1){fillRect(lv,hc0-1,hr-2,1,2);fillRect(lv,hc0+hw,hr-2,1,2);   // pocket walls
+  if(rnd()<.75){const k=1+Math.floor(rnd()*Math.max(1,hw-2));if(rnd()<.5)fillRect(lv,hc0-1,hr-3,1+k,1);else fillRect(lv,hc0+hw-k,hr-3,1+k,1)}}   // roof ledge
+ const exS={x:sc-2,y:sr-1,w:5,h:5},exH={x:hc0-3,y:hr-5,w:hw+6,h:7};
+ const hit=(a,b)=>a.x<b.x+b.w&&b.x<a.x+a.w&&a.y<b.y+b.h&&b.y<a.y+a.h;
+ const nObs=Math.round(wi===0?1+E*3:2+E*6+rnd()*2);
+ let tries=0,placed=0;
+ while(placed<nObs&&tries++<200){
+  const k=rnd();let r;
+  if(k<.5){const w=2+Math.floor(rnd()*(3+E*3)),x=1+Math.floor(rnd()*(gw-w-2)),y=3+Math.floor(rnd()*8);r={x,y,w,h:1}}
+  else if(k<.8){const h=2+Math.floor(rnd()*(2+E*3)),x=4+Math.floor(rnd()*(gw-8)),y=2+Math.floor(rnd()*7);r={x,y,w:1,h}}
+  else{ // wall hanging from the ceiling or rising from the bottom, between spawn and hole
+   const x=8+Math.floor(rnd()*8),h=2+Math.floor(rnd()*(3+E*3));r=rnd()<.5?{x,y:0,w:1,h}:{x,y:gh-h,w:1,h}}
+  if(hit(r,exS)||hit(r,exH))continue;
+  if(!rectFree(lv,r.x,r.y,r.w,r.h,1))continue;
+  fillRect(lv,r.x,r.y,r.w,r.h);placed++}
+ return lv}
+
+// ---- top level
+function genLevel(idx,attemptBase,relax){
+ const N=PER_WORLD*10,wi=Math.floor(idx/PER_WORLD),li=idx%PER_WORLD,E=Math.min(1,idx/(N-1));
+ const types=allowedTypes(wi);
+ const must=(li<2&&wi<8)?WORLD_PIECES[wi]:null;
+ const need=Math.min(5,1+Math.floor((idx+4)/16));
+ const tol=lerp(14,6,E),atol=lerp(11,5,E);
+ for(let at=attemptBase||0;at<(attemptBase||0)+300;at++){
+  const rnd=rng(hash4(idx,at,4242,9));
+  const lv=genTerrain(rnd,E,wi,idx);
+  if(runLevel(lv,[]).st==='sunk')continue;
+  const maxP=Math.min(need+2,8);
+  const sol=solve(lv,rnd,{types,must,K:70,R:40,maxPieces:maxP,tol,atol});
+  if(!sol)continue;
+  const nP=sol.filter(p=>p.t!=='pb').length;
+  if(nP<need-(need>2?1:0)-(relax||0))continue;                       // too easy for this slot
+  if(must&&!sol.some(p=>must.includes(p.t)))continue;     // must showcase the new piece
+  // inventory = solution pieces + a decoy or two on later levels
+  const inv={};for(const p of sol){if(p.t==='pb')continue;inv[p.t]=(inv[p.t]||0)+1}
+  if(wi>=1&&rnd()<.5+E*.4){const pool=types.filter(t=>t!=='pb'&&t!=='pa'&&!inv[t]);if(pool.length)inv[pool[Math.floor(rnd()*pool.length)]]=1}
+  if(inv.pa)inv.pb=inv.pa;
+  lv.inv=inv;lv.sol=sol.map(p=>({t:p.t,x:Math.round(p.x),y:Math.round(p.y),a:Math.round(p.a||0)}));
+  lv.par=nP;lv.world=wi;lv.idx=idx;lv.attempt=at;
+  return lv}
+ return null}
+
+function verifyLevel(lv){return runLevel(lv,lv.sol).st==='sunk'&&runLevel(lv,[]).st!=='sunk'}
+// serialise for the table
+function packLevel(lv){const rows=[];for(let y=0;y<lv.gh;y++){let s='';for(let x=0;x<lv.gw;x++)s+=lv.solid[y*lv.gw+x]?'#':'.';rows.push(s)}
+ return{gw:lv.gw,gh:lv.gh,rows,spawn:lv.spawn,hole:lv.hole,inv:lv.inv,sol:lv.sol,par:lv.par,world:lv.world,idx:lv.idx}}
+function unpackLevel(d){const lv=mkLevel(d.gw,d.gh);for(let y=0;y<d.gh;y++)for(let x=0;x<d.gw;x++)lv.solid[y*d.gw+x]=d.rows[y][x]==='#'?1:0;
+ lv.spawn=d.spawn;lv.hole=d.hole;lv.inv=d.inv;lv.sol=d.sol;lv.par=d.par;lv.world=d.world;lv.idx=d.idx;lv.name=d.name;return lv}
+
+const TABLE=[{"gw":24,"gh":14,"rows":["........................","........................","........................","........................","........................","........................","........................","........................",".............##...#####.","...................###..","........................","........................","........................","........................"],"spawn":{"x":660,"y":60,"vx":0,"vy":0},"hole":{"x":820,"y":310},"inv":{"ramp":1},"sol":[{"t":"ramp","x":650,"y":195,"a":60}],"par":1,"world":0,"idx":0},{"gw":24,"gh":14,"rows":["........................","........................","........................","........................","........................","........................","........................","........................","..............###.......","........................","..............#.........","..............#.........","..............#.........","..............#........."],"spawn":{"x":740,"y":140,"vx":0,"vy":0},"hole":{"x":620,"y":310},"inv":{"ramp":1},"sol":[{"t":"ramp","x":730,"y":240,"a":-10}],"par":1,"world":0,"idx":1},{"gw":24,"gh":14,"rows":["........................","........................","........................","........................","........................","........................","....#...................","....#...................","....#...................","........................","........####............","........................","........................","........................"],"spawn":{"x":660,"y":140,"vx":0,"vy":0},"hole":{"x":400,"y":390},"inv":{"ramp":2},"sol":[{"t":"ramp","x":665,"y":335,"a":-30},{"t":"ramp","x":545,"y":360,"a":-15}],"par":2,"world":0,"idx":2},{"gw":24,"gh":14,"rows":["........................","........................","........................","........................","........................","........................","........................","........................",".....#.........###......",".....#..................",".....#..................","........................","........................","........................"],"spawn":{"x":500,"y":60,"vx":0,"vy":0},"hole":{"x":660,"y":310},"inv":{"ramp":1},"sol":[{"t":"ramp","x":505,"y":175,"a":30}],"par":1,"world":0,"idx":3},{"gw":24,"gh":14,"rows":["..............#.........","..............#.........","..............#.........","........................","........................","........................","........................","........................","........................","......#####.............","........................","........................","........................","........................"],"spawn":{"x":180,"y":100,"vx":0,"vy":0},"hole":{"x":340,"y":350},"inv":{"ramp":1},"sol":[{"t":"ramp","x":175,"y":215,"a":50}],"par":1,"world":0,"idx":4},{"gw":24,"gh":14,"rows":["........................","........................","........................","........................","........................","..............###.......","........................","........................",".....#####..............","........................","........................","........................","........................","........................"],"spawn":{"x":460,"y":100,"vx":0,"vy":0},"hole":{"x":300,"y":310},"inv":{"ramp":1},"sol":[{"t":"ramp","x":455,"y":230,"a":-40}],"par":1,"world":0,"idx":5},{"gw":24,"gh":14,"rows":["........................","........................","........................","....#...................","....#...................","........................","........................","........................","........................","................####....",".................##.....","........................","........................","........................"],"spawn":{"x":580,"y":140,"vx":0,"vy":0},"hole":{"x":720,"y":350},"inv":{"ramp":1},"sol":[{"t":"ramp","x":590,"y":310,"a":30}],"par":1,"world":0,"idx":6},{"gw":24,"gh":14,"rows":["........................","........................","........................",".......#................",".......#................","........................","........................","........................","........................","........................",".........#####..........","..........###...........","........................","........................"],"spawn":{"x":620,"y":100,"vx":0,"vy":0},"hole":{"x":460,"y":390},"inv":{"ramp":1},"sol":[{"t":"ramp","x":620,"y":330,"a":-35}],"par":1,"world":0,"idx":7},{"gw":24,"gh":14,"rows":["........................","........................","........................","........................","........................","........................","........................","...........####...####..","........................","........................","........................","........................","........................","........................"],"spawn":{"x":340,"y":60,"vx":0,"vy":0},"hole":{"x":520,"y":270},"inv":{"ramp":1},"sol":[{"t":"ramp","x":335,"y":215,"a":35}],"par":1,"world":0,"idx":8},{"gw":24,"gh":14,"rows":["........................","........................","........................","........................","........................","........................","........................","........................","........................",".............####.......","..............##........","........................","............#...........","............#..........."],"spawn":{"x":780,"y":60,"vx":0,"vy":0},"hole":{"x":600,"y":350},"inv":{"ramp":1},"sol":[{"t":"ramp","x":790,"y":190,"a":-30}],"par":1,"world":0,"idx":9},{"gw":24,"gh":14,"rows":["........................","........................","........................","........................","........................","..####......##..........","..................#####.","........................","......#.................","......#.................","......#.................","........................","........................","........................"],"spawn":{"x":700,"y":100,"vx":110,"vy":0},"hole":{"x":820,"y":230},"inv":{"block":1},"sol":[{"t":"block","x":720,"y":200,"a":25}],"par":1,"world":1,"idx":10},{"gw":24,"gh":14,"rows":[".............#..........",".............#..........","........................","........................","........................","..............###.......","........................","........................","........................","......#####.............","........................","...........#............","...........#............","...........#............"],"spawn":{"x":140,"y":100,"vx":270,"vy":0},"hole":{"x":340,"y":350},"inv":{"block":1,"wedge":1},"sol":[{"t":"block","x":205,"y":175,"a":15},{"t":"wedge","x":385,"y":300,"a":240}],"par":2,"world":1,"idx":11},{"gw":24,"gh":14,"rows":["........#...............","........#...............","........#...............","........................","....####................","........................","........................","........................",".......#................",".......#..#####..###....",".......#..........#.....",".......#.......#........","...............#........","...............#........"],"spawn":{"x":540,"y":100,"vx":270,"vy":0},"hole":{"x":740,"y":350},"inv":{"ramp":1,"wedge":1,"block":1},"sol":[{"t":"ramp","x":655,"y":290,"a":30},{"t":"wedge","x":780,"y":295,"a":365}],"par":2,"world":1,"idx":12},{"gw":24,"gh":14,"rows":["........................","........................","........................","........................","...................###..",".............####.......","........................","........................","..............###.......","..#####.................","........................","........................","........................","........................"],"spawn":{"x":420,"y":60,"vx":0,"vy":0},"hole":{"x":180,"y":350},"inv":{"wedge":1,"ramp":1,"block":1},"sol":[{"t":"wedge","x":425,"y":245,"a":140},{"t":"ramp","x":315,"y":310,"a":-10}],"par":2,"world":1,"idx":13},{"gw":24,"gh":14,"rows":["............#...........","............#...........","............#...........","............#...........",".#####......#...........","........................",".....###................","........................",".......###..............","..................#####.",".........#..............",".........#..............",".........#..............",".........#.............."],"spawn":{"x":660,"y":140,"vx":110,"vy":0},"hole":{"x":820,"y":350},"inv":{"block":2},"sol":[{"t":"block","x":745,"y":305,"a":35},{"t":"block","x":700,"y":225,"a":15}],"par":2,"world":1,"idx":14},{"gw":24,"gh":14,"rows":["........................","........................","........................","........................","........................","........................",".................####...","........................","................#.......",".....####.......#.......","......##........#.......","........................","........#...............","........#..............."],"spawn":{"x":580,"y":60,"vx":-110,"vy":0},"hole":{"x":280,"y":350},"inv":{"wedge":1,"ramp":1,"block":1},"sol":[{"t":"wedge","x":515,"y":190,"a":290},{"t":"ramp","x":425,"y":240,"a":-30}],"par":2,"world":1,"idx":15},{"gw":24,"gh":14,"rows":["..............#.........","..............#.........","........................",".............#####......","........................","..............#####.....","........................","............##..........","........................",".####...................","..##....................","........................","........................","........................"],"spawn":{"x":380,"y":100,"vx":0,"vy":0},"hole":{"x":120,"y":350},"inv":{"ramp":2},"sol":[{"t":"ramp","x":420,"y":270,"a":-30},{"t":"ramp","x":280,"y":310,"a":-10}],"par":2,"world":1,"idx":16},{"gw":24,"gh":14,"rows":["..........#..#..........","..........#..#..........",".............#..........",".............#..........","....#........#..........","....#...................","....#...................","....#...................","........................",".........#####..........","..........###...........","........................","........................","........................"],"spawn":{"x":660,"y":140,"vx":0,"vy":0},"hole":{"x":460,"y":350},"inv":{"block":1,"ramp":1,"wedge":1},"sol":[{"t":"block","x":670,"y":290,"a":50},{"t":"ramp","x":575,"y":320,"a":-10}],"par":2,"world":1,"idx":17},{"gw":24,"gh":14,"rows":["..............#.........","..............#.........","..............#.........","........................","........................","........................",".................##.....","............##..........","......###...............","........................","..........#.............","..........#.....###.....","..........#.............","..........#............."],"spawn":{"x":420,"y":140,"vx":110,"vy":0},"hole":{"x":700,"y":430},"inv":{"ramp":3,"block":1},"sol":[{"t":"ramp","x":375,"y":235,"a":40},{"t":"ramp","x":440,"y":355,"a":40},{"t":"ramp","x":535,"y":415,"a":5}],"par":3,"world":1,"idx":18},{"gw":24,"gh":14,"rows":["........................","........................","...............#........","..........###..#........","....#..........#........","....#..#................","....#..#................","........................","........................","........................",".....##...####..........","........................","........................","........................"],"spawn":{"x":780,"y":100,"vx":0,"vy":0},"hole":{"x":480,"y":390},"inv":{"wedge":1,"ramp":1},"sol":[{"t":"wedge","x":760,"y":200,"a":275},{"t":"ramp","x":640,"y":365,"a":-15}],"par":2,"world":1,"idx":19},{"gw":24,"gh":14,"rows":["........................","........................","........................","......####..............","...##...................","........................","............#####.......",".............###........","........#...............","........#......#........","...........#...#........","...........#...#........","...........#...#........","...........#...#........"],"spawn":{"x":780,"y":60,"vx":0,"vy":0},"hole":{"x":580,"y":230},"inv":{"bump":2,"block":1},"sol":[{"t":"bump","x":800,"y":135,"a":0},{"t":"bump","x":445,"y":215,"a":0}],"par":2,"world":2,"idx":20},{"gw":24,"gh":14,"rows":["........................","........................","........................","........................","...................##...","........................","........................","......###....####.......","..##..........##........","........................",".........#####..........","........................","........................","........................"],"spawn":{"x":420,"y":100,"vx":0,"vy":0},"hole":{"x":600,"y":270},"inv":{"bump":2,"block":1},"sol":[{"t":"bump","x":400,"y":160,"a":0},{"t":"bump","x":720,"y":245,"a":0}],"par":2,"world":2,"idx":21},{"gw":24,"gh":14,"rows":["........................","........................","........................","........................","........................",".....#..................",".###.#..................",".....#....#####.........","..................#.....","..................#.....","..................#.....","........#.........#.....","........#...............","........#..............."],"spawn":{"x":300,"y":60,"vx":270,"vy":0},"hole":{"x":500,"y":270},"inv":{"wedge":1,"bump":1,"ramp":1},"sol":[{"t":"wedge","x":410,"y":230,"a":330},{"t":"bump","x":635,"y":265,"a":0}],"par":2,"world":2,"idx":22},{"gw":24,"gh":14,"rows":["........................","........................","........................","........................","........................","..........#.............","..........#.....#.......","................#.......","................#.......",".####...........#.......","...................###..","........#####...........",".........###............","........................"],"spawn":{"x":140,"y":140,"vx":0,"vy":0},"hole":{"x":420,"y":430},"inv":{"bump":2},"sol":[{"t":"bump","x":110,"y":190,"a":0},{"t":"bump","x":485,"y":400,"a":0}],"par":2,"world":2,"idx":23},{"gw":24,"gh":14,"rows":[".............#..........",".............#..........",".............#..........",".............#..####....",".............#..........","...............#####....","........................","........###.............","...................#....","...................#....",".....#####.........#....","........................","........................","........................"],"spawn":{"x":140,"y":100,"vx":110,"vy":0},"hole":{"x":380,"y":270},"inv":{"ramp":1,"wedge":1},"sol":[{"t":"ramp","x":245,"y":265,"a":15},{"t":"wedge","x":175,"y":185,"a":10}],"par":2,"world":2,"idx":24},{"gw":24,"gh":14,"rows":[".............#..........",".............#..........","........................","........................","..................#.....","..................#.....","........................","........#####...........","....#....###.......#....","....#..............#....","..............####......","........................","........................","........................"],"spawn":{"x":620,"y":140,"vx":-270,"vy":0},"hole":{"x":420,"y":270},"inv":{"bump":1,"ramp":1,"block":1},"sol":[{"t":"bump","x":540,"y":245,"a":0},{"t":"ramp","x":330,"y":225,"a":35}],"par":2,"world":2,"idx":25},{"gw":24,"gh":14,"rows":["........................","........................","........................","........................","........................","......#.................","......#.................","........................","...............###......",".....###................",".###....................","........................","...............#........","...............#........"],"spawn":{"x":420,"y":60,"vx":0,"vy":0},"hole":{"x":660,"y":310},"inv":{"ramp":2,"wedge":1},"sol":[{"t":"ramp","x":430,"y":190,"a":30},{"t":"ramp","x":550,"y":285,"a":10}],"par":2,"world":2,"idx":26},{"gw":24,"gh":14,"rows":["..........#...#.........","..........#...#.........","..............#.........","........................","........................","........................",".###....................","..........#####.........","...........###..........","........................","........................",".............#..........",".............#..........",".............#.........."],"spawn":{"x":820,"y":100,"vx":-190,"vy":0},"hole":{"x":500,"y":270},"inv":{"ramp":1,"bump":1,"block":1,"wedge":1},"sol":[{"t":"ramp","x":700,"y":190,"a":-15},{"t":"bump","x":805,"y":165,"a":0},{"t":"block","x":620,"y":260,"a":55}],"par":3,"world":2,"idx":27},{"gw":24,"gh":14,"rows":[".............#..........",".............#..........",".............#..........",".....####....#..........",".............#..........",".........#..............",".........#..............","........................","........................",".###....................",".............###........","........................","...........#............","...........#............"],"spawn":{"x":780,"y":140,"vx":-270,"vy":0},"hole":{"x":580,"y":390},"inv":{"ramp":1,"wedge":1,"block":1},"sol":[{"t":"ramp","x":705,"y":345,"a":-35},{"t":"wedge","x":680,"y":235,"a":0}],"par":2,"world":2,"idx":28},{"gw":24,"gh":14,"rows":["........................","........................","........................","..................#.....","..............#...#.....","..............#.........","..................#.....","......####........#.....","..................#.....","...........#####........",".................###....","........................","........................","........................"],"spawn":{"x":100,"y":60,"vx":0,"vy":0},"hole":{"x":320,"y":270},"inv":{"ramp":1,"bump":1,"wedge":1},"sol":[{"t":"ramp","x":125,"y":225,"a":35},{"t":"bump","x":80,"y":110,"a":0},{"t":"wedge","x":240,"y":70,"a":135}],"par":3,"world":2,"idx":29},{"gw":24,"gh":14,"rows":["........................","........................","........................","........................","........................","........................","........................","...............###......","......####.........###..",".......##...............","..........#.####........","..........#.............","..........#.............","..........#............."],"spawn":{"x":660,"y":100,"vx":0,"vy":0},"hole":{"x":320,"y":310},"inv":{"bump":1,"ramp":1,"spring":1,"block":1},"sol":[{"t":"bump","x":685,"y":230,"a":0},{"t":"ramp","x":495,"y":300,"a":0},{"t":"spring","x":235,"y":305,"a":-45}],"par":3,"world":3,"idx":30},{"gw":24,"gh":14,"rows":["........................","........................","...............#.#......","...............#.#......","...............#.#......",".................#......","........................","..........#.#.#.........","####......#.#.#.........","#.....#...#.#.#.........","#.....#...#.#...........",".#####..................","........................","........................"],"spawn":{"x":380,"y":140,"vx":-270,"vy":0},"hole":{"x":140,"y":430},"inv":{"wedge":1,"spring":1},"sol":[{"t":"wedge","x":275,"y":200,"a":0},{"t":"spring","x":360,"y":375,"a":55}],"par":2,"world":3,"idx":31},{"gw":24,"gh":14,"rows":["........................","........................","............#...........","............#..#####....","....#...................","....#...................","....#...................","........................","........................","........#....####.......","..####..#.....##........","........#...............","........#.#.............","........#.#............."],"spawn":{"x":380,"y":60,"vx":0,"vy":0},"hole":{"x":600,"y":350},"inv":{"block":1,"ramp":1,"wedge":1},"sol":[{"t":"block","x":365,"y":235,"a":40},{"t":"ramp","x":465,"y":270,"a":30}],"par":2,"world":3,"idx":32},{"gw":24,"gh":14,"rows":["..............#.........","..............#.........","........................","........................","........................","........................","........................","......####...###........",".......##...............","..................###...","......###...............","...............#........","...............#........","...............#........"],"spawn":{"x":660,"y":140,"vx":-110,"vy":0},"hole":{"x":320,"y":270},"inv":{"bump":1,"ramp":1,"spring":1},"sol":[{"t":"bump","x":640,"y":220,"a":0},{"t":"ramp","x":475,"y":220,"a":-20}],"par":2,"world":3,"idx":33},{"gw":24,"gh":14,"rows":["............#...........","............#...........","........................","........#...............","........#...............","........#...............","........................","...####.................","...........#....####....","........#..#.....##.....","........#.....#.........","........#.....#.........","........#.....#.........","........#.....#........."],"spawn":{"x":460,"y":140,"vx":110,"vy":0},"hole":{"x":720,"y":310},"inv":{"bump":2,"block":1},"sol":[{"t":"bump","x":480,"y":260,"a":0},{"t":"bump","x":830,"y":300,"a":0}],"par":2,"world":3,"idx":34},{"gw":24,"gh":14,"rows":["........#..#.#..........","........#..#.#..........","........#..#.#..........","........#....#..........","........................",".................#......",".......##.....#..#......","..##...#...#..#.........",".......#...#............","........###.............",".........#..............","........................","........................","........................"],"spawn":{"x":140,"y":60,"vx":270,"vy":0},"hole":{"x":380,"y":350},"inv":{"bump":1,"wedge":1,"block":1},"sol":[{"t":"bump","x":225,"y":235,"a":0},{"t":"wedge","x":410,"y":245,"a":210}],"par":2,"world":3,"idx":35},{"gw":24,"gh":14,"rows":["...........#............","...........#............","...........#............",".............####.......","........................","........................","........................","..................#.....","..................#.....","..........#####.........","...........###..........","........#...............","........#......#........","........#......#........"],"spawn":{"x":180,"y":60,"vx":110,"vy":0},"hole":{"x":500,"y":350},"inv":{"ramp":2,"wedge":1},"sol":[{"t":"ramp","x":235,"y":270,"a":40},{"t":"ramp","x":370,"y":335,"a":0}],"par":2,"world":3,"idx":36},{"gw":24,"gh":14,"rows":[".........#.#...#........",".........#.#...#........","...........#...#........","...........#...#........","........................","........................",".................#......","....#............#......","....#...................","....#...................","....#....#####....###...","........................","........................","........................"],"spawn":{"x":180,"y":140,"vx":0,"vy":0},"hole":{"x":460,"y":390},"inv":{"block":1,"ramp":1,"wedge":1},"sol":[{"t":"block","x":175,"y":215,"a":40},{"t":"ramp","x":260,"y":290,"a":25}],"par":2,"world":3,"idx":37},{"gw":24,"gh":14,"rows":["........................","........................","........................","...................#....","................##.#....","..........#####....#....","...................#....","........................","........................",".###.........###........","..#.....................","........................",".........#..............",".........#.............."],"spawn":{"x":380,"y":60,"vx":0,"vy":0},"hole":{"x":100,"y":350},"inv":{"block":1,"ramp":1,"spring":1},"sol":[{"t":"block","x":380,"y":155,"a":55},{"t":"ramp","x":265,"y":295,"a":-30}],"par":2,"world":3,"idx":38},{"gw":24,"gh":14,"rows":["........................","........................","........................","........................","...###..................","..........###...........","........................","..###...................","......#.................","......#...........####..","......#.................","......#....###..........","......#.................","........................"],"spawn":{"x":780,"y":140,"vx":0,"vy":0},"hole":{"x":500,"y":430},"inv":{"ramp":1,"wedge":1},"sol":[{"t":"ramp","x":805,"y":310,"a":-30},{"t":"wedge","x":645,"y":375,"a":300}],"par":2,"world":3,"idx":39},{"gw":24,"gh":14,"rows":["........................","........................",".........#..............",".........#..............",".........#..............","........................",".....#..................",".....#...#........#...#.",".....#...#........#...#.",".....#.............###..",".....#.....##...........","........................","...............#........","...............#........"],"spawn":{"x":540,"y":100,"vx":0,"vy":0},"hole":{"x":820,"y":350},"inv":{"boost":2,"spring":1},"sol":[{"t":"boost","x":565,"y":200,"a":-15},{"t":"boost","x":840,"y":265,"a":120}],"par":2,"world":4,"idx":40},{"gw":24,"gh":14,"rows":["........................","........................","..........#.............","..........#.............","........................","................###.....",".##.......###...........","......#.....#...........","......#.....#..#.#......",".......#####...#.#......","...............#.#......","...............#.#......","............#..#........","............#..#........"],"spawn":{"x":620,"y":60,"vx":-270,"vy":0},"hole":{"x":380,"y":350},"inv":{"ramp":2,"boost":1},"sol":[{"t":"ramp","x":560,"y":170,"a":-5},{"t":"ramp","x":430,"y":205,"a":-20},{"t":"boost","x":335,"y":250,"a":60}],"par":3,"world":4,"idx":41},{"gw":24,"gh":14,"rows":["........#...............","........#...............","........................","........####............","........................","................#.......","................#.......","................#.......","........................",".........####.....###...","........................","........................","..........#.............","..........#............."],"spawn":{"x":140,"y":100,"vx":110,"vy":0},"hole":{"x":440,"y":350},"inv":{"bump":1,"wedge":1,"boost":1,"spring":1},"sol":[{"t":"bump","x":155,"y":205,"a":0},{"t":"wedge","x":595,"y":360,"a":120},{"t":"boost","x":305,"y":190,"a":30}],"par":3,"world":4,"idx":42},{"gw":24,"gh":14,"rows":["........................","........................","........................","........................","........................","........................","........#####...........",".........###......###...",".....#........#.........",".....#........#.........",".....#..#.###.#.........",".....#..#.....#.........","........#.....#.........","........#.....#........."],"spawn":{"x":700,"y":60,"vx":0,"vy":0},"hole":{"x":420,"y":230},"inv":{"ramp":2,"boost":1,"bump":1},"sol":[{"t":"ramp","x":735,"y":160,"a":-45},{"t":"boost","x":635,"y":190,"a":185},{"t":"ramp","x":285,"y":245,"a":70}],"par":3,"world":4,"idx":43},{"gw":24,"gh":14,"rows":[".............#..........",".............#..........","........................","...............#####....","........................","..................##....","........................","........................","..####..................","........................","..####..................","...............#####....","................###.....","........................"],"spawn":{"x":380,"y":140,"vx":0,"vy":0},"hole":{"x":700,"y":430},"inv":{"ramp":1,"boost":1},"sol":[{"t":"ramp","x":370,"y":335,"a":35},{"t":"boost","x":390,"y":240,"a":75}],"par":2,"world":4,"idx":44},{"gw":24,"gh":14,"rows":["........................","........................","........................","........#####...###.....","........................","..................#.....","..................#.....","....................##..","........................",".......####.............","........##..............","...............#........","...............#........","...............#........"],"spawn":{"x":100,"y":60,"vx":270,"vy":0},"hole":{"x":360,"y":350},"inv":{"wedge":1,"boost":1,"ramp":1},"sol":[{"t":"wedge","x":235,"y":265,"a":350},{"t":"boost","x":265,"y":60,"a":75}],"par":2,"world":4,"idx":45},{"gw":24,"gh":14,"rows":["........................","........................","................#.......","................#.......","........................","........................","........................","....#####...............",".....###.....#####......",".###.....##.............","............#...........","............#...........","............#...........","............#..........."],"spawn":{"x":540,"y":140,"vx":-190,"vy":0},"hole":{"x":260,"y":270},"inv":{"wedge":1,"bump":2,"boost":1},"sol":[{"t":"wedge","x":490,"y":250,"a":70},{"t":"bump","x":415,"y":290,"a":0},{"t":"bump","x":195,"y":235,"a":0}],"par":3,"world":4,"idx":46},{"gw":24,"gh":14,"rows":["........................","........................","............#...........","............#....#......","..###............#......","........................","........................","....##..................","........#...............","........#.####..........","........#.........###...","........#..........#....","........#.#.............","........#.#............."],"spawn":{"x":380,"y":100,"vx":270,"vy":0},"hole":{"x":780,"y":390},"inv":{"ramp":2,"boost":1,"block":1},"sol":[{"t":"ramp","x":465,"y":300,"a":5},{"t":"boost","x":680,"y":370,"a":-5},{"t":"ramp","x":915,"y":390,"a":-65}],"par":3,"world":4,"idx":47},{"gw":24,"gh":14,"rows":["........................","........................","........................","........................","........................","....###.#...............","........#....#####......","..............###.......","..###.#####.............","........................","..#####..#####..........","........................","........................","........................"],"spawn":{"x":260,"y":60,"vx":110,"vy":0},"hole":{"x":620,"y":230},"inv":{"bump":1,"ramp":1,"wedge":1,"spring":1},"sol":[{"t":"bump","x":275,"y":130,"a":0},{"t":"ramp","x":455,"y":200,"a":35},{"t":"wedge","x":360,"y":120,"a":345}],"par":3,"world":4,"idx":48},{"gw":24,"gh":14,"rows":["..............#.........","..............#.........","........................","........................","........................","........................","........................","...........#####........",".####.......###.........","........................",".#####..####....#####...","..............#.........","..........#...#.........","..........#...#........."],"spawn":{"x":220,"y":140,"vx":190,"vy":0},"hole":{"x":540,"y":270},"inv":{"bump":2,"block":1},"sol":[{"t":"bump","x":295,"y":330,"a":0},{"t":"bump","x":690,"y":265,"a":0}],"par":2,"world":4,"idx":49},{"gw":24,"gh":14,"rows":[".............#..........",".............#..........",".............#..........",".............#...###....",".............#..........","...............####.....","....###.................","........................","........#...............","........#...............","..........#.#...........","..........#.#...####....","..........#.#...........","..........#.#..........."],"spawn":{"x":420,"y":100,"vx":270,"vy":0},"hole":{"x":720,"y":430},"inv":{"wedge":1,"belt":2},"sol":[{"t":"wedge","x":475,"y":130,"a":60},{"t":"belt","x":385,"y":295,"a":40},{"t":"belt","x":600,"y":420,"a":-25}],"par":3,"world":5,"idx":50},{"gw":24,"gh":14,"rows":["...............#........","...............#........","..................#.....","..................#.....","..................#.....","........................","........................","..##....................","........................",".........####...........",".................###....","..............#.........","..............#.........","..............#........."],"spawn":{"x":180,"y":60,"vx":0,"vy":0},"hole":{"x":440,"y":350},"inv":{"bump":1,"belt":1,"ramp":1,"block":1},"sol":[{"t":"bump","x":170,"y":170,"a":0},{"t":"belt","x":275,"y":120,"a":-10},{"t":"ramp","x":500,"y":275,"a":-75}],"par":3,"world":5,"idx":51},{"gw":24,"gh":14,"rows":["........................","........................","...................#....","...................#....","........................","........................","...........#..######....","...........#............","...........#............","...........#.#####.##...","..####.....#............","...##...................","..........#.............","..........#............."],"spawn":{"x":580,"y":100,"vx":-190,"vy":0},"hole":{"x":160,"y":390},"inv":{"ramp":1,"wedge":1,"bump":1},"sol":[{"t":"ramp","x":545,"y":200,"a":-30},{"t":"wedge","x":380,"y":270,"a":290},{"t":"bump","x":305,"y":390,"a":0}],"par":3,"world":5,"idx":52},{"gw":24,"gh":14,"rows":["........................","........................","........................",".##................###..","........................","........................","...................##...",".....#..................",".....#......####........",".##..#..................","..........###...........","........................","........................","........................"],"spawn":{"x":260,"y":140,"vx":0,"vy":0},"hole":{"x":560,"y":310},"inv":{"boost":2,"wedge":1,"spring":1},"sol":[{"t":"boost","x":250,"y":490,"a":-75},{"t":"wedge","x":675,"y":270,"a":5},{"t":"boost","x":405,"y":280,"a":15}],"par":3,"world":5,"idx":53},{"gw":24,"gh":14,"rows":["........................","........................","........................","........................","........................","....#.##................","....#......####.........","....#.............#####.","....#.###...............","...........####.........","..................###...","........................","........................","........................"],"spawn":{"x":460,"y":100,"vx":270,"vy":0},"hole":{"x":820,"y":270},"inv":{"ramp":1,"belt":1,"spring":1},"sol":[{"t":"ramp","x":545,"y":175,"a":10},{"t":"belt","x":680,"y":225,"a":-5}],"par":2,"world":5,"idx":54},{"gw":24,"gh":14,"rows":["..........#.............","..........#.............","........................","...........####.........","........................",".......##...............",".....#..................",".....#..................",".....#.#####............","................###.....","...#####.........#......","........................","........................","........................"],"spawn":{"x":300,"y":60,"vx":270,"vy":0},"hole":{"x":700,"y":350},"inv":{"boost":1,"spring":1,"block":1},"sol":[{"t":"boost","x":475,"y":280,"a":20},{"t":"spring","x":845,"y":360,"a":-60},{"t":"block","x":720,"y":290,"a":65}],"par":3,"world":5,"idx":55},{"gw":24,"gh":14,"rows":[".........#.#.#..........",".........#.#.#..........",".........#.#.#..........",".........#.#....#####...",".........#..............","........................","........................","...######...............","........................","........................","............#####.......","........................","............#...........","............#..........."],"spawn":{"x":180,"y":140,"vx":0,"vy":0},"hole":{"x":580,"y":390},"inv":{"bump":1,"ramp":1,"boost":1},"sol":[{"t":"bump","x":155,"y":215,"a":0},{"t":"ramp","x":435,"y":340,"a":35}],"par":2,"world":5,"idx":56},{"gw":24,"gh":14,"rows":["...........#............","...........#............","........................","........##..............","........................","........................","........................","......#......#####......","....#.#.......###.......","....#.#.................","....#.#.#####..#####....","....#.#.................",".........#..............",".........#.............."],"spawn":{"x":220,"y":100,"vx":110,"vy":0},"hole":{"x":620,"y":270},"inv":{"boost":1,"spring":1,"belt":1},"sol":[{"t":"boost","x":280,"y":180,"a":30},{"t":"spring","x":370,"y":305,"a":-30},{"t":"belt","x":495,"y":245,"a":-35}],"par":3,"world":5,"idx":57},{"gw":24,"gh":14,"rows":["...............#........","...............#........","........................","...............#........",".....#...#.....#........",".....#...#.....#........",".....#...#.....#........","........................","........#####...........","........................","..######..#........###..","..........#.........#...","..........#.............","..........#............."],"spawn":{"x":500,"y":60,"vx":0,"vy":0},"hole":{"x":820,"y":390},"inv":{"ramp":1,"belt":1,"boost":1},"sol":[{"t":"ramp","x":505,"y":300,"a":15},{"t":"belt","x":645,"y":360,"a":-5}],"par":2,"world":5,"idx":58},{"gw":24,"gh":14,"rows":[".........#..............",".........#..............",".........#..............","........................","...................#....","..............#....#....","..............#.........","..............#.........","............#...........","...####.....#......###..","....##......#.###.......",".........#..#...........",".........#..#...........",".........#..#..........."],"spawn":{"x":580,"y":60,"vx":-110,"vy":0},"hole":{"x":200,"y":350},"inv":{"ramp":3,"boost":1,"spring":1,"bump":1,"wedge":1},"sol":[{"t":"ramp","x":545,"y":200,"a":-55},{"t":"ramp","x":385,"y":405,"a":0},{"t":"boost","x":475,"y":295,"a":150},{"t":"spring","x":50,"y":360,"a":25},{"t":"ramp","x":185,"y":130,"a":70},{"t":"bump","x":60,"y":165,"a":0}],"par":6,"world":5,"idx":59},{"gw":24,"gh":14,"rows":["...............#........","...............#........","...............#........","........................","........................","..........###...........","...............#....#...","........#......#....#...","........#..#....####....","...###.....#............","........##.#...##.......","........................","........................","........................"],"spawn":{"x":380,"y":60,"vx":190,"vy":0},"hole":{"x":720,"y":310},"inv":{"block":2,"fan":2,"belt":1},"sol":[{"t":"block","x":430,"y":150,"a":65},{"t":"block","x":440,"y":80,"a":80},{"t":"fan","x":315,"y":125,"a":0},{"t":"fan","x":865,"y":310,"a":180}],"par":4,"world":6,"idx":60},{"gw":24,"gh":14,"rows":[".........#.#............",".........#.#............",".........#.#............",".........#.#............","..######.......#........",".........####..#........","...............#........","...............#.####...","...............#........","......###...............","......#....#............","......#....#............",".......####...#.........","........##....#........."],"spawn":{"x":740,"y":140,"vx":0,"vy":0},"hole":{"x":360,"y":470},"inv":{"fan":4,"boost":1},"sol":[{"t":"fan","x":800,"y":195,"a":230},{"t":"fan","x":260,"y":250,"a":55},{"t":"fan","x":655,"y":130,"a":140},{"t":"fan","x":500,"y":400,"a":140}],"par":4,"world":6,"idx":61},{"gw":24,"gh":14,"rows":["...............#........","...............#........","........................","..........####..........","................###.....","........................","...##...................","..........###.....##....",".....####......#...#....","...............#...#....","................###.....","...........#............","...........#............","...........#............"],"spawn":{"x":260,"y":60,"vx":190,"vy":0},"hole":{"x":700,"y":390},"inv":{"belt":1,"block":1,"fan":2},"sol":[{"t":"belt","x":310,"y":220,"a":10},{"t":"block","x":670,"y":245,"a":45},{"t":"fan","x":325,"y":85,"a":60},{"t":"fan","x":845,"y":330,"a":160}],"par":4,"world":6,"idx":62},{"gw":24,"gh":14,"rows":["............#...........","............#...........","............#...........",".....######.............","........................",".######...#####.........","........................","........................","............#...###.....","....#....#..#...........","....#....#..#..#........",".....####...#..#........","......##....#..#........","............#..#........"],"spawn":{"x":740,"y":140,"vx":0,"vy":0},"hole":{"x":280,"y":430},"inv":{"block":1,"boost":2,"fan":1,"ramp":1},"sol":[{"t":"block","x":695,"y":210,"a":20},{"t":"boost","x":665,"y":270,"a":165},{"t":"fan","x":780,"y":210,"a":170},{"t":"boost","x":500,"y":285,"a":190}],"par":4,"world":6,"idx":63},{"gw":24,"gh":14,"rows":["............#...........","............#...........","........................","..............######....",".....#..................",".....#..................","..##.#..................",".....#..................",".###.#......#...........",".......####.#...#....#..","............#...#....#..","............#....####...","............#.....##....","............#..........."],"spawn":{"x":380,"y":140,"vx":0,"vy":0},"hole":{"x":760,"y":430},"inv":{"fan":1,"wedge":1,"ramp":1,"spring":1},"sol":[{"t":"fan","x":330,"y":290,"a":0},{"t":"wedge","x":395,"y":230,"a":360},{"t":"ramp","x":490,"y":295,"a":15}],"par":3,"world":6,"idx":64},{"gw":24,"gh":14,"rows":["........................","........................","........................","........................","..........#.............","..........#.............",".....###..#.............","........................",".####...#.....####......","........#.#....##.......","........#.#.............","........#.#.............","........#.#....#........","........#.#....#........"],"spawn":{"x":220,"y":100,"vx":110,"vy":0},"hole":{"x":640,"y":310},"inv":{"fan":1,"boost":1,"ramp":1,"spring":1},"sol":[{"t":"fan","x":110,"y":75,"a":35},{"t":"boost","x":500,"y":320,"a":-5},{"t":"ramp","x":770,"y":305,"a":-80}],"par":3,"world":6,"idx":65},{"gw":24,"gh":14,"rows":["..........#...#.........","..........#...#.........","..........#.............","........................",".##.....................","..........##............",".....#.....#............",".....#.....#.....##.....","......#####.............","...............#####....",".#####.....#............","...........#............","...........#............","...........#............"],"spawn":{"x":700,"y":100,"vx":0,"vy":0},"hole":{"x":340,"y":310},"inv":{"ramp":1,"fan":3,"boost":1},"sol":[{"t":"ramp","x":620,"y":190,"a":55},{"t":"fan","x":830,"y":110,"a":170},{"t":"fan","x":730,"y":165,"a":190},{"t":"boost","x":465,"y":150,"a":175},{"t":"fan","x":490,"y":60,"a":130}],"par":5,"world":6,"idx":66},{"gw":24,"gh":14,"rows":["...............#........","...............#........","...............#........","........................","......##................",".................###....","........................","............#...........","........###.#...........","#....#......#...........","#....#....#.#..#........",".####.....#....#........","..........#....#........","..........#....#........"],"spawn":{"x":460,"y":140,"vx":0,"vy":0},"hole":{"x":120,"y":430},"inv":{"wedge":1,"fan":3,"ramp":1,"block":1,"bump":1},"sol":[{"t":"wedge","x":430,"y":195,"a":-20},{"t":"fan","x":550,"y":255,"a":145},{"t":"ramp","x":265,"y":355,"a":30},{"t":"fan","x":330,"y":250,"a":170},{"t":"block","x":130,"y":325,"a":65},{"t":"fan","x":205,"y":285,"a":125}],"par":6,"world":6,"idx":67},{"gw":24,"gh":14,"rows":["........................","........................","........................","..........#.............","..........#.....######..","#.....#...#.............","#.....#.................",".#####.........#........",".............#.#........","...........#.#.#........","...#####.#.#.#.#....##..",".........#.#.#..........",".........#.#.#..........",".........#.#............"],"spawn":{"x":540,"y":100,"vx":0,"vy":0},"hole":{"x":140,"y":270},"inv":{"fan":2,"boost":1,"block":1},"sol":[{"t":"fan","x":485,"y":75,"a":160},{"t":"fan","x":590,"y":190,"a":220},{"t":"boost","x":190,"y":110,"a":100}],"par":3,"world":6,"idx":68},{"gw":24,"gh":14,"rows":[".............#..........",".............#..........","..........#.............","..........#.............","..........#.............","..........#.............","..##....................","........................","......####....####......","........................","....#####...............","..........#.............","..........#....#........","..........#....#........"],"spawn":{"x":300,"y":140,"vx":110,"vy":0},"hole":{"x":640,"y":310},"inv":{"ramp":1,"fan":1,"belt":1,"wedge":1},"sol":[{"t":"ramp","x":125,"y":405,"a":-65},{"t":"fan","x":240,"y":165,"a":45},{"t":"belt","x":485,"y":290,"a":-15}],"par":3,"world":6,"idx":69},{"gw":24,"gh":14,"rows":["........................","........................","........................","........................","........................","........................","......#####...######....","........................","..........#.....#####...","...####...#.............","..........#.....######..","............#...........","..........#.#...........","..........#.#..........."],"spawn":{"x":820,"y":60,"vx":0,"vy":0},"hole":{"x":340,"y":230},"inv":{"fan":2,"boost":1,"pa":1,"pb":1},"sol":[{"t":"fan","x":880,"y":205,"a":-125},{"t":"boost","x":510,"y":130,"a":180},{"t":"pa","x":170,"y":220,"a":0},{"t":"pb","x":715,"y":110,"a":60},{"t":"fan","x":135,"y":180,"a":15}],"par":4,"world":7,"idx":70},{"gw":24,"gh":14,"rows":["...........#...#........","...........#...#........",".........#.....#........",".........#.....#........","........................","..................##....",".......######...........","........................","........#.#.............","........#.#.............","........#.#.............","........#.#..#...###....","........#.#..#....#.....","........#.#..#.........."],"spawn":{"x":260,"y":100,"vx":0,"vy":0},"hole":{"x":740,"y":430},"inv":{"pa":2,"fan":1,"wedge":1,"block":1,"pb":2},"sol":[{"t":"pa","x":230,"y":215,"a":0},{"t":"pb","x":55,"y":295,"a":0},{"t":"fan","x":215,"y":470,"a":-55},{"t":"wedge","x":250,"y":345,"a":215},{"t":"pa","x":480,"y":315,"a":0},{"t":"pb","x":610,"y":365,"a":15}],"par":4,"world":7,"idx":71},{"gw":24,"gh":14,"rows":["........#.#...#.........","........#.#...#.........","........#.#.#.#.........","........#.#.#....####...","........#.#.............","........#.#......#####..","........................","........................","........................","....######......####....",".............#.....#....",".............#.....#....","..............#####.....","...............###......"],"spawn":{"x":220,"y":100,"vx":0,"vy":0},"hole":{"x":660,"y":470},"inv":{"ramp":1,"fan":2,"spring":1},"sol":[{"t":"ramp","x":275,"y":300,"a":15},{"t":"fan","x":115,"y":200,"a":15},{"t":"fan","x":515,"y":315,"a":40}],"par":3,"world":7,"idx":72},{"gw":24,"gh":14,"rows":[".........#.#............",".........#.#............",".........#.#............",".........#.#............","...........#............","........................","........................","...............####.....",".#####..........##......","........................","....##....######........","........................","..........#..#..........","..........#..#.........."],"spawn":{"x":260,"y":100,"vx":270,"vy":0},"hole":{"x":680,"y":270},"inv":{"boost":1,"fan":1,"ramp":1},"sol":[{"t":"boost","x":380,"y":255,"a":-35},{"t":"fan","x":525,"y":315,"a":-55},{"t":"ramp","x":855,"y":290,"a":-75}],"par":3,"world":7,"idx":73},{"gw":24,"gh":14,"rows":["........#...............","........#...............","........#...............","..###...................",".............###........",".....#..............##..",".....#...........#......","........####.....#......","........#.....#.........",".##.....#.....#....###..",".........#####..........","........................","........................","........................"],"spawn":{"x":820,"y":60,"vx":0,"vy":0},"hole":{"x":460,"y":390},"inv":{"bump":1,"fan":2,"ramp":1},"sol":[{"t":"bump","x":785,"y":130,"a":0},{"t":"fan","x":885,"y":150,"a":175},{"t":"fan","x":620,"y":300,"a":130}],"par":3,"world":7,"idx":74},{"gw":24,"gh":14,"rows":["........................","........................","......#..........#......","......#.##.......#......","......#..........#..##..","......#.................","......#.............##..","........#..##...........","......#.#..#....#.......","......#.#..#....#.......",".####...#...####........","........#....##.........","........................","........................"],"spawn":{"x":140,"y":60,"vx":270,"vy":0},"hole":{"x":560,"y":390},"inv":{"pa":1,"block":1,"boost":1,"wedge":1,"pb":1},"sol":[{"t":"pa","x":200,"y":250,"a":0},{"t":"pb","x":510,"y":170,"a":105},{"t":"block","x":475,"y":230,"a":70},{"t":"boost","x":565,"y":320,"a":125}],"par":3,"world":7,"idx":75},{"gw":24,"gh":14,"rows":["..........#.............","..........#.............","................#.......","................#.......","........................","........................","..........#.......#.....","..........#.####..#.....","..........#.......#.....","..........#.............","..####.........##.......","...##...................",".........#.....#........",".........#.....#........"],"spawn":{"x":540,"y":140,"vx":-270,"vy":0},"hole":{"x":160,"y":390},"inv":{"block":1,"pa":1,"ramp":1,"fan":1,"pb":1},"sol":[{"t":"block","x":500,"y":190,"a":70},{"t":"pa","x":480,"y":95,"a":0},{"t":"pb","x":865,"y":395,"a":330},{"t":"ramp","x":335,"y":310,"a":-30}],"par":3,"world":7,"idx":76},{"gw":24,"gh":14,"rows":[".............#.#........",".............#.#........",".............#.#........","........###..#.#........","...............#........","........................","..######................","................#.#.....","..............#.#.#.....","..............#.#.#.....","...#.....#....#...#.....","...#.....#....#...#.....","....#####.....#...#.....",".....###......#........."],"spawn":{"x":740,"y":140,"vx":-110,"vy":0},"hole":{"x":260,"y":470},"inv":{"fan":2,"boost":1,"ramp":1},"sol":[{"t":"fan","x":850,"y":65,"a":150},{"t":"boost","x":530,"y":305,"a":140},{"t":"fan","x":135,"y":355,"a":60}],"par":3,"world":7,"idx":77},{"gw":24,"gh":14,"rows":["............#...........","............#...........","........................","..............#.........","..............#.........",".....##.......#.....####","............#.#..#.....#",".######.....#.#..#.....#","..................#####.","......###...#...........","............#......##...","............#...........","............#...........","............#..........."],"spawn":{"x":380,"y":100,"vx":270,"vy":0},"hole":{"x":820,"y":310},"inv":{"fan":2,"wedge":1,"pa":2,"ramp":1,"pb":2},"sol":[{"t":"fan","x":345,"y":250,"a":-45},{"t":"wedge","x":480,"y":140,"a":305},{"t":"fan","x":665,"y":90,"a":70},{"t":"pa","x":745,"y":205,"a":0},{"t":"pb","x":820,"y":85,"a":165},{"t":"pa","x":760,"y":285,"a":0},{"t":"pb","x":190,"y":465,"a":195}],"par":5,"world":7,"idx":78},{"gw":24,"gh":14,"rows":["........................","........................","........................","..................####..","......#......##.........","......#.##..............","..............##........",".#######................","..................##....","...........##...........","..######...#...#........","...........#...#........","............###.........",".............#.........."],"spawn":{"x":140,"y":140,"vx":270,"vy":0},"hole":{"x":540,"y":470},"inv":{"fan":2,"boost":1,"bump":1},"sol":[{"t":"fan","x":185,"y":215,"a":15},{"t":"boost","x":565,"y":385,"a":70},{"t":"fan","x":635,"y":375,"a":135}],"par":3,"world":7,"idx":79},{"gw":24,"gh":14,"rows":[".............#.#........",".............#.#........",".............#.#........",".....#.......#..........",".###.#...#...#..........",".....#...#...#..........","........................","........................","..............######....","........##..............","....#....#...#..........","....#....#...#..........",".....####....#..........","......##.....#.........."],"spawn":{"x":780,"y":140,"vx":-270,"vy":0},"hole":{"x":280,"y":470},"inv":{"wedge":1,"block":1,"fan":3},"sol":[{"t":"wedge","x":685,"y":185,"a":35},{"t":"block","x":715,"y":270,"a":55},{"t":"fan","x":755,"y":70,"a":120},{"t":"fan","x":790,"y":200,"a":160},{"t":"fan","x":165,"y":345,"a":60}],"par":5,"world":8,"idx":80},{"gw":24,"gh":14,"rows":["..........#.............","..........#.............","........#...............","..####..#.....###.......","........................",".............###........","........................","..............###.......","........................","...............#######..",".....####...............","........................","...............#........","...............#........"],"spawn":{"x":780,"y":140,"vx":-110,"vy":0},"hole":{"x":280,"y":390},"inv":{"fan":1,"pa":1,"wedge":1,"belt":1,"pb":1},"sol":[{"t":"fan","x":795,"y":285,"a":180},{"t":"pa","x":545,"y":360,"a":0},{"t":"pb","x":830,"y":130,"a":300},{"t":"wedge","x":730,"y":255,"a":315}],"par":3,"world":8,"idx":81},{"gw":24,"gh":14,"rows":["...........#............","...........#............","...........#............","........................","#....#..................","#....#...........#.###..",".####....######..#......","..##.............#......",".............###.#......","........................",".......##...............","...........#............","...........#...#........","...........#...#........"],"spawn":{"x":580,"y":100,"vx":-190,"vy":0},"hole":{"x":120,"y":230},"inv":{"boost":1,"pa":1,"fan":1,"pb":1},"sol":[{"t":"boost","x":495,"y":165,"a":155},{"t":"pa","x":385,"y":205,"a":0},{"t":"pb","x":315,"y":45,"a":135},{"t":"fan","x":625,"y":55,"a":140}],"par":3,"world":8,"idx":82},{"gw":24,"gh":14,"rows":["........#.#..#..........","........#.#..#..........",".............#..........",".........##.............","....#...................","....#...................","....#...###.......#.....","....#...#....#....#.....","....#...#....#..........",".........####...#####...","........................","..............#.........","..............#.........","..............#........."],"spawn":{"x":860,"y":140,"vx":-110,"vy":0},"hole":{"x":440,"y":350},"inv":{"fan":3,"wedge":1,"bump":1,"belt":1},"sol":[{"t":"fan","x":890,"y":275,"a":190},{"t":"fan","x":575,"y":395,"a":-110},{"t":"wedge","x":815,"y":205,"a":115},{"t":"bump","x":885,"y":220,"a":0},{"t":"fan","x":555,"y":220,"a":120}],"par":5,"world":8,"idx":83},{"gw":24,"gh":14,"rows":[".........#....#.........",".........#....#.........",".........#..............",".........#.........#....","...........#######.#....",".######............#....",".................#.#....",".................#.#....",".............##..#.#....",".....##..#....#..#......",".........#....#..#......","..........####..........","...........##...........","........................"],"spawn":{"x":100,"y":60,"vx":190,"vy":0},"hole":{"x":480,"y":430},"inv":{"fan":1,"block":2,"spring":1},"sol":[{"t":"fan","x":35,"y":75,"a":10},{"t":"block","x":245,"y":55,"a":60},{"t":"block","x":205,"y":160,"a":35}],"par":3,"world":8,"idx":84},{"gw":24,"gh":14,"rows":[".........#..#.#.........",".........#..#.#.........","............#.#.........","............#.#.........","........................","........................","...#.....#.........##...","...#.....#....####......","....#####...............","........................",".............#..........","........#....#..........","........#....#.#........","........#....#.#........"],"spawn":{"x":700,"y":60,"vx":0,"vy":0},"hole":{"x":260,"y":310},"inv":{"wedge":1,"pa":1,"fan":1,"spring":1,"pb":1},"sol":[{"t":"wedge","x":705,"y":240,"a":140},{"t":"pa","x":635,"y":235,"a":0},{"t":"pb","x":280,"y":220,"a":210},{"t":"fan","x":110,"y":175,"a":55}],"par":3,"world":8,"idx":85},{"gw":24,"gh":14,"rows":[".........#..............",".........#..............","........................","...................#....","...................#....",".........####......#....","...................#....","........##.#....#.......","###........#..#.#.......","#....#........#.........","#....#........#.........",".####...................","............#...........","............#..........."],"spawn":{"x":620,"y":100,"vx":-270,"vy":0},"hole":{"x":120,"y":430},"inv":{"bump":1,"fan":2,"wedge":1},"sol":[{"t":"bump","x":555,"y":180,"a":0},{"t":"fan","x":470,"y":70,"a":145},{"t":"fan","x":215,"y":305,"a":125}],"par":3,"world":8,"idx":86},{"gw":24,"gh":14,"rows":[".........#.....#........",".........#.....#........",".........#..............","...............#........","...............#........",".......###..............","....#....#...###........","....#....#..............",".....####........#.#....","......##.........#.#....",".................#.#....",".................#......",".............#.#........",".............#.#........"],"spawn":{"x":780,"y":140,"vx":-190,"vy":0},"hole":{"x":280,"y":310},"inv":{"boost":1,"block":1,"pa":1,"wedge":1,"pb":1},"sol":[{"t":"boost","x":750,"y":230,"a":195},{"t":"block","x":485,"y":290,"a":45},{"t":"pa","x":415,"y":355,"a":0},{"t":"pb","x":110,"y":130,"a":30}],"par":3,"world":8,"idx":87},{"gw":24,"gh":14,"rows":["............#...........","............#...........","........................","............##..........","........................","..............#.........","..............#.........","..............#.#..##...","..............#.#.......","..............#.#.......","......####....#.#.......","................#.......","..........#.#.#.#.......","..........#.#.#........."],"spawn":{"x":740,"y":140,"vx":0,"vy":0},"hole":{"x":320,"y":390},"inv":{"block":1,"fan":1,"ramp":1,"spring":1,"pa":1,"bump":1,"pb":1},"sol":[{"t":"block","x":685,"y":215,"a":20},{"t":"fan","x":830,"y":155,"a":175},{"t":"ramp","x":220,"y":380,"a":-60},{"t":"spring","x":455,"y":225,"a":55},{"t":"pa","x":635,"y":165,"a":0},{"t":"pb","x":370,"y":270,"a":330}],"par":5,"world":8,"idx":88},{"gw":24,"gh":14,"rows":["........................","........................","........................","..##....................","...........##...........","........................","..#####...#....#....#...","..........#....#....#...","....##.##.#.....####....","..........#......##.....","..........#..#..........",".............#..........",".............#..........",".............#.........."],"spawn":{"x":300,"y":60,"vx":0,"vy":0},"hole":{"x":720,"y":310},"inv":{"ramp":1,"fan":2},"sol":[{"t":"ramp","x":355,"y":155,"a":5},{"t":"fan","x":235,"y":105,"a":20},{"t":"fan","x":885,"y":200,"a":145}],"par":3,"world":8,"idx":89},{"gw":24,"gh":14,"rows":[".........#.#..#.........",".........#.#..#.........","...........#............","................######..","........................",".............######.....","........###.............","..####..................",".................##.....","........#....#....#.....","........#....#....#.....","........#.....####......","........#...............","........#..............."],"spawn":{"x":180,"y":60,"vx":190,"vy":0},"hole":{"x":640,"y":430},"inv":{"fan":1,"pa":1,"ramp":1,"spring":1,"pb":1},"sol":[{"t":"fan","x":440,"y":190,"a":35},{"t":"pa","x":640,"y":350,"a":0},{"t":"pb","x":470,"y":400,"a":45},{"t":"ramp","x":235,"y":145,"a":35}],"par":3,"world":9,"idx":90},{"gw":24,"gh":14,"rows":["..........#.............","..........#.............","...................#....","...................#....","........................",".......##...............","............#...#.......",".........#..#...#.......",".######..#...###...#....","...................#....","..####...#...#.....#....",".........#...#.....#....",".........#...#.....#....",".........#...#.........."],"spawn":{"x":140,"y":100,"vx":270,"vy":0},"hole":{"x":580,"y":310},"inv":{"fan":2,"spring":1},"sol":[{"t":"fan","x":75,"y":60,"a":25},{"t":"spring","x":440,"y":380,"a":55},{"t":"fan","x":725,"y":315,"a":185}],"par":3,"world":9,"idx":91},{"gw":24,"gh":14,"rows":["........................","........................","........................","..........#........##...","....#.....#.#...#...#...","....#.##....#...#...#...","....#.......#....###....","....#.............#.....",".........#......#.......",".........#......#...##..",".........#......#.......",".........#..#...........",".........#..#...........","............#..........."],"spawn":{"x":300,"y":60,"vx":0,"vy":0},"hole":{"x":740,"y":230},"inv":{"fan":1,"pa":1,"boost":1,"spring":1,"pb":1},"sol":[{"t":"fan","x":250,"y":130,"a":15},{"t":"pa","x":570,"y":115,"a":0},{"t":"pb","x":375,"y":255,"a":135},{"t":"boost","x":710,"y":150,"a":75}],"par":3,"world":9,"idx":92},{"gw":24,"gh":14,"rows":["............#.#.........","............#.#.........","............#...........",".....######.............","........................","...................#....","....##.......#####.#....","....#...#..........#....","....#...#...#.#.........",".....###....#.#..####...","......#.....#.#.........","............#.#.........","............#.#.........","............#.#........."],"spawn":{"x":700,"y":60,"vx":-270,"vy":0},"hole":{"x":260,"y":350},"inv":{"boost":1,"pa":1,"fan":1,"pb":1},"sol":[{"t":"boost","x":585,"y":170,"a":155},{"t":"pa","x":500,"y":185,"a":0},{"t":"pb","x":90,"y":245,"a":105},{"t":"fan","x":145,"y":385,"a":-25}],"par":3,"world":9,"idx":93},{"gw":24,"gh":14,"rows":["........#...#...........","........#...#...........",".....#......#.#.........",".....#......#.#.........",".....#......#.#......###",".###........#.#..#.....#","..............#..#.....#","......##......#...#####.","........................",".........######.....##..","........................",".........#..#...........",".........#..#...........",".........#..#..........."],"spawn":{"x":340,"y":140,"vx":110,"vy":0},"hole":{"x":820,"y":270},"inv":{"pa":2,"spring":1,"block":1,"pb":2},"sol":[{"t":"pa","x":410,"y":280,"a":0},{"t":"pb","x":230,"y":390,"a":60},{"t":"spring","x":350,"y":225,"a":35},{"t":"pa","x":410,"y":190,"a":0},{"t":"pb","x":795,"y":210,"a":60}],"par":3,"world":9,"idx":94},{"gw":24,"gh":14,"rows":[".........#....#.........",".........#....#.........",".........#....#.........","........................","..........##.###.#####..","........................","....#..###..............","....#...................",".............#...#......","...#####.....#...#......","..........#...###.......","..........#....#........","..........#.#...........","..........#.#..........."],"spawn":{"x":180,"y":100,"vx":270,"vy":0},"hole":{"x":620,"y":390},"inv":{"wedge":1,"fan":2,"boost":1},"sol":[{"t":"wedge","x":290,"y":190,"a":330},{"t":"fan","x":225,"y":210,"a":0},{"t":"fan","x":760,"y":370,"a":170}],"par":3,"world":9,"idx":95},{"gw":24,"gh":14,"rows":["........#.....#.........","........#.....#.........",".....#..#..#............",".....#.....#............",".....#............#.....",".##...............#.....",".............###..#.....","..........#....#..#.....","..######..#....#........","...........####....##...","....###.....##..........","........................","........................","........................"],"spawn":{"x":100,"y":60,"vx":270,"vy":0},"hole":{"x":520,"y":350},"inv":{"boost":1,"fan":1,"pa":1,"wedge":1,"pb":1},"sol":[{"t":"boost","x":295,"y":175,"a":5},{"t":"fan","x":475,"y":215,"a":65},{"t":"pa","x":160,"y":280,"a":0},{"t":"pb","x":660,"y":145,"a":135}],"par":3,"world":9,"idx":96},{"gw":24,"gh":14,"rows":[".........#.....#........",".........#.....#........",".........#...#.#........",".............#.#...###..","......#.................","......#.................","....#.#............#....","....#.#....#....#..#....","....#.#....#....#.......","....#.#.....####........","....#...#....##.........","........#...............","........#.#....#........","........#.#....#........"],"spawn":{"x":140,"y":100,"vx":0,"vy":0},"hole":{"x":560,"y":350},"inv":{"block":1,"fan":1,"boost":1,"spring":1},"sol":[{"t":"block","x":170,"y":160,"a":15},{"t":"fan","x":75,"y":90,"a":10},{"t":"boost","x":470,"y":190,"a":85}],"par":3,"world":9,"idx":97},{"gw":24,"gh":14,"rows":["..........#...#.........","..........#...#.........","..........#...#.........","..........#.............","....###...#...#.#.......","........#.#...#.#.......","..##....#.#...#.#.......","................#..#....","................#..#....","...................#....","......#....#.......#....","......#....#............",".......####.............","........##.............."],"spawn":{"x":860,"y":100,"vx":-190,"vy":0},"hole":{"x":360,"y":470},"inv":{"fan":2,"pa":1,"ramp":1,"pb":1},"sol":[{"t":"fan","x":925,"y":95,"a":180},{"t":"pa","x":715,"y":170,"a":0},{"t":"pb","x":365,"y":405,"a":45},{"t":"fan","x":485,"y":380,"a":130}],"par":3,"world":9,"idx":98},{"gw":24,"gh":14,"rows":["........#...#...........","........#...#...........","........................","...........#............","...........#............",".###.......#............",".#....#....#............",".#....#.........#.##....","..####......#.#.#.......","............#.#.#.......","...##.......#.#.#.......","............#.#.#.......","............#.#.#.......","............#.#........."],"spawn":{"x":660,"y":140,"vx":-110,"vy":0},"hole":{"x":160,"y":310},"inv":{"fan":3,"spring":1,"block":1,"wedge":1},"sol":[{"t":"fan","x":675,"y":80,"a":170},{"t":"spring","x":535,"y":260,"a":5},{"t":"block","x":565,"y":195,"a":50},{"t":"fan","x":675,"y":200,"a":210},{"t":"fan","x":215,"y":160,"a":100}],"par":5,"world":9,"idx":99}];
+'use strict';
+/* ===== PUTTLER 2 : state, save, background and world drawing ===== */
+const $=(s,e)=>(e||document).querySelector(s),$$=(s,e)=>[...(e||document).querySelectorAll(s)];
+const cv=$('#cv'),ctx=cv.getContext('2d');
+let VW=1,VH=1,DPR=1;
+let SAVE={stars:{},o:{snd:1,mus:1,path:0,unlock:0}};
+try{const j=JSON.parse(localStorage.getItem('puttler2_v1')||'null');if(j){SAVE.stars=j.stars||{};Object.assign(SAVE.o,j.o||{})}}catch(e){}
+const persist=()=>{try{localStorage.setItem('puttler2_v1',JSON.stringify(SAVE))}catch(e){}};
+const NLV=TABLE.length,starsOf=i=>SAVE.stars[i]||0;
+const unlocked=i=>SAVE.o.unlock||i===0||starsOf(i-1)>0;
+const worldStars=w=>{let s=0;for(let k=0;k<PER_WORLD;k++)s+=starsOf(w*PER_WORLD+k);return s};
+const NWORLD=Math.ceil(NLV/PER_WORLD);
+const hsl=(h,s,l,a)=>`hsla(${h},${Math.round(s*100)}%,${Math.round(l*100)}%,${a===undefined?1:a})`;
+
+/* ---------- camera (fit the level into the free area of the screen) ---------- */
+const CAM={ox:0,oy:0,z:1,padL:0,padT:60,padB:112};
+function fitCam(lv){
+ const L=lv||S.lv;if(!L)return;
+ CAM.padL=(S.mode==='sandbox'&&VW>700)?164:0;CAM.padT=60;CAM.padB=VW<600?104:116;if(S.mode==='sandbox'&&VW<=700)CAM.padB+=150;
+ const aw=VW-CAM.padL-16,ah=VH-CAM.padT-CAM.padB;
+ CAM.z=Math.max(.2,Math.min(aw/L.W,ah/L.H));
+ CAM.ox=CAM.padL+(VW-CAM.padL-L.W*CAM.z)/2;CAM.oy=CAM.padT+(ah-L.H*CAM.z)/2;
+}
+function resize(){DPR=Math.min(window.devicePixelRatio||1,2);VW=window.innerWidth;VH=window.innerHeight;cv.width=Math.round(VW*DPR);cv.height=Math.round(VH*DPR);cv.style.width=VW+'px';cv.style.height=VH+'px';bgDirty=true;fitCam()}
+const toW=(sx,sy)=>[(sx-CAM.ox)/CAM.z,(sy-CAM.oy)/CAM.z];
+
+/* ---------- world themes (hue per world) ---------- */
+const WH=[205,196,214,176,188,224,200,160,246,262];
+function themeOf(w){const h=WH[w%WH.length];
+ return{h,skyT:hsl(h,.62,.66),skyB:hsl(h,.8,.9),hill:[hsl(h,.55,.66),hsl(h,.55,.58),hsl(h,.55,.5)],tree:hsl(h+14,.5,.15),cloud:'rgba(255,255,255,.92)'}}
+
+/* ---------- background (pre-rendered) ---------- */
+let bgDirty=true,bgCanvas=null,bgKey='';
+const CLOUDS=[];{const r=rng(77);for(let i=0;i<7;i++)CLOUDS.push({x:r(),y:.04+r()*.34,s:.6+r()*.9,v:4+r()*8})}
+const SPARK=[];{const r=rng(5);for(let i=0;i<46;i++)SPARK.push({x:r(),y:r(),p:r()*6.28,s:.5+r()*1.4,v:.01+r()*.03})}
+function hillY(x,L,i){const f=[.004,.0065,.009][i],a=[46,38,30][i],ph=[1.3,.2,2.6][i];return a*Math.sin(x*f+ph)+a*.55*Math.sin(x*f*2.3+ph*1.7)}
+function renderBG(){
+ const w=S.lv?S.lv.world:(S.titleWorld||0),key=[VW,VH,DPR,w].join();if(!bgDirty&&bgKey===key&&bgCanvas)return;
+ bgKey=key;bgDirty=false;
+ if(!bgCanvas)bgCanvas=document.createElement('canvas');bgCanvas.width=Math.round(VW*DPR);bgCanvas.height=Math.round(VH*DPR);
+ const c=bgCanvas.getContext('2d');c.setTransform(DPR,0,0,DPR,0,0);const th=themeOf(w);
+ const g=c.createLinearGradient(0,0,0,VH);g.addColorStop(0,th.skyT);g.addColorStop(1,th.skyB);c.fillStyle=g;c.fillRect(0,0,VW,VH);
+ const base=[VH*.74,VH*.82,VH*.9],rr=rng(900+w);
+ for(let i=0;i<3;i++){
+  c.fillStyle=th.hill[i];c.beginPath();c.moveTo(0,VH);for(let x=0;x<=VW+8;x+=8)c.lineTo(x,base[i]+hillY(x,0,i));c.lineTo(VW+8,VH);c.closePath();c.fill();
+  // navy round-tree silhouettes on the two back/mid hills
+  if(i<2){c.fillStyle=th.tree;const n=Math.round(VW/(i?70:55));for(let k=0;k<n;k++){const x=rr()*VW,y=base[i]+hillY(x,0,i)+4,r=(i?15:11)+rr()*(i?15:11);
+   c.fillRect(x-2.5,y-r*.5,5,r*.6+4);c.beginPath();c.arc(x,y-r*1.1,r,0,TAU);c.fill();c.beginPath();c.arc(x-r*.55,y-r*.7,r*.6,0,TAU);c.fill();c.beginPath();c.arc(x+r*.55,y-r*.7,r*.6,0,TAU);c.fill()}}
+ }
+}
+function drawCloud(c,x,y,s){const P=[[0,0,26],[28,-8,32],[62,0,26],[34,8,26],[-22,10,18],[84,10,18]];c.fillStyle='rgba(255,255,255,.93)';
+ for(const p of P){c.beginPath();c.arc(x+p[0]*s,y+p[1]*s,p[2]*s,0,TAU);c.fill()}}
+function drawBG(T){
+ renderBG();ctx.setTransform(1,0,0,1,0,0);ctx.drawImage(bgCanvas,0,0,cv.width,cv.height);ctx.setTransform(DPR,0,0,DPR,0,0);
+ for(const c of CLOUDS){const x=((c.x*VW+T*c.v)%(VW+300))-150;drawCloud(ctx,x,c.y*VH,c.s)}
+ // teal sparkles drifting up
+ for(const s of SPARK){const y=((s.y-T*s.v)%1+1)%1*VH,x=s.x*VW+Math.sin(T*.7+s.p)*14,a=.35+.5*Math.abs(Math.sin(T*1.6+s.p));
+  ctx.globalAlpha=a;ctx.fillStyle='#4de3d0';const z=2.2*s.s;ctx.fillRect(x-z/2,y-z*1.6,z,z*3.2);ctx.fillRect(x-z*1.6,y-z/2,z*3.2,z)}ctx.globalAlpha=1;
+}
+function drawStrip(T){ // teal bottom strip + water line under the level
+ const y0=Math.min(VH-26,CAM.oy+S.lv.H*CAM.z+6);ctx.fillStyle='#19b9a6';ctx.beginPath();ctx.moveTo(0,VH);
+ for(let x=0;x<=VW+10;x+=10)ctx.lineTo(x,y0+Math.sin(x*.02+T*1.6)*3);ctx.lineTo(VW+10,VH);ctx.closePath();ctx.fill();
+ ctx.fillStyle='rgba(255,255,255,.18)';ctx.fillRect(0,y0+8,VW,2);
+}
+
+/* ---------- world drawing ---------- */
+function drawTerrain(lv){
+ ctx.fillStyle='#07070d';
+ for(let y=0;y<lv.gh;y++){let x=0;while(x<lv.gw){if(lv.solid[y*lv.gw+x]){let x2=x;while(x2<lv.gw&&lv.solid[y*lv.gw+x2])x2++;ctx.fillRect(x*CELL-.4,y*CELL-.4,(x2-x)*CELL+.8,CELL+.8);x=x2}else x++}}
+ ctx.fillStyle='rgba(120,130,170,.16)';
+ for(let y=0;y<lv.gh;y++)for(let x=0;x<lv.gw;x++)if(lv.solid[y*lv.gw+x]&&!(y>0&&lv.solid[(y-1)*lv.gw+x]))ctx.fillRect(x*CELL,y*CELL,CELL,2);
+}
+function drawHole(lv,T){
+ const h=lv.hole,x=h.x,y=h.y+R+1;
+ ctx.save();ctx.translate(x,y);
+ ctx.fillStyle='rgba(0,0,0,.9)';ctx.beginPath();ctx.ellipse(0,0,17,5.5,0,0,TAU);ctx.fill();
+ ctx.strokeStyle='rgba(255,255,255,'+(.55+.25*Math.sin(T*3))+')';ctx.lineWidth=2;ctx.beginPath();ctx.ellipse(0,0,19,6.5,0,0,TAU);ctx.stroke();
+ ctx.strokeStyle='#e8e8f0';ctx.lineWidth=2.5;ctx.beginPath();ctx.moveTo(0,0);ctx.lineTo(0,-58);ctx.stroke();
+ const wv=Math.sin(T*4)*3;ctx.fillStyle='#e53946';ctx.beginPath();ctx.moveTo(1,-58);ctx.quadraticCurveTo(14,-54+wv,28+wv,-49);ctx.quadraticCurveTo(14,-44-wv,1,-40);ctx.closePath();ctx.fill();
+ ctx.restore();
+}
+function drawBall(x,y,T,a){
+ ctx.save();ctx.globalAlpha=a===undefined?1:a;
+ ctx.fillStyle='rgba(0,0,0,.18)';ctx.beginPath();ctx.arc(x+1.5,y+2,R,0,TAU);ctx.fill();
+ const g=ctx.createRadialGradient(x-3,y-3,1,x,y,R);g.addColorStop(0,'#fff');g.addColorStop(1,'#dfe8f5');
+ ctx.fillStyle=g;ctx.beginPath();ctx.arc(x,y,R,0,TAU);ctx.fill();ctx.strokeStyle='rgba(30,40,70,.35)';ctx.lineWidth=1.5;ctx.stroke();ctx.restore();
+}
+function drawSpawn(lv,T){const s=lv.spawn;
+ if(Math.abs(s.vx)+Math.abs(s.vy)>1){ctx.save();ctx.strokeStyle='rgba(255,255,255,.9)';ctx.fillStyle='rgba(255,255,255,.9)';ctx.lineWidth=3;ctx.lineCap='round';
+  const a=Math.atan2(s.vy,s.vx),l=26+Math.hypot(s.vx,s.vy)*.06,ox=s.x+Math.cos(a)*(R+6),oy=s.y+Math.sin(a)*(R+6);
+  ctx.setLineDash([5,6]);ctx.lineDashOffset=-T*30;ctx.beginPath();ctx.moveTo(ox,oy);ctx.lineTo(ox+Math.cos(a)*l,oy+Math.sin(a)*l);ctx.stroke();ctx.setLineDash([]);
+  const ex=ox+Math.cos(a)*l,ey=oy+Math.sin(a)*l;ctx.beginPath();ctx.moveTo(ex+Math.cos(a)*8,ey+Math.sin(a)*8);ctx.lineTo(ex+Math.cos(a+2.4)*8,ey+Math.sin(a+2.4)*8);ctx.lineTo(ex+Math.cos(a-2.4)*8,ey+Math.sin(a-2.4)*8);ctx.closePath();ctx.fill();ctx.restore()}
+}
+
+/* ---------- audio ---------- */
+let AC=null,MG=null,UG=false;['pointerdown','keydown','touchstart'].forEach(ev=>window.addEventListener(ev,()=>{UG=true},{once:true,capture:true}));
+function audio(){if(AC)return AC;if(!UG)return null;try{AC=new(window.AudioContext||window.webkitAudioContext)();MG=AC.createGain();MG.gain.value=.55;MG.connect(AC.destination)}catch(e){AC=null}return AC}
+function resumeAudio(){const a=audio();if(a&&a.state==='suspended')a.resume()}
+function tone(f,d,type,v,f2,delay,dest){if(!SAVE.o.snd||!audio())return;const t=AC.currentTime+(delay||0),o=AC.createOscillator(),g=AC.createGain();o.type=type||'sine';o.frequency.setValueAtTime(f,t);if(f2)o.frequency.exponentialRampToValueAtTime(f2,t+d);g.gain.setValueAtTime(v||.2,t);g.gain.exponentialRampToValueAtTime(.0001,t+d);o.connect(g);g.connect(dest||MG);o.start(t);o.stop(t+d+.03)}
+let NB=null;
+function noise(d,v,fq,delay){if(!SAVE.o.snd||!audio())return;if(!NB){NB=AC.createBuffer(1,AC.sampleRate,AC.sampleRate);const a=NB.getChannelData(0);for(let i=0;i<a.length;i++)a[i]=Math.random()*2-1}
+ const t=AC.currentTime+(delay||0),s=AC.createBufferSource(),f=AC.createBiquadFilter(),g=AC.createGain();s.buffer=NB;f.type='bandpass';f.frequency.value=fq||1000;f.Q.value=.8;g.gain.setValueAtTime(v||.2,t);g.gain.exponentialRampToValueAtTime(.0001,t+d);s.connect(f);f.connect(g);g.connect(MG);s.start(t,Math.random()*.5);s.stop(t+d+.02)}
+const SFX={
+ click(){tone(620,.06,'triangle',.12,900)},
+ putt(p){noise(.09,.3,1100);tone(170+p*130,.14,'triangle',.3,70)},
+ hit(v,k){const q=clamp(v/900,.06,1);if(k==='wood'){tone(260+q*100,.07,'square',.06*q+.02,140);noise(.05,.12*q,600)}else if(k==='rubber'){tone(300,.14,'sine',.2*q+.05,520)}else{noise(.06,.16*q,1600);tone(130+q*70,.09,'sine',.2*q,70)}},
+ bump(){tone(240,.2,'sine',.28,700);tone(480,.12,'triangle',.12,900,.02)},
+ spring(){tone(220,.25,'sawtooth',.1,900);tone(440,.18,'sine',.2,1200)},
+ boost(){tone(300,.3,'sawtooth',.09,1400);noise(.25,.1,2400)},
+ portal(){tone(900,.25,'sine',.15,200);tone(300,.25,'sine',.12,1200,.05)},
+ splash(){noise(.45,.35,500);noise(.3,.2,2200,.05);tone(300,.3,'sine',.08,90)},
+ sink(){[523,659,784,1047].forEach((f,i)=>tone(f,.35,'triangle',.2,0,i*.09))},
+ star(i){tone(784*Math.pow(1.122,i*2),.4,'triangle',.22,0,0);tone(1568*Math.pow(1.122,i*2),.3,'sine',.08,0,.03)},
+ place(){tone(360,.07,'square',.07,200);noise(.04,.1,1500)},
+ err(){tone(160,.15,'square',.09,110)}
+};
+let musStep=0;
+function musicTick(){if(!SAVE.o.mus||!SAVE.o.snd||!AC||AC.state!=='running')return;
+ const sc=[0,2,4,7,9,12,14,16,19],root=[57,55,53,55][((musStep/8)|0)%4];
+ const mf=n=>440*Math.pow(2,(n-69)/12);
+ if(musStep%8===0){[0,4,7].forEach(o=>tone(mf(root-12+o),3.4,'sine',.035,0,0))}
+ if(Math.random()<.7){const n=root+sc[(Math.random()*sc.length)|0];tone(mf(n),.9,'triangle',.05,0,0)}
+ musStep++}
+setInterval(musicTick,420);
+
+/* ---------- particles ---------- */
+const PT=[];
+function burst(x,y,col,n,sp,up,sz){for(let i=0;i<n;i++){const a=Math.random()*TAU,s=(sp||200)*(.3+Math.random());PT.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s-(up||0),l:.5+Math.random()*.5,m:.9,c:col,s:(sz||3)*(.6+Math.random()*.8),g:900})}}
+function confetti(x,y){const cs=['#f38ba8','#fab387','#f9e2af','#a6e3a1','#89b4fa','#cba6f7'];for(let i=0;i<70;i++){const a=-Math.PI/2+(Math.random()-.5)*2.2,s=300+Math.random()*500;PT.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s,l:1.4+Math.random(),m:2.4,c:cs[i%6],s:4+Math.random()*4,g:700,sq:1})}}
+function updParticles(dt){for(let i=PT.length-1;i>=0;i--){const p=PT[i];p.l-=dt;if(p.l<=0){PT.splice(i,1);continue}p.vy+=p.g*dt;p.x+=p.vx*dt;p.y+=p.vy*dt;p.vx*=1-1.2*dt}}
+
+/* ---------- piece drawing ---------- */
+const PULSE={};
+function rrect(c,x,y,w,h,r){c.beginPath();c.moveTo(x+r,y);c.arcTo(x+w,y,x+w,y+h,r);c.arcTo(x+w,y+h,x,y+h,r);c.arcTo(x,y+h,x,y,r);c.arcTo(x,y,x+w,y,r);c.closePath()}
+function drawPiece(c,p,T,al,ghost){
+ const D=PIECES[p.t];c.save();c.translate(p.x,p.y);c.globalAlpha=al===undefined?1:al;c.rotate(rad(p.a||0));
+ switch(p.t){
+  case'ramp':{const L=D.hl;rrect(c,-L,-7,L*2,14,5);const g=c.createLinearGradient(0,-7,0,7);g.addColorStop(0,'#e5aa68');g.addColorStop(1,'#a56a35');c.fillStyle=g;c.fill();c.lineWidth=2;c.strokeStyle='#6b4120';c.stroke();
+   c.strokeStyle='rgba(107,65,32,.5)';c.lineWidth=1.5;c.beginPath();c.moveTo(-L*.4,-6);c.lineTo(-L*.4,6);c.moveTo(L*.4,-6);c.lineTo(L*.4,6);c.stroke();
+   c.fillStyle='#6b4120';for(const x of[-L+9,L-9]){c.beginPath();c.arc(x,0,2.2,0,TAU);c.fill()}break}
+  case'spring':{const L=D.hl;c.strokeStyle='#585b70';c.lineWidth=3;c.beginPath();c.moveTo(-L*.6,6);for(let i=0;i<=6;i++)c.lineTo(-L*.6+i*L*1.2/6,6+(i%2?14:2));c.stroke();
+   rrect(c,-L,-6,L*2,11,5);c.fillStyle='#f9e2af';c.fill();c.lineWidth=2;c.strokeStyle='#b8902c';c.stroke();c.fillStyle='#fab387';c.fillRect(-L+8,-3,L*2-16,3);break}
+  case'belt':{const L=D.hl;rrect(c,-L,-7,L*2,14,7);c.fillStyle='#45475a';c.fill();c.lineWidth=2;c.strokeStyle='#1e1e2e';c.stroke();
+   c.save();rrect(c,-L+2,-7,L*2-4,14,6);c.clip();c.fillStyle='#89b4fa';const off=((T*D.belt*.5)%16+16)%16;for(let x=-L-16+off;x<L;x+=16){c.fillRect(x,-7,7,3)}c.restore();
+   for(const x of[-L+7,L-7]){c.fillStyle='#a6adc8';c.beginPath();c.arc(x,0,4.5,0,TAU);c.fill()}
+   c.fillStyle='#fff';c.beginPath();c.moveTo(-6,2);c.lineTo(6,2);c.lineTo(0,8);c.closePath();c.globalAlpha*=.0;c.fill();break}
+  case'block':case'wedge':{const h=D.h;c.beginPath();if(p.t==='block')c.rect(-h,-h,h*2,h*2);else{c.moveTo(-h,-h);c.lineTo(h,h);c.lineTo(-h,h);c.closePath()}
+   const g=c.createLinearGradient(0,-h,0,h);g.addColorStop(0,'#ffc78e');g.addColorStop(1,'#e0894b');c.fillStyle=g;c.fill();c.lineJoin='round';c.lineWidth=3;c.strokeStyle='#7a3f17';c.stroke();
+   c.strokeStyle='rgba(122,63,23,.45)';c.lineWidth=1.5;c.beginPath();if(p.t==='block'){c.moveTo(-h+6,-h+6);c.lineTo(h-6,h-6);c.moveTo(h-6,-h+6);c.lineTo(-h+6,h-6)}else{c.moveTo(-h+8,h-8);c.lineTo(-h+8,-h+14);c.moveTo(-h+8,h-8);c.lineTo(h-14,h-8)}c.stroke();break}
+  case'bump':{const pu=PULSE[(p.x|0)+','+(p.y|0)],k=pu&&T-pu<.25?1+.18*Math.sin((T-pu)/.25*Math.PI):1;c.scale(k,k);
+   const g=c.createRadialGradient(-8,-8,3,0,0,D.r);g.addColorStop(0,'#ffd1dc');g.addColorStop(.6,'#f38ba8');g.addColorStop(1,'#c4476f');
+   c.beginPath();c.arc(0,0,D.r,0,TAU);c.fillStyle=g;c.fill();c.lineWidth=3;c.strokeStyle='#8e2f55';c.stroke();
+   c.beginPath();c.arc(0,0,D.r*.55,0,TAU);c.lineWidth=3;c.strokeStyle='rgba(255,255,255,.85)';c.stroke();break}
+  case'boost':{rrect(c,-D.hl,-12,D.hl*2,24,6);c.fillStyle='#313244';c.fill();c.lineWidth=2;c.strokeStyle='#11111b';c.stroke();
+   c.save();rrect(c,-D.hl,-12,D.hl*2,24,6);c.clip();c.strokeStyle='#f9e2af';c.lineWidth=4;const off=((T*60)%20+20)%20;
+   for(let x=-D.hl-20+off;x<D.hl;x+=20){c.beginPath();c.moveTo(x,-8);c.lineTo(x+8,0);c.lineTo(x,8);c.stroke()}c.restore();break}
+  case'fan':{rrect(c,-14,-36,24,72,6);c.fillStyle='#6c7086';c.fill();c.lineWidth=2;c.strokeStyle='#313244';c.stroke();
+   c.fillStyle='#a6adc8';rrect(c,-8,-30,14,60,4);c.fill();
+   const ph=T*18;c.strokeStyle='#cdd6f4';c.lineWidth=4;c.lineCap='round';for(let i=0;i<3;i++){const y=Math.sin(ph+i*2.1)*24;c.beginPath();c.moveTo(-3,y-5);c.lineTo(3,y+5);c.stroke()}
+   if(!ghost){c.globalAlpha*=.35;c.strokeStyle='#fff';c.lineWidth=2;c.setLineDash([14,18]);c.lineDashOffset=-T*160;for(let i=-2;i<=2;i++){c.beginPath();c.moveTo(14,i*D.hw*.4);c.lineTo(D.len*(.85-.1*Math.abs(i)),i*D.hw*.4);c.stroke()}c.setLineDash([])}
+   else{c.globalAlpha*=.4;c.strokeStyle='#fff';c.lineWidth=1;c.setLineDash([5,5]);c.strokeRect(0,-D.hw,D.len,D.hw*2);c.setLineDash([])}break}
+  case'pa':case'pb':{const col=p.t==='pa'?['#89b4fa','#1e66f5']:['#fab387','#e64553'];
+   c.save();c.rotate(0);const r=D.r,sw=T*3*(p.t==='pa'?1:-1);
+   const g=c.createRadialGradient(0,0,2,0,0,r);g.addColorStop(0,'#11111b');g.addColorStop(.7,col[1]);g.addColorStop(1,col[0]);c.beginPath();c.ellipse(0,0,r*.7,r,0,0,TAU);c.fillStyle=g;c.fill();
+   c.lineWidth=3;c.strokeStyle=col[0];for(let i=0;i<3;i++){c.beginPath();c.ellipse(0,0,r*.7*(1-i*.25),r*(1-i*.25),0,sw+i,sw+i+3.2);c.stroke()}c.restore();
+   c.fillStyle='#fff';c.globalAlpha*=.9;c.beginPath();c.moveTo(r*.9,0);c.lineTo(r*.9-9,-6);c.lineTo(r*.9-9,6);c.closePath();c.fill();break}
+ }
+ c.restore();
+}
+const ICONS={};
+function pieceIcon(t){if(ICONS[t])return ICONS[t];const c=document.createElement('canvas');c.width=c.height=56;const x=c.getContext('2d');x.fillStyle='rgba(205,214,244,.14)';rrect(x,2,2,52,52,12);x.fill();x.translate(28,28);
+ const sc={ramp:.36,spring:.5,belt:.28,bump:.6,boost:.5,fan:.36,pa:.9,pb:.9,block:.55,wedge:.55}[t];x.scale(sc,sc);
+ drawPiece(x,{t,x:t==='fan'?-52:0,y:0,a:{ramp:-25,fan:0,belt:-12}[t]||0},0,1,false);return ICONS[t]=c.toDataURL()}
+
+'use strict';
+/* ===== PUTTLER 2 : game logic, input, UI ===== */
+const S={mode:'title',lv:null,idx:0,pcs:[],inv:{},tool:null,sel:null,phase:'edit',sim:null,w:null,speed:1,hints:0,trail:[],pv:null,nid:1,tries:0,
+ trayDrag:null,drag:null,paint:null,mouse:{x:-99,y:-99},demo:null,demoT:0,revealed:false,endT:0,winT:0,sinkT:0,shown:null};
+let T=0,lastTs=0,evT=0;
+const scr=$('#scr'),toastEl=$('#toast'),tipEl=$('#tip'),trayEl=$('#tray'),selbar=$('#selbar'),sbp=$('#sbp'),hud=$('#hud'),bPlay=$('#bPlay');
+const ALLT=Object.keys(PIECES),DEFA={ramp:-20,spring:-20};
+const toast=(m,ms)=>{toastEl.textContent=m;toastEl.classList.add('on');clearTimeout(toast.t);toast.t=setTimeout(()=>toastEl.classList.remove('on'),ms||1500)};
+const nPieces=()=>S.pcs.filter(p=>p.t!=='pb').length;
+const remaining=t=>S.inv[t]===undefined?0:S.inv[t]-S.pcs.filter(p=>p.t===t).length;
+const isSB=()=>S.mode==='sandbox';
+
+/* ---------- levels ---------- */
+function levelFromTable(i){const lv=unpackLevel(TABLE[i]);lv.name=WORLD_NAMES[lv.world]+' '+(i%PER_WORLD+1);lv.gs=1;return lv}
+function resetState(){S.pcs=[];S.sel=null;S.tool=null;S.phase='edit';S.sim=null;S.w=null;S.hints=0;S.trail=[];S.pv=null;S.revealed=false;S.tries=0;S.drag=null;S.paint=null;PT.length=0;syncUI()}
+function loadLevel(i){document.body.classList.remove('sb');S.mode='play';S.demo=null;S.lv=levelFromTable(i);S.idx=i;S.inv=S.lv.inv;resetState();fitCam();hideScreen();showHud();buildTray();bgDirty=true;updInfo();
+ tip(i===0?'Pick a shape below, tap the sky to place it, then press PLAY. Guide the ball to the flag! 🚩':(S.lv.idx%PER_WORLD===0?'New world: '+WORLD_NAMES[S.lv.world]+(WORLD_PIECES[S.lv.world].length?' — try the new piece!':''):''),4200)}
+function tip(m,ms){clearTimeout(tip.t);if(!m){tipEl.classList.add('hidden');return}tipEl.textContent=m;tipEl.classList.remove('hidden');tip.t=setTimeout(()=>tipEl.classList.add('hidden'),ms||3000)}
+function loadSandbox(){tip('');document.body.classList.add('sb');S.mode='sandbox';S.demo=null;let d=null;try{d=JSON.parse(localStorage.getItem('puttler2_sb')||'null')}catch(e){}
+ if(d&&d.rows){S.lv=unpackLevel(d);S.lv.gs=d.gs||1;S.lv.world=d.world||0;S.pcs=d.pcs||[]}else{
+  const lv=mkLevel(24,14);fillRect(lv,2,5,5,1);fillRect(lv,16,9,5,1);fillRect(lv,10,7,1,3);lv.spawn={x:140,y:100,vx:0,vy:0};lv.hole={x:18.5*CELL,y:9*CELL-R};lv.world=0;lv.inv={};S.lv=lv;S.pcs=[]}
+ S.lv.name='Sandbox';S.inv={};for(const t of ALLT)S.inv[t]=Infinity;
+ const keep=S.pcs;resetState();S.pcs=keep;S.pcs.forEach(p=>p.id=S.nid++);S.tool='wall';fitCam();hideScreen();showHud();buildTray();buildSbp();bgDirty=true;updInfo()}
+function sbSave(){if(!isSB())return;try{const d=packLevel(S.lv);d.gs=S.lv.gs;d.pcs=S.pcs.map(p=>({t:p.t,x:p.x,y:p.y,a:p.a||0}));d.inv=d.inv||{};d.sol=[];d.par=0;localStorage.setItem('puttler2_sb',JSON.stringify(d))}catch(e){}}
+function startDemo(){document.body.classList.remove('sb');S.mode='title';S.demo={i:0,t:0};S.lv=levelFromTable(0);S.inv=S.lv.inv;resetState();S.pcs=S.lv.sol.map(p=>({...p,id:S.nid++}));S.demoT=0;fitCam();hideHud();bgDirty=true}
+function updInfo(){if(!S.lv)return;$('#lvn').textContent=S.lv.name;
+ $('#lvs').innerHTML=isSB()?'unlimited pieces':'pieces <b>'+nPieces()+'</b> · par '+S.lv.par+' · '+'★'.repeat(starsOf(S.idx))+'☆'.repeat(3-starsOf(S.idx))}
+function showHud(){hud.classList.remove('hidden');trayEl.classList.remove('hidden');bPlay.classList.remove('hidden');$('#bHint').classList.toggle('hidden',isSB());sbp.classList.toggle('hidden',!isSB())}
+function hideHud(){hud.classList.add('hidden');trayEl.classList.add('hidden');bPlay.classList.add('hidden');sbp.classList.add('hidden');selbar.classList.add('hidden');tipEl.classList.add('hidden')}
+
+/* ---------- tray ---------- */
+function buildTray(){
+ let h='';for(const t of ALLT){if(S.inv[t]===undefined)continue;const n=remaining(t);
+  h+=`<button class="tr${S.tool==='p:'+t?' on':''}${n<=0?' empty':''}" data-t="${t}"><img src="${pieceIcon(t)}" draggable="false"><span>${PIECES[t].label}</span><b>${n===Infinity?'∞':n}</b></button>`}
+ trayEl.innerHTML=h;updInfo();S.pv=null;sbSave()}
+trayEl.addEventListener('pointerdown',e=>{const b=e.target.closest('.tr');if(!b||S.phase!=='edit')return;resumeAudio();
+ const t=b.dataset.t;S.trayDrag={t,x0:e.clientX,y0:e.clientY,moved:false,mouse:e.pointerType==='mouse'}});
+window.addEventListener('pointermove',e=>{S.mouse.x=e.clientX;S.mouse.y=e.clientY;
+ const d=S.trayDrag;if(d&&!d.moved&&d.mouse&&Math.hypot(e.clientX-d.x0,e.clientY-d.y0)>8)d.moved=true;
+ if(S.drag)dragMove(e);if(S.paint)paintAt(e.clientX,e.clientY)});
+window.addEventListener('pointerup',e=>{
+ const d=S.trayDrag;S.trayDrag=null;
+ if(d){if(d.moved){if(e.clientY<VH-110||e.target===cv){if(remaining(d.t)>0)placeNew(d.t,...worldSnap(e.clientX,e.clientY))}}
+  else{const k='p:'+d.t;S.tool=S.tool===k?null:k;if(remaining(d.t)<=0){S.tool=null;SFX.err()}else SFX.click();buildTray()}}
+ if(S.drag)dragEnd(e);S.paint=null});
+function worldSnap(sx,sy){const[x,y]=toW(sx,sy);return[snap(x,5),snap(y,5)]}
+
+/* ---------- placing / editing pieces ---------- */
+function canPlace(p,ignore){return pieceValid(S.lv,p,S.pcs.filter(q=>q!==ignore),.6)}
+function placeNew(t,x,y){if(S.phase!=='edit'||remaining(t)<=0)return false;
+ const p={id:S.nid++,t,x,y,a:DEFA[t]||0};if(!canPlace(p)){SFX.err();toast('Can\'t place there 🚫',700);return false}
+ S.pcs.push(p);S.sel=p;SFX.place();burst(x,y,'#ffffff',8,120,60,2.5);if(remaining(t)<=0&&S.tool==='p:'+t)S.tool=null;buildTray();return true}
+function removePiece(p){const i=S.pcs.indexOf(p);if(i<0)return;S.pcs.splice(i,1);if(S.sel===p)S.sel=null;if(p.t==='pa'||p.t==='pb'){}buildTray();SFX.click()}
+function rotSel(d){const p=S.sel;if(!p||S.phase!=='edit'||p.t==='bump')return;const a=(p.a||0)+d,n={...p,a:((a+540)%360)-180};if(canPlace(n,p)){p.a=n.a;SFX.click();S.pv=null;sbSave()}else SFX.err()}
+function hitPiece(p,x,y){const D=PIECES[p.t],a=rad(p.a||0),dx=x-p.x,dy=y-p.y,u=dx*Math.cos(a)+dy*Math.sin(a),v=-dx*Math.sin(a)+dy*Math.cos(a);
+ switch(p.t){case'ramp':case'spring':case'belt':return Math.abs(u)<D.hl+8&&Math.abs(v)<18;case'boost':return Math.abs(u)<D.hl&&Math.abs(v)<D.hw+4;
+  case'block':case'wedge':return Math.abs(u)<D.h+4&&Math.abs(v)<D.h+4;case'fan':return u>-18&&u<14&&Math.abs(v)<40;default:return dx*dx+dy*dy<(D.r+6)*(D.r+6)}}
+function pieceAt(x,y){for(let i=S.pcs.length-1;i>=0;i--)if(hitPiece(S.pcs[i],x,y))return S.pcs[i];return null}
+function dragMove(e){const d=S.drag,[wx,wy]=toW(e.clientX,e.clientY);if(!d.moved&&Math.hypot(e.clientX-d.sx,e.clientY-d.sy)<5)return;d.moved=true;
+ const p=d.p;p.x=snap(wx-d.ox,5);p.y=snap(wy-d.oy,5);p.bad=!canPlace(p,p);p.outTray=e.clientY>VH-100}
+function dragEnd(e){const d=S.drag;S.drag=null;if(!d)return;const p=d.p;
+ if(d.moved){if(p.outTray){removePiece(p);return}if(p.bad){p.x=d.x0;p.y=d.y0;SFX.err()}else SFX.place();p.bad=false;S.pv=null;sbSave()}}
+
+cv.addEventListener('pointerdown',e=>{resumeAudio();if(e.button===2)return;if(S.mode==='title'||S.phase!=='edit')return;
+ const[wx,wy]=toW(e.clientX,e.clientY),lv=S.lv;S.mouse.x=e.clientX;S.mouse.y=e.clientY;
+ if(isSB()&&['wall','erase'].includes(S.tool)){S.paint={v:S.tool==='wall'?1:0};paintAt(e.clientX,e.clientY);return}
+ if(isSB()&&S.tool==='spawn'){lv.spawn.x=snap(wx,5);lv.spawn.y=snap(wy,5);sbSave();SFX.place();return}
+ if(isSB()&&S.tool==='hole'){lv.hole.x=snap(wx,5);lv.hole.y=snap(wy,5);sbSave();SFX.place();return}
+ const hit=pieceAt(wx,wy);
+ if(hit){S.sel=hit;S.tool=S.tool&&S.tool.startsWith('p:')?null:S.tool;S.drag={p:hit,sx:e.clientX,sy:e.clientY,ox:wx-hit.x,oy:wy-hit.y,x0:hit.x,y0:hit.y,moved:false};buildTray();return}
+ if(S.tool&&S.tool.startsWith('p:')){placeNew(S.tool.slice(2),snap(wx,5),snap(wy,5));return}
+ S.sel=null});
+cv.addEventListener('contextmenu',e=>{e.preventDefault();if(S.tool&&S.tool.startsWith('p:')){S.tool=null;buildTray()}else{const[wx,wy]=toW(e.clientX,e.clientY),h=pieceAt(wx,wy);if(h)removePiece(h)}});
+cv.addEventListener('wheel',e=>{if(S.sel&&S.phase==='edit'){e.preventDefault();rotSel(e.deltaY>0?5:-5)}},{passive:false});
+function paintAt(sx,sy){const lv=S.lv,[wx,wy]=toW(sx,sy),cx=Math.floor(wx/CELL),cy=Math.floor(wy/CELL);if(cx<0||cy<0||cx>=lv.gw||cy>=lv.gh)return;
+ const i=cy*lv.gw+cx;if(lv.solid[i]===S.paint.v)return;
+ if(S.paint.v){const sp=lv.spawn,h=lv.hole;if(Math.hypot(sp.x-(cx+.5)*CELL,sp.y-(cy+.5)*CELL)<34||Math.hypot(h.x-(cx+.5)*CELL,h.y-(cy+.5)*CELL)<34)return}
+ lv.solid[i]=S.paint.v;lv._g=null;S.pv=null;SFX.click();sbSave()}
+
+/* ---------- running the ball ---------- */
+function togglePlay(){if(S.mode==='title')return;if(S.phase==='edit')startRun();else if(S.phase==='run'||S.phase==='sunk'||S.phase==='lost')stopRun()}
+function startRun(){if(S.phase!=='edit')return;resumeAudio();const lv=S.lv,sp=lv.spawn;S.w=compile(lv,S.pcs);S.sim=mkSim(sp.x,sp.y);S.sim.b.vx=sp.vx||0;S.sim.b.vy=sp.vy||0;S.sim.st='fly';S.sim.touch=9;S.sim.ev=[];
+ S.phase='run';S.trail=[];S.sel=null;S.tool=null;S.tries++;S.pv=null;SFX.click();syncUI()}
+function stopRun(){S.phase='edit';S.sim=null;S.w=null;S.trail=[];clearTimeout(S.winTO);scrHide();syncUI()}
+function syncUI(){if(S.demo)return;bPlay.textContent=S.phase==='edit'?'▶ PLAY':'■ STOP';bPlay.classList.toggle('stop',S.phase!=='edit');
+ trayEl.classList.toggle('lock',S.phase!=='edit');buildTrayCls()}
+function buildTrayCls(){$$('.tr',trayEl).forEach(b=>b.classList.toggle('on',S.tool==='p:'+b.dataset.t))}
+const evT_={};function sfxEv(e){if(S.demo)return;const k=e.k,n=T;if(evT_[k]&&n-evT_[k]<.05)return;evT_[k]=n;
+ if(k==='spring'){SFX.spring();burst(e.x,e.y,'#f9e2af',10,260,120,3)}else if(k==='bump'){SFX.bump();PULSE[(e.cx|0)+','+(e.cy|0)]=T;burst(e.x,e.y,'#f5c2e7',10,240,60,3)}
+ else if(k==='boost'){SFX.boost();burst(e.x,e.y,'#f9e2af',12,300,40,3)}else if(k==='portal'){SFX.portal();burst(e.x,e.y,'#89b4fa',14,260,0,3)}
+ else{SFX.hit(e.v,k);if(e.v>260)burst(e.x,e.y,'#e8e8f2',4,140,50,2.2)}}
+function stepRun(dt){
+ const s=S.sim;let acc=(stepRun.acc||0)+dt*S.speed;let n=0;
+ while(acc>=DT&&s.st==='fly'&&n<60){step(S.w,s);acc-=DT;n++;if((s.t*60|0)!==stepRun.lt){stepRun.lt=s.t*60|0;S.trail.push([s.b.x,s.b.y]);if(S.trail.length>34)S.trail.shift()}}
+ stepRun.acc=acc;
+ for(const e of s.ev)sfxEv(e);s.ev.length=0;
+ if(s.st!=='fly')endRun(s.st)}
+function endRun(st){
+ if(st==='sunk'){S.phase='sunk';S.sinkT=T;if(!S.demo)SFX.sink();const h=S.lv.hole;confetti(h.x,h.y);if(!S.demo&&!isSB())S.winTO=setTimeout(onWin,950);else if(isSB()){toast('Hole in! 🎉',1200);S.winTO=setTimeout(()=>{if(S.phase==='sunk')stopRun()},1300)}}
+ else{S.phase='lost';S.endT=T;if(!S.demo){if(st==='hazard'){SFX.splash();toast('Fell off the map 💦 — adjust and retry',1500)}else{SFX.err();toast('Ball stopped 🛑 — adjust and retry',1500)}}
+  S.winTO=setTimeout(()=>{if(S.phase==='lost')stopRun()},S.demo?600:1300)}}
+function onWin(){if(S.phase!=='sunk')return;const n=nPieces(),par=S.lv.par,st=S.revealed?1:n<=par?3:n<=par+1?2:1,old=starsOf(S.idx);
+ if(st>old){SAVE.stars[S.idx]=st;persist()}updInfo();
+ const nxt=S.idx+1<NLV;
+ scrShow(`<div class="panel win"><h2>Level complete! 🎉</h2><div class="stars">${[0,1,2].map(i=>`<span class="star${i<st?' on':''}" style="--d:${i*.18}s">★</span>`).join('')}</div>
+  <div class="dim">${S.lv.name} · pieces used <b style="color:var(--yellow)">${n}</b> / par ${par}${S.revealed?' · (hint used)':''}</div>
+  <div class="row">${nxt?'<button class="big" data-a="next">Next ▶</button>':'<button class="big" data-a="levels">All levels 🏆</button>'}<button data-a="retry">↺ Retry</button><button data-a="levels">☰ Levels</button></div></div>`,true);
+ for(let i=0;i<st;i++)SFX.star(i)}
+
+/* ---------- hint / solution ---------- */
+function hint(){if(S.phase!=='edit'||isSB())return;const sol=S.lv.sol;if(S.hints>=sol.length){toast('That\'s the whole solution — drag to adjust 😉',1800);return}S.hints++;S.revealed=true;SFX.click();toast(`Hint ${S.hints}/${sol.length} 💡 (stars capped to 1)`,1800)}
+function placeSolution(){stopRun();S.pcs=S.lv.sol.map(p=>({...p,id:S.nid++}));S.revealed=true;S.hints=0;buildTray()}
+
+/* ---------- screens ---------- */
+function scrShow(h,win){scr.innerHTML=h;scr.classList.add('on');scr.classList.toggle('win',!!win)}
+function scrHide(){scr.classList.remove('on');scr.innerHTML=''}
+const hideScreen=scrHide;
+function titleScreen(){startDemo();scrShow(`<div class="title"><h1>PUT<span>TLER</span></h1><p>place the shapes · guide the ball · sink the hole</p>
+ <div class="menu"><button class="big" data-a="cont">▶ ${Object.keys(SAVE.stars).length?'Continue':'Play'}</button><button data-a="levels">🗺 Levels</button><button data-a="sandbox">🧪 Sandbox</button><button data-a="opts">⚙ Options</button><button data-a="help">❓ How to play</button></div></div>`)}
+function levelScreen(){
+ let h=`<div class="panel wide"><div class="hd"><h2>Choose a level</h2><button data-a="title">⌂ Home</button></div>`;
+ for(let w=0;w<NWORLD;w++){const th=themeOf(w);h+=`<div class="world" style="--c:${hsl(th.h,.7,.7)}"><div class="wh"><b>${w+1}. ${WORLD_NAMES[w]}</b><span>★ ${worldStars(w)}/${PER_WORLD*3}</span></div><div class="grid lvls">`;
+  for(let k=0;k<PER_WORLD;k++){const i=w*PER_WORLD+k;if(i>=NLV)break;const lk=!unlocked(i),s=starsOf(i);
+   h+=`<button class="lv${lk?' lock':''}" ${lk?'disabled':''} data-a="lv" data-i="${i}"><b>${lk?'🔒':k+1}</b><small>${lk?'':'★'.repeat(s)+'<i>'+'★'.repeat(3-s)+'</i>'}</small></button>`}
+  h+='</div></div>'}
+ scrShow(h+'</div>');S.mode==='title'||0}
+function optsScreen(back){const o=SAVE.o,tg=(k,l)=>`<button class="tog${o[k]?' on':''}" data-a="tog" data-k="${k}"><span>${l}</span><i></i></button>`;
+ scrShow(`<div class="panel"><h2>Options</h2><div class="menu">${tg('snd','Sound effects')}${tg('mus','Music')}${tg('path','Show ball path preview')}${tg('unlock','Unlock all levels')}
+ <button class="danger" data-a="reset">Reset progress</button><button data-a="${back||'title'}">⬅ Back</button></div></div>`)}
+function helpScreen(back){scrShow(`<div class="panel wide help"><div class="hd"><h2>How to play</h2><button data-a="${back||'title'}">✕</button></div><div class="cols"><div>
+ <h3>Goal</h3><p>The ball drops from its start point when you press <b>PLAY</b>. Place the shapes from your tray so the ball ends up in the hole under the 🚩 flag. Every level is solvable with the pieces you get.</p>
+ <h3>Placing</h3><p><b>Tap</b> a shape in the tray, then tap the sky to place it — or <b>drag</b> it out. Drag a placed piece to move it, drag it onto the tray to put it back. <b>Rotate</b> with the ↺ ↻ buttons, mouse wheel, or <b>Q / E</b>. <b>Del</b> removes it.</p>
+ <h3>Stars</h3><p>Use no more pieces than <b>par</b> for ★★★. Using hints caps the level at ★.</p></div><div>
+ <h3>Pieces</h3><p><b>Plank</b> slides &amp; bounces · <b>Block / Wedge</b> solid stone · <b>Bumper</b> pings the ball · <b>Spring</b> launches it · <b>Booster</b> kicks it forward · <b>Belt</b> carries it · <b>Fan</b> blows it · <b>Portals</b> teleport it (place both!).</p>
+ <h3>Keys</h3><p><b>Space</b> play/stop · <b>Q E</b> rotate (Shift = 15°) · <b>Del</b> delete · <b>H</b> hint · <b>C</b> clear · <b>F</b> fast-forward · <b>Esc</b> menu</p>
+ <h3>Sandbox</h3><p>Paint walls, move the ball and hole, use unlimited pieces, tweak gravity &amp; launch speed, and export your level as text.</p></div></div></div>`)}
+function menuScreen(){scrShow(`<div class="panel"><h2>${S.lv.name}</h2><div class="menu"><button class="big" data-a="resume">▶ Resume</button>${isSB()?'':'<button data-a="retry">↺ Restart level</button>'}<button data-a="${isSB()?'sbback':'levels'}">${isSB()?'⌂ Home':'🗺 Levels'}</button><button data-a="opts2">⚙ Options</button><button data-a="help2">❓ How to play</button></div></div>`)}
+scr.addEventListener('click',e=>{const b=e.target.closest('[data-a]');if(!b){if(e.target===scr&&S.mode!=='title'&&!scr.classList.contains('win')&&!$('.panel.wide',scr))scrHide();return}resumeAudio();SFX.click();
+ const a=b.dataset.a;
+ switch(a){
+  case'cont':{let i=0;while(i<NLV-1&&starsOf(i)>0)i++;loadLevel(i);break}
+  case'levels':if(S.mode!=='title'){stopRun();S.mode='title';startDemoQuiet()}hideHud();levelScreen();break;
+  case'lv':loadLevel(+b.dataset.i);break;
+  case'title':titleScreen();break;
+  case'next':loadLevel(S.idx+1);break;
+  case'retry':scrHide();stopRun();S.pcs=[];S.hints=0;S.revealed=false;S.tries=0;S.sel=null;buildTray();break;
+  case'sandbox':loadSandbox();break;
+  case'sbback':sbSave();titleScreen();break;
+  case'opts':optsScreen('title');break;case'opts2':optsScreen('menu');break;
+  case'help':helpScreen('title');break;case'help2':helpScreen('menu');break;
+  case'menu':menuScreen();break;
+  case'resume':scrHide();break;
+  case'tog':{const k=b.dataset.k;SAVE.o[k]=SAVE.o[k]?0:1;persist();optsScreen(S.mode==='title'?'title':'menu');break}
+  case'reset':if(confirm('Erase all stars and progress?')){SAVE.stars={};persist();optsScreen('title')}break;
+ }});
+function startDemoQuiet(){S.demo={i:0,t:0};S.lv=levelFromTable(0);S.inv=S.lv.inv;resetState();S.pcs=S.lv.sol.map(p=>({...p,id:S.nid++}));fitCam();bgDirty=true}
+
+/* ---------- toolbar / keys ---------- */
+$('#bMenu').onclick=()=>{if(S.mode==='title')return;menuScreen()};
+$('#bClear').onclick=()=>{if(S.phase!=='edit')stopRun();S.pcs=[];S.sel=null;S.hints=0;buildTray();SFX.click()};
+$('#bHint').onclick=hint;
+$('#bPath').onclick=()=>{SAVE.o.path=SAVE.o.path?0:1;persist();S.pv=null;toast('Path preview '+(SAVE.o.path?'on 👁':'off'),900);$('#bPath').classList.toggle('on',!!SAVE.o.path)};
+$('#bFast').onclick=()=>{S.speed=S.speed===1?2.5:1;$('#bFast').classList.toggle('on',S.speed>1)};
+bPlay.onclick=togglePlay;
+selbar.addEventListener('click',e=>{const b=e.target.closest('button');if(!b||!S.sel)return;const k=b.dataset.s;if(k==='l')rotSel(-15);else if(k==='r')rotSel(15);else if(k==='d')removePiece(S.sel)});
+window.addEventListener('keydown',e=>{const k=e.key.toLowerCase();if((e.target.tagName==='TEXTAREA'||e.target.tagName==='INPUT')&&k!=='escape')return;
+ if(k==='escape'){if(scr.classList.contains('on')&&S.mode!=='title'&&!scr.classList.contains('win'))scrHide();else if(S.tool){S.tool=null;buildTrayCls()}else if(S.mode!=='title')menuScreen();return}
+ if(S.mode==='title'||scr.classList.contains('on'))return;
+ if(k===' '||k==='enter'){e.preventDefault();togglePlay()}
+ else if(k==='q')rotSel(e.shiftKey?-15:-5);else if(k==='e')rotSel(e.shiftKey?15:5);
+ else if((k==='delete'||k==='backspace')&&S.sel&&S.phase==='edit'){e.preventDefault();removePiece(S.sel)}
+ else if(k==='h')hint();else if(k==='c')$('#bClear').click();else if(k==='f')$('#bFast').click();
+ else if(k>='1'&&k<='9'){const ts=ALLT.filter(t=>S.inv[t]!==undefined),t=ts[+k-1];if(t&&remaining(t)>0){S.tool='p:'+t;buildTray()}}});
+
+/* ---------- sandbox panel ---------- */
+function buildSbp(){const lv=S.lv;
+ let h=`<div class="sbh">Terrain</div><div class="sbg"><button class="sbt${S.tool==='wall'?' on':''}" data-k="wall" title="Paint walls">🧱</button><button class="sbt${S.tool==='erase'?' on':''}" data-k="erase" title="Erase walls">🧽</button><button class="sbt${S.tool==='spawn'?' on':''}" data-k="spawn" title="Move ball start">⚪</button><button class="sbt${S.tool==='hole'?' on':''}" data-k="hole" title="Move hole">🚩</button></div>
+ <div class="sbh">Physics</div><label class="sbl">gravity <span id="gv">${(lv.gs||1).toFixed(2)}</span><input id="sGrav" type="range" min=".2" max="2.5" step=".05" value="${lv.gs||1}"></label>
+ <label class="sbl">launch → <span id="lx">${lv.spawn.vx|0}</span><input id="sVx" type="range" min="-600" max="600" step="10" value="${lv.spawn.vx||0}"></label>
+ <label class="sbl">launch ↓ <span id="ly">${lv.spawn.vy|0}</span><input id="sVy" type="range" min="-800" max="600" step="10" value="${lv.spawn.vy||0}"></label>
+ <div class="sbh">Level</div><div class="sbg"><button class="sbb" data-k="clearp">🗑 Pieces</button><button class="sbb" data-k="clearw">🧹 Walls</button><button class="sbb" data-k="export">📤 Export</button><button class="sbb" data-k="import">📥 Import</button></div>`;
+ sbp.innerHTML=h;
+ $('#sGrav').oninput=e=>{lv.gs=+e.target.value;$('#gv').textContent=lv.gs.toFixed(2);sbSave()};
+ $('#sVx').oninput=e=>{lv.spawn.vx=+e.target.value;$('#lx').textContent=lv.spawn.vx;sbSave()};
+ $('#sVy').oninput=e=>{lv.spawn.vy=+e.target.value;$('#ly').textContent=lv.spawn.vy;sbSave()}}
+sbp.addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;const k=b.dataset.k,lv=S.lv;SFX.click();
+ if(['wall','erase','spawn','hole'].includes(k)){S.tool=k;buildSbp();buildTrayCls()}
+ else if(k==='clearp'){S.pcs=[];S.sel=null;buildTray()}
+ else if(k==='clearw'){lv.solid.fill(0);lv._g=null;sbSave()}
+ else if(k==='export'){const d=packLevel(lv);d.gs=lv.gs;d.pcs=S.pcs.map(p=>({t:p.t,x:p.x,y:p.y,a:p.a||0}));d.inv={};d.sol=[];d.par=0;
+  scrShow(`<div class="panel wide"><div class="hd"><h2>Export level</h2><button data-a="resume">✕</button></div><p class="dim">Copy this text and share it. Import it later from the sandbox.</p><textarea readonly id="ta">${JSON.stringify(d)}</textarea></div>`);setTimeout(()=>{const t=$('#ta');t&&t.select()},50)}
+ else if(k==='import'){scrShow(`<div class="panel wide"><div class="hd"><h2>Import level</h2><button data-a="resume">✕</button></div><textarea id="ta" placeholder="paste exported level text here"></textarea><div class="row"><button class="big" id="doImp">Import</button></div></div>`);
+  $('#doImp').onclick=()=>{try{const d=JSON.parse($('#ta').value);if(!d.rows||!d.spawn||!d.hole)throw 0;localStorage.setItem('puttler2_sb',JSON.stringify(d));loadSandbox();toast('Imported ✔',1200)}catch(x){toast('That text is not a valid level ❌',1800)}}}});
+
+/* ---------- drawing ---------- */
+function drawParticles(){for(const p of PT){const a=Math.min(1,p.l/(p.m*.6));ctx.globalAlpha=a;ctx.fillStyle=p.c;if(p.sq)ctx.fillRect(p.x-p.s/2,p.y-p.s/2,p.s,p.s*.6);else{ctx.beginPath();ctx.arc(p.x,p.y,p.s,0,TAU);ctx.fill()}}ctx.globalAlpha=1}
+function outlinePiece(p,col,dash){const D=PIECES[p.t];ctx.save();ctx.translate(p.x,p.y);ctx.strokeStyle=col;ctx.lineWidth=2.5;if(dash)ctx.setLineDash([6,5]);ctx.beginPath();ctx.arc(0,0,D.sel+4,0,TAU);ctx.stroke();ctx.restore()}
+function draw(){
+ ctx.setTransform(DPR,0,0,DPR,0,0);drawBG(T);
+ const lv=S.lv;if(!lv)return;
+ drawStrip(T);
+ ctx.save();ctx.translate(CAM.ox,CAM.oy);ctx.scale(CAM.z,CAM.z);
+ drawTerrain(lv);drawHole(lv,T);
+ // path preview
+ if(SAVE.o.path&&S.phase==='edit'&&S.mode!=='title'){if(!S.pv){const r=runLevel(lv,S.pcs,true);S.pv=r.tr}ctx.fillStyle='rgba(255,255,255,.55)';for(let i=0;i<S.pv.length;i+=4){ctx.beginPath();ctx.arc(S.pv[i][0],S.pv[i][1],2.2,0,TAU);ctx.fill()}}
+ // hints
+ for(let i=0;i<S.hints;i++){const p=lv.sol[i];drawPiece(ctx,p,T,.5,true);outlinePiece(p,'#f9e2af',true)}
+ // pieces
+ for(const p of S.pcs){drawPiece(ctx,p,T,p.bad?.5:1,false);if(p.bad)outlinePiece(p,'#f38ba8',false)}
+ if(S.sel&&S.phase==='edit'){outlinePiece(S.sel,'#f9e2af',true)}
+ // ghost under pointer
+ const tool=S.trayDrag&&S.trayDrag.moved?'p:'+S.trayDrag.t:S.tool;
+ if(S.phase==='edit'&&tool&&tool.startsWith('p:')&&S.mouse.y<VH-110&&S.mouse.y>56&&!S.drag){const[gx,gy]=worldSnap(S.mouse.x,S.mouse.y),t=tool.slice(2),g={t,x:gx,y:gy,a:DEFA[t]||0};
+  const ok=canPlace(g);drawPiece(ctx,g,T,.6,true);if(!ok)outlinePiece(g,'#f38ba8',false)}
+ if(isSB()&&S.phase==='edit'&&['wall','erase'].includes(S.tool)&&S.mouse.y>56){const[wx,wy]=toW(S.mouse.x,S.mouse.y),cx=Math.floor(wx/CELL),cy=Math.floor(wy/CELL);
+  if(cx>=0&&cy>=0&&cx<lv.gw&&cy<lv.gh){ctx.strokeStyle='rgba(255,255,255,.9)';ctx.lineWidth=2;ctx.strokeRect(cx*CELL+1,cy*CELL+1,CELL-2,CELL-2)}}
+ // spawn marker + ball
+ if(S.phase==='edit'){drawSpawn(lv,T);drawBall(lv.spawn.x,lv.spawn.y+Math.sin(T*3)*1.5,T)}
+ else if(S.sim){
+  ctx.fillStyle='#5eead4';for(let i=0;i<S.trail.length;i++){ctx.globalAlpha=i/S.trail.length*.5;ctx.beginPath();ctx.arc(S.trail[i][0],S.trail[i][1],R*(.25+.5*i/S.trail.length),0,TAU);ctx.fill()}ctx.globalAlpha=1;
+  const b=S.sim.b;if(S.phase==='sunk'){const k=Math.min(1,(T-S.sinkT)/.35),h=lv.hole;drawBall(lerp(b.x,h.x,k),lerp(b.y,h.y+R,k),T,1-k)}else drawBall(b.x,b.y,T)}
+ drawParticles();ctx.restore();
+ // selection bar
+ const sp=S.sel;if(sp&&S.phase==='edit'&&S.mode!=='title'&&!S.drag){const sx=CAM.ox+sp.x*CAM.z,sy=CAM.oy+(sp.y-PIECES[sp.t].sel-18)*CAM.z;selbar.style.left=clamp(sx,86,VW-86)+'px';selbar.style.top=Math.max(64,sy-40)+'px';selbar.classList.remove('hidden');selbar.firstElementChild.style.visibility=selbar.children[1].style.visibility=sp.t==='bump'?'hidden':'visible'}else selbar.classList.add('hidden');
+}
+function update(dt){
+ T+=dt;updParticles(dt);
+ if(S.phase==='run')stepRun(dt);
+ if(S.mode==='title'&&S.demo){S.demoT+=dt;if(S.phase==='edit'&&S.demoT>1.2){startRun();S.demoT=0}else if(S.phase==='sunk'&&T-S.sinkT>2.2){stopRun();S.demoT=0;S.demo.i=(S.demo.i+1)%3;S.lv=levelFromTable(S.demo.i);S.inv=S.lv.inv;S.pcs=S.lv.sol.map(p=>({...p,id:S.nid++}));fitCam();bgDirty=true}}
+}
+function frame(ts){const dt=Math.min(.05,(ts-lastTs)/1000||.016);lastTs=ts;update(dt);draw();requestAnimationFrame(frame)}
+window.addEventListener('resize',()=>{resize()});
+document.addEventListener('visibilitychange',()=>{if(document.hidden&&AC)AC.suspend();else if(AC)AC.resume()});
+
+/* ---------- boot ---------- */
+resize();$('#bPath').classList.toggle('on',!!SAVE.o.path);titleScreen();requestAnimationFrame(frame);
+window.__P={S,TABLE,loadLevel,loadSandbox,startRun,stopRun,placeSolution,SAVE,get T(){return T},runLevel,compile,levelFromTable};
+
+</script>
+</body>
+</html>
