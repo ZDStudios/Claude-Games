@@ -100,6 +100,28 @@
 #gw-boss .b{height:7px;background:rgba(255,120,60,.12);border:1px solid rgba(255,140,80,.45)}
 #gw-boss .b i{display:block;height:100%;background:linear-gradient(90deg,#ff5a2a,#ffc06a);transition:width .2s}
 
+#gw-beacon{position:absolute;transform:translate(-50%,-50%);display:none;text-align:center;font-family:var(--mono);font-size:10px;letter-spacing:.16em;color:#9fe8ff;text-shadow:0 0 6px #000;pointer-events:none}
+#gw-beacon .ring{width:26px;height:26px;margin:0 auto 4px;border:2px solid #9fe8ff;border-radius:50%;box-shadow:0 0 12px #5ff2ff;animation:gwping 1.4s ease-out infinite}
+@keyframes gwping{0%{transform:scale(.6);opacity:1}100%{transform:scale(1.6);opacity:.2}}
+#gw-aprompt{position:absolute;left:50%;bottom:170px;transform:translateX(-50%);display:none;font-family:var(--mono);font-size:12px;letter-spacing:.2em;color:#bfe9f2;text-shadow:0 0 6px #000;pointer-events:none}
+#gw-aprompt.ok{color:#fff;font-size:15px;animation:gwglow 1s ease-in-out infinite alternate}
+#gw-aprompt kbd{font-family:var(--mono);border:1px solid var(--cy);padding:1px 7px;color:var(--cy)}
+@keyframes gwglow{from{text-shadow:0 0 6px rgba(95,242,255,.3)}to{text-shadow:0 0 16px rgba(95,242,255,.9)}}
+
+/* ---------- tutorial ---------- */
+#gw-tut{position:fixed;right:26px;top:104px;width:340px;z-index:7;pointer-events:none;background:linear-gradient(180deg,rgba(6,18,26,.9),rgba(4,12,18,.82));border:1px solid var(--line);border-left:3px solid var(--grn);padding:12px 16px 12px;font-family:var(--font);color:#d8eef5;box-shadow:0 0 30px rgba(0,0,0,.4);transition:border-color .2s}
+#gw-tut .hd{font-family:var(--mono);font-size:10px;letter-spacing:.28em;color:var(--grn)}
+#gw-tut .bar{height:3px;background:rgba(99,255,155,.12);margin:7px 0 10px}#gw-tut .bar i{display:block;height:3px;background:var(--grn);box-shadow:0 0 8px var(--grn);transition:width .4s}
+#gw-tut .t{font-size:18px;letter-spacing:.06em;color:#fff;margin-bottom:6px}
+#gw-tut .x{font-size:13px;line-height:1.6;color:#bfe0e8}
+#gw-tut .ft{margin-top:10px;font-family:var(--mono);font-size:10px;letter-spacing:.14em;color:#5b8a94}
+#gw-tut kbd{font-family:var(--mono);font-size:11px;border:1px solid var(--line);background:rgba(4,14,22,.9);color:var(--cy);padding:0 6px;margin:0 1px;border-radius:2px}
+#gw-tut.done{border-left-color:#fff;box-shadow:0 0 24px rgba(99,255,155,.45)}#gw-tut.done .t{color:var(--grn)}
+#gw-tut.pop{animation:gwtut .45s ease}
+@keyframes gwtut{from{transform:translateX(20px);opacity:.3}to{transform:none;opacity:1}}
+body.gw-tut-on #gw-feed{top:330px}
+body.gw-tut-on #obj{opacity:0}
+
 </style>
 
 <meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
@@ -5517,12 +5539,10 @@ function buildViewModel(id, team) {
 }
 
 /* =====================================================================
- * GALACTIC WARS add-on — 30: planets
- *  - every planet is landable, and the EVA suit is no longer required
- *  - each world gets its own look (the original jungle is re-skinned)
- *  - a longer, more cinematic atmospheric entry: altitude readout, plasma
- *    and clouds tinted to the planet, a punch through a dense cloud deck and
- *    a banked approach run over the terrain to the landing pad
+ * GALACTIC WARS — 30: planets
+ *  - every planet is landable (no EVA suit needed)
+ *  - each world gets its own terrain and look (the jungle is re-skinned)
+ *  - landing itself is flown by the player: see 35-atmosphere.js
  * ===================================================================== */
 const GREY = new Map();
 // greyscale copy of a canvas texture (same wrap/repeat), cached
@@ -5534,8 +5554,6 @@ function greyMap(tex) {
   x.putImageData(d, 0, 0);
   const t = tex.clone(); t.image = cv; t.needsUpdate = true; GREY.set(tex.uuid, t); return t;
 }
-const ENTRY_END = 20.2;          // seconds for the whole descent (the original was 15.4)
-const SURF_IN = 10.25;           // when the surface scene takes over
 const Planets = {
   index: -1,                     // planet we are on (or descending to)
   altEl: null,
@@ -5547,65 +5565,33 @@ const Planets = {
     for (const k of ['toast', 'subtitle', 'objective']) { const o = J[k].bind(J); J[k] = (s, ...a) => o(fix(s), ...a); }
     for (const p of PLANETS) {
       p.landable = true;
-      p.blurb = p.blurb.replace(/\s*LANDING APPROVED\.?/i, '') + (p.type === 'gas' ? ' Landing on its outpost moon.' : ' Landing zone marked.');
+      p.blurb = p.blurb.replace(/\s*LANDING APPROVED\.?/i, '') + ' Fly into its atmosphere to land.';
     }
     const self = this;
     this.altEl = document.createElement('div'); this.altEl.id = 'gw-alt'; document.getElementById('ui').appendChild(this.altEl);
 
-    // ---- landing permission: any planet, no suit needed ----
-    nt.canLand = function () {
-      if (this.landed || this.seq) return { ok: false, why: 'unavailable' };
-      if (this.mode !== 'pilot') return { ok: false, why: 'Take the helm first.' };
-      const t = this.solar.nearestBody(this.flight.systemPos), e = PLANETS[t.index];
-      if (!e) return { ok: false, why: 'No body in range.' };
-      const lim = Math.max(9000, e.radius * 1.8);
-      if (t.distance > lim) return { ok: false, why: `Too far from ${e.name} — close to within ${fmtDist(lim)}.` };
-      return { ok: true, index: t.index };
-    };
-
-    // ---- entry start: tint plasma + clouds for this world ----
-    const origStart = nt.startReentry.bind(nt);
-    nt.startReentry = function (i) {
-      origStart(i);
-      self.index = i; self.toldBreak = self.toldZone = self.toldTouch = false;
-      const sk = self.skin(i), atmo = self.atmoColor(i);
-      this.reentryFX.cloudMat.color.copy(sk ? new Col(sk.fog).lerp(new Col(0xffffff), .45) : new Col(0xe8f4ee));
-      self.atmo = atmo; self.planetName = PLANETS[i].name;
-      J.subtitle(`${PLANETS[i].name} · ATMOSPHERIC INTERFACE IN 3… 2… 1…`, 3600);
-      War.onEntryStart(i);
-    };
-
-    // ---- surface preparation: re-skin the world for this planet ----
+    // ---- surface preparation: this world's own terrain + look ----
     const origPrep = nt.prepareSurface.bind(nt);
     nt.prepareSurface = function () {
-      window.__TERRAIN = Terrain.make(self.index);   // this world's own landscape
+      window.__TERRAIN = Terrain.make(self.index);
       origPrep();
       self.reskin(this.surfaceWorld, self.index, this.surfaceCollision);
       const sk = self.skin(self.index);
       self.fog0 = this.surfaceWorld.fog.density * (sk ? sk.fogMul : 1);
-      this.surfaceWorld.fog.density = .06;              // start inside the cloud deck
+      this.surfaceWorld.fog.density = self.fog0;
       War.onSurfacePrepared(this.surfaceWorld, this.surfaceCollision, self.index);
     };
-
-    // ---- the whole descent timeline ----
-    nt.updateReentry = function (t) { self.updateEntry(this, t); };
-    nt.enterSurface = function () {
-      this.spaceScene.remove(this.ship.root); this.surfaceScene.add(this.ship.root);
-      this.venue = 'surface'; yt.set('space', 0, .6); yt.set('wind', .7, 2);
-      self.path = self.buildPath(this.landingPos);
-      this.ship.root.position.copy(self.path.start); this.ship.root.quaternion.copy(self.path.q0);
-      self.camPos = null;
-      War.onSurfaceEntered();
-    };
+    // ---- touchdown bookkeeping (called by the landing burn in 35-atmosphere.js) ----
     const origEnd = nt.endReentry.bind(nt);
     nt.endReentry = function () {
       this.ship.root.quaternion.identity(); this.ship.root.position.copy(this.landingPos);
       if (self.fog0) this.surfaceWorld.fog.density = self.fog0;
+      const col = this.surfaceCollision, n0 = col.boxes.length;
       origEnd();
-      const p = PLANETS[self.index], sk = self.skin(self.index);
+      Atmo.shipBoxes = col.boxes.slice(n0);                  // remembered so lift-off can switch them off
+      const sk = self.skin(self.index);
       J.subtitle(sk ? `${sk.name}. Atmosphere is breathable inside the landing shield.` : 'Atmosphere is breathable. The ramp control is in the airlock.', 5000);
       J.objective('Head to the airlock and lower the boarding ramp.');
-      self.altEl.classList.remove('on');
       War.onLanded(self.index);
     };
     const origLoc = nt.locationName.bind(nt);
@@ -5674,99 +5660,6 @@ const Planets = {
     for (const l of w.bioLights || []) l.color = new Col(sk.glow);
     w.root.traverse(o => { if (o.isMesh && o.material && o.material.color && o !== w.terrainMesh && !o.isInstancedMesh && o.material.type === 'MeshStandardMaterial' && o.material.emissiveIntensity > .5) { o.material = o.material.clone(); o.material.emissive = new Col(sk.glow); o.material.color = new Col(sk.ground[2]); } });
   },
-
-  /* ---------- approach path over the terrain ---------- */
-  buildPath(pad) {
-    const start = new V3(pad.x - 90, pad.y + 430, pad.z + 330), mid = new V3(pad.x + 70, pad.y + 120, pad.z + 140), end = new V3(pad.x, pad.y + 16, pad.z);
-    const q0 = new Q4(); const m = new M4().lookAt(start, mid, UP); q0.setFromRotationMatrix(m);
-    return { start, mid, end, q0 };
-  },
-  pathAt(u, out) {   // quadratic Bezier
-    const p = this.path, a = 1 - u; return out.set(0, 0, 0).addScaledVector(p.start, a * a).addScaledVector(p.mid, 2 * a * u).addScaledVector(p.end, u * u);
-  },
-
-  updateEntry(g, t) {
-    const e = g.seqT, post = g.engine.post, fx = g.reentryFX;
-    const heat = sstep(2, 5, e) * (1 - sstep(7.6, 9.6, e));
-    const cloud = sstep(6.4, 7.6, e) * (1 - sstep(9.8, 10.4, e));
-    const white = sstep(9.7, 10.2, e) * (1 - sstep(10.5, 11.8, e));
-    const sk = this.skin(this.index);
-    if (e < SURF_IN) {
-      // orbit → atmosphere: the planet grows, the ship noses into the plasma
-      const look = new M4().lookAt(g.flight.systemPos, g._entryLookAt, UP); g._q.setFromRotationMatrix(look);
-      g.flight.quat.slerp(g._q, 1 - Math.exp(-2 * t));
-      const l = sstep(.6, 10.1, e); g.flight.systemPos.lerpVectors(g._entryFrom, g._entryTo, l * l);
-      fx.place(g.flight.quat); fx.setHeat(heat); fx.setClouds(cloud * .62); fx.update(t, g.engine.time, 900 + heat * 1600);
-      g.ship.setThrusters(.25 + heat * .4);
-      post.aberration = heat * .012; post.speedBlur = heat * 1.2 + cloud * .5; post.bloom = .85 + heat * 1.2;
-      // early on the screen picks up the planet's atmosphere colour, then the plasma's orange
-      const glow = sstep(.8, 3, e) * (1 - sstep(3, 4.5, e));
-      post.tint.copy(this.atmo).lerp(new Col(1, .42, .12), clamp(heat * 1.4, 0, 1)); post.tintAmount = glow * .1 + heat * .17 + cloud * .06;
-      J.heat(heat * .85); J.flash(white);
-      g.engine.setFov(lerp(70, 88, heat));
-      g.flight.camShake = heat * 1.4 + cloud * .7 + glow * .25;
-      yt.set('roar', heat * .38 + cloud * .14, .4); yt.engine(.4 + heat * .5, heat * .6, heat);
-      if (e > 3.2 && !g._entryTold) { g._entryTold = true; J.subtitle('Hull temperature rising. Shields holding.', 3200); }
-      if (e > 6.8 && !g._cloudTold) { g._cloudTold = true; J.subtitle('Punching through the cloud deck.', 3000); }
-      if (e >= .15 && !g._surfacePrepared) { g._surfacePrepared = true; g.prepareSurface(); }
-      g.flight.updateCamera(t, g.engine.time);
-      const alt = lerp(118000, 2600, sstep(.6, 10.1, e)), temp = 180 + heat * 1650 + cloud * 90, vel = lerp(7.8, 1.1, sstep(4, 10, e));
-      this.readout(alt, vel, temp, e);
-    }
-    if (e >= SURF_IN && !g._surfaceBuilt) { g._surfaceBuilt = true; g.enterSurface(); fx.setHeat(0); fx.setClouds(0); }
-    if (g._surfaceBuilt) this.updateApproach(g, t, e, white, sk);
-    if (e >= ENTRY_END) g.endReentry();
-  },
-  updateApproach(g, t, e, white, sk) {
-    const post = g.engine.post, ship = g.ship.root, pad = g.landingPos, w = g.surfaceWorld;
-    J.flash(white); J.heat(0);
-    // clouds clear as we drop out of the deck
-    if (this.fog0) w.fog.density = lerp(.06, this.fog0, sstep(SURF_IN, 14.2, e));
-    post.tintAmount = (1 - sstep(SURF_IN, 13, e)) * .05; post.aberration = 0; post.speedBlur = (1 - sstep(SURF_IN, 14, e)) * .5; post.bloom = .9;
-    g.engine.setFov(lerp(80, 62, sstep(SURF_IN, 18, e)));
-    const u = sstep(SURF_IN, 17.2, e);
-    const p = this.pathAt(u, _v1), ahead = this.pathAt(Math.min(1, u + .02), _v2);
-    if (e < 17.2) {
-      ship.position.copy(p);
-      // face along the path, bank into the turn, then level out
-      const m = new M4().lookAt(p, ahead.distanceToSquared(p) > 1e-4 ? ahead : _v3.copy(p).add(FWD), UP); const q = new Q4().setFromRotationMatrix(m);
-      const bank = Math.sin(u * Math.PI) * .42 * (1 - u);
-      q.multiply(new Q4().setFromAxisAngle(new V3(0, 0, 1), bank));
-      q.slerp(new Q4(), sstep(.82, 1, u));
-      ship.quaternion.slerp(q, 1 - Math.exp(-6 * t));
-      g.ship.setThrusters(.75 - u * .35);
-      if (!this.toldBreak && e > SURF_IN + .6) { this.toldBreak = true; J.subtitle(`Through the clouds. ${PLANETS[this.index].name} below.`, 3200); }
-      if (!this.toldZone && e > 14.2) { this.toldZone = true; J.subtitle('Landing zone in sight. Gear down.', 3000); }
-    } else {
-      // final vertical settle onto the pad
-      const s = sstep(17.2, 19.4, e), k = 1 - Math.pow(1 - s, 3);
-      ship.position.set(pad.x, pad.y + 16 * (1 - k), pad.z); ship.quaternion.slerp(new Q4(), 1 - Math.exp(-5 * t));
-      g.ship.setThrusters(clamp(.6 - s * .5, .12, 1));
-      const h = ship.position.y - pad.y;
-      if (h < 14) for (let k2 = 0; k2 < Math.floor((1 - h / 14) * 8); k2++) {
-        const a = Math.random() * Math.PI * 2, r = 6 + Math.random() * 16;
-        g.dust.emit(pad.x + Math.cos(a) * r, SF.Ut.padHeight + .4, pad.z + Math.sin(a) * r, Math.cos(a) * (5 + Math.random() * 12), 1.5 + Math.random() * 3.5, Math.sin(a) * (5 + Math.random() * 12), 1.4 + Math.random() * 1.4, 1.6 + Math.random() * 2.6, sk ? '#' + new Col(sk.ground[1]).getHexString() : '#c9c2a4', .5);
-      }
-      if (s >= 1 && !this.toldTouch) { this.toldTouch = true; yt.thud(.5, 48); yt.boom(.3); ship.position.copy(pad); J.subtitle('Touchdown. Surface contact confirmed.', 3600); }
-    }
-    yt.set('roar', (1 - sstep(SURF_IN, 13, e)) * .14, .4); yt.engine(.5 - sstep(15, 19, e) * .4, 0, .2);
-    g.flight.systemPos.set(0, 0, 0);
-    // cinematic camera: chase → sweeping side shot → ground-level wide as she settles
-    const cam = g.engine.camNear, sp = ship.position, want = _v3;
-    if (e < 13.4) want.set(0, 9, 46).applyQuaternion(ship.quaternion).add(sp);
-    else if (e < 17.4) { const a = sstep(13.4, 17.4, e); want.set(lerp(30, 58, a), lerp(10, 6, a), lerp(30, -10, a)).applyQuaternion(ship.quaternion).add(sp); }
-    else want.set(pad.x + 46, pad.y + 5, pad.z - 34);
-    if (!this.camPos) this.camPos = want.clone(); else this.camPos.lerp(want, 1 - Math.exp(-(e < 17.4 ? 3.2 : 1.6) * t));
-    const ground = SF.Ut && w.collision ? w.collision.groundHeight(this.camPos.x, this.camPos.z) : -1e9;
-    if (isFinite(ground)) this.camPos.y = Math.max(this.camPos.y, ground + 2.5);
-    cam.position.copy(this.camPos); cam.up.set(0, 1, 0); cam.lookAt(sp.x, sp.y + 1.5, sp.z); cam.updateMatrixWorld();
-    const alt = Math.max(0, sp.y - pad.y);
-    this.readout(alt * (e < 15 ? lerp(2600 / 430, 1, sstep(SURF_IN, 15, e)) : 1), lerp(1.1, 0, sstep(SURF_IN, 19.4, e)), 120 * (1 - sstep(SURF_IN, 16, e)) + 20, e);
-  },
-  readout(alt, kms, temp, e) {
-    const el = this.altEl; el.classList.add('on');
-    el.innerHTML = `<div class="k">ALTITUDE</div><div class="n">${fmt(alt)} m</div><div class="k">VELOCITY</div><div class="s">${kms >= 1 ? kms.toFixed(1) + ' km/s' : fmt(kms * 1000) + ' m/s'}</div><div class="k">HULL TEMP</div><div class="s ${temp > 1200 ? 'hot' : ''}">${fmt(temp)} °C</div><div class="k">TARGET</div><div class="s">${esc(this.planetName || '')}</div>`;
-  },
 };
 
 /* =====================================================================
@@ -5828,6 +5721,440 @@ const Terrain = {
       }
       return this.finish(x, z, SF.softfloor(h, U.water + 1.5));
     };
+  },
+};
+
+/* =====================================================================
+ * GALACTIC WARS — 35: fly-in atmospheric entry and powered landing
+ * No cutscene and no "press G to land": fly at any planet yourself.
+ *   SPACE  · every world has an atmosphere shell (thin on airless rocks).
+ *            Inside it the sky turns the planet's colour around you, drag
+ *            caps your speed, gravity pulls you down, and the faster you
+ *            dive the hotter it gets: the plasma sheath lights up, embers,
+ *            smoke and scorched hull fragments tear off the ship, and if you
+ *            come in too hot the hull takes damage.
+ *   CLOUDS · drop below the cloud floor and you punch out over the surface,
+ *            still flying: vapour trails, a landing beacon, terrain to dodge.
+ *   LAND   · near the beacon press G: the landing burn levels the ship,
+ *            drops the gear and fires four belly boosters (flames, ground
+ *            glow, dust blasting outward) to set her down on the pad.
+ *   LEAVE  · in the pilot seat press G: boosters lift you off, then you fly
+ *            yourself up and out of the atmosphere back to orbit.
+ * ===================================================================== */
+const Atmo = {
+  phase: 'space', prep: -1, heat: 0, dens: 0, told: -1, warnT: 0, t: 0, thr: .5, spd: 0, whiteT: 0, fogT: 0,
+  ang: new V3(), vel: new V3(), camPos: null, shipBoxes: [], base: null, boost: null,
+
+  /* ---------- tuning ---------- */
+  top(i) { const p = PLANETS[i]; return Math.max(p.radius * (p.atmoStrength > 0 ? 1.6 : .6), this.floor(i) + 1800); },          // atmosphere ceiling (altitude)
+  floor(i) { const p = PLANETS[i]; return Math.max(650, p.radius * .14); },                      // cloud floor: break through here
+  thin(i) { return PLANETS[i].atmoStrength > 0 ? 1 : .3; },                                       // airless worlds barely heat you
+  airColor(i) { const p = PLANETS[i]; return new Col(p.atmo || 0x8a6a4a); },
+
+  install() {
+    const self = this;
+    this.b0 = { max: nt.flight.maxSpeed, boost: nt.flight.boostSpeed };
+    this.buildSky(); this.buildBoosters(); this.buildDebris();
+    for (const id of ['gw-beacon', 'gw-aprompt']) { const d = document.createElement('div'); d.id = id; document.getElementById('ui').appendChild(d); }
+    // the old landing paths are gone: no cutscene, no G-to-land from orbit, no T planet cycling
+    nt.requestLanding = () => { J.toast("FLY INTO A PLANET'S ATMOSPHERE TO LAND", 'warn', 3200); return false; };
+    nt.requestLaunch = () => { self.liftoff(); return true; };
+    nt.updatePilot = function (t, e) {
+      if (this.landed) {   // sitting in the landed ship: cockpit view, G lifts off
+        const c = this.engine.camNear, r = this.ship.root;
+        c.position.copy(this.flight.cockpitOffset).applyQuaternion(r.quaternion).add(r.position); c.quaternion.copy(r.quaternion); c.updateMatrixWorld(); this.engine.setFov(70);
+      } else {
+        this.flight.enabled = !J.helpOpen; this.flight.update(t, e);
+        this._freeCam || this.flight.applyCamera(this.engine.camNear, e); this.engine.setFov(this.flight.fov);
+      }
+      this.throttle = this.flight.throttle; this.stickPitch = this.flight.stickPitch; this.stickRoll = this.flight.stickRoll;
+      Xt.consume('KeyT');
+      if (Xt.consume('KeyG')) { if (this.landed) self.liftoff(); else J.toast("FLY INTO A PLANET'S ATMOSPHERE TO LAND", 'warn', 3200); }
+      if (Xt.consume('Escape')) this.leavePilotSeat();
+    };
+    const origLeave = nt.leavePilotSeat.bind(nt);
+    nt.leavePilotSeat = function () { origLeave(); if (this.venue === 'surface' && this.landingPos) this.walker.teleport(new V3(0, .02, -15.4).add(this.landingPos), Math.PI); };
+    const origPost = nt.updatePost.bind(nt);
+    nt.updatePost = function (t) { try { self.update(t); } catch (err) { console.error('[atmo]', err); } origPost(t); };
+  },
+
+  /* ---------- visuals built once ---------- */
+  buildSky() {
+    // a sky shell around the camera: atmosphere colour above/around you, thinning toward the ground below
+    const m = new T3.ShaderMaterial({
+      uniforms: { uCol: { value: new Col() }, uHigh: { value: new Col() }, uDen: { value: 0 }, uDown: { value: new V3(0, -1, 0) }, uSun: { value: new V3(1, 0, 0) } },
+      vertexShader: 'varying vec3 vD; void main(){ vD = normalize(position); gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }',
+      fragmentShader: `uniform vec3 uCol, uHigh; uniform float uDen; uniform vec3 uDown, uSun; varying vec3 vD;
+        void main(){
+          vec3 d = normalize(vD); float down = dot(d, normalize(uDown)), hz = 1.0 - abs(down);
+          vec3 col = mix(uHigh, uCol, smoothstep(-.7, .25, down));
+          col += uCol * pow(hz, 5.0) * .55;
+          float s = max(dot(d, normalize(uSun)), 0.0); col += vec3(1.0,.9,.72) * (pow(s, 90.0) * 3.0 + pow(s, 6.0) * .35) * uDen;
+          float a = uDen * (1.0 - smoothstep(.2, .9, down) * .82);
+          gl_FragColor = vec4(col, a);
+        }`,
+      side: 1, transparent: true, depthWrite: false, fog: false,
+    });
+    this.sky = new T3.Mesh(new T3.SphereGeometry(6000, 32, 20), m); this.sky.frustumCulled = false; this.sky.renderOrder = -400; this.sky.visible = false;
+    nt.spaceScene.add(this.sky);
+  },
+  buildBoosters() {
+    const g = new T3.Group(); g.name = 'landingBoosters'; g.visible = false;
+    const ring = SG.lathe([[1.05, 0], [1.25, .1], [1.25, .7], [.95, .8]], 20), coreG = SG.lathe([[0, .75], [.85, .78]], 20);
+    const outerFlame = SG.lathe([[.9, 0], [1.05, 1.4], [.8, 4.5], [.35, 8], [0, 10]], 18).rotateX(Math.PI / 2), innerFlame = SG.lathe([[.5, 0], [.55, 1], [.3, 3.5], [0, 5.5]], 14).rotateX(Math.PI / 2);
+    const flameM2 = c => new T3.MeshBasicMaterial({ color: new Col(c).multiplyScalar(2.4), transparent: true, opacity: .6, blending: 2, depthWrite: false, fog: false });
+    this.nozzles = [];
+    for (const [x, z] of [[-8.6, -7.5], [8.6, -7.5], [-8.6, 11], [8.6, 11]]) {
+      const n = new T3.Group(); n.position.set(x, -3.1, z); g.add(n);
+      const r = new T3.Mesh(ring.clone().rotateX(Math.PI / 2), O.dark); n.add(r);
+      const c = new T3.Mesh(coreG.clone().rotateX(Math.PI / 2), glowM(0x9fe8ff, 4)); n.add(c);
+      const fo = new T3.Mesh(outerFlame, flameM2(0x6ab8ff)), fi = new T3.Mesh(innerFlame, flameM2(0xfff2d8));
+      fo.position.y = -.8; fi.position.y = -.8; n.add(fo, fi); this.nozzles.push({ n, fo, fi, c });
+    }
+    this.light = new T3.PointLight(0x9fd8ff, 0, 140, 2); this.light.position.set(0, -8, 2); g.add(this.light);
+    nt.ship.root.add(g); this.boostersG = g;
+  },
+  buildDebris() {
+    // scorched hull fragments that tear off during a hot entry
+    this.chips = []; const m = new T3.MeshStandardMaterial({ color: 0x2a2624, metalness: .6, roughness: .5, emissive: new Col(0xff5a1a), emissiveIntensity: .9 });
+    for (let k = 0; k < 40; k++) { const c = new T3.Mesh(geo.box(1, .12, rand(.6, 1.4)), m); c.visible = false; c.frustumCulled = false; nt.spaceScene.add(c); this.chips.push({ m: c, p: new V3(), v: new V3(), r: new V3(), life: 0 }); }
+  },
+  setBoosters(power, t) {
+    const g = this.boostersG; g.visible = power > .01;
+    for (const z of this.nozzles) { const f = 1 + Math.sin(t * 47 + z.n.position.x) * .08 + Math.sin(t * 91 + z.n.position.z) * .06; z.fo.scale.set(1, power * f * 1.1, 1); z.fi.scale.set(1, power * f, 1); z.fo.material.opacity = .25 + power * .45; }
+    this.light.intensity = power * 260;
+    if (power > .02 && yt.ready) yt.set('roar', power * .3, .2);
+  },
+
+  speedBase() { const H = W.save && HULLS[W.save.hull] ? HULLS[W.save.hull] : HULLS.wayfarer; const b = Hangar.base || this.b0; return { max: b.max * H.spd, boost: b.boost * H.boost }; },
+  readout(rows) {
+    const el = Planets.altEl; if (!rows) { el.classList.remove('on'); return; }
+    el.classList.add('on'); el.innerHTML = rows.map(([k, v, hot]) => `<div class="k">${k}</div><div class="${k === 'ALTITUDE' ? 'n' : 's'}${hot ? ' hot' : ''}">${v}</div>`).join('');
+  },
+  update(dt) {
+    if (W.mode === 'title' || !nt.ship) return;
+    this.t += dt;
+    if (nt.venue === 'space') this.spaceTick(dt);
+    else if (this.phase === 'fly') this.fly(dt);
+    else if (this.phase === 'landing') this.landing(dt);
+    else if (this.phase === 'liftoff') this.liftoffTick(dt);
+    else { this.beacon(false); }
+    this.debrisTick(dt);
+    // free flight has no war layer, so drive the shared particle system here
+    if (!W.mode) { const sc = nt.venue === 'space' ? nt.spaceScene : nt.surfaceScene; if (sc && this.fxScene !== sc) { this.fxScene = sc; FX.attach(sc); } FX.update(dt, nt.venue === 'space' ? nt.flight.systemPos : ZERO); }
+  },
+
+  /* ======================= SPACE: the atmosphere ======================= */
+  spaceTick(dt) {
+    const fl = nt.flight, post = nt.engine.post, fx = nt.reentryFX;
+    if (nt.seq) { this.fadeSpace(); return; }
+    const nb = nt.solar.nearestBody(fl.systemPos), i = nb.index, P = PLANETS[i], alt = nb.distance, top = this.top(i);
+    const C = nt.solar.planetSystemPos(i, nt.engine.time, _v1), down = _v2.copy(C).sub(fl.systemPos).normalize();
+    const raw = clamp(1 - alt / top, 0, 1), dens = raw * raw * (3 - 2 * raw);
+    this.dens = damp(this.dens, dens, 6, dt);
+    // drag: the thicker the air, the lower your top speed
+    const b = this.speedBase(), drag = 1 - .82 * this.dens * (this.thin(i) * .7 + .3);
+    fl.maxSpeed = b.max * drag; fl.boostSpeed = b.boost * drag;
+    if (this.dens <= .001) { if (this.told === i && alt > top * 1.05) this.told = -1; this.fadeSpace(); this.unprepare(alt, top, i); return; }
+    if (this.told !== i) { this.told = i; J.toast(`ENTERING THE ATMOSPHERE OF ${P.name}`, 'warn', 4000); J.subtitle(P.atmoStrength > 0 ? 'Watch your speed — dive too fast and the hull will burn.' : 'Thin exosphere. Keep descending to reach the surface.', 4200); }
+    // gravity pulls you in
+    fl.vel.addScaledVector(down, 55 * this.dens * dt);
+    fl.vel.multiplyScalar(Math.exp(-this.dens * this.thin(i) * .9 * dt));   // air resistance
+    // heating: speed through thick air
+    const sp = fl.vel.length(), descending = fl.vel.dot(down) > 0;
+    const h = this.thin(i) * Math.pow(this.dens, .7) * clamp((sp - 220) / 1300, 0, 2.4);
+    this.heat = damp(this.heat, h, 3, dt);
+    const heat = Math.min(1.4, this.heat);
+    // plasma sheath around the direction of travel
+    if (sp > 40) { _q1.setFromRotationMatrix(new M4().lookAt(ZERO, _v3.copy(fl.vel).normalize(), UP)); fx.place(_q1); } else fx.place(fl.quat);
+    const sk = SKINS[P.type]; fx.cloudMat.color.copy(sk ? new Col(sk.fog).lerp(new Col(0xffffff), .5) : new Col(0xe8f4ee));
+    fx.setHeat(Math.min(1, heat * .85)); fx.setClouds(this.dens > .62 ? (this.dens - .62) / .38 * .55 * this.thin(i) : 0); fx.update(dt, nt.engine.time, 500 + sp * .55);
+    // sky turns to the planet's colour around you
+    const sky = this.sky, U = sky.material.uniforms, air = this.airColor(i);
+    sky.visible = true; sky.position.copy(nt.engine.camNear.position);
+    U.uCol.value.copy(air).multiplyScalar(.85 + this.dens * .3); U.uHigh.value.copy(air).multiplyScalar(.18).lerp(new Col(0x02040a), 1 - this.dens);
+    U.uDen.value = this.dens * (.35 + .6 * this.thin(i)); U.uDown.value.copy(down); U.uSun.value.copy(fl.systemPos).negate().normalize();
+    // screen, camera, sound
+    post.tint.copy(air).lerp(new Col(1, .42, .12), clamp(heat * 1.2, 0, 1)); post.tintAmount = this.dens * .12 * this.thin(i) + heat * .16;
+    post.aberration = heat * .009; post.speedBlur = heat * .55 + this.dens * .15; post.bloom = .85 + heat * .9;
+    J.heat(heat * .85); fl.camShake = Math.max(fl.camShake, heat * 1.3 + this.dens * .3 * this.thin(i));
+    yt.set('roar', heat * .4 + this.dens * .12 * this.thin(i), .3); yt.set('wind', this.dens * .45 * this.thin(i), .5);
+    // stuff tearing off the hull
+    this.shed(dt, heat, fl);
+    // too hot: the hull starts to burn
+    this.warnT -= dt;
+    if (this.heat > 1.25) {
+      if (W.mode && War.me && War.me.kind === 'ship') hurt(War.me, (this.heat - 1.25) * 320 * dt, null);
+      else nt.hull = Math.max(5, nt.hull - (this.heat - 1.25) * 6 * dt);
+      if (this.warnT <= 0) { this.warnT = 3; J.toast('HULL TEMPERATURE CRITICAL — SLOW DOWN', 'bad', 2600); }
+    }
+    // get the surface ready while you descend, so breaking through is seamless
+    if (this.dens > .2 && descending && this.prep !== i && nt.mode === 'pilot') this.prepare(i);
+    this.unprepare(alt, top, i);
+    const floor = this.floor(i);
+    this.readout([['ALTITUDE', `${fmt(alt)} m`], ['VELOCITY', sp >= 1000 ? (sp / 1000).toFixed(2) + ' km/s' : fmt(sp) + ' m/s'], ['HULL TEMP', `${fmt(180 + heat * 1500)} °C`, heat > .9], ['ATMOSPHERE', `${P.name} · ${Math.round(this.dens * 100)}%`], ['CLOUD FLOOR', alt > floor ? `${fmt(alt - floor)} m below` : 'BREAKING THROUGH']]);
+    if (alt < floor && nt.mode === 'pilot' && this.prep === i && nt.surfaceScene) this.breakThrough(i);
+  },
+  fadeSpace() {
+    const fx = nt.reentryFX, post = nt.engine.post;
+    this.heat = damp(this.heat, 0, 4, 1 / 60);
+    if (this.sky.visible) { this.sky.visible = false; fx.setHeat(0); fx.setClouds(0); post.tintAmount = 0; post.aberration = 0; post.speedBlur = 0; post.bloom = .85; J.heat(0); yt.set('roar', 0, .6); yt.set('wind', 0, .6); const b = this.speedBase(); nt.flight.maxSpeed = b.max; nt.flight.boostSpeed = b.boost; this.readout(null); }
+  },
+  shed(dt, heat, fl) {
+    if (heat < .08) return;
+    const n = Math.floor(heat * 70 * dt * 60 / 60 + Math.random());
+    for (let k = 0; k < n * 3; k++) {
+      // a random point on the hull, in system coordinates
+      const local = _v3.set(rand(-13, 13), rand(-3, 4), rand(-20, 22)).applyQuaternion(fl.quat);
+      const p = fl.systemPos.clone().add(local);
+      const v = fl.vel.clone().multiplyScalar(rand(.15, .7)).add(_v4.set(rand(-1, 1), rand(-1, 1), rand(-1, 1)).multiplyScalar(30 + heat * 60));
+      const r = Math.random();
+      if (r < .55) FX.spawn(p, v, rand(.5, 1.6) * (1 + heat), r < .2 ? 0xfff0c8 : r < .4 ? 0xff9a3a : 0xff4a1a, rand(.3, .9), 1.2, .3);
+      else if (r < .8) FX.spawn(p, v.multiplyScalar(.6), rand(3, 7) * (.6 + heat), 0x2a2420, rand(1, 2.4), 2.4, .6, true);   // smoke
+    }
+    if (heat > .55 && Math.random() < heat * 2.2 * dt * 6) this.chip(fl, heat);
+  },
+  chip(fl, heat) {
+    const c = this.chips.find(x => x.life <= 0); if (!c) return;
+    c.p.copy(fl.systemPos).add(_v3.set(rand(-12, 12), rand(-2, 4), rand(-16, 20)).applyQuaternion(fl.quat));
+    c.v.copy(fl.vel).multiplyScalar(rand(.3, .65)).add(_v4.set(rand(-1, 1), rand(-.5, 1), rand(-1, 1)).multiplyScalar(80));
+    c.r.set(rand(-8, 8), rand(-8, 8), rand(-8, 8)); c.life = rand(1.6, 3); c.m.visible = true; c.m.scale.setScalar(rand(.5, 1.6) * (1 + heat * .4));
+  },
+  debrisTick(dt) {
+    const origin = nt.venue === 'space' ? nt.flight.systemPos : null;
+    for (const c of this.chips) {
+      if (c.life <= 0) continue; c.life -= dt;
+      if (c.life <= 0 || !origin) { c.m.visible = false; c.life = 0; continue; }
+      c.p.addScaledVector(c.v, dt); c.m.position.copy(c.p).sub(origin); c.m.rotation.x += c.r.x * dt; c.m.rotation.y += c.r.y * dt; c.m.rotation.z += c.r.z * dt;
+      if (Math.random() < .7) FX.spawn(c.p, _v4.set(0, 0, 0), rand(.8, 1.8), Math.random() < .5 ? 0xff8a3a : 0xffd8a0, .45, 1.4);
+    }
+  },
+  prepare(i) {
+    if (this.prep >= 0) this.unprepare(1e12, 1, this.prep);
+    Planets.index = i; nt._reentryIndex = i; nt.prepareSurface(); this.prep = i;
+  },
+  unprepare(alt, top, i) {
+    if (this.prep < 0 || (this.prep === i && alt < top * 1.15)) return;
+    const g = nt; if (g.surfaceScene) { g.surfaceScene.remove(g.dust.points); g.dust.clearAll(); }
+    if (g.surfaceWorld) g.surfaceWorld.dispose();
+    g.surfaceScene = null; g.surfaceWorld = null; g.surfaceCollision = null; Ground.reset(); Planets.index = -1; window.__TERRAIN = null; this.prep = -1;
+  },
+
+  /* ======================= break through the clouds ======================= */
+  breakThrough(i) {
+    const g = nt, fl = g.flight;
+    War.onEntryStart(i);
+    // ship's pitch relative to the local horizon carries over
+    const up = _v1.copy(fl.systemPos).sub(nt.solar.planetSystemPos(i, g.engine.time, _v2)).normalize(), fwd = fl.forward(_v3);
+    const pitch = clamp(Math.asin(clamp(fwd.dot(up), -1, 1)) * .4, -.22, .08);   // come out of the clouds in a gentle descent
+    const sp = fl.vel.length();
+    this.fadeSpace(); g.reentryFX.reset();
+    g.spaceScene.remove(g.ship.root); g.surfaceScene.add(g.ship.root);
+    g.venue = 'surface'; g.mode = 'atmo'; fl.enabled = false; g.interactions.locked = true; J.setMode('pilot'); J.hidePrompt();
+    yt.set('space', 0, .6); yt.set('wind', .6, 1);
+    const pad = g.landingPos, start = new V3(pad.x + rand(-50, 50), pad.y + 420, pad.z + 210);
+    const yaw = Math.atan2(-(pad.x - start.x), -(pad.z - start.z));
+    g.ship.root.position.copy(start); g.ship.root.quaternion.setFromEuler(new Euler(pitch, yaw, 0, 'YXZ'));
+    this.spd = clamp(sp * .14, 90, 240); this.thr = clamp(fl.throttle, .35, 1);
+    this.vel.copy(new V3(0, 0, -1).applyQuaternion(g.ship.root.quaternion)).multiplyScalar(this.spd); this.ang.set(0, 0, 0);
+    this.heat = Math.min(.8, this.heat); this.whiteT = 1.1; this.fogT = 0; this.camPos = null; this.phase = 'fly';
+    if (g.surfaceWorld) g.surfaceWorld.fog.density = .05;
+    this.addBeacon();
+    J.flash(1); J.subtitle(`Through the clouds. ${PLANETS[i].name} below — follow the beacon to the landing pad.`, 4500);
+    J.objective('Fly to the landing beacon and press G for the landing burn.');
+  },
+  addBeacon() {
+    const g = nt; if (!g.surfaceWorld) return;
+    if (this.beam && this.beam.parent) this.beam.parent.remove(this.beam);
+    const m = new T3.MeshBasicMaterial({ color: new Col(0x7fe8ff).multiplyScalar(1.6), transparent: true, opacity: .22, blending: 2, depthWrite: false, fog: false });
+    this.beam = new T3.Mesh(new T3.CylinderGeometry(2.2, 2.2, 900, 16, 1, true), m); this.beam.position.set(g.landingPos.x, g.landingPos.y + 450, g.landingPos.z);
+    g.surfaceWorld.root.add(this.beam);
+    // the playable surface is a few hundred metres across; from the air, a far ground ring carries it to the horizon
+    if (!g.surfaceWorld.root.getObjectByName('farGround')) {
+      const sk = Planets.skin(Planets.index), c = sk ? new Col(sk.ground[1]).lerp(new Col(sk.ground[0]), .5) : new Col(0x2c4a30);
+      const far = new T3.Mesh(new T3.RingGeometry(362, 16000, 64, 1).rotateX(-Math.PI / 2), new T3.MeshStandardMaterial({ color: c, roughness: 1, metalness: 0 }));
+      far.name = 'farGround'; far.position.y = SF.Ut.padHeight - 4; far.receiveShadow = true; g.surfaceWorld.root.add(far);
+      for (let k = 0; k < 26; k++) {   // distant ridgelines on the horizon
+        const a = k / 26 * Math.PI * 2 + Math.random() * .2, r = rand(900, 2600), hgt = rand(60, 260);
+        const hill = new T3.Mesh(new T3.ConeGeometry(rand(300, 700), hgt, 7), new T3.MeshStandardMaterial({ color: c.clone().multiplyScalar(rand(.75, 1.05)), roughness: 1, flatShading: true }));
+        hill.position.set(Math.cos(a) * r, far.position.y + hgt / 2 - 6, Math.sin(a) * r); hill.rotation.y = rand(0, 6); g.surfaceWorld.root.add(hill);
+      }
+    }
+  },
+  beacon(on, d, h) {
+    const el = document.getElementById('gw-beacon'), pr = document.getElementById('gw-aprompt');
+    if (!on) { el.style.display = 'none'; pr.style.display = 'none'; return; }
+    const cam = nt.engine.camNear, p = _v1.copy(nt.landingPos).add(_v2.set(0, 6, 0)).project(cam);
+    let x = p.x, y = p.y; if (p.z > 1) { x = -x; y = -y; } const m = Math.max(Math.abs(x) / .92, Math.abs(y) / .88, 1); x /= m; y /= m;
+    el.style.display = 'block'; el.style.left = (x + 1) / 2 * innerWidth + 'px'; el.style.top = (1 - y) / 2 * innerHeight + 'px';
+    el.innerHTML = `<div class="ring"></div>LANDING PAD<br>${fmt(d)} m · ${fmt(h)} m up`;
+    const ok = d < 260 && h < 450;
+    pr.style.display = 'block'; pr.innerHTML = ok ? '<kbd>G</kbd> LANDING BURN' : 'Fly within 250 m of the beacon and below 450 m';
+    pr.classList.toggle('ok', ok);
+    return ok;
+  },
+
+  /* ======================= flying over the surface ======================= */
+  fly(dt) {
+    const g = nt, s = g.ship.root, q = s.quaternion, pad = g.landingPos, col = g.surfaceCollision;
+    if (!col) return;
+    const lock = Xt.locked && !J.helpOpen;
+    // controls — same scheme as space flight
+    const sens = Xt.sensitivity * 26;
+    const pi = lock ? -clamp(Xt.my * sens, -1.6, 1.6) : Xt.axis('ArrowDown', 'ArrowUp'), yi = lock ? -clamp(Xt.mx * sens, -1.6, 1.6) : Xt.axis('ArrowRight', 'ArrowLeft'), ri = Xt.axis('KeyD', 'KeyA');
+    const agi = (W.save && HULLS[W.save.hull] ? HULLS[W.save.hull].agi : 1);
+    this.ang.x += pi * 1.4 * agi * dt * 8; this.ang.y += yi * 1.1 * agi * dt * 8; this.ang.z += ri * 2.0 * agi * dt;
+    this.ang.multiplyScalar(Math.exp(-3.6 * dt));
+    q.multiply(_q1.setFromEuler(new Euler(this.ang.x * dt, this.ang.y * dt, this.ang.z * dt))).normalize();
+    // gentle auto-level when you are not rolling
+    if (!ri) { const right = _v1.set(1, 0, 0).applyQuaternion(q); q.multiply(_q1.setFromAxisAngle(_v2.set(0, 0, 1), -right.y * 1.4 * dt)); }
+    this.thr = clamp(this.thr + Xt.axis('KeyS', 'KeyW') * dt * .8, 0, 1); if (Xt.consume('KeyX')) this.thr = 0;
+    const boost = Xt.down('ShiftLeft') && this.thr > .05, fwd = _v3.set(0, 0, -1).applyQuaternion(q);
+    const target = boost ? 330 : 40 + this.thr * 200, lift = Xt.axis('KeyF', 'KeyR') * 22;
+    const want = fwd.clone().multiplyScalar(target); want.y += lift - (this.thr < .12 ? 4 : 0);
+    this.vel.lerp(want, 1 - Math.exp(-(boost ? 1.6 : 1.1) * dt));
+    // ground proximity assist: low and sinking fast → ease the nose up
+    { const gy0 = col.groundHeight(s.position.x, s.position.z), c0 = s.position.y - gy0, look = col.groundHeight(s.position.x + this.vel.x * 1.5, s.position.z + this.vel.z * 1.5);
+      if ((c0 < 70 && this.vel.y < -6) || s.position.y + this.vel.y * 1.5 < look + 20) { this.vel.y = damp(this.vel.y, Math.max(4, this.vel.y), 3, dt); q.multiply(_q1.setFromAxisAngle(_v1.set(1, 0, 0), .5 * dt)); } }
+    s.position.addScaledVector(this.vel, dt);
+    // terrain
+    const gy = col.groundHeight(s.position.x, s.position.z), clear = s.position.y - gy, sp = this.vel.length();
+    if (clear < 8) {
+      const hit = -this.vel.y > 14 || sp > 140;
+      s.position.y = gy + 8; this.vel.y = Math.abs(this.vel.y) * .25; this.vel.multiplyScalar(.6);
+      if (hit && this.warnT <= 0) { this.warnT = 2; J.toast('HULL IMPACT', 'bad', 1800); yt.boom(.4); g.flight.camShake = 1.4; if (War.shipHealth) War.shipHealth.ar = Math.max(0, War.shipHealth.ar - 200); nt.hull = Math.max(5, nt.hull - 8); }
+    }
+    this.warnT -= dt;
+    if (clear < 60 && this.vel.y < -20 && this.warnT <= 0) { this.warnT = 2; J.toast('PULL UP', 'bad', 1500); yt.beep && yt.beep(880, .12, 'square', .08); }
+    // stay over the landing region
+    const off = Math.max(Math.abs(s.position.x), Math.abs(s.position.z));
+    if (off > 330) { this.vel.addScaledVector(_v1.set(-s.position.x, 0, -s.position.z).normalize(), 60 * dt); if (this.warnT <= 0) { this.warnT = 3; J.toast('LEAVING THE LANDING REGION — TURN BACK OR CLIMB TO ORBIT', 'warn', 2600); } }
+    // climb out to orbit
+    if (s.position.y - pad.y > 1500) { this.toOrbit(); return; }
+    // residual entry heat, vapour trails, engines, fog clearing
+    this.heat = damp(this.heat, 0, 1.2, dt);
+    if (this.heat > .05) for (let k = 0; k < 3; k++) FX.spawn(s.position.clone().add(_v1.set(rand(-12, 12), rand(-3, 3), rand(-18, 18)).applyQuaternion(q)), this.vel.clone().multiplyScalar(-.3), rand(.4, 1.2), 0xff8a3a, .5, 1.2);
+    if (sp > 130 && Math.random() < .6) for (const x of [-13.6, 13.6]) FX.spawn(s.position.clone().add(_v1.set(x, .2, 8).applyQuaternion(q)), this.vel.clone().multiplyScalar(.15), .35 + sp / 900, 0xeaf6ff, .55, 1.6, 0, true);
+    g.ship.setThrusters(clamp(.15 + this.thr * .75 + (boost ? .3 : 0), 0, 1));
+    this.whiteT = Math.max(0, this.whiteT - dt * .9); J.flash(this.whiteT);
+    this.fogT += dt; this.airFog(clear, 1 - sstep(0, 3.5, this.fogT));
+    yt.engine(this.thr, boost ? 1 : 0, clamp(sp / 330, 0, 1)); yt.set('wind', .25 + sp / 900, .4);
+    // chase / cockpit camera
+    if (Xt.consume('KeyC')) { g.chase = !g.chase; J.setView(g.chase ? '3RD' : 'CKPT'); }
+    this.chaseCam(dt, g.chase ? new V3(0, 13, 52) : g.flight.cockpitOffset, !g.chase);
+    nt.engine.setFov(lerp(nt.engine.fov, 68 + (boost ? 12 : 0) + sp / 60, 1 - Math.exp(-4 * dt)));
+    // HUD
+    J.setSpeed(sp); J.setThrottle(this.thr); J.setHull(nt.hull);
+    const d = Math.hypot(s.position.x - pad.x, s.position.z - pad.z), h = s.position.y - pad.y;
+    const ok = this.beacon(true, d, h);
+    this.readout([['ALTITUDE', `${fmt(clear)} m`], ['AIRSPEED', `${fmt(sp)} m/s`], ['LANDING PAD', `${fmt(d)} m`], ['TO ORBIT', `climb ${fmt(Math.max(0, 1500 - h))} m`]]);
+    if (Xt.consume('KeyG')) { if (ok) this.startLanding(); else J.toast('GET WITHIN 250 M OF THE BEACON, BELOW 450 M', 'warn', 2400); }
+  },
+  // ground haze is tuned for standing on the surface; thin it out with altitude so you can see the land from the air
+  airFog(clear, cloudMix = 0) {
+    const w = nt.surfaceWorld; if (!w || !Planets.fog0) return;
+    const target = Planets.fog0 * clamp(22 / (Math.max(0, clear) + 22), .025, 1);
+    w.fog.density = lerp(target, .05, clamp(cloudMix, 0, 1));
+  },
+  chaseCam(dt, off, cockpit) {
+    const cam = nt.engine.camNear, s = nt.ship.root, want = _v1.copy(off).applyQuaternion(s.quaternion).add(s.position);
+    if (cockpit) { cam.position.copy(want); cam.quaternion.copy(s.quaternion); }
+    else {
+      if (!this.camPos) this.camPos = want.clone(); else this.camPos.lerp(want, 1 - Math.exp(-9 * dt));
+      const lag = _v2.subVectors(this.camPos, want); if (lag.length() > 14) this.camPos.copy(want).add(lag.setLength(14));
+      cam.position.copy(this.camPos); cam.up.set(0, 1, 0).applyQuaternion(s.quaternion); cam.lookAt(_v3.set(0, -5, -40).applyQuaternion(s.quaternion).add(s.position));
+    }
+    const gy = nt.surfaceCollision ? nt.surfaceCollision.groundHeight(cam.position.x, cam.position.z) : -1e9; if (cam.position.y < gy + 2) cam.position.y = gy + 2;
+    const sh = nt.flight.camShake; if (sh > .01) { cam.position.x += Math.sin(this.t * 57) * sh * .08; cam.position.y += Math.sin(this.t * 43 + 1) * sh * .08; nt.flight.camShake = Math.max(0, sh - dt * 1.5); }
+    cam.updateMatrixWorld();
+  },
+
+  /* ======================= the landing burn ======================= */
+  startLanding() {
+    this.phase = 'landing'; this.t0 = this.t; this.from = nt.ship.root.position.clone(); this.fromQ = nt.ship.root.quaternion.clone(); this.touched = false;
+    J.bars(true); J.subtitle('Landing burn. Gear down. Boosters to full.', 3600); J.toast('LANDING SEQUENCE ENGAGED', 'good', 3000);
+    this.beacon(false); this.readout(null); yt.servo(true, 1.2);
+  },
+  landing(dt) {
+    const g = nt, s = g.ship.root, pad = g.landingPos, e = this.t - this.t0, col = g.surfaceCollision;
+    const hover = pad.clone().add(_v1.set(0, 44, 0));
+    if (e < 3.8) { const a = sstep(0, 3.8, e); s.position.lerpVectors(this.from, hover, a * a * (3 - 2 * a)); }
+    else { const k = sstep(3.8, 8.6, e), eo = 1 - Math.pow(1 - k, 2.4); s.position.set(pad.x, hover.y - 44 * eo, pad.z); }
+    s.quaternion.slerpQuaternions(this.fromQ, new Q4(), sstep(0, 3.2, e));
+    if (e > 1.2 && !g.gearDown) { g.gearDown = true; g.ship.deployGear(true); }
+    const power = sstep(.5, 1.5, e) * (1 - sstep(8.7, 10, e)) * (e > 3.8 ? 1 : .75);
+    this.setBoosters(power, this.t); g.ship.setThrusters(clamp(.6 - e * .08, .1, 1));
+    // dust and heat shimmer blasting out under the boosters
+    const gy = col.groundHeight(s.position.x, s.position.z), hgt = s.position.y - gy;
+    this.airFog(hgt);
+    if (hgt < 34 && power > .1) {
+      const n = Math.floor(power * (1 - hgt / 34) * 14), sk = Planets.skin(Planets.index), dc = sk ? '#' + new Col(sk.ground[1]).getHexString() : '#c9c2a4';
+      for (let k = 0; k < n; k++) { const a = Math.random() * Math.PI * 2, r = 4 + Math.random() * 14, sp2 = 10 + Math.random() * 22; g.dust.emit(s.position.x + Math.cos(a) * r, gy + .5, s.position.z + Math.sin(a) * r, Math.cos(a) * sp2, 1 + Math.random() * 3, Math.sin(a) * sp2, 1.6 + Math.random() * 1.6, 1.6 + Math.random() * 2.4, dc, .55); }
+      for (const z of this.nozzles) { const wp = z.n.getWorldPosition(_v2); FX.spawn(_v3.set(wp.x, gy + .6, wp.z), _v4.set(rand(-3, 3), rand(1, 3), rand(-3, 3)), rand(1.5, 3), 0xffb070, .35, 1.8); }
+      g.flight.camShake = Math.max(g.flight.camShake, power * (1 - hgt / 34) * .9);
+    }
+    if (e >= 8.6 && !this.touched) { this.touched = true; yt.thud(.6, 46); yt.boom(.35); g.flight.camShake = 1.6; J.subtitle('Touchdown. Surface contact confirmed.', 3600); }
+    // cinematic camera: chase → swing down to a low side shot of the boosters
+    const cam = g.engine.camNear, want = _v1;
+    if (e < 3.8) want.set(0, 9.5, 54).applyQuaternion(s.quaternion).add(s.position).lerp(_v2.set(pad.x + 52, pad.y + 18, pad.z + 30), sstep(1.5, 3.8, e));
+    else want.set(pad.x + 52 + Math.sin(e * .25) * 6, pad.y + lerp(18, 5, sstep(3.8, 8, e)), pad.z + 30 - (e - 3.8) * 3);
+    if (!this.camPos) this.camPos = want.clone(); this.camPos.lerp(want, 1 - Math.exp(-2.6 * dt));
+    cam.position.copy(this.camPos); cam.up.set(0, 1, 0); cam.lookAt(s.position.x, s.position.y - 1, s.position.z);
+    const sh = g.flight.camShake; if (sh > .01) { cam.position.x += Math.sin(this.t * 57) * sh * .12; cam.position.y += Math.sin(this.t * 43) * sh * .12; g.flight.camShake = Math.max(0, sh - dt * 1.4); }
+    cam.updateMatrixWorld(); g.engine.setFov(lerp(g.engine.fov, 60, 1 - Math.exp(-2 * dt)));
+    J.setSpeed(Math.abs(e < 3.8 ? 40 : 10)); J.setThrottle(power);
+    if (e >= 10.2) this.finishLanding();
+  },
+  finishLanding() {
+    const g = nt; this.setBoosters(0, 0); this.phase = 'landed'; this.camPos = null; J.bars(false); yt.set('roar', 0, 1);
+    if (this.beam) { this.beam.parent && this.beam.parent.remove(this.beam); this.beam = null; }
+    g.seq = null; g.endReentry();
+  },
+
+  /* ======================= lift-off ======================= */
+  liftoff() {
+    const g = nt; if (!g.landed || this.phase === 'liftoff') return;
+    for (const b of this.shipBoxes) b.enabled = false;   // the ship no longer blocks the pad
+    g._removeRampColliders(); g.ship.deployRamp(false); const d = g.ship.doors.get('airlockOut'); if (d) d.locked = true; g.ship.setDoor('airlockOut', false);
+    g.landed = false; g.mode = 'atmo'; g.flight.enabled = false; g.interactions.locked = true; J.setMode('pilot'); J.hidePrompt();
+    this.phase = 'liftoff'; this.t0 = this.t; this.camPos = null; this.from = g.ship.root.position.clone();
+    J.bars(true); J.toast('LIFT-OFF', 'good', 2500); J.subtitle('Boosters spooling. Hold on.', 3000); yt.boom(.3); Ground.hideViewModel();
+  },
+  liftoffTick(dt) {
+    const g = nt, s = g.ship.root, e = this.t - this.t0, col = g.surfaceCollision;
+    for (const b of this.shipBoxes) b.enabled = false;   // door syncing would re-enable some; keep the pad clear
+    const power = sstep(0, 1.1, e) * (1 - sstep(5.2, 6.2, e) * .6);
+    this.setBoosters(power, this.t);
+    const k = sstep(1.1, 5.4, e); s.position.set(this.from.x, this.from.y + 75 * k * k, this.from.z);
+    if (e > 3.6 && g.gearDown) { g.gearDown = false; g.ship.deployGear(false); }
+    const gy = col.groundHeight(s.position.x, s.position.z), hgt = s.position.y - gy;
+    this.airFog(hgt);
+    if (hgt < 34 && power > .1) { const sk = Planets.skin(Planets.index), dc = sk ? '#' + new Col(sk.ground[1]).getHexString() : '#c9c2a4'; for (let n = 0; n < Math.floor(power * (1 - hgt / 34) * 14); n++) { const a = Math.random() * Math.PI * 2, r = 4 + Math.random() * 14, sp2 = 10 + Math.random() * 24; g.dust.emit(s.position.x + Math.cos(a) * r, gy + .5, s.position.z + Math.sin(a) * r, Math.cos(a) * sp2, 1 + Math.random() * 3, Math.sin(a) * sp2, 1.6 + Math.random() * 1.6, 1.6 + Math.random() * 2.4, dc, .55); } g.flight.camShake = Math.max(g.flight.camShake, power * .7); }
+    g.ship.setThrusters(sstep(4, 6, e) * .6);
+    const cam = g.engine.camNear, pad = g.landingPos, want = _v1.set(pad.x + 50, pad.y + 6 + k * 40, pad.z + 34).lerp(_v2.set(0, 9.5, 54).applyQuaternion(s.quaternion).add(s.position), sstep(4.2, 6.2, e));
+    if (!this.camPos) this.camPos = want.clone(); this.camPos.lerp(want, 1 - Math.exp(-3 * dt));
+    cam.position.copy(this.camPos); cam.up.set(0, 1, 0); cam.lookAt(s.position.x, s.position.y, s.position.z); cam.updateMatrixWorld();
+    if (e >= 6.2) { this.phase = 'fly'; this.thr = .45; this.vel.set(0, 12, 0).add(_v3.set(0, 0, -50).applyQuaternion(s.quaternion)); this.ang.set(0, 0, 0); this.setBoosters(0, 0); J.bars(false); this.addBeacon(); J.objective('Climb above 1,500 m to return to orbit, or land again at the beacon.'); }
+  },
+
+  /* ======================= back to orbit ======================= */
+  toOrbit() {
+    const g = nt, i = Planets.index; g._reentryIndex = i; this.setBoosters(0, 0); this.beacon(false); this.readout(null);
+    if (this.beam) { this.beam.parent && this.beam.parent.remove(this.beam); this.beam = null; }
+    g.landed = true; g.endLaunch();   // the original orbit hand-over: disposes the surface, back to space
+    const C = nt.solar.planetSystemPos(i, g.engine.time, new V3()), R = PLANETS[i].radius, up = new V3(.3, 1, .45).normalize();
+    g.flight.systemPos.copy(C).addScaledVector(up, R + this.top(i) * .7); g.flight.vel.copy(up).multiplyScalar(500); g.flight.throttle = .5;
+    g.flight.quat.setFromRotationMatrix(new M4().lookAt(ZERO, up, new V3(0, 0, 1))); g.flight.resetCamera();
+    this.phase = 'space'; this.prep = -1; this.told = i; this.heat = .3; J.flash(.8); setTimeout(() => J.flash(0), 250);
+    J.subtitle('Clear of the clouds. Climbing out of the atmosphere.', 3500);
+  },
+
+  /* ======================= practice: put the ship straight on the pad ======================= */
+  landNow(i) {
+    const g = nt; Planets.index = i; g._reentryIndex = i; if (this.prep !== i) { this.prep = -1; g.prepareSurface(); this.prep = i; }
+    War.onEntryStart(i);
+    g.spaceScene.remove(g.ship.root); g.surfaceScene.add(g.ship.root); g.venue = 'surface';
+    g.gearDown = true; g.ship.deployGear(true); this.phase = 'landed'; g.seq = null; g.endReentry();
   },
 };
 
@@ -6661,7 +6988,7 @@ const HUD = {
       this.slow = .2;
       const s = W.save, sov = War.sov(), here = space ? Space.nearestPlanet() : Planets.index;
       const where = here >= 0 ? `${esc(PLANETS[here].name)} · <span style="color:${facCss(sov[here])}">${esc(facName(sov[here]))}</span>` : '';
-      const tag = W.practice ? '<span style="color:var(--amb)">PRACTICE</span>' : W.online ? '<span style="color:var(--grn)">ONLINE</span>' : 'CAMPAIGN';
+      const tag = W.practice && W.practice.tutorial ? '<span style="color:var(--grn)">TUTORIAL</span>' : W.practice ? '<span style="color:var(--amb)">PRACTICE</span>' : W.online ? '<span style="color:var(--grn)">ONLINE</span>' : 'CAMPAIGN';
       this.$('gw-status').innerHTML = `<div class="fac" style="color:${facCss(s.faction)}">${esc(FACTIONS[s.faction].name.toUpperCase())}</div>
         <div>${tag} · ${esc(s.name)} · ${rankOf(s.xp)} · <span class="cr">${fmt(s.credits)} CR</span></div><div>${where}</div>
         ${Contracts.hud() ? `<div style="margin-top:6px;color:#d8eef5">${Contracts.hud()}</div>` : ''}
@@ -6761,6 +7088,7 @@ const UI = {
     let host = document.getElementById('gw-modes'); if (!host) { host = document.createElement('div'); host.id = 'gw-modes'; J.el.boot.appendChild(host); }
     const s = loadSave();
     host.innerHTML = `${s ? `<button class="gw-btn" data-m="cont">Continue campaign<small>${esc(s.name)} · ${esc(FACTIONS[s.faction].name)} · ${fmt(s.credits)} cr · ${rankOf(s.xp)}</small></button>` : ''}
+      <button class="gw-btn" data-m="tut">Tutorial<small>Learn to fly, land on a planet and fight — step by step</small></button>
       <button class="gw-btn" data-m="new">New campaign<small>Solo war for the Helion system</small></button>
       <button class="gw-btn" data-m="prac">Practice vs AI<small>Quick battles, everything unlocked</small></button>
       ${window.__GW_OFFLINE ? '' : '<button class="gw-btn" data-m="online">Online war<small>The always-on war with other pilots</small></button>'}
@@ -6769,6 +7097,7 @@ const UI = {
     host.querySelectorAll('[data-m]').forEach(b => b.onclick = () => {
       const m = b.dataset.m;
       if (m === 'cont') this.begin('solo', s);
+      else if (m === 'tut') Tutorial.start();
       else if (m === 'new') this.newCampaign();
       else if (m === 'prac') this.practice();
       else if (m === 'online') this.online();
@@ -6798,7 +7127,7 @@ const UI = {
       <h3>CHOOSE YOUR FACTION</h3>${this.factionPicker(0)}
       <h3>WAR SETTINGS</h3><div class="row"><span class="note">Difficulty</span><select id="gw-df"><option value="easy">Easy</option><option value="normal" selected>Normal</option><option value="hard">Hard</option></select>
       <span class="note">Battle size</span><select id="gw-sc"><option value="small">Small</option><option value="large" selected>Large</option><option value="massive">Massive</option></select></div>
-      ${loadSave() ? '<p class="err" style="margin-top:10px">This replaces your saved campaign.</p>' : ''}
+      ${loadSave() ? '<p class="err" style="margin-top:10px">This replaces your saved campaign.</p>' : '<p class="note" style="margin-top:10px">New here? Play the <b>Tutorial</b> from the title screen first.</p>'}
       <div class="row" style="justify-content:space-between;margin-top:16px"><button class="btn" id="gw-back">Back</button><button class="btn gold" id="gw-go">Board the ship</button></div>`, 'modes');
     this.bindFactions(v => f = v);
     this.on('#gw-back', 'click', () => this.close());
@@ -6976,17 +7305,15 @@ const Practice = {
   },
 };
 Planets.instantLand = function (i, start) {
-  nt.startReentry(i); nt._surfacePrepared = true; nt.prepareSurface(); nt.seqT = ENTRY_END;
-  // the next frame runs enterSurface + endReentry; then open the ramp and step outside
-  const wait = () => {
-    if (nt.seq) { setTimeout(wait, 50); return; }
+  // practice: skip the flight down, put the ship straight on the pad, open the ramp and step outside
+  Atmo.landNow(i);
+  setTimeout(() => {
     nt.toggleRamp();
     const pad = nt.landingPos, x = pad.x + 24, z = pad.z + 6;
     nt.walker.teleport(new V3(x, nt.surfaceCollision.groundHeight(x, z) + .1, z), Math.PI * .5);
     if (start && VEHICLES[start]) { Ground.requisition(start, { x: x + 8, z: z + 4 }); const v = War.ents.find(e => e.ctrl === 'empty'); if (v) Ground.enter(v); }
     J.objective('Capture the control points. Hold all three to take the planet.');
-  };
-  setTimeout(wait, 50);
+  }, 60);
 };
 
 /* =====================================================================
@@ -7334,6 +7661,7 @@ const Fauna = {
   reset() { this.lairs = []; },
   start(planetIdx) {
     this.reset();
+    if (W.practice && W.practice.tutorial) return;   // the tutorial lands you somewhere quiet
     const P = PLANETS[planetIdx], kinds = speciesOf(P.type), U = SF.Ut, avoid = [...Ground.cps, ...Ground.zones, { x: U.padCenter.x, z: U.padCenter.y }];
     const spots = []; let tries = 0;
     while (spots.length < 5 && tries++ < 400) {
@@ -7802,6 +8130,94 @@ const Title = {
 };
 
 /* =====================================================================
+ * GALACTIC WARS — 68: interactive tutorial
+ * A guided run from walking around the ship to landing on Verdara and
+ * capturing a control point. Each step watches the game and ticks itself
+ * off when you have done it. K skips a step.
+ * ===================================================================== */
+const Tutorial = {
+  on: false, i: 0, el: null, d: {}, doneT: 0,
+  key: k => `<kbd>${k}</kbd>`,
+  steps: [
+    { t: 'Look around', x: () => `Click the screen to capture the mouse, then move it to look around. ${Tutorial.key('Tab')} opens the full manual any time.`, ok: d => d.look > 500 },
+    { t: 'Walk', x: () => `Walk with ${Tutorial.key('W')}${Tutorial.key('A')}${Tutorial.key('S')}${Tutorial.key('D')}. Hold ${Tutorial.key('Shift')} to sprint, ${Tutorial.key('Space')} to jump.`, enter: d => { d.p0 = nt.walker.pos.clone(); }, ok: d => nt.walker.pos.distanceTo(d.p0) > 5 },
+    { t: 'Take the helm', x: () => `Turn around — the cockpit is behind you at the front of the ship. Walk down the corridor, look at the pilot seat and press ${Tutorial.key('E')}.`, ok: () => nt.mode === 'pilot' },
+    { t: 'Throttle up', x: () => `Hold ${Tutorial.key('W')} to push the throttle up (${Tutorial.key('S')} to slow, ${Tutorial.key('X')} for a full stop).`, ok: () => nt.flight.throttle > .6 },
+    { t: 'Steer', x: () => `Move the mouse to pitch and turn. ${Tutorial.key('A')}/${Tutorial.key('D')} roll, ${Tutorial.key('Q')}/${Tutorial.key('E')} strafe. ${Tutorial.key('C')} switches cockpit and outside view.`, enter: d => { d.q0 = nt.flight.quat.clone(); d.turn = 0; }, ok: d => { d.turn += d.q0.angleTo(nt.flight.quat); d.q0.copy(nt.flight.quat); return d.turn > 1.6; } },
+    { t: 'Afterburner', x: () => `Hold ${Tutorial.key('Shift')} while throttled up to light the afterburner.`, ok: () => nt.flight.boost > .6 },
+    { t: 'The Command Deck', x: () => `Press ${Tutorial.key('I')} to open the Command Deck: war map, contracts, bestiary, the hangar (new ship hulls) and fitting. Close it with ${Tutorial.key('I')} or ${Tutorial.key('Esc')}.`, ok: d => { if (UI.open && UI.open.name === 'command') d.seen = true; return d.seen && !UI.open; } },
+    { t: 'Lock on', x: () => `A training drone is ahead of you (red bracket). Turn toward it and press ${Tutorial.key('Y')} to lock on. ${Tutorial.key('N')} cycles targets.`, enter: () => Tutorial.spawnDrone(), ok: () => Space.lock && Space.lock === Tutorial.drone },
+    { t: 'Shoot it down', x: () => `${Tutorial.key('LMB')} fires your guns (they track a locked target). ${Tutorial.key('RMB')} fires missiles.`, ok: () => !Tutorial.drone || !Tutorial.drone.alive },
+    { t: 'Head for a planet', x: () => `You've been brought close to Verdara. Fly at it and dive into its atmosphere — any planet works the same way.`, enter: () => Tutorial.nearVerdara(), ok: () => Atmo.dens > .06 && nt.venue === 'space' },
+    { t: 'Survive the entry', x: () => `Keep descending. Watch HULL TEMP on the left: if it climbs, ease off with ${Tutorial.key('S')}. Drop below the cloud floor to break through.`, ok: () => nt.venue === 'surface' && Atmo.phase === 'fly' },
+    { t: 'Find the landing beacon', x: () => `Follow the pulsing LANDING PAD marker. Mouse to steer, ${Tutorial.key('W')}/${Tutorial.key('S')} throttle, ${Tutorial.key('R')}/${Tutorial.key('F')} climb and sink. Get within 250 m and below 450 m.`, ok: () => { const s = nt.ship.root.position, p = nt.landingPos; return Atmo.phase === 'landing' || (p && Math.hypot(s.x - p.x, s.z - p.z) < 260 && s.y - p.y < 450); } },
+    { t: 'Landing burn', x: () => `Press ${Tutorial.key('G')}. The ship levels out, drops its gear and fires its belly boosters to set down.`, ok: () => nt.landed },
+    { t: 'Step outside', x: () => `Walk to the airlock on the right side of the ship, press ${Tutorial.key('E')} on the ramp control, then walk down the ramp.`, ok: () => nt.venue === 'surface' && nt.mode === 'walk' && !nt.insideShip() },
+    { t: 'Fire and reload', x: () => `${Tutorial.key('LMB')} shoots, ${Tutorial.key('RMB')} aims. Fire a few shots, then press ${Tutorial.key('R')} to reload. ${Tutorial.key('1')}/${Tutorial.key('2')} switch rifle and rocket launcher.`, enter: d => { d.shots = 0; d.last = War.me ? War.me.lastShot : 0; }, ok: d => { const me = War.me; if (me && me.lastShot !== d.last) { d.shots++; d.last = me.lastShot; } if (me && me.weapons[me.cur] && me.weapons[me.cur].reload > 0) d.rel = true; return d.shots >= 4 && d.rel; } },
+    { t: 'Take a vehicle', x: () => `Near your ship press ${Tutorial.key('H')} and choose the Mauler Hovertank, then walk up to it and press ${Tutorial.key('E')}.`, ok: () => !!Ground.vehicle },
+    { t: 'Drive', x: () => `${Tutorial.key('W')}${Tutorial.key('S')} drive, ${Tutorial.key('A')}${Tutorial.key('D')} turn, the mouse aims the turret. ${Tutorial.key('LMB')} main gun, ${Tutorial.key('RMB')} machine gun. Drive a little, then press ${Tutorial.key('E')} to climb out.`, enter: d => { d.p0 = Ground.vehicle ? Ground.vehicle.pos.clone() : null; }, ok: d => { if (Ground.vehicle && d.p0 && Ground.vehicle.pos.distanceTo(d.p0) > 15) d.drove = true; return d.drove && !Ground.vehicle; } },
+    { t: 'Capture a point', x: () => `Control points A, B and C are marked on screen. Go to one and stand inside its ring until the bar fills. Hold all three for 20 s to take the planet.`, ok: () => { const me = War.me; return !!(me && Ground.cps.some(c => Math.hypot(c.x - me.pos.x, c.z - me.pos.z) < c.r && c.cap === W.save.faction && c.prog > .3)); } },
+    { t: 'You are ready', x: () => `That's the loop: fly anywhere, burn in through the atmosphere, land, fight, capture. Watch out for the alien wildlife — every world has its own, plus an apex beast. Press ${Tutorial.key('K')} to finish.`, ok: () => false, last: true },
+  ],
+  start() {
+    W.practice = { tutorial: true, factions: [], count: 0 };
+    const s = practiceSave(0); s.name = Settings.name || 'Pilot'; s.loadout = { rifle: 'carbine', launcher: 'rpg', suit: 'assault' };
+    UI.begin('tutorial', s, () => this.run());
+  },
+  run() {
+    this.on = true; this.i = 0; this.d = {}; document.body.classList.add('gw-tut-on');
+    if (!this.el) { this.el = document.createElement('div'); this.el.id = 'gw-tut'; document.body.appendChild(this.el); }
+    this.enter(); J.toast('TUTORIAL STARTED · PRESS K TO SKIP A STEP', 'good', 4000);
+  },
+  enter() { const st = this.steps[this.i]; this.d = {}; if (st.enter) st.enter(this.d); J.objective(st.t); this.render(); },
+  render() {
+    const st = this.steps[this.i], n = this.steps.length;
+    this.el.innerHTML = `<div class="hd">TUTORIAL · STEP ${this.i + 1} / ${n}</div><div class="bar"><i style="width:${this.i / (n - 1) * 100}%"></i></div>
+      <div class="t">${st.t}</div><div class="x">${st.x()}</div><div class="ft">${st.last ? `${this.key('K')} finish` : `${this.key('K')} skip step`} · ${this.key('Tab')} manual</div>`;
+  },
+  next() {
+    yt.ui(true); this.el.classList.remove('pop'); void this.el.offsetWidth; this.el.classList.add('pop');
+    if (this.steps[this.i].last) { this.finish(); return; }
+    this.i++; this.enter();
+  },
+  update() {
+    if (!this.on) return;
+    const st = this.steps[this.i];
+    if (this.i === 0) this.d.look = (this.d.look || 0) + Math.abs(Xt.mx) + Math.abs(Xt.my);
+    if (Xt.consume('KeyK')) { this.next(); return; }
+    if (this.doneT > 0) { this.doneT -= 1 / 60; if (this.doneT <= 0) this.next(); return; }
+    let ok = false; try { ok = st.ok(this.d); } catch (e) { ok = false; }
+    if (ok) { this.doneT = .6; this.el.querySelector('.t').innerHTML = '✓ ' + st.t; this.el.classList.add('done'); setTimeout(() => this.el && this.el.classList.remove('done'), 700); }
+    if (this.drone && this.drone.alive) this.flyDrone();
+  },
+  finish() {
+    this.on = false; document.body.classList.remove('gw-tut-on'); if (this.el) this.el.remove(); this.el = null;
+    J.toast('TUTORIAL COMPLETE', 'good', 4000); J.objective('Free play — start a campaign from the title screen when you are ready.');
+    if (!loadSave()) J.subtitle('Press Esc and reload to start a New Campaign, or keep exploring here.', 5000);
+  },
+  /* ---------- helpers ---------- */
+  spawnDrone() {
+    const fl = nt.flight, at = fl.systemPos.clone().addScaledVector(fl.forward(new V3()), 1400).add(new V3(0, 120, 0));
+    const e = new Ent({ kind: 'ship', type: 'fighter', team: 1, name: 'Training Drone', pos: at, mesh: buildFighter(1), rad: 14, air: true, veh: true, maxSh: 0, sh: 0, maxAr: 0, ar: 0, maxHp: 260, hp: 260 });
+    e.mesh.scale.setScalar(1.4); e.weapons = []; e.ai = null; e.tut = { c: at.clone(), a: 0 };
+    War.add(e); this.drone = e;
+  },
+  flyDrone() {
+    const e = this.drone, k = e.tut; k.a += .0035;
+    const p = k.c.clone().add(new V3(Math.cos(k.a) * 260, Math.sin(k.a * 1.7) * 60, Math.sin(k.a) * 260));
+    e.vel.copy(p).sub(e.pos).multiplyScalar(60); e.pos.copy(p);
+    e.quat.setFromRotationMatrix(new M4().lookAt(ZERO, new V3(-Math.sin(k.a), 0, Math.cos(k.a)), UP));
+  },
+  nearVerdara() {
+    const i = 2, C = Space.planetPos(i, new V3()), R = PLANETS[i].radius, fl = nt.flight;
+    const dir = fl.systemPos.clone().sub(C).normalize(); if (!isFinite(dir.x)) dir.set(0, .3, 1).normalize();
+    fl.systemPos.copy(C).addScaledVector(dir, R + Atmo.top(i) + 2500); fl.vel.set(0, 0, 0); fl.throttle = .3;
+    fl.quat.setFromRotationMatrix(new M4().lookAt(fl.systemPos, C, UP)); fl.resetCamera();
+    J.flash(.7); setTimeout(() => J.flash(0), 250);
+  },
+};
+
+/* =====================================================================
  * GALACTIC WARS add-on — 70: boot. Waits for the original game to finish
  * building its ship and solar system, then installs every module.
  * ===================================================================== */
@@ -7834,6 +8250,12 @@ function addManual() {
   const s = document.createElement('section');
   s.innerHTML = `<h4>GALACTIC WARS</h4><dl><dt>LMB</dt><dd>Fire guns / rifle</dd><dt>RMB</dt><dd>Missiles (locked) / aim</dd><dt>Y</dt><dd>Lock target ahead</dd><dt>N</dt><dd>Next hostile</dd><dt>I</dt><dd>Command Deck</dd><dt>1 2 · R</dt><dd>Weapons · reload</dd><dt>H</dt><dd>Requisition vehicle</dd><dt>E</dt><dd>Enter / exit vehicle</dd></dl>`;
   grid.appendChild(s);
+  // the flight manual: no more planet cycling or press-to-land
+  for (const dd of document.querySelectorAll('#helpin dd')) {
+    if (dd.textContent === 'Cycle nav target') { dd.textContent = 'Pick a destination on the holo-map'; dd.previousElementSibling.textContent = 'Map'; }
+    if (dd.textContent === 'Land / dock at target') dd.textContent = 'Landing burn at the beacon / lift off';
+  }
+  for (const dd of document.querySelectorAll('#helpin dd')) if (/EVA suit/.test(dd.innerHTML)) dd.innerHTML = 'Fly into any planet\'s atmosphere, break through the clouds and land at the beacon (<b>G</b>)';
 }
 (function bootWar() {
   if (!nt || !nt._booted || !nt.ship || !nt.spaceScene || !nt.flight) {
@@ -7842,10 +8264,11 @@ function addManual() {
     if (!bootWar.early) { bootWar.early = true; UI.install(); }
     return setTimeout(bootWar, 30);
   }
-  captureThree(); initModels(); FX.init(); HUD.build(); Planets.install(); War.install(); installTerminal(); addManual(); tuneChaseCamera();
+  captureThree(); initModels(); FX.init(); HUD.build(); Planets.install(); Atmo.install(); War.install();
+  { const op = nt.updatePost.bind(nt); nt.updatePost = function (t) { try { Tutorial.update(); } catch (e) { console.error('[tutorial]', e); } op(t); }; } installTerminal(); addManual(); tuneChaseCamera();
   // re-apply paint once a save is chosen
   const origStart = nt.start.bind(nt); nt.start = function () { origStart(); if (W.save) { if (!W.save.hull) { W.save.hull = 'wayfarer'; W.save.owned.hull = W.save.owned.hull || ['wayfarer']; } Paint.apply(); Hangar.apply(); } };
-  window.__WAR = { W, War, Space, Ground, Planets, Terrain, Fauna, SPECIES, UI, Net, AI, HUD, FACTIONS, PLANETS, T3, step(n, dt = 1 / 60) { for (let i = 0; i < n; i++) { nt.engine.time += dt; nt.frame(dt, nt.engine.time); } } };
+  window.__WAR = { W, War, Space, Ground, Planets, Terrain, Fauna, SPECIES, Atmo, Tutorial, UI, Net, AI, HUD, FACTIONS, PLANETS, T3, step(n, dt = 1 / 60) { for (let i = 0; i < n; i++) { nt.engine.time += dt; nt.frame(dt, nt.engine.time); } } };
 })();
 
 })();
