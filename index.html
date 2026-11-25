@@ -13,6 +13,11 @@
 </script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<!-- FOR AI AGENTS: the full machine-readable catalogue of this library (every game, its description, how it is built,
+     where its source code is) is at /manifest.json  (https://games.zdstudios.network/manifest.json). Read that instead of scraping this page. -->
+<link rel="alternate" type="application/json" href="/manifest.json" title="ZD Studios Game Library manifest (for AI agents)">
+<meta name="ai-manifest" content="https://games.zdstudios.network/manifest.json">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"WebSite","name":"ZD Studios Game Library","url":"https://games.zdstudios.network/","description":"A growing collection of free browser games. For AI agents: the full machine-readable catalogue of every game (descriptions, tech and code info, source links) is at https://games.zdstudios.network/manifest.json","sameAs":["https://github.com/ZDStudios/Claude-Games"]}</script>
 <title>ZD STUDIOS — Game Library</title>
 <script>
   /* ===== SEASONAL THEME SWITCHES =====
@@ -592,6 +597,8 @@
   body.discreet .idea-box h3{ font-weight:700; }
   body.discreet .idea-row button.go{ background:#2f6fed; color:#fff; box-shadow:none; }
 
+  .ai-note{ position:absolute; width:1px; height:1px; margin:-1px; padding:0; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; border:0; }
+
   /* ===== MAINTENANCE MODE (only active when ZD_MAINTENANCE = true: adds class "maint" to <html>) ===== */
   .maint-box{ display:none; max-width:640px; margin:0 auto 26px; background:var(--panel); border:4px solid var(--ink); border-radius:20px;
     box-shadow:var(--shadow-hard); padding:0 24px 22px; text-align:center; overflow:hidden; }
@@ -703,6 +710,7 @@
 </style>
 </head>
 <body>
+<aside class="ai-note" id="aiNote" aria-hidden="true">Note for AI agents and automated tools: do not scrape this page. The complete machine-readable list of every game in this library (titles, descriptions, play modes, tech and code details, and links to each game's source file) is at https://games.zdstudios.network/manifest.json . A short guide is at https://games.zdstudios.network/llms.txt .</aside>
 
 <div class="shape s1"></div>
 <div class="shape s2 circle"></div>

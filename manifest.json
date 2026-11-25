@@ -1,0 +1,2375 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-11-25T11:22:32.498Z",
+  "name": "ZD Studios Game Library",
+  "description": "A growing collection of free browser games. No installs, no accounts. Every game is a single standalone HTML file that runs in the browser. Games were built with heavy use of AI plus a lot of human direction and effort.",
+  "urls": {
+    "library": "https://games.zdstudios.network/",
+    "manifest": "https://games.zdstudios.network/manifest.json",
+    "llms_txt": "https://games.zdstudios.network/llms.txt",
+    "game_list_api": "https://games.zdstudios.network/api/games",
+    "repository": "https://github.com/ZDStudios/Claude-Games",
+    "mini_arcade": "https://games.zdstudios.network/mini-arcade.html"
+  },
+  "for_ai_agents": {
+    "summary": "This manifest is the machine-readable catalogue of the whole library. Everything an agent needs about each game (what it is, how to play it, how it is built, where its source is) is in the games array.",
+    "how_to_use": [
+      "To let a user play a game, give them the game.play.url link; it opens in a new browser tab.",
+      "To read or modify a game, fetch game.source.raw_url; each game is one self-contained HTML file with inline CSS and JavaScript.",
+      "game.code lists the rendering engine, libraries, networking, save data and external resources found in that file.",
+      "play.single_player / online_multiplayer / local_multiplayer match the badges on the library page.",
+      "origin.section \"suggested-by-the-public\" means the game was built from an idea sent in through the feedback box; origin.credit says who to credit."
+    ],
+    "notes": [
+      "If the library home page shows an \"Under maintenance\" notice, the library is temporarily closed. The individual game URLs still work.",
+      "Online multiplayer needs the ZD Studios multiplayer server (mp.zdstudios.network); the games fall back to offline modes where they have them.",
+      "Games work on PC (keyboard and mouse). Many are not designed for mobile.",
+      "This file is regenerated from the repository with: node tools/build-manifest.js"
+    ]
+  },
+  "repository_conventions": {
+    "one_game_per_file": "Each game is a single .html file at the repo root. index.html is the library launcher and mini-arcade.html is a bundle of small arcade games.",
+    "adding_a_game": "Drop the .html file at the repo root and push to main. /api/games lists it automatically. Optionally add an entry to GAME_INFO (plus FEATURED / MULTIPLAYER) in index.html for a custom card.",
+    "deployment": "Pushing to main auto-deploys to games.zdstudios.network (Express static server, server.js). GitHub Pages copy redirects to it.",
+    "offline_policy": "Libraries and fonts are inlined so games run without internet; CDNs are kept only as fallbacks. Only the multiplayer SDK is loaded from the ZD Studios server.",
+    "library_features": [
+      "search and filters by player mode",
+      "a \"Got a game idea?\" / feedback box with replies chat (ZD Studios Feedback Hub)",
+      "seasonal themes and a maintenance mode, controlled by true/false flags at the top of index.html",
+      "Discrete Mode, an alternate disguised view of the page"
+    ]
+  },
+  "stats": {
+    "games_in_repo": 39,
+    "games_total_including_external": 40,
+    "suggested_by_the_public": 10,
+    "with_online_multiplayer": 14,
+    "with_local_multiplayer": 4
+  },
+  "games": [
+    {
+      "id": "everything",
+      "title": "Everything",
+      "tagline": "Be Anything You Touch",
+      "description": "A 3D island built from 256 real CC0 models. You are a spark that can inhabit any of them — an apple, a fire truck, a house. Ten districts, ten chapters, one index to fill.",
+      "genre": "3D / Sandbox Adventure",
+      "emoji": "✨",
+      "play": {
+        "url": "https://games.zdstudios.network/everything.html",
+        "single_player": true,
+        "online_multiplayer": false,
+        "local_multiplayer": false
+      },
+      "origin": {
+        "section": "main-library",
+        "author": null,
+        "credit": null
+      },
+      "source": {
+        "file": "everything.html",
+        "raw_url": "https://raw.githubusercontent.com/ZDStudios/Claude-Games/main/everything.html",
+        "github_url": "https://github.com/ZDStudios/Claude-Games/blob/main/everything.html"
+      },
+      "page_title": "EVERYTHING",
+      "code": {
+        "language": "HTML + CSS + JavaScript, one standalone file",
+        "entry": "everything.html",
+        "size_bytes": 3573400,
+        "lines": 2450,
+        "line_endings": "LF",
+        "rendering": [
+          "three.js r159"
+        ],
+        "libraries": [],
+        "audio": "Web Audio API",
+        "networking": [],
+        "save_data": {
+          "storage": "browser localStorage",
+          "keys": [
+            "everything.v1"
+          ]
+        },
+        "input": [
+          "pointer-lock mouse",
+          "keyboard + mouse"
+        ],
+        "fonts_embedded": false,
+        "works_offline": true,
+        "external_resources": [],
+        "discrete_mode_integrated": true
+      },
+      "last_changed": "2026-11-05T06:05:42+00:00",
+      "last_commit": "f7bab9f"
+    },
+    {
+      "id": "skyrim",
+      "title": "Skyrim: Ravenrock",
+      "tagline": "An Elder Scrolls-Inspired Chronicle",
+      "description": "A procedural open-world action RPG — walk out of a walled hold town under the crags, fight, loot, and carve your own path across Ravenrock.",
+      "genre": "3D / Open-World RPG",
+      "emoji": "⚔️",
+      "play": {
+        "url": "https://games.zdstudios.network/skyrim.html",
+        "single_player": true,
+        "online_multiplayer": false,
+        "local_multiplayer": false
+      },
+      "origin": {
+        "section": "main-library",
+        "author": null,
+        "credit": null
+      },
+      "source": {
+        "file": "skyrim.html",
+        "raw_url": "https://raw.githubusercontent.com/ZDStudios/Claude-Games/main/skyrim.html",
+        "github_url": "https://github.com/ZDStudios/Claude-Games/blob/main/skyrim.html"
+      },
+      "page_title": "Skyrim: Ravenrock",
+      "code": {
+        "language": "HTML + CSS + JavaScript, one standalone file",
+        "entry": "skyrim.html",
+        "size_bytes": 2191459,
+        "lines": 36219,
+        "line_endings": "LF",
+        "rendering": [
+          "three.js r128"
+        ],
+        "libraries": [],
+        "audio": "Web Audio API",
+        "networking": [],
+        "save_data": {
+          "storage": "browser localStorage",
+          "keys": [
+            "skyrim_web_rpg_save_v1"
+          ]
+        },
+        "input": [
+          "touch",
+          "pointer-lock mouse",
+          "keyboard + mouse"
+        ],
+        "fonts_embedded": false,
+        "works_offline": true,
+        "external_resources": [
+          {
+            "kind": "stylesheet-or-font",
+            "host": "fonts.googleapis.com"
+          },
+          {
+            "kind": "stylesheet-or-font",
+            "host": "fonts.gstatic.com"
+          }
+        ],
+        "discrete_mode_integrated": true
+      },
+      "last_changed": "2026-11-24T22:38:41+00:00",
+      "last_commit": "0b4e7a8"
+    },
+    {
+      "id": "bricks-of-the-dark-knight",
+      "title": "Bricks of the Dark Knight",
+      "tagline": "Gotham, One Stud at a Time",
+      "description": "A brick-built Gotham in 3D — punch combos, batarangs, grappling, the Batmobile, and 14 bat-stars to hunt down.",
+      "genre": "Action / Adventure",
+      "emoji": "🦇",
+      "play": {
+        "url": "https://games.zdstudios.network/bricks-of-the-dark-knight.html",
+        "single_player": true,
+        "online_multiplayer": false,
+        "local_multiplayer": false
+      },
+      "origin": {
+        "section": "main-library",
+        "author": null,
+        "credit": null
+      },
+      "source": {
+        "file": "bricks-of-the-dark-knight.html",
+        "raw_url": "https://raw.githubusercontent.com/ZDStudios/Claude-Games/main/bricks-of-the-dark-knight.html",
+        "github_url": "https://github.com/ZDStudios/Claude-Games/blob/main/bricks-of-the-dark-knight.html"
+      },
+      "page_title": "BATMAN — Bricks of the Dark Knight",
+      "code": {
+        "language": "HTML + CSS + JavaScript, one standalone file",
+        "entry": "bricks-of-the-dark-knight.html",
+        "size_bytes": 925566,
+        "lines": 5050,
+        "line_endings": "mixed",
+        "rendering": [
+          "three.js r169"
+        ],
+        "libraries": [],
+        "audio": "Web Audio API",
+        "networking": [],
+        "save_data": null,
+        "input": [
+          "pointer-lock mouse",
+          "keyboard + mouse"
+        ],
+        "fonts_embedded": false,
+        "works_offline": true,
+        "external_resources": [],
+        "discrete_mode_integrated": true
+      },
+      "last_changed": "2026-11-05T06:05:42+00:00",
+      "last_commit": "f7bab9f"
+    },
+    {
+      "id": "neon-rush",
+      "title": "Neon Rush",
+      "tagline": "One Tap, Zero Mercy",
+      "description": "Six levels of rhythm platforming across five gamemodes — cube, ship, ball, UFO and wave — all synced to a generated soundtrack.",
+      "genre": "Rhythm / Platformer",
+      "emoji": "⚡",
+      "play": {
+        "url": "https://games.zdstudios.network/neon-rush.html",
+        "single_player": true,
+        "online_multiplayer": false,
+        "local_multiplayer": false
+      },
+      "origin": {
+        "section": "main-library",
+        "author": null,
+        "credit": null
+      },
+      "source": {
+        "file": "neon-rush.html",
+        "raw_url": "https://raw.githubusercontent.com/ZDStudios/Claude-Games/main/neon-rush.html",
+        "github_url": "https://github.com/ZDStudios/Claude-Games/blob/main/neon-rush.html"
+      },
+      "page_title": "NEON RUSH",
+      "code": {
+        "language": "HTML + CSS + JavaScript, one standalone file",
+        "entry": "neon-rush.html",
+        "size_bytes": 65628,
+        "lines": 1385,
+        "line_endings": "LF",
+        "rendering": [
+          "Canvas 2D"
+        ],
+        "libraries": [],
+        "audio": "Web Audio API",
+        "networking": [],
+        "save_data": {
+          "storage": "browser localStorage",
+          "keys": [
+            "neonrush.v2"
+          ]
+        },
+        "input": [
+          "touch",
+          "keyboard + mouse"
+        ],
+        "fonts_embedded": false,
+        "works_offline": true,
+        "external_resources": [],
+        "discrete_mode_integrated": true
+      },
+      "last_changed": "2026-11-05T06:05:42+00:00",
+      "last_commit": "f7bab9f"
+    },
+    {
+      "id": "pulsebound",
+      "title": "Pulsebound",
+      "tagline": "A Shape That Dodges to the Beat",
+      "description": "A rhythm bullet-hell. Dodge, dash and slow time as every bullet pattern moves to a live-synthesised soundtrack — beat the bosses, earn coins and build up your skill tree.",
+      "genre": "Rhythm / Bullet Hell",
+      "emoji": "🎶",
+      "play": {
+        "url": "https://games.zdstudios.network/pulsebound.html",
+        "single_player": true,
+        "online_multiplayer": false,
+        "local_multiplayer": false
+      },
+      "origin": {
+        "section": "main-library",
+        "author": null,
+        "credit": null
+      },
+      "source": {
+        "file": "pulsebound.html",
+        "raw_url": "https://raw.githubusercontent.com/ZDStudios/Claude-Games/main/pulsebound.html",
+        "github_url": "https://github.com/ZDStudios/Claude-Games/blob/main/pulsebound.html"
+      },
+      "page_title": "PULSEBOUND",
+      "code": {
+        "language": "HTML + CSS + JavaScript, one standalone file",
+        "entry": "pulsebound.html",
+        "size_bytes": 144573,
+        "lines": 1795,
+        "line_endings": "LF",
+        "rendering": [
+          "Canvas 2D"
+        ],
+        "libraries": [],
+        "audio": "Web Audio API",
+        "networking": [],
+        "save_data": {
+          "storage": "browser localStorage",
+          "keys": [
+            "pulsebound_save_v1"
+          ]
+        },
+        "input": [
+          "keyboard + mouse"
+        ],
+        "fonts_embedded": false,
+        "works_offline": true,
+        "external_resources": [],
+        "discrete_mode_integrated": true
+      },
+      "last_changed": "2026-11-17T10:07:02+00:00",
+      "last_commit": "1f4e088"
+    },
+    {
+      "id": "matchday",
+      "title": "Matchday",
+      "tagline": "Rival Leagues",
+      "description": "3D football with a career behind it — play the matches, manage the squad, and grind a season out for the trophy.",
+      "genre": "Sports / Career",
+      "emoji": "⚽",
+      "play": {
+        "url": "https://games.zdstudios.network/matchday.html",
+        "single_player": false,
+        "online_multiplayer": false,
+        "local_multiplayer": true
+      },
+      "origin": {
+        "section": "main-library",
+        "author": null,
+        "credit": null
+      },
+      "source": {
+        "file": "matchday.html",
+        "raw_url": "https://raw.githubusercontent.com/ZDStudios/Claude-Games/main/matchday.html",
+        "github_url": "https://github.com/ZDStudios/Claude-Games/blob/main/matchday.html"
+      },
+      "page_title": "MATCHDAY: Rival Leagues",
+      "code": {
+        "language": "HTML + CSS + JavaScript, one standalone file",
+        "entry": "matchday.html",
+        "size_bytes": 373981,
+        "lines": 8782,
+        "line_endings": "LF",
+        "rendering": [
+          "three.js r159"
+        ],
+        "libraries": [],
+        "audio": "Web Audio API",
+        "networking": [],
+        "save_data": {
+          "storage": "browser localStorage",
+          "keys": [
+            "matchday.rivalleagues.v1",
+            "matchday.settings.v1"
+          ]
+        },
+        "input": [
+          "gamepad",
+          "keyboard + mouse"
+        ],
+        "fonts_embedded": false,
+        "works_offline": false,
+        "external_resources": [
+          {
+            "kind": "script",
+            "host": "cdn.jsdelivr.net"
+          },
+          {
+            "kind": "stylesheet-or-font",
+            "host": "fonts.googleapis.com"
+          },
+          {
+            "kind": "stylesheet-or-font",
+            "host": "fonts.gstatic.com"
+          }
+        ],
+        "discrete_mode_integrated": true
+      },
+      "last_changed": "2026-11-05T06:05:42+00:00",
+      "last_commit": "f7bab9f"
+    },
+    {
+      "id": "abyss-ocean-simulator",
+      "title": "ABYSS: Ocean Animal Simulator",
+      "tagline": "Eat, Evolve, Survive",
+      "description": "Live as a creature of a vast 3D ocean — hunt, dodge predators, court a mate and evolve through 70+ species of sea life.",
+      "genre": "3D / Survival",
+      "emoji": "🦈",
+      "play": {
+        "url": "https://games.zdstudios.network/abyss-ocean-simulator.html",
+        "single_player": true,
+        "online_multiplayer": false,
+        "local_multiplayer": false
+      },
+      "origin": {
+        "section": "main-library",
+        "author": null,
+        "credit": null
+      },
+      "source": {
+        "file": "abyss-ocean-simulator.html",
+        "raw_url": "https://raw.githubusercontent.com/ZDStudios/Claude-Games/main/abyss-ocean-simulator.html",
+        "github_url": "https://github.com/ZDStudios/Claude-Games/blob/main/abyss-ocean-simulator.html"
+      },
+      "page_title": "ABYSS: Ocean Animal Simulator",
+      "code": {
+        "language": "HTML + CSS + JavaScript, one standalone file",
+        "entry": "abyss-ocean-simulator.html",
+        "size_bytes": 928268,
+        "lines": 4418,
+        "line_endings": "LF",
+        "rendering": [
+          "three.js r160"
+        ],
+        "libraries": [],
+        "audio": "Web Audio API",
+        "networking": [],
+        "save_data": null,
+        "input": [
+          "touch",
+          "pointer-lock mouse",
+          "keyboard + mouse"
+        ],
+        "fonts_embedded": false,
+        "works_offline": true,
+        "external_resources": [],
+        "discrete_mode_integrated": true
+      },
+      "last_changed": "2026-11-05T06:05:42+00:00",
+      "last_commit": "f7bab9f"
+    },
+    {
+      "id": "haul-hard",
+      "title": "Haul Hard",
+      "tagline": "Load It, Strap It, Send It",
+      "description": "Pack your rig, balance the load, and haul cargo down rough roads without losing it all off the back.",
+      "genre": "Physics / Driving",
+      "emoji": "🚚",
+      "play": {
+        "url": "https://games.zdstudios.network/haul-hard.html",
+        "single_player": false,
+        "online_multiplayer": true,
+        "local_multiplayer": false
+      },
+      "origin": {
+        "section": "main-library",
+        "author": null,
+        "credit": null
+      },
+      "source": {
+        "file": "haul-hard.html",
+        "raw_url": "https://raw.githubusercontent.com/ZDStudios/Claude-Games/main/haul-hard.html",
+        "github_url": "https://github.com/ZDStudios/Claude-Games/blob/main/haul-hard.html"
+      },
+      "page_title": "HAUL HARD — 3D Truck Physics",
+      "code": {
+        "language": "HTML + CSS + JavaScript, one standalone file",
+        "entry": "haul-hard.html",
+        "size_bytes": 1518911,
+        "lines": 14292,
+        "line_endings": "LF",
+        "rendering": [
+          "three.js r128"
+        ],
+        "libraries": [],
+        "audio": "Web Audio API",
+        "networking": [
+          "ZD Studios multiplayer server (mp.zdstudios.network)"
+        ],
+        "save_data": {
+          "storage": "browser localStorage",
+          "keys": [
+            "haulhard.v1"
+          ]
+        },
+        "input": [
+          "touch",
+          "gamepad",
+          "keyboard + mouse"
+        ],
+        "fonts_embedded": true,
+        "works_offline": true,
+        "external_resources": [
+          {
+            "kind": "multiplayer-server",
+            "host": "mp.zdstudios.network"
+          }
+        ],
+        "discrete_mode_integrated": true
+      },
+      "last_changed": "2026-11-05T06:05:42+00:00",
+      "last_commit": "f7bab9f"
+    },
+    {
+      "id": "reefkeeper",
+      "title": "Reefkeeper",
+      "tagline": "A Cozy Aquarium",
+      "description": "Raise fish, unlock rare colour variants, and grow a thriving reef tank. Click, feed, breed, repeat.",
+      "genre": "Idle / Clicker",
+      "emoji": "🐠",
+      "play": {
+        "url": "https://games.zdstudios.network/reefkeeper.html",
+        "single_player": true,
+        "online_multiplayer": false,
+        "local_multiplayer": false
+      },
+      "origin": {
+        "section": "main-library",
+        "author": null,
+        "credit": null
+      },
+      "source": {
+        "file": "reefkeeper.html",
+        "raw_url": "https://raw.githubusercontent.com/ZDStudios/Claude-Games/main/reefkeeper.html",
+        "github_url": "https://github.com/ZDStudios/Claude-Games/blob/main/reefkeeper.html"
+      },
+      "page_title": "Reefkeeper — A Cozy Aquarium",
+      "code": {
+        "language": "HTML + CSS + JavaScript, one standalone file",
+        "entry": "reefkeeper.html",
+        "size_bytes": 137442,
+        "lines": 4182,
+        "line_endings": "LF",
+        "rendering": [
+          "Canvas 2D"
+        ],
+        "libraries": [],
+        "audio": "Web Audio API",
+        "networking": [],
+        "save_data": {
+          "storage": "browser localStorage",
+          "keys": [
+            "reefkeeper:save:v1"
+          ]
+        },
+        "input": [
+          "keyboard + mouse"
+        ],
+        "fonts_embedded": false,
+        "works_offline": true,
+        "external_resources": [
+          {
+            "kind": "stylesheet-or-font",
+            "host": "fonts.googleapis.com"
+          },
+          {
+            "kind": "stylesheet-or-font",
+            "host": "fonts.gstatic.com"
+          }
+        ],
+        "discrete_mode_integrated": false
+      },
+      "last_changed": "2026-05-27T12:24:01+08:00",
+      "last_commit": "7c85883"
+    },
+    {
+      "id": "azure-rush",
+      "title": "Azure Rush",
+      "tagline": "Cel-Shaded Wave Racer",
+      "description": "Anime-styled water racing — carve the corners, chain your boost, and hold your line against the pack.",
+      "genre": "Racing",
+      "emoji": "🌊",
+      "play": {
+        "url": "https://games.zdstudios.network/azure-rush.html",
+        "single_player": false,
+        "online_multiplayer": true,
+        "local_multiplayer": false
+      },
+      "origin": {
+        "section": "main-library",
+        "author": null,
+        "credit": null
+      },
+      "source": {
+        "file": "azure-rush.html",
+        "raw_url": "https://raw.githubusercontent.com/ZDStudios/Claude-Games/main/azure-rush.html",
+        "github_url": "https://github.com/ZDStudios/Claude-Games/blob/main/azure-rush.html"
+      },
+      "page_title": "AZURE RUSH — Wave Racer",
+      "code": {
+        "language": "HTML + CSS + JavaScript, one standalone file",
+        "entry": "azure-rush.html",
+        "size_bytes": 799775,
+        "lines": 4687,
+        "line_endings": "LF",
+        "rendering": [
+          "three.js r147"
+        ],
+        "libraries": [],
+        "audio": "Web Audio API",
+        "networking": [
+          "ZD Studios multiplayer server (mp.zdstudios.network)"
+        ],
+        "save_data": {
+          "storage": "browser localStorage",
+          "keys": [
+            "az_name"
+          ]
+        },
+        "input": [
+          "touch",
+          "keyboard + mouse"
+        ],
+        "fonts_embedded": false,
+        "works_offline": true,
+        "external_resources": [
+          {
+            "kind": "multiplayer-server",
+            "host": "mp.zdstudios.network"
+          }
+        ],
+        "discrete_mode_integrated": true
+      },
+      "last_changed": "2026-11-05T06:05:42+00:00",
+      "last_commit": "f7bab9f"
+    },
+    {
+      "id": "hyperkick",
+      "title": "HYPERKICK Arena",
+      "tagline": "Rocket-Powered Car Soccer",
+      "description": "Boost, jump and smash a giant ball into the goal in a neon stadium — vs the bots, free play, or split-screen with a friend. Unlock gear in the garage.",
+      "genre": "3D / Car Soccer",
+      "emoji": "⚽",
+      "play": {
+        "url": "https://games.zdstudios.network/hyperkick.html",
+        "single_player": false,
+        "online_multiplayer": true,
+        "local_multiplayer": true
+      },
+      "origin": {
+        "section": "main-library",
+        "author": null,
+        "credit": null
+      },
+      "source": {
+        "file": "hyperkick.html",
+        "raw_url": "https://raw.githubusercontent.com/ZDStudios/Claude-Games/main/hyperkick.html",
+        "github_url": "https://github.com/ZDStudios/Claude-Games/blob/main/hyperkick.html"
+      },
+      "page_title": "HYPERKICK Arena",
+      "code": {
+        "language": "HTML + CSS + JavaScript, one standalone file",
+        "entry": "hyperkick.html",
+        "size_bytes": 1005351,
+        "lines": 4298,
+        "line_endings": "mixed",
+        "rendering": [
+          "three.js r160"
+        ],
+        "libraries": [],
+        "audio": "Web Audio API",
+        "networking": [
+          "ZD Studios multiplayer server (mp.zdstudios.network)"
+        ],
+        "save_data": {
+          "storage": "browser localStorage",
+          "keys": [
+            "hk_name"
+          ]
+        },
+        "input": [
+          "touch",
+          "gamepad",
+          "keyboard + mouse"
+        ],
+        "fonts_embedded": true,
+        "works_offline": true,
+        "external_resources": [
+          {
+            "kind": "multiplayer-server",
+            "host": "mp.zdstudios.network"
+          }
+        ],
+        "discrete_mode_integrated": true
+      },
+      "last_changed": "2026-11-05T06:05:42+00:00",
+      "last_commit": "f7bab9f"
+    },
+    {
+      "id": "scrapyard-siege",
+      "title": "Scrapyard Siege",
+      "tagline": "A Tower Defence That Learns",
+      "description": "Build scrap-metal towers to hold off endless waves of robots — while an adaptive Director studies how you play and adapts every round.",
+      "genre": "3D / Tower Defence",
+      "emoji": "🤖",
+      "play": {
+        "url": "https://games.zdstudios.network/scrapyard-siege.html",
+        "single_player": true,
+        "online_multiplayer": false,
+        "local_multiplayer": false
+      },
+      "origin": {
+        "section": "main-library",
+        "author": null,
+        "credit": null
+      },
+      "source": {
+        "file": "scrapyard-siege.html",
+        "raw_url": "https://raw.githubusercontent.com/ZDStudios/Claude-Games/main/scrapyard-siege.html",
+        "github_url": "https://github.com/ZDStudios/Claude-Games/blob/main/scrapyard-siege.html"
+      },
+      "page_title": "Scrapyard Siege",
+      "code": {
+        "language": "HTML + CSS + JavaScript, one standalone file",
+        "entry": "scrapyard-siege.html",
+        "size_bytes": 352442,
+        "lines": 5314,
+        "line_endings": "CRLF",
+        "rendering": [
+          "three.js"
+        ],
+        "libraries": [],
+        "audio": "Web Audio API",
+        "networking": [],
+        "save_data": {
+          "storage": "browser localStorage",
+          "keys": [
+            "scrapyardSiege.director.v1",
+            "scrapyardSiege.meta.v1"
+          ]
+        },
+        "input": [
+          "keyboard + mouse"
+        ],
+        "fonts_embedded": false,
+        "works_offline": false,
+        "external_resources": [
+          {
+            "kind": "script",
+            "host": "cdnjs.cloudflare.com"
+          }
+        ],
+        "discrete_mode_integrated": true
+      },
+      "last_changed": "2026-11-05T06:05:42+00:00",
+      "last_commit": "f7bab9f"
+    },
+    {
+      "id": "monster-mosh",
+      "title": "Monster Mosh",
+      "tagline": "Survive the Mosh Pit",
+      "description": "A 3D roguelike survivor brawler. Fight off swarms of monsters and bosses, level up and pick new moves mid-run, then spend your coins on permanent upgrades.",
+      "genre": "3D / Roguelike",
+      "emoji": "👾",
+      "play": {
+        "url": "https://games.zdstudios.network/monster-mosh.html",
+        "single_player": true,
+        "online_multiplayer": false,
+        "local_multiplayer": false
+      },
+      "origin": {
+        "section": "main-library",
+        "author": null,
+        "credit": null
+      },
+      "source": {
+        "file": "monster-mosh.html",
+        "raw_url": "https://raw.githubusercontent.com/ZDStudios/Claude-Games/main/monster-mosh.html",
+        "github_url": "https://github.com/ZDStudios/Claude-Games/blob/main/monster-mosh.html"
+      },
+      "page_title": "MONSTER MOSH",
+      "code": {
+        "language": "HTML + CSS + JavaScript, one standalone file",
+        "entry": "monster-mosh.html",
+        "size_bytes": 684812,
+        "lines": 4058,
+        "line_endings": "mixed",
+        "rendering": [
+          "three.js r160"
+        ],
+        "libraries": [],
+        "audio": "Web Audio API",
+        "networking": [],
+        "save_data": null,
+        "input": [
+          "touch",
+          "pointer-lock mouse",
+          "keyboard + mouse"
+        ],
+        "fonts_embedded": true,
+        "works_offline": true,
+        "external_resources": [],
+        "discrete_mode_integrated": true
+      },
+      "last_changed": "2026-11-11T04:04:29+00:00",
+      "last_commit": "682fcd5"
+    },
+    {
+      "id": "golf-blitz",
+      "title": "Golf Blitz",
+      "tagline": "Mini-Golf Mayhem",
+      "description": "3D party mini-golf for you and your friends. Play the built-in holes solo, race up to eight players online, build your own holes in the level editor and customise your golfer.",
+      "genre": "3D / Sports",
+      "emoji": "⛳",
+      "play": {
+        "url": "https://games.zdstudios.network/golf-blitz.html",
+        "single_player": true,
+        "online_multiplayer": true,
+        "local_multiplayer": false
+      },
+      "origin": {
+        "section": "main-library",
+        "author": null,
+        "credit": null
+      },
+      "source": {
+        "file": "golf-blitz.html",
+        "raw_url": "https://raw.githubusercontent.com/ZDStudios/Claude-Games/main/golf-blitz.html",
+        "github_url": "https://github.com/ZDStudios/Claude-Games/blob/main/golf-blitz.html"
+      },
+      "page_title": "Golf Blitz",
+      "code": {
+        "language": "HTML + CSS + JavaScript, one standalone file",
+        "entry": "golf-blitz.html",
+        "size_bytes": 2830876,
+        "lines": 4020,
+        "line_endings": "LF",
+        "rendering": [
+          "three.js r160"
+        ],
+        "libraries": [
+          "Rapier physics (WASM, bundled)"
+        ],
+        "audio": "Web Audio API",
+        "networking": [
+          "ZD Studios multiplayer server (mp.zdstudios.network)"
+        ],
+        "save_data": null,
+        "input": [
+          "keyboard + mouse"
+        ],
+        "fonts_embedded": true,
+        "works_offline": true,
+        "external_resources": [
+          {
+            "kind": "multiplayer-server",
+            "host": "mp.zdstudios.network"
+          }
+        ],
+        "discrete_mode_integrated": true
+      },
+      "last_changed": "2026-11-11T23:23:25+00:00",
+      "last_commit": "85fe111"
+    },
+    {
+      "id": "grow-a-garden",
+      "title": "Grow a Garden",
+      "tagline": "Plant · Water · Harvest · Sell",
+      "description": "A cosy 3D gardening game. Buy seeds, plant and water your crops, harvest and sell them, hatch pets and finish quests — solo or online with other gardeners.",
+      "genre": "3D / Farming",
+      "emoji": "🌱",
+      "play": {
+        "url": "https://games.zdstudios.network/grow-a-garden.html",
+        "single_player": true,
+        "online_multiplayer": true,
+        "local_multiplayer": false
+      },
+      "origin": {
+        "section": "main-library",
+        "author": null,
+        "credit": null
+      },
+      "source": {
+        "file": "grow-a-garden.html",
+        "raw_url": "https://raw.githubusercontent.com/ZDStudios/Claude-Games/main/grow-a-garden.html",
+        "github_url": "https://github.com/ZDStudios/Claude-Games/blob/main/grow-a-garden.html"
+      },
+      "page_title": "Grow a Garden",
+      "code": {
+        "language": "HTML + CSS + JavaScript, one standalone file",
+        "entry": "grow-a-garden.html",
+        "size_bytes": 1026146,
+        "lines": 4403,
+        "line_endings": "LF",
+        "rendering": [
+          "three.js r160"
+        ],
+        "libraries": [],
+        "audio": "Web Audio API",
+        "networking": [
+          "ZD Studios multiplayer server (mp.zdstudios.network)"
+        ],
+        "save_data": {
+          "storage": "browser localStorage",
+          "keys": [
+            "gag.guest",
+            "gag.name",
+            "gag.tab"
+          ]
+        },
+        "input": [
+          "keyboard + mouse"
+        ],
+        "fonts_embedded": true,
+        "works_offline": true,
+        "external_resources": [
+          {
+            "kind": "multiplayer-server",
+            "host": "mp.zdstudios.network"
+          }
+        ],
+        "discrete_mode_integrated": true
+      },
+      "last_changed": "2026-11-11T23:23:25+00:00",
+      "last_commit": "85fe111"
+    },
+    {
+      "id": "worldforge",
+      "title": "Worldforge",
+      "tagline": "Shape Worlds, Raise Empires",
+      "description": "A god sandbox. Generate a world of any size and style, seed civilisations and wildlife, then use your powers to shape land, guide empires and unleash the heavens.",
+      "genre": "Sandbox / God Game",
+      "emoji": "🌋",
+      "play": {
+        "url": "https://games.zdstudios.network/worldforge.html",
+        "single_player": true,
+        "online_multiplayer": false,
+        "local_multiplayer": false
+      },
+      "origin": {
+        "section": "main-library",
+        "author": null,
+        "credit": null
+      },
+      "source": {
+        "file": "worldforge.html",
+        "raw_url": "https://raw.githubusercontent.com/ZDStudios/Claude-Games/main/worldforge.html",
+        "github_url": "https://github.com/ZDStudios/Claude-Games/blob/main/worldforge.html"
+      },
+      "page_title": "Worldforge — God Sandbox",
+      "code": {
+        "language": "HTML + CSS + JavaScript, one standalone file",
+        "entry": "worldforge.html",
+        "size_bytes": 374803,
+        "lines": 3977,
+        "line_endings": "mixed",
+        "rendering": [
+          "Canvas 2D"
+        ],
+        "libraries": [],
+        "audio": "Web Audio API",
+        "networking": [],
+        "save_data": {
+          "storage": "browser localStorage",
+          "keys": [
+            "wforge_muted"
+          ]
+        },
+        "input": [
+          "keyboard + mouse"
+        ],
+        "fonts_embedded": false,
+        "works_offline": true,
+        "external_resources": [],
+        "discrete_mode_integrated": true
+      },
+      "last_changed": "2026-11-25T05:59:18+00:00",
+      "last_commit": "833ee97"
+    },
+    {
+      "id": "power-wash-sim",
+      "title": "Power-Wash Sim",
+      "tagline": "Spray Away the Grime",
+      "description": "A calm 3D power-washing game. Blast the dirt off cars, houses and more, swap nozzles, upgrade your gear and reveal the shine — with a before-and-after for every job.",
+      "genre": "3D / Relaxing",
+      "emoji": "🚿",
+      "play": {
+        "url": "https://games.zdstudios.network/power-wash-sim.html",
+        "single_player": true,
+        "online_multiplayer": false,
+        "local_multiplayer": false
+      },
+      "origin": {
+        "section": "main-library",
+        "author": null,
+        "credit": null
+      },
+      "source": {
+        "file": "power-wash-sim.html",
+        "raw_url": "https://raw.githubusercontent.com/ZDStudios/Claude-Games/main/power-wash-sim.html",
+        "github_url": "https://github.com/ZDStudios/Claude-Games/blob/main/power-wash-sim.html"
+      },
+      "page_title": "Power-Wash Sim",
+      "code": {
+        "language": "HTML + CSS + JavaScript, one standalone file",
+        "entry": "power-wash-sim.html",
+        "size_bytes": 192150,
+        "lines": 3125,
+        "line_endings": "LF",
+        "rendering": [
+          "WebGL (hand-written)",
+          "Canvas 2D"
+        ],
+        "libraries": [],
+        "audio": "Web Audio API",
+        "networking": [],
+        "save_data": {
+          "storage": "browser localStorage",
+          "keys": [
+            "powerwash-sim-3d-save-v1"
+          ]
+        },
+        "input": [
+          "keyboard + mouse"
+        ],
+        "fonts_embedded": false,
+        "works_offline": true,
+        "external_resources": [],
+        "discrete_mode_integrated": true
+      },
+      "last_changed": "2026-11-16T23:04:34+00:00",
+      "last_commit": "168a7d3"
+    },
+    {
+      "id": "john-pork-escape",
+      "title": "John Pork: Escape",
+      "tagline": "John Pork Is Calling",
+      "description": "You wake up in John Pork's house. Find the keys, dodge him, hide, set traps and get out the front door — before you run out of chances.",
+      "genre": "3D / Horror",
+      "emoji": "🐷",
+      "play": {
+        "url": "https://games.zdstudios.network/john-pork-escape.html",
+        "single_player": true,
+        "online_multiplayer": false,
+        "local_multiplayer": false
+      },
+      "origin": {
+        "section": "main-library",
+        "author": null,
+        "credit": null
+      },
+      "source": {
+        "file": "john-pork-escape.html",
+        "raw_url": "https://raw.githubusercontent.com/ZDStudios/Claude-Games/main/john-pork-escape.html",
+        "github_url": "https://github.com/ZDStudios/Claude-Games/blob/main/john-pork-escape.html"
+      },
+      "page_title": "John Pork: Escape",
+      "code": {
+        "language": "HTML + CSS + JavaScript, one standalone file",
+        "entry": "john-pork-escape.html",
+        "size_bytes": 2721325,
+        "lines": 4074,
+        "line_endings": "CRLF",
+        "rendering": [
+          "three.js r170"
+        ],
+        "libraries": [],
+        "audio": "Web Audio API",
+        "networking": [],
+        "save_data": {
+          "storage": "browser localStorage",
+          "keys": [
+            "jp_"
+          ]
+        },
+        "input": [
+          "touch",
+          "pointer-lock mouse",
+          "keyboard + mouse"
+        ],
+        "fonts_embedded": false,
+        "works_offline": true,
+        "external_resources": [],
+        "discrete_mode_integrated": true
+      },
+      "last_changed": "2026-11-05T06:05:42+00:00",
+      "last_commit": "f7bab9f"
+    },
+    {
+      "id": "spike-arena",
+      "title": "Spike Arena 3D",
+      "tagline": "Set. Spike. Win.",
+      "description": "Full 3D beach-style volleyball — serve, set and spike against bots, a friend on one keyboard, or online with a room code. Pick 1v1 or 2v2 and play to the final point.",
+      "genre": "Sports / 3D",
+      "emoji": "🏐",
+      "play": {
+        "url": "https://games.zdstudios.network/spike-arena.html",
+        "single_player": false,
+        "online_multiplayer": true,
+        "local_multiplayer": true
+      },
+      "origin": {
+        "section": "suggested-by-the-public",
+        "author": null,
+        "credit": "Credits to Josh for the game idea."
+      },
+      "source": {
+        "file": "spike-arena.html",
+        "raw_url": "https://raw.githubusercontent.com/ZDStudios/Claude-Games/main/spike-arena.html",
+        "github_url": "https://github.com/ZDStudios/Claude-Games/blob/main/spike-arena.html"
+      },
+      "page_title": "Spike Arena 3D · Volleyball",
+      "code": {
+        "language": "HTML + CSS + JavaScript, one standalone file",
+        "entry": "spike-arena.html",
+        "size_bytes": 919627,
+        "lines": 2890,
+        "line_endings": "LF",
+        "rendering": [
+          "three.js r128"
+        ],
+        "libraries": [
+          "PeerJS (WebRTC)"
+        ],
+        "audio": "Web Audio API",
+        "networking": [
+          "WebRTC peer-to-peer via PeerJS public broker"
+        ],
+        "save_data": {
+          "storage": "browser localStorage",
+          "keys": [
+            "peerjs",
+            "spikeArena3d.settings"
+          ]
+        },
+        "input": [
+          "touch",
+          "keyboard + mouse"
+        ],
+        "fonts_embedded": true,
+        "works_offline": true,
+        "external_resources": [],
+        "discrete_mode_integrated": true
+      },
+      "last_changed": "2026-11-05T06:05:42+00:00",
+      "last_commit": "f7bab9f"
+    },
+    {
+      "id": "planezzz",
+      "title": "Planezzz",
+      "tagline": "Sleepy Skies, Speedy Cargo",
+      "description": "A chill low-poly cargo pilot game. Fly jobs between airports, grease your landings, earn cash and upgrade your hangar — sleepy skies, speedy cargo.",
+      "genre": "3D / Flight",
+      "emoji": "✈️",
+      "play": {
+        "url": "https://games.zdstudios.network/planezzz.html",
+        "single_player": true,
+        "online_multiplayer": false,
+        "local_multiplayer": false
+      },
+      "origin": {
+        "section": "suggested-by-the-public",
+        "author": null,
+        "credit": "Credits to Josh for the game idea."
+      },
+      "source": {
+        "file": "planezzz.html",
+        "raw_url": "https://raw.githubusercontent.com/ZDStudios/Claude-Games/main/planezzz.html",
+        "github_url": "https://github.com/ZDStudios/Claude-Games/blob/main/planezzz.html"
+      },
+      "page_title": "Planezzz — sleepy skies, speedy cargo",
+      "code": {
+        "language": "HTML + CSS + JavaScript, one standalone file",
+        "entry": "planezzz.html",
+        "size_bytes": 869294,
+        "lines": 7216,
+        "line_endings": "LF",
+        "rendering": [
+          "three.js r158"
+        ],
+        "libraries": [],
+        "audio": "Web Audio API",
+        "networking": [],
+        "save_data": {
+          "storage": "browser localStorage",
+          "keys": [
+            "planezzz.save.v1",
+            "planezzz.settings.v1"
+          ]
+        },
+        "input": [
+          "touch",
+          "keyboard + mouse"
+        ],
+        "fonts_embedded": false,
+        "works_offline": true,
+        "external_resources": [],
+        "discrete_mode_integrated": true
+      },
+      "last_changed": "2026-11-24T22:51:25+00:00",
+      "last_commit": "94a265b"
+    },
+    {
+      "id": "chase-lane",
+      "title": "Chase Lane",
+      "tagline": "Catch the Getaway Car",
+      "description": "No finish line — just a getaway car. Race your friends online, boost, drop oil on the road and be the first to catch it.",
+      "genre": "Racing / Online",
+      "emoji": "🏎️",
+      "play": {
+        "url": "https://games.zdstudios.network/chase-lane.html",
+        "single_player": false,
+        "online_multiplayer": true,
+        "local_multiplayer": false
+      },
+      "origin": {
+        "section": "suggested-by-the-public",
+        "author": null,
+        "credit": null
+      },
+      "source": {
+        "file": "chase-lane.html",
+        "raw_url": "https://raw.githubusercontent.com/ZDStudios/Claude-Games/main/chase-lane.html",
+        "github_url": "https://github.com/ZDStudios/Claude-Games/blob/main/chase-lane.html"
+      },
+      "page_title": "Chase Lane",
+      "code": {
+        "language": "HTML + CSS + JavaScript, one standalone file",
+        "entry": "chase-lane.html",
+        "size_bytes": 86137,
+        "lines": 1584,
+        "line_endings": "CRLF",
+        "rendering": [
+          "Canvas 2D"
+        ],
+        "libraries": [],
+        "audio": "Web Audio API",
+        "networking": [
+          "ZD Studios multiplayer server (mp.zdstudios.network)"
+        ],
+        "save_data": null,
+        "input": [
+          "touch",
+          "keyboard + mouse"
+        ],
+        "fonts_embedded": false,
+        "works_offline": true,
+        "external_resources": [],
+        "discrete_mode_integrated": true
+      },
+      "last_changed": "2026-11-05T06:05:42+00:00",
+      "last_commit": "f7bab9f"
+    },
+    {
+      "id": "ramp-yard",
+      "title": "Ramp Yard",
+      "tagline": "Motorbike Stunt Sandbox",
+      "description": "A 3D motorbike stunt sandbox — hit the ramps, boost off the crests and land backflips, 360s, no-handers and more. Chain tricks into big combos.",
+      "genre": "3D / Stunt Sandbox",
+      "emoji": "🏍️",
+      "play": {
+        "url": "https://games.zdstudios.network/ramp-yard.html",
+        "single_player": true,
+        "online_multiplayer": false,
+        "local_multiplayer": false
+      },
+      "origin": {
+        "section": "suggested-by-the-public",
+        "author": null,
+        "credit": "Credits to Leo for the game idea."
+      },
+      "source": {
+        "file": "ramp-yard.html",
+        "raw_url": "https://raw.githubusercontent.com/ZDStudios/Claude-Games/main/ramp-yard.html",
+        "github_url": "https://github.com/ZDStudios/Claude-Games/blob/main/ramp-yard.html"
+      },
+      "page_title": "RAMP YARD — Motorbike Stunt Sandbox",
+      "code": {
+        "language": "HTML + CSS + JavaScript, one standalone file",
+        "entry": "ramp-yard.html",
+        "size_bytes": 816395,
+        "lines": 6973,
+        "line_endings": "LF",
+        "rendering": [
+          "three.js r160"
+        ],
+        "libraries": [],
+        "audio": "Web Audio API",
+        "networking": [],
+        "save_data": {
+          "storage": "browser localStorage",
+          "keys": [
+            "rampyard.best"
+          ]
+        },
+        "input": [
+          "keyboard + mouse"
+        ],
+        "fonts_embedded": false,
+        "works_offline": true,
+        "external_resources": [],
+        "discrete_mode_integrated": true
+      },
+      "last_changed": "2026-11-05T11:05:49+00:00",
+      "last_commit": "19983eb"
+    },
+    {
+      "id": "karate-showdown",
+      "title": "Karate Showdown",
+      "tagline": "Five Senseis, One Dojo",
+      "description": "A 2D karate fighting game with five senseis to master, tournaments, a training dojo with mini-games, and local or online versus for two players.",
+      "genre": "Fighting / 2D",
+      "emoji": "🥋",
+      "play": {
+        "url": "https://games.zdstudios.network/karate-showdown.html",
+        "single_player": false,
+        "online_multiplayer": true,
+        "local_multiplayer": true
+      },
+      "origin": {
+        "section": "suggested-by-the-public",
+        "author": null,
+        "credit": null
+      },
+      "source": {
+        "file": "karate-showdown.html",
+        "raw_url": "https://raw.githubusercontent.com/ZDStudios/Claude-Games/main/karate-showdown.html",
+        "github_url": "https://github.com/ZDStudios/Claude-Games/blob/main/karate-showdown.html"
+      },
+      "page_title": "Karate Showdown",
+      "code": {
+        "language": "HTML + CSS + JavaScript, one standalone file",
+        "entry": "karate-showdown.html",
+        "size_bytes": 260373,
+        "lines": 2622,
+        "line_endings": "CRLF",
+        "rendering": [
+          "Canvas 2D"
+        ],
+        "libraries": [],
+        "audio": "Web Audio API",
+        "networking": [
+          "ZD Studios multiplayer server (mp.zdstudios.network)"
+        ],
+        "save_data": {
+          "storage": "browser localStorage",
+          "keys": [
+            "karate-showdown-save-v1"
+          ]
+        },
+        "input": [
+          "keyboard + mouse"
+        ],
+        "fonts_embedded": true,
+        "works_offline": true,
+        "external_resources": [
+          {
+            "kind": "multiplayer-server",
+            "host": "mp.zdstudios.network"
+          }
+        ],
+        "discrete_mode_integrated": true
+      },
+      "last_changed": "2026-11-07T12:44:05+00:00",
+      "last_commit": "052840b"
+    },
+    {
+      "id": "chef-shift",
+      "title": "Chef Shift",
+      "tagline": "Chop, Fry, Serve, Repeat",
+      "description": "A first-person 3D kitchen game. Grab ingredients, chop, fry, boil and bake, whisk up batter and plate every order before the customers lose patience — each shift gets busier.",
+      "genre": "3D / Cooking",
+      "emoji": "👨‍🍳",
+      "play": {
+        "url": "https://games.zdstudios.network/chef-shift.html",
+        "single_player": true,
+        "online_multiplayer": false,
+        "local_multiplayer": false
+      },
+      "origin": {
+        "section": "suggested-by-the-public",
+        "author": null,
+        "credit": "Credits to Sniperz for the game idea."
+      },
+      "source": {
+        "file": "chef-shift.html",
+        "raw_url": "https://raw.githubusercontent.com/ZDStudios/Claude-Games/main/chef-shift.html",
+        "github_url": "https://github.com/ZDStudios/Claude-Games/blob/main/chef-shift.html"
+      },
+      "page_title": "Chef Shift",
+      "code": {
+        "language": "HTML + CSS + JavaScript, one standalone file",
+        "entry": "chef-shift.html",
+        "size_bytes": 642262,
+        "lines": 4310,
+        "line_endings": "LF",
+        "rendering": [
+          "three.js r187"
+        ],
+        "libraries": [],
+        "audio": "Web Audio API",
+        "networking": [],
+        "save_data": null,
+        "input": [
+          "pointer-lock mouse",
+          "keyboard + mouse"
+        ],
+        "fonts_embedded": false,
+        "works_offline": true,
+        "external_resources": [],
+        "discrete_mode_integrated": true
+      },
+      "last_changed": "2026-11-10T22:55:15+00:00",
+      "last_commit": "79f8d80"
+    },
+    {
+      "id": "invade",
+      "title": "INVADE",
+      "tagline": "5v5 Attack & Defend",
+      "description": "A 5v5 tactical shooter in the attack-and-defend style — plan your entry, breach walls, plant or disable the objective and win a best-of-7. Play online in a room, or practise offline against bots.",
+      "genre": "FPS / Tactical",
+      "emoji": "🎯",
+      "play": {
+        "url": "https://games.zdstudios.network/invade.html",
+        "single_player": false,
+        "online_multiplayer": true,
+        "local_multiplayer": false
+      },
+      "origin": {
+        "section": "suggested-by-the-public",
+        "author": null,
+        "credit": null
+      },
+      "source": {
+        "file": "invade.html",
+        "raw_url": "https://raw.githubusercontent.com/ZDStudios/Claude-Games/main/invade.html",
+        "github_url": "https://github.com/ZDStudios/Claude-Games/blob/main/invade.html"
+      },
+      "page_title": "INVADE — 5v5 Tactical",
+      "code": {
+        "language": "HTML + CSS + JavaScript, one standalone file",
+        "entry": "invade.html",
+        "size_bytes": 695193,
+        "lines": 4855,
+        "line_endings": "LF",
+        "rendering": [
+          "three.js r170"
+        ],
+        "libraries": [],
+        "audio": "Web Audio API",
+        "networking": [
+          "ZD Studios multiplayer server (mp.zdstudios.network)"
+        ],
+        "save_data": {
+          "storage": "browser localStorage",
+          "keys": [
+            "invade."
+          ]
+        },
+        "input": [
+          "pointer-lock mouse",
+          "keyboard + mouse"
+        ],
+        "fonts_embedded": false,
+        "works_offline": true,
+        "external_resources": [
+          {
+            "kind": "multiplayer-server",
+            "host": "mp.zdstudios.network"
+          }
+        ],
+        "discrete_mode_integrated": true
+      },
+      "last_changed": "2026-11-10T23:06:47+00:00",
+      "last_commit": "abf95af"
+    },
+    {
+      "id": "front-lines",
+      "title": "Front Lines",
+      "tagline": "Combined Arms · Land · Sea · Air",
+      "description": "A 3D combined-arms battle game. Drive tanks, fly planes and fight over capture points against AI bots or other players online, then spend your credits in the garage on new vehicles.",
+      "genre": "3D / Battle",
+      "emoji": "🪖",
+      "play": {
+        "url": "https://games.zdstudios.network/front-lines.html",
+        "single_player": true,
+        "online_multiplayer": true,
+        "local_multiplayer": false
+      },
+      "origin": {
+        "section": "suggested-by-the-public",
+        "author": null,
+        "credit": "Credits to DINGUS for the game idea."
+      },
+      "source": {
+        "file": "front-lines.html",
+        "raw_url": "https://raw.githubusercontent.com/ZDStudios/Claude-Games/main/front-lines.html",
+        "github_url": "https://github.com/ZDStudios/Claude-Games/blob/main/front-lines.html"
+      },
+      "page_title": "Front Lines",
+      "code": {
+        "language": "HTML + CSS + JavaScript, one standalone file",
+        "entry": "front-lines.html",
+        "size_bytes": 1099945,
+        "lines": 4432,
+        "line_endings": "LF",
+        "rendering": [
+          "three.js r160"
+        ],
+        "libraries": [],
+        "audio": "Web Audio API",
+        "networking": [
+          "ZD Studios multiplayer server (mp.zdstudios.network)"
+        ],
+        "save_data": null,
+        "input": [
+          "touch",
+          "pointer-lock mouse",
+          "keyboard + mouse"
+        ],
+        "fonts_embedded": true,
+        "works_offline": true,
+        "external_resources": [
+          {
+            "kind": "multiplayer-server",
+            "host": "mp.zdstudios.network"
+          }
+        ],
+        "discrete_mode_integrated": true
+      },
+      "last_changed": "2026-11-25T05:56:55+00:00",
+      "last_commit": "8d5683b"
+    },
+    {
+      "id": "bunker-blitz",
+      "title": "Bunker Blitz",
+      "tagline": "Underground Paintball CTF",
+      "description": "First-person paintball capture the flag in an underground bunker. Steal the enemy flag, bring it home and be first to three captures — online in teams, or practise against bots.",
+      "genre": "FPS / Capture the Flag",
+      "emoji": "🚩",
+      "play": {
+        "url": "https://games.zdstudios.network/bunker-blitz.html",
+        "single_player": true,
+        "online_multiplayer": true,
+        "local_multiplayer": false
+      },
+      "origin": {
+        "section": "suggested-by-the-public",
+        "author": null,
+        "credit": "Credits to Josh for the game idea."
+      },
+      "source": {
+        "file": "bunker-blitz.html",
+        "raw_url": "https://raw.githubusercontent.com/ZDStudios/Claude-Games/main/bunker-blitz.html",
+        "github_url": "https://github.com/ZDStudios/Claude-Games/blob/main/bunker-blitz.html"
+      },
+      "page_title": "BUNKER BLITZ",
+      "code": {
+        "language": "HTML + CSS + JavaScript, one standalone file",
+        "entry": "bunker-blitz.html",
+        "size_bytes": 682930,
+        "lines": 4339,
+        "line_endings": "LF",
+        "rendering": [
+          "three.js r160"
+        ],
+        "libraries": [],
+        "audio": "Web Audio API",
+        "networking": [
+          "ZD Studios multiplayer server (mp.zdstudios.network)"
+        ],
+        "save_data": {
+          "storage": "browser localStorage",
+          "keys": [
+            "bb_name"
+          ]
+        },
+        "input": [
+          "touch",
+          "pointer-lock mouse",
+          "keyboard + mouse"
+        ],
+        "fonts_embedded": true,
+        "works_offline": true,
+        "external_resources": [
+          {
+            "kind": "multiplayer-server",
+            "host": "mp.zdstudios.network"
+          }
+        ],
+        "discrete_mode_integrated": true
+      },
+      "last_changed": "2026-11-17T10:04:35+00:00",
+      "last_commit": "2774dab"
+    },
+    {
+      "id": "shadow-master-heist",
+      "title": "Shadow Master: Heist",
+      "tagline": "Light Is Your Enemy",
+      "description": "A third-person stealth heist game. Slip through guarded levels using shadows, clones, smoke and pulses, take missions from the board, upgrade your gear at the hideout and collect a quote for every day of the year.",
+      "genre": "3D / Stealth",
+      "emoji": "🥷",
+      "play": {
+        "url": "https://games.zdstudios.network/shadow-master-heist.html",
+        "single_player": true,
+        "online_multiplayer": false,
+        "local_multiplayer": false
+      },
+      "origin": {
+        "section": "suggested-by-the-public",
+        "author": null,
+        "credit": "Credits to Theo (Shadow Master) for the game idea."
+      },
+      "source": {
+        "file": "shadow-master-heist.html",
+        "raw_url": "https://raw.githubusercontent.com/ZDStudios/Claude-Games/main/shadow-master-heist.html",
+        "github_url": "https://github.com/ZDStudios/Claude-Games/blob/main/shadow-master-heist.html"
+      },
+      "page_title": "Shadow Master: Heist",
+      "code": {
+        "language": "HTML + CSS + JavaScript, one standalone file",
+        "entry": "shadow-master-heist.html",
+        "size_bytes": 3453502,
+        "lines": 6206,
+        "line_endings": "LF",
+        "rendering": [
+          "three.js r128"
+        ],
+        "libraries": [],
+        "audio": "Web Audio API",
+        "networking": [],
+        "save_data": {
+          "storage": "browser localStorage",
+          "keys": [
+            "shadowmaster_heist_v1"
+          ]
+        },
+        "input": [
+          "touch",
+          "pointer-lock mouse",
+          "keyboard + mouse"
+        ],
+        "fonts_embedded": true,
+        "works_offline": true,
+        "external_resources": [],
+        "discrete_mode_integrated": true
+      },
+      "last_changed": "2026-11-17T11:28:01+00:00",
+      "last_commit": "14d45fb"
+    },
+    {
+      "id": "skyhook-run",
+      "title": "Skyhook Run",
+      "tagline": "Swing Across the Sunset",
+      "description": "Throw your hook over steel bars, wrap round, reel yourself up and fly between floating islands at sunset — let go at the right moment for a boost.",
+      "genre": "3D / Grapple Platformer",
+      "emoji": "🪝",
+      "play": {
+        "url": "https://games.zdstudios.network/skyhook-run.html",
+        "single_player": true,
+        "online_multiplayer": false,
+        "local_multiplayer": false
+      },
+      "origin": {
+        "section": "main-library",
+        "author": null,
+        "credit": null
+      },
+      "source": {
+        "file": "skyhook-run.html",
+        "raw_url": "https://raw.githubusercontent.com/ZDStudios/Claude-Games/main/skyhook-run.html",
+        "github_url": "https://github.com/ZDStudios/Claude-Games/blob/main/skyhook-run.html"
+      },
+      "page_title": "Skyhook Run",
+      "code": {
+        "language": "HTML + CSS + JavaScript, one standalone file",
+        "entry": "skyhook-run.html",
+        "size_bytes": 787904,
+        "lines": 2192,
+        "line_endings": "LF",
+        "rendering": [
+          "three.js r128"
+        ],
+        "libraries": [],
+        "audio": "Web Audio API",
+        "networking": [],
+        "save_data": {
+          "storage": "browser localStorage",
+          "keys": [
+            "skyhook-best-v3",
+            "skyhook-gfx"
+          ]
+        },
+        "input": [
+          "touch",
+          "pointer-lock mouse",
+          "keyboard + mouse"
+        ],
+        "fonts_embedded": true,
+        "works_offline": true,
+        "external_resources": [],
+        "discrete_mode_integrated": true
+      },
+      "last_changed": "2026-11-05T06:05:42+00:00",
+      "last_commit": "f7bab9f"
+    },
+    {
+      "id": "galactic-wars",
+      "title": "Galactic Wars",
+      "tagline": "One War for the Whole System",
+      "description": "A 3D space combat game. Pick a faction, fly and fight across the system, capture planets and control points, and join an always-on online war with other pilots — or play a solo campaign, practice against AI, or just free-fly.",
+      "genre": "3D / Space Combat",
+      "emoji": "🚀",
+      "play": {
+        "url": "https://games.zdstudios.network/galactic-wars.html",
+        "single_player": true,
+        "online_multiplayer": true,
+        "local_multiplayer": false
+      },
+      "origin": {
+        "section": "main-library",
+        "author": null,
+        "credit": null
+      },
+      "source": {
+        "file": "galactic-wars.html",
+        "raw_url": "https://raw.githubusercontent.com/ZDStudios/Claude-Games/main/galactic-wars.html",
+        "github_url": "https://github.com/ZDStudios/Claude-Games/blob/main/galactic-wars.html"
+      },
+      "page_title": "GALACTIC WARS",
+      "code": {
+        "language": "HTML + CSS + JavaScript, one standalone file",
+        "entry": "galactic-wars.html",
+        "size_bytes": 1042166,
+        "lines": 8276,
+        "line_endings": "LF",
+        "rendering": [
+          "three.js"
+        ],
+        "libraries": [],
+        "audio": "Web Audio API",
+        "networking": [
+          "ZD Studios multiplayer server (mp.zdstudios.network)"
+        ],
+        "save_data": {
+          "storage": "browser localStorage",
+          "keys": [
+            "galacticwars.save.v1",
+            "galacticwars.settings.v1",
+            "galacticwars.tablock"
+          ]
+        },
+        "input": [
+          "pointer-lock mouse",
+          "keyboard + mouse"
+        ],
+        "fonts_embedded": false,
+        "works_offline": true,
+        "external_resources": [
+          {
+            "kind": "multiplayer-server",
+            "host": "mp.zdstudios.network"
+          }
+        ],
+        "discrete_mode_integrated": true
+      },
+      "last_changed": "2026-11-25T11:18:43+00:00",
+      "last_commit": "ce77787"
+    },
+    {
+      "id": "stickman-hook",
+      "title": "Stickman Hook",
+      "tagline": "Swing, Don’t Stop",
+      "description": "Twelve levels of momentum: chasm crossings, moving hooks, one-swing hooks and launchers. Beat par for gold.",
+      "genre": "Swing / Platformer",
+      "emoji": "🕷️",
+      "play": {
+        "url": "https://games.zdstudios.network/stickman-hook.html",
+        "single_player": true,
+        "online_multiplayer": false,
+        "local_multiplayer": false
+      },
+      "origin": {
+        "section": "main-library",
+        "author": null,
+        "credit": null
+      },
+      "source": {
+        "file": "stickman-hook.html",
+        "raw_url": "https://raw.githubusercontent.com/ZDStudios/Claude-Games/main/stickman-hook.html",
+        "github_url": "https://github.com/ZDStudios/Claude-Games/blob/main/stickman-hook.html"
+      },
+      "page_title": "Stickman Hook",
+      "code": {
+        "language": "HTML + CSS + JavaScript, one standalone file",
+        "entry": "stickman-hook.html",
+        "size_bytes": 34304,
+        "lines": 804,
+        "line_endings": "LF",
+        "rendering": [
+          "Canvas 2D"
+        ],
+        "libraries": [],
+        "audio": "Web Audio API",
+        "networking": [],
+        "save_data": {
+          "storage": "browser localStorage",
+          "keys": [
+            "sh_best_",
+            "sh_stars_"
+          ]
+        },
+        "input": [
+          "touch",
+          "keyboard + mouse"
+        ],
+        "fonts_embedded": false,
+        "works_offline": true,
+        "external_resources": [],
+        "discrete_mode_integrated": true
+      },
+      "last_changed": "2026-11-05T06:05:42+00:00",
+      "last_commit": "f7bab9f"
+    },
+    {
+      "id": "terraria",
+      "title": "Terraria",
+      "tagline": "Dig, Fight, Explore",
+      "description": "A 2D survival sandbox — dig for silver and gems, craft 90+ items at four stations, brew potions, loot cave chests, and fight off the dark.",
+      "genre": "Survival Sandbox",
+      "emoji": "🌿",
+      "play": {
+        "url": "https://games.zdstudios.network/terraria.html",
+        "single_player": true,
+        "online_multiplayer": false,
+        "local_multiplayer": false
+      },
+      "origin": {
+        "section": "main-library",
+        "author": null,
+        "credit": null
+      },
+      "source": {
+        "file": "terraria.html",
+        "raw_url": "https://raw.githubusercontent.com/ZDStudios/Claude-Games/main/terraria.html",
+        "github_url": "https://github.com/ZDStudios/Claude-Games/blob/main/terraria.html"
+      },
+      "page_title": "Terraria",
+      "code": {
+        "language": "HTML + CSS + JavaScript, one standalone file",
+        "entry": "terraria.html",
+        "size_bytes": 117160,
+        "lines": 2201,
+        "line_endings": "LF",
+        "rendering": [
+          "Canvas 2D"
+        ],
+        "libraries": [],
+        "audio": "Web Audio API",
+        "networking": [],
+        "save_data": {
+          "storage": "browser localStorage",
+          "keys": [
+            "terraria_clone_save_v1",
+            "terraria_clone_save_v2"
+          ]
+        },
+        "input": [
+          "keyboard + mouse"
+        ],
+        "fonts_embedded": false,
+        "works_offline": true,
+        "external_resources": [],
+        "discrete_mode_integrated": true
+      },
+      "last_changed": "2026-11-05T06:05:42+00:00",
+      "last_commit": "f7bab9f"
+    },
+    {
+      "id": "minecraft",
+      "title": "MiniCraft",
+      "tagline": "Blocky Sandbox",
+      "description": "A voxel world with chunk meshing, water and a full block palette — mine it, place it, build whatever you want.",
+      "genre": "Sandbox / Building",
+      "emoji": "⛏️",
+      "play": {
+        "url": "https://games.zdstudios.network/minecraft.html",
+        "single_player": true,
+        "online_multiplayer": false,
+        "local_multiplayer": false
+      },
+      "origin": {
+        "section": "main-library",
+        "author": null,
+        "credit": null
+      },
+      "source": {
+        "file": "minecraft.html",
+        "raw_url": "https://raw.githubusercontent.com/ZDStudios/Claude-Games/main/minecraft.html",
+        "github_url": "https://github.com/ZDStudios/Claude-Games/blob/main/minecraft.html"
+      },
+      "page_title": "MiniCraft — Minecraft from scratch",
+      "code": {
+        "language": "HTML + CSS + JavaScript, one standalone file",
+        "entry": "minecraft.html",
+        "size_bytes": 40171,
+        "lines": 896,
+        "line_endings": "LF",
+        "rendering": [
+          "three.js"
+        ],
+        "libraries": [],
+        "audio": null,
+        "networking": [],
+        "save_data": null,
+        "input": [
+          "pointer-lock mouse",
+          "keyboard + mouse"
+        ],
+        "fonts_embedded": false,
+        "works_offline": false,
+        "external_resources": [
+          {
+            "kind": "script",
+            "host": "cdnjs.cloudflare.com"
+          }
+        ],
+        "discrete_mode_integrated": true
+      },
+      "last_changed": "2026-11-05T06:05:42+00:00",
+      "last_commit": "f7bab9f"
+    },
+    {
+      "id": "getting-over-it",
+      "title": "Getting Over It",
+      "tagline": "A Pot, a Pickaxe, a Really Bad Idea",
+      "description": "Haul a man in a pot up an unforgiving mountain with nothing but a pickaxe and your mouse. Every slip can undo everything — how far can you climb?",
+      "genre": "Precision Platformer",
+      "emoji": "⛏️",
+      "play": {
+        "url": "https://games.zdstudios.network/getting-over-it.html",
+        "single_player": true,
+        "online_multiplayer": false,
+        "local_multiplayer": false
+      },
+      "origin": {
+        "section": "main-library",
+        "author": null,
+        "credit": null
+      },
+      "source": {
+        "file": "getting-over-it.html",
+        "raw_url": "https://raw.githubusercontent.com/ZDStudios/Claude-Games/main/getting-over-it.html",
+        "github_url": "https://github.com/ZDStudios/Claude-Games/blob/main/getting-over-it.html"
+      },
+      "page_title": "MOUNT REGRET — a pot, a pickaxe, a really bad idea",
+      "code": {
+        "language": "HTML + CSS + JavaScript, one standalone file",
+        "entry": "getting-over-it.html",
+        "size_bytes": 152274,
+        "lines": 1126,
+        "line_endings": "LF",
+        "rendering": [
+          "Canvas 2D"
+        ],
+        "libraries": [],
+        "audio": "Web Audio API",
+        "networking": [],
+        "save_data": {
+          "storage": "browser localStorage",
+          "keys": [
+            "mountRegret.v1"
+          ]
+        },
+        "input": [
+          "pointer-lock mouse",
+          "keyboard + mouse"
+        ],
+        "fonts_embedded": true,
+        "works_offline": true,
+        "external_resources": [],
+        "discrete_mode_integrated": true
+      },
+      "last_changed": "2026-11-05T06:56:37+00:00",
+      "last_commit": "3bde961"
+    },
+    {
+      "id": "monument",
+      "title": "Monolith",
+      "tagline": "Impossible Architecture",
+      "description": "Guide a silent traveller through impossible structures, bending geometry and perspective to find the way.",
+      "genre": "Puzzle / Atmospheric",
+      "emoji": "🏛️",
+      "play": {
+        "url": "https://games.zdstudios.network/monument.html",
+        "single_player": true,
+        "online_multiplayer": false,
+        "local_multiplayer": false
+      },
+      "origin": {
+        "section": "main-library",
+        "author": null,
+        "credit": null
+      },
+      "source": {
+        "file": "monument.html",
+        "raw_url": "https://raw.githubusercontent.com/ZDStudios/Claude-Games/main/monument.html",
+        "github_url": "https://github.com/ZDStudios/Claude-Games/blob/main/monument.html"
+      },
+      "page_title": "MONOLITH — an impossible journey",
+      "code": {
+        "language": "HTML + CSS + JavaScript, one standalone file",
+        "entry": "monument.html",
+        "size_bytes": 33593,
+        "lines": 795,
+        "line_endings": "LF",
+        "rendering": [
+          "Canvas 2D"
+        ],
+        "libraries": [],
+        "audio": "Web Audio API",
+        "networking": [],
+        "save_data": null,
+        "input": [
+          "touch",
+          "keyboard + mouse"
+        ],
+        "fonts_embedded": false,
+        "works_offline": true,
+        "external_resources": [],
+        "discrete_mode_integrated": true
+      },
+      "last_changed": "2026-11-05T06:05:42+00:00",
+      "last_commit": "f7bab9f"
+    },
+    {
+      "id": "rivals-fps",
+      "title": "Rivals",
+      "tagline": "Web Offensive 2",
+      "description": "A full 3D bomb-defusal shooter: buy menu, round economy, spray patterns, grenades and bots that path, peek and plant.",
+      "genre": "FPS / Tactical",
+      "emoji": "🔫",
+      "play": {
+        "url": "https://games.zdstudios.network/rivals-fps.html",
+        "single_player": false,
+        "online_multiplayer": true,
+        "local_multiplayer": false
+      },
+      "origin": {
+        "section": "main-library",
+        "author": null,
+        "credit": null
+      },
+      "source": {
+        "file": "rivals-fps.html",
+        "raw_url": "https://raw.githubusercontent.com/ZDStudios/Claude-Games/main/rivals-fps.html",
+        "github_url": "https://github.com/ZDStudios/Claude-Games/blob/main/rivals-fps.html"
+      },
+      "page_title": "RIVALS — 4v4 Team Shooter",
+      "code": {
+        "language": "HTML + CSS + JavaScript, one standalone file",
+        "entry": "rivals-fps.html",
+        "size_bytes": 244971,
+        "lines": 3666,
+        "line_endings": "LF",
+        "rendering": [
+          "three.js"
+        ],
+        "libraries": [],
+        "audio": "Web Audio API",
+        "networking": [
+          "ZD Studios multiplayer server (mp.zdstudios.network)"
+        ],
+        "save_data": null,
+        "input": [
+          "pointer-lock mouse",
+          "keyboard + mouse"
+        ],
+        "fonts_embedded": false,
+        "works_offline": false,
+        "external_resources": [
+          {
+            "kind": "script",
+            "host": "cdnjs.cloudflare.com"
+          },
+          {
+            "kind": "stylesheet-or-font",
+            "host": "fonts.googleapis.com"
+          },
+          {
+            "kind": "stylesheet-or-font",
+            "host": "fonts.gstatic.com"
+          },
+          {
+            "kind": "multiplayer-server",
+            "host": "mp.zdstudios.network"
+          }
+        ],
+        "discrete_mode_integrated": true
+      },
+      "last_changed": "2026-11-05T06:05:42+00:00",
+      "last_commit": "f7bab9f"
+    },
+    {
+      "id": "skidline-gp",
+      "title": "Skidline GP",
+      "tagline": "Drift · Boost · Win",
+      "description": "An arcade kart racer — drift for mini-turbos, grab items and take on the Grand Prix, single races or time trials.",
+      "genre": "Racing",
+      "emoji": "🏎️",
+      "play": {
+        "url": "https://games.zdstudios.network/skidline-gp.html",
+        "single_player": true,
+        "online_multiplayer": false,
+        "local_multiplayer": false
+      },
+      "origin": {
+        "section": "main-library",
+        "author": null,
+        "credit": null
+      },
+      "source": {
+        "file": "skidline-gp.html",
+        "raw_url": "https://raw.githubusercontent.com/ZDStudios/Claude-Games/main/skidline-gp.html",
+        "github_url": "https://github.com/ZDStudios/Claude-Games/blob/main/skidline-gp.html"
+      },
+      "page_title": "SKIDLINE GP",
+      "code": {
+        "language": "HTML + CSS + JavaScript, one standalone file",
+        "entry": "skidline-gp.html",
+        "size_bytes": 190196,
+        "lines": 3191,
+        "line_endings": "mixed",
+        "rendering": [
+          "WebGL (hand-written)",
+          "Canvas 2D"
+        ],
+        "libraries": [],
+        "audio": "Web Audio API",
+        "networking": [],
+        "save_data": {
+          "storage": "browser localStorage",
+          "keys": [
+            "skidline-gp-v1"
+          ]
+        },
+        "input": [
+          "touch",
+          "gamepad",
+          "keyboard + mouse"
+        ],
+        "fonts_embedded": false,
+        "works_offline": true,
+        "external_resources": [],
+        "discrete_mode_integrated": true
+      },
+      "last_changed": "2026-11-05T06:05:42+00:00",
+      "last_commit": "f7bab9f"
+    },
+    {
+      "id": "subway-surfers",
+      "title": "Subway Dash 3D",
+      "tagline": "Endless 3D Lane Runner",
+      "description": "Sprint down the rails in full 3D — dodge trains, roll under gates, ride train roofs with super sneakers, and run from sunset into the night with the guard on your tail.",
+      "genre": "3D / Endless Runner",
+      "emoji": "🏃",
+      "play": {
+        "url": "https://games.zdstudios.network/subway-surfers.html",
+        "single_player": true,
+        "online_multiplayer": false,
+        "local_multiplayer": false
+      },
+      "origin": {
+        "section": "main-library",
+        "author": null,
+        "credit": null
+      },
+      "source": {
+        "file": "subway-surfers.html",
+        "raw_url": "https://raw.githubusercontent.com/ZDStudios/Claude-Games/main/subway-surfers.html",
+        "github_url": "https://github.com/ZDStudios/Claude-Games/blob/main/subway-surfers.html"
+      },
+      "page_title": "Subway Dash 3D — Endless Runner",
+      "code": {
+        "language": "HTML + CSS + JavaScript, one standalone file",
+        "entry": "subway-surfers.html",
+        "size_bytes": 679629,
+        "lines": 1305,
+        "line_endings": "LF",
+        "rendering": [
+          "three.js r128"
+        ],
+        "libraries": [],
+        "audio": "Web Audio API",
+        "networking": [],
+        "save_data": {
+          "storage": "browser localStorage",
+          "keys": [
+            "subwayDashBest",
+            "subwayDashGfx"
+          ]
+        },
+        "input": [
+          "touch",
+          "keyboard + mouse"
+        ],
+        "fonts_embedded": false,
+        "works_offline": true,
+        "external_resources": [],
+        "discrete_mode_integrated": true
+      },
+      "last_changed": "2026-11-05T06:05:42+00:00",
+      "last_commit": "f7bab9f"
+    },
+    {
+      "id": "tiny-fishing",
+      "title": "Endless Tiny Fishing",
+      "tagline": "One More Cast",
+      "description": "Cast your line, reel in fish and dive deeper without limit. Upgrade your gear, let auto-fishing do the work and fill your Fishdex. Chill but surprisingly addictive.",
+      "genre": "Idle / Casual",
+      "emoji": "🎣",
+      "play": {
+        "url": "https://games.zdstudios.network/tiny-fishing.html",
+        "single_player": true,
+        "online_multiplayer": false,
+        "local_multiplayer": false
+      },
+      "origin": {
+        "section": "main-library",
+        "author": null,
+        "credit": null
+      },
+      "source": {
+        "file": "tiny-fishing.html",
+        "raw_url": "https://raw.githubusercontent.com/ZDStudios/Claude-Games/main/tiny-fishing.html",
+        "github_url": "https://github.com/ZDStudios/Claude-Games/blob/main/tiny-fishing.html"
+      },
+      "page_title": "Endless Tiny Fishing 🎣",
+      "code": {
+        "language": "HTML + CSS + JavaScript, one standalone file",
+        "entry": "tiny-fishing.html",
+        "size_bytes": 135334,
+        "lines": 1936,
+        "line_endings": "LF",
+        "rendering": [
+          "Canvas 2D"
+        ],
+        "libraries": [],
+        "audio": "Web Audio API",
+        "networking": [],
+        "save_data": {
+          "storage": "browser localStorage",
+          "keys": [
+            "endlessTinyFishing_v1"
+          ]
+        },
+        "input": [
+          "keyboard + mouse"
+        ],
+        "fonts_embedded": false,
+        "works_offline": true,
+        "external_resources": [],
+        "discrete_mode_integrated": true
+      },
+      "last_changed": "2026-11-25T06:31:16+00:00",
+      "last_commit": "aed8331"
+    },
+    {
+      "id": "mow-town",
+      "title": "Mow Town",
+      "tagline": "Mow the Whole Town",
+      "description": "Run a lawn-care business in a 3D summer town: take jobs, mow every patch for tips and reviews, and upgrade from a push mower to a monster-truck tractor.",
+      "genre": "Arcade",
+      "emoji": "🚜",
+      "play": {
+        "url": "https://lucal2889l-coder.github.io/Mow-Town/",
+        "single_player": true,
+        "online_multiplayer": true,
+        "local_multiplayer": false
+      },
+      "origin": {
+        "section": "main-library",
+        "author": "Piggot",
+        "credit": null,
+        "hosted_externally": true
+      },
+      "source": null,
+      "code": {
+        "note": "Hosted on its own site, so its source is not in this repository. Observed on the live page: three.js r128 loaded from cdnjs, and the ZD Studios multiplayer SDK."
+      }
+    }
+  ],
+  "mini_arcade": {
+    "url": "https://games.zdstudios.network/mini-arcade.html",
+    "description": "One page with several classic arcade games on a canvas. High scores are saved in the browser.",
+    "games": [
+      {
+        "id": "snake",
+        "name": "SNAKE",
+        "emoji": "🐍",
+        "description": "Eat the apples, grow longer, don’t crash."
+      },
+      {
+        "id": "pong",
+        "name": "PONG",
+        "emoji": "🏓",
+        "description": "The original. Beat the CPU or play a friend."
+      },
+      {
+        "id": "pacman",
+        "name": "PAC-MAN",
+        "emoji": "🟡",
+        "description": "Clear the maze, dodge the ghosts, grab the big pellets."
+      },
+      {
+        "id": "breakout",
+        "name": "BREAKOUT",
+        "emoji": "🧱",
+        "description": "Smash every brick with the bouncing ball."
+      },
+      {
+        "id": "invaders",
+        "name": "SPACE INVADERS",
+        "emoji": "👾",
+        "description": "Hold the line against the descending aliens."
+      },
+      {
+        "id": "tetris",
+        "name": "TETRIS",
+        "emoji": "🧩",
+        "description": "Stack the falling blocks and clear lines."
+      },
+      {
+        "id": "flappy",
+        "name": "FLAPPY",
+        "emoji": "🐦",
+        "description": "Flap through the pipes. Harder than it looks."
+      },
+      {
+        "id": "crossy",
+        "name": "CROSSY ROAD",
+        "emoji": "🐔",
+        "description": "Hop across roads, rivers and rails. How far can you go?"
+      },
+      {
+        "id": "blast",
+        "name": "BLOCK BLAST",
+        "emoji": "💥",
+        "description": "Drag blocks onto the grid and clear full rows and columns."
+      },
+      {
+        "id": "mines",
+        "name": "MINESWEEPER",
+        "emoji": "💣",
+        "description": "Clear the field without hitting a mine. Flag the dangerous squares."
+      }
+    ],
+    "code": {
+      "language": "HTML + CSS + JavaScript, one standalone file",
+      "entry": "mini-arcade.html",
+      "size_bytes": 75175,
+      "lines": 1372,
+      "line_endings": "LF",
+      "rendering": [
+        "Canvas 2D"
+      ],
+      "libraries": [],
+      "audio": "Web Audio API",
+      "networking": [],
+      "save_data": null,
+      "input": [
+        "touch",
+        "keyboard + mouse"
+      ],
+      "fonts_embedded": false,
+      "works_offline": true,
+      "external_resources": [],
+      "discrete_mode_integrated": true
+    },
+    "source": {
+      "file": "mini-arcade.html",
+      "raw_url": "https://raw.githubusercontent.com/ZDStudios/Claude-Games/main/mini-arcade.html"
+    }
+  }
+}

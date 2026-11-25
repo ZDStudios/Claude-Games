@@ -1,0 +1,22 @@
+# ZD Studios Game Library
+
+> A growing collection of free browser games. No installs, no accounts. Every game is one standalone HTML file that runs in the browser (PC keyboard and mouse; many are not designed for mobile). The games were built with heavy use of AI plus a lot of human direction and effort.
+
+## Start here
+
+- [Machine-readable manifest](https://games.zdstudios.network/manifest.json): every game with its title, description, genre, play modes (single player / online / local multiplayer), credits, tech and code details, and links to its source file. Read this instead of scraping the home page.
+- [Game list API](https://games.zdstudios.network/api/games): the plain list of game files currently in the library.
+- [Source repository](https://github.com/ZDStudios/Claude-Games): each game is a single .html file at the repo root.
+
+## How to use the manifest
+
+- To let a user play a game, give them the game's `play.url`.
+- To read or change a game's code, fetch its `source.raw_url` (one self-contained HTML file with inline CSS and JavaScript).
+- `code` on each game lists the rendering engine, libraries, networking, save data and any external resources.
+- `origin.section` is "suggested-by-the-public" for games built from an idea sent in through the feedback box; `origin.credit` says who to credit.
+
+## Notes
+
+- If the home page shows an "Under maintenance" notice, the library is temporarily closed; individual game URLs still work.
+- Online multiplayer uses the ZD Studios multiplayer server and needs an internet connection.
+- The manifest is regenerated from the repository with `node tools/build-manifest.js`.
