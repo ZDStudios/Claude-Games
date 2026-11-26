@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-11-26T02:20:23.695Z",
+  "generated_at": "2026-11-26T04:41:41.459Z",
   "name": "ZD Studios Game Library",
   "description": "A growing collection of free browser games. No installs, no accounts. Every game is a single standalone HTML file that runs in the browser. Games were built with heavy use of AI plus a lot of human direction and effort.",
   "urls": {
@@ -40,9 +40,9 @@
     ]
   },
   "stats": {
-    "games_in_repo": 41,
-    "games_total_including_external": 42,
-    "suggested_by_the_public": 11,
+    "games_in_repo": 42,
+    "games_total_including_external": 43,
+    "suggested_by_the_public": 12,
     "with_online_multiplayer": 15,
     "with_local_multiplayer": 4
   },
@@ -1750,8 +1750,56 @@
         ],
         "discrete_mode_integrated": true
       },
-      "last_changed": "2026-11-25T23:10:08+00:00",
-      "last_commit": "e803df7"
+      "last_changed": "2026-11-26T02:20:23+00:00",
+      "last_commit": "816e171"
+    },
+    {
+      "id": "riftbound",
+      "title": "Riftbound",
+      "tagline": "Arena Field Guide",
+      "description": "A single-player 3v3 arena battler. Pick a champion, master four abilities, buy upgrades in the shop and fight your way down the lane of the Shattered Vale against bots at three difficulty levels.",
+      "genre": "Arena / MOBA",
+      "emoji": "⚔️",
+      "play": {
+        "url": "https://games.zdstudios.network/riftbound.html",
+        "single_player": true,
+        "online_multiplayer": false,
+        "local_multiplayer": false
+      },
+      "origin": {
+        "section": "suggested-by-the-public",
+        "author": null,
+        "credit": "Credits to Josh for the game idea."
+      },
+      "source": {
+        "file": "riftbound.html",
+        "raw_url": "https://raw.githubusercontent.com/ZDStudios/Claude-Games/main/riftbound.html",
+        "github_url": "https://github.com/ZDStudios/Claude-Games/blob/main/riftbound.html"
+      },
+      "page_title": "Riftbound · Battle Lobby",
+      "code": {
+        "language": "HTML + CSS + JavaScript, one standalone file",
+        "entry": "riftbound.html",
+        "size_bytes": 141572,
+        "lines": 4758,
+        "line_endings": "LF",
+        "rendering": [
+          "Canvas 2D"
+        ],
+        "libraries": [],
+        "audio": "Web Audio API",
+        "networking": [],
+        "save_data": null,
+        "input": [
+          "keyboard + mouse"
+        ],
+        "fonts_embedded": false,
+        "works_offline": true,
+        "external_resources": [],
+        "discrete_mode_integrated": true
+      },
+      "last_changed": null,
+      "last_commit": null
     },
     {
       "id": "skyhook-run",

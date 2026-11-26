@@ -1,0 +1,4757 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta name="theme-color" content="#100f19" />
+    <title>Riftbound · Battle Lobby</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --bg: #100f18;
+        --panel: #191722;
+        --border: #393441;
+        --muted: #a29aa9;
+        --gold: #dfc494;
+        --violet: #b09ae3;
+        --white: #f3ebe1;
+        --display: Georgia, "Times New Roman", serif;
+        --sans: "Segoe UI", Arial, sans-serif;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--white);
+        font: 14px var(--sans);
+        min-height: 100vh;
+      }
+      button,
+      select {
+        font: inherit;
+        color: inherit;
+      }
+      button {
+        cursor: pointer;
+      }
+      button:focus-visible,
+      a:focus-visible {
+        outline: 2px solid #e6c785;
+        outline-offset: 4px;
+      }
+      button {
+        border: 0;
+        background: transparent;
+      }
+      canvas {
+        display: block;
+      }
+      .hidden,
+      [hidden] {
+        display: none !important;
+      }
+      .eyebrow,
+      .tiny,
+      nav button,
+      .brand,
+      .action,
+      .sectionLabel,
+      .statLabel,
+      .difficulty button,
+      .role,
+      .overlayTag,
+      .badge {
+        font-weight: 650;
+        text-transform: uppercase;
+        letter-spacing: 0.16em;
+      }
+      .eyebrow,
+      .tiny,
+      .sectionLabel,
+      .statLabel,
+      .role,
+      .overlayTag,
+      .badge {
+        font-size: 10px;
+      }
+      .tiny {
+        letter-spacing: 0.11em;
+      }
+      .top {
+        height: 72px;
+        border-bottom: 1px solid #37303e;
+        background: #121019;
+        display: flex;
+        align-items: center;
+        padding: 0 max(4.6vw, 24px);
+        gap: 48px;
+        position: relative;
+        z-index: 2;
+      }
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 11px;
+        color: #e6cf9f;
+        font-family: var(--display);
+        font-weight: 600;
+        letter-spacing: 0.14em;
+        font-size: 21px;
+        padding: 0;
+      }
+      .brand canvas {
+        width: 34px;
+        height: 39px;
+      }
+      nav {
+        display: flex;
+        align-self: stretch;
+        gap: 28px;
+      }
+      nav button {
+        font-size: 10px;
+        color: #a49baa;
+        letter-spacing: 0.14em;
+        position: relative;
+        padding: 0 2px;
+      }
+      nav button.active {
+        color: #ebd7ac;
+      }
+      nav button.active:after {
+        content: "";
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        background: #d5ad69;
+        height: 2px;
+      }
+      .topRight {
+        margin-left: auto;
+        display: flex;
+        align-items: center;
+        gap: 20px;
+      }
+      .status {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        color: #b8b0bb;
+        letter-spacing: 0.12em;
+        font-size: 9px;
+        text-transform: uppercase;
+        font-weight: bold;
+      }
+      .dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: #83bda0;
+        box-shadow: 0 0 8px #69bd8e77;
+      }
+      .sound,
+      .close {
+        border: 1px solid #3b3542;
+        border-radius: 5px;
+        width: 33px;
+        height: 33px;
+        display: grid;
+        place-items: center;
+        background: #211d29;
+      }
+      .sound canvas {
+        width: 17px;
+        height: 17px;
+      }
+      #lobby {
+        min-height: 100vh;
+        position: relative;
+        isolation: isolate;
+        overflow: hidden;
+      }
+      #backdrop {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        z-index: -1;
+        pointer-events: none;
+      }
+      main {
+        max-width: 1510px;
+        margin: auto;
+        padding: 35px max(4.6vw, 24px) 22px;
+      }
+      .pageHead {
+        display: flex;
+        align-items: end;
+        justify-content: space-between;
+        margin-bottom: 24px;
+      }
+      .eyebrow,
+      .sectionLabel {
+        color: var(--gold);
+      }
+      .crestLine {
+        display: flex;
+        align-items: center;
+        gap: 9px;
+      }
+      .crestLine:before {
+        content: "";
+        width: 22px;
+        height: 1px;
+        background: #c0a16e;
+      }
+      h1,
+      h2,
+      h3,
+      p {
+        margin: 0;
+      }
+      h1,
+      h2,
+      h3 {
+        font-family: var(--display);
+        font-weight: normal;
+      }
+      h1 {
+        font-size: clamp(43px, 4.2vw, 66px);
+        line-height: 1.12;
+        letter-spacing: -0.046em;
+        margin: 7px 0 6px;
+      }
+      .pageHead p,
+      .muted {
+        color: #b0a7b5;
+      }
+      .guideLink {
+        font-size: 12px;
+        color: #c4bbc9;
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        padding: 7px 0;
+      }
+      .guideLink:before {
+        content: "?";
+        display: grid;
+        place-items: center;
+        width: 15px;
+        height: 15px;
+        border: 1px solid #8f8498;
+        border-radius: 50%;
+        font-size: 10px;
+      }
+      .layout {
+        display: grid;
+        grid-template-columns: minmax(0, 1.98fr) minmax(300px, 1fr);
+        gap: 22px;
+      }
+      .feature,
+      .match,
+      .choice,
+      .overlayPanel {
+        border: 1px solid var(--border);
+        border-radius: 7px;
+        background: var(--panel);
+      }
+      .feature {
+        position: relative;
+        height: clamp(315px, 25.7vw, 380px);
+        overflow: hidden;
+        border-color: #52455d;
+        background: #272332;
+      }
+      .feature > canvas {
+        width: 100%;
+        height: 100%;
+        position: absolute;
+        inset: 0;
+      }
+      .feature:after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+        background:
+          linear-gradient(90deg, #15121ce6, #15121c80 36%, transparent 64%),
+          linear-gradient(0deg, #17141fc9, transparent 28%);
+      }
+      .featureInfo {
+        position: relative;
+        z-index: 1;
+        height: 100%;
+        display: flex;
+        align-items: flex-start;
+        flex-direction: column;
+        padding: clamp(21px, 2.3vw, 37px);
+        pointer-events: none;
+      }
+      .badge {
+        color: #d6c2e9;
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        background: #211c2ec9;
+        border: 1px solid #7764846b;
+        border-radius: 3px;
+        padding: 5px 8px;
+        font-size: 9px;
+        letter-spacing: 0.12em;
+      }
+      .roleGem {
+        width: 7px;
+        height: 7px;
+        display: inline-block;
+        transform: rotate(45deg);
+        border: 1px solid currentColor;
+      }
+      .heroName {
+        font-size: clamp(52px, 5.4vw, 85px);
+        line-height: 1;
+        letter-spacing: -0.06em;
+        margin: 16px 0 4px;
+      }
+      .epithet {
+        font: italic 19px var(--display);
+        color: #e4cfa8;
+      }
+      .description {
+        color: #c3b9cd;
+        font-size: 13px;
+        line-height: 1.55;
+        max-width: 43%;
+        margin: 12px 0 10px;
+        text-shadow: 0 1px 5px #16121b;
+      }
+      .spells {
+        display: flex;
+        gap: 8px;
+        margin-top: auto;
+        pointer-events: auto;
+      }
+      .spellIcon,
+      .hudSpell {
+        border: 1px solid #796384;
+        background: linear-gradient(140deg, #41314f, #211d2b);
+        border-radius: 5px;
+        position: relative;
+        width: 42px;
+        height: 42px;
+        padding: 3px;
+      }
+      .spellIcon canvas,
+      .hudSpell canvas {
+        width: 100%;
+        height: 100%;
+      }
+      .spellIcon:hover,
+      .choice:hover {
+        border-color: #bc9dd3;
+      }
+      .roster {
+        margin-top: 20px;
+      }
+      .rosterHead,
+      .sectionHead {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+      }
+      .rosterHead {
+        margin-bottom: 11px;
+      }
+      .rosterHead span:last-child {
+        font-size: 11px;
+        color: #a59aaa;
+      }
+      .choices {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 10px;
+      }
+      .choice {
+        display: flex;
+        align-items: center;
+        text-align: left;
+        padding: 0;
+        overflow: hidden;
+        position: relative;
+        height: 73px;
+        background: #1d1a25;
+        transition: border-color 0.15s;
+      }
+      .choice.selected {
+        border-color: #ab8c59;
+        background: linear-gradient(100deg, #3e3141, #2c262b);
+      }
+      .choice canvas {
+        width: 34%;
+        height: 100%;
+        flex-shrink: 0;
+      }
+      .choiceText {
+        padding: 0 8px;
+        min-width: 0;
+      }
+      .choice strong {
+        display: block;
+        font: 20px var(--display);
+        letter-spacing: -0.03em;
+      }
+      .choice small {
+        display: block;
+        color: #b7aebd;
+        font-size: 10px;
+        margin-top: 3px;
+      }
+      .choice.selected:after {
+        content: "✓";
+        position: absolute;
+        right: 5px;
+        top: 3px;
+        color: var(--gold);
+        font-size: 10px;
+      }
+      .match {
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+        background: #1c1923;
+      }
+      .mapArt {
+        position: relative;
+        height: clamp(145px, 12.2vw, 185px);
+        background: #201f2a;
+        border-bottom: 1px solid #3d3542;
+      }
+      .mapArt canvas {
+        width: 100%;
+        height: 100%;
+      }
+      .mapTag {
+        position: absolute;
+        top: 14px;
+        left: 16px;
+        background: #15141bd6;
+        color: #dccbaa;
+        border: 1px solid #625747a6;
+        border-radius: 3px;
+        padding: 4px 7px;
+        display: flex;
+        gap: 6px;
+        align-items: center;
+        font-size: 8px;
+      }
+      .mapTag:before {
+        content: "◇";
+        font-size: 12px;
+      }
+      .matchBody {
+        flex: 1;
+        padding: 19px 22px 20px;
+        display: flex;
+        flex-direction: column;
+      }
+      .matchBody h2 {
+        font-size: clamp(26px, 2.05vw, 34px);
+        letter-spacing: -0.04em;
+        margin-bottom: 7px;
+      }
+      .metadata {
+        color: #b1a8ba;
+        font-size: 11px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .metadata i {
+        background: #665d6b;
+        width: 3px;
+        height: 3px;
+        border-radius: 100%;
+      }
+      .rule {
+        height: 1px;
+        background: #39323f;
+        margin: 17px 0;
+      }
+      .difficulty {
+        display: flex;
+        border: 1px solid #39323f;
+        border-radius: 4px;
+        background: #131119;
+        padding: 3px;
+        margin: 9px 0 6px;
+      }
+      .difficulty button {
+        flex: 1;
+        color: #a99eaf;
+        font-size: 11px;
+        padding: 7px 0;
+        text-transform: none;
+        letter-spacing: 0.01em;
+        border: 1px solid transparent;
+        border-radius: 3px;
+      }
+      .difficulty .active {
+        background: #38303d;
+        border-color: #615162;
+        color: #f0e3dc;
+      }
+      .diffHint {
+        font-size: 11px;
+        color: #aaa0b1;
+        margin-bottom: 16px;
+      }
+      .action {
+        width: 100%;
+        background: linear-gradient(110deg, #eddbb4, #cfae78);
+        color: #262027;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 15px;
+        border: 1px solid #e3c899;
+        border-radius: 4px;
+        min-height: 44px;
+        font-size: 11px;
+        font-weight: 750;
+        letter-spacing: 0.14em;
+        margin-top: auto;
+      }
+      .action:hover {
+        filter: brightness(1.08);
+      }
+      .action span {
+        font-size: 19px;
+        line-height: 12px;
+      }
+      .lobbyFooter {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        border-top: 1px solid #39323d;
+        margin-top: 25px;
+        padding: 16px 0 2px;
+        color: #a49aac;
+        font-size: 11px;
+      }
+      .footerKeys,
+      .keypart {
+        display: flex;
+        align-items: center;
+        gap: 7px;
+      }
+      .footerKeys {
+        gap: 21px;
+      }
+      kbd {
+        display: inline-block;
+        font: 10px var(--sans);
+        padding: 2px 5px;
+        border: 1px solid #514958;
+        background: #221e28;
+        color: #d9cedd;
+        border-radius: 3px;
+      }
+      .footBrand {
+        font: italic 13px var(--display);
+        color: #9c8d9a;
+      }
+      .modal {
+        position: fixed;
+        inset: 0;
+        z-index: 20;
+        display: grid;
+        place-items: center;
+        background: #09080ecf;
+        backdrop-filter: blur(6px);
+        padding: 16px;
+      }
+      .overlayPanel {
+        width: min(520px, 100%);
+        padding: 25px;
+        box-shadow: 0 20px 90px #0009;
+        max-height: 92vh;
+        overflow: auto;
+      }
+      .overlayPanel h2 {
+        font-size: 35px;
+        letter-spacing: -0.04em;
+        margin: 5px 0 12px;
+      }
+      .overlayPanel h3 {
+        margin: 16px 0 5px;
+        color: var(--gold);
+        font-size: 20px;
+      }
+      .overlayPanel p {
+        color: #c6bdcc;
+        line-height: 1.55;
+      }
+      .overlayPanel .action {
+        margin-top: 15px;
+      }
+      .overlayPanel .close {
+        float: right;
+        color: #bcb1c8;
+        font-size: 20px;
+      }
+      .guideRow,
+      .itemLine {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 7px 0;
+        border-bottom: 1px solid #39323d;
+        gap: 12px;
+        color: #bfb4c8;
+      }
+      .guideRow kbd {
+        min-width: 42px;
+        text-align: center;
+      }
+      .secondBtn,
+      .itemLine button {
+        border: 1px solid #5f5168;
+        background: #302939;
+        padding: 8px 13px;
+        border-radius: 4px;
+      }
+      .secondBtn {
+        width: 100%;
+        margin-top: 9px;
+      }
+      .itemLine button:disabled {
+        opacity: 0.45;
+        cursor: default;
+      }
+      .itemLine small {
+        display: block;
+        color: #aea3b8;
+        margin-top: 4px;
+      }
+      .itemLine strong {
+        color: #e8d7bc;
+      }
+      .spellTip {
+        position: fixed;
+        z-index: 30;
+        max-width: 270px;
+        padding: 11px 14px;
+        border: 1px solid #766284;
+        border-radius: 4px;
+        background: #1d1825;
+        pointer-events: none;
+        box-shadow: 0 6px 20px #0007;
+        font-size: 12px;
+      }
+      .spellTip strong {
+        display: block;
+        color: #eed9b6;
+        margin-bottom: 4px;
+      }
+      .spellTip span {
+        color: #c8bdd1;
+        line-height: 1.45;
+      }
+      #arena {
+        position: fixed;
+        inset: 0;
+        background: #191b24;
+        overflow: hidden;
+      }
+      #world {
+        width: 100%;
+        height: 100%;
+        cursor: crosshair;
+      }
+      .hud {
+        position: absolute;
+        pointer-events: none;
+      }
+      .hud button,
+      .hud a {
+        pointer-events: auto;
+      }
+      .board,
+      .playerPanel,
+      .mapPanel,
+      .topTools button {
+        border: 1px solid #665869;
+        background: #17131feb;
+        box-shadow: 0 4px 16px #0005;
+        border-radius: 6px;
+      }
+      .board {
+        top: 12px;
+        left: 50%;
+        transform: translateX(-50%);
+        display: flex;
+        gap: 15px;
+        align-items: center;
+        padding: 9px 17px;
+        font-weight: 650;
+      }
+      .ally {
+        color: #8fd9ca;
+      }
+      .enemy {
+        color: #ed93a4;
+      }
+      .timerText {
+        font-variant-numeric: tabular-nums;
+        color: #d6cabd;
+        font-size: 12px;
+        border-left: 1px solid #544955;
+        padding-left: 12px;
+      }
+      .object {
+        top: 15px;
+        left: 17px;
+        font: 17px var(--display);
+        text-shadow: 0 2px 5px #000;
+      }
+      .object small {
+        display: block;
+        font: 10px var(--sans);
+        color: #e2d2bb;
+        margin: 3px 0;
+      }
+      .topTools {
+        right: 15px;
+        top: 12px;
+        display: flex;
+        gap: 5px;
+      }
+      .topTools button {
+        padding: 8px 12px;
+        color: #ddcfdd;
+      }
+      .playerPanel {
+        bottom: 12px;
+        left: 50%;
+        transform: translateX(-50%);
+        padding: 8px 12px;
+        display: grid;
+        grid-template-columns: 48px 175px auto;
+        gap: 10px;
+        align-items: center;
+      }
+      .hudPortrait {
+        width: 48px;
+        height: 56px;
+        position: relative;
+        overflow: hidden;
+        border-radius: 4px;
+        border: 1px solid #68536e;
+      }
+      .hudPortrait canvas {
+        width: 100%;
+        height: 100%;
+      }
+      .hudPortrait b {
+        position: absolute;
+        bottom: 0;
+        right: 0;
+        font-size: 10px;
+        background: #372d39;
+        padding: 1px 3px;
+        color: #f9d496;
+      }
+      .hudName {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 4px;
+        font: 16px var(--display);
+      }
+      .hudName small {
+        font: 11px var(--sans);
+        color: #ead094;
+      }
+      .bar {
+        position: relative;
+        background: #0c0e16;
+        height: 13px;
+        border: 1px solid #493d4e;
+        border-radius: 2px;
+        overflow: hidden;
+        margin: 2px 0;
+      }
+      .bar i {
+        display: block;
+        height: 100%;
+        background: linear-gradient(90deg, #448b76, #81c6a1);
+      }
+      .bar.mana i {
+        background: linear-gradient(90deg, #4e639f, #8ba2dc);
+      }
+      .bar span {
+        position: absolute;
+        inset: 0;
+        text-align: center;
+        font: 9px var(--sans);
+        line-height: 11px;
+        text-shadow: 0 1px 2px #000;
+      }
+      .hudStats {
+        font-size: 9px;
+        color: #c8bdcd;
+        margin-top: 3px;
+      }
+      .hudSkills {
+        display: flex;
+        gap: 5px;
+      }
+      .hudSpell {
+        width: 42px;
+        height: 44px;
+        overflow: hidden;
+      }
+      .hudSpell small {
+        position: absolute;
+        left: 2px;
+        top: 0;
+        font: 9px var(--sans);
+        color: #ecd8b8;
+      }
+      .hudSpell b {
+        position: absolute;
+        inset: 0;
+        display: grid;
+        place-items: center;
+        background: #15141dd9;
+        font-size: 15px;
+      }
+      .mapPanel {
+        bottom: 12px;
+        right: 12px;
+        width: clamp(125px, 13vw, 185px);
+        padding: 4px;
+      }
+      .mapPanel canvas {
+        width: 100%;
+        height: auto;
+      }
+      .mapPanel div {
+        text-align: center;
+        font-size: 9px;
+        letter-spacing: 0.12em;
+        color: #c2b6c6;
+        margin: 2px 0;
+      }
+      .ann {
+        top: 15%;
+        left: 50%;
+        transform: translateX(-50%);
+        text-align: center;
+        font: 22px var(--display);
+        color: #f7e2be;
+        text-shadow: 0 2px 4px #000;
+        background: #17121ed6;
+        padding: 8px 20px;
+        border-radius: 4px;
+      }
+      .stateHint {
+        bottom: 102px;
+        left: 50%;
+        transform: translateX(-50%);
+        font-size: 13px;
+        background: #16101de0;
+        border-radius: 4px;
+        padding: 7px 12px;
+        color: #e5d8eb;
+      }
+      .hudLegend {
+        bottom: 16px;
+        left: 14px;
+        font-size: 10px;
+        color: #ddd0de;
+        text-shadow: 0 1px 3px #000;
+      }
+      .hudLegend div {
+        margin-top: 4px;
+      }
+      @media (min-width: 1550px) {
+        main {
+          padding-left: 60px;
+          padding-right: 60px;
+          padding-top: 50px;
+        }
+        .top {
+          padding: 0 max(calc((100vw - 1390px) / 2), 60px);
+        }
+      }
+      @media (max-width: 960px) {
+        .layout {
+          gap: 14px;
+          grid-template-columns: minmax(0, 1.7fr) minmax(270px, 1fr);
+        }
+        .matchBody {
+          padding: 16px;
+        }
+        .choice strong {
+          font-size: 17px;
+        }
+        .choiceText {
+          padding: 0 5px;
+        }
+        .choice {
+          height: 64px;
+        }
+        .description {
+          max-width: 49%;
+        }
+        .hudLegend {
+          display: none;
+        }
+      }
+      @media (max-width: 740px) {
+        .top {
+          gap: 20px;
+          height: 60px;
+        }
+        .topRight {
+          gap: 7px;
+        }
+        .status {
+          display: none;
+        }
+        nav {
+          gap: 14px;
+        }
+        .brand {
+          font-size: 17px;
+          gap: 5px;
+        }
+        .brand canvas {
+          width: 28px;
+        }
+        main {
+          padding: 22px 16px;
+        }
+        .layout {
+          grid-template-columns: 1fr;
+        }
+        .feature {
+          height: 310px;
+        }
+        .mapArt {
+          height: 150px;
+        }
+        .pageHead {
+          margin-bottom: 16px;
+        }
+        .pageHead p {
+          font-size: 12px;
+        }
+        .guideLink {
+          display: none;
+        }
+        .footBrand {
+          display: none;
+        }
+        .footerKeys {
+          gap: 8px;
+          flex-wrap: wrap;
+        }
+        .choice {
+          height: 61px;
+        }
+        .playerPanel {
+          left: 7px;
+          bottom: 6px;
+          transform: none;
+          grid-template-columns: 30px 120px auto;
+          padding: 5px;
+          gap: 5px;
+        }
+        .hudPortrait {
+          width: 30px;
+          height: 42px;
+        }
+        .hudSpell {
+          width: 32px;
+          height: 35px;
+        }
+        .mapPanel {
+          width: 103px;
+          bottom: 6px;
+          right: 5px;
+        }
+        .object {
+          font-size: 12px;
+        }
+        .object small {
+          max-width: 135px;
+        }
+        .topTools button {
+          padding: 5px;
+        }
+        .board {
+          gap: 6px;
+          padding: 5px 8px;
+        }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        * {
+          scroll-behavior: auto;
+        }
+      }
+    </style>
+  <script data-zd-discreet>/* Discrete Mode: follows the switch on the game library page (shared browser storage) */
+(function(){var FAKE="Strategy & Resource Planning | Learning Hub",ICON="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2064%2064%22%3E%3Crect%20width%3D%2264%22%20height%3D%2264%22%20rx%3D%2214%22%20fill%3D%22%232f6fed%22/%3E%3Cpath%20d%3D%22M14%2018h16c3%200%205%202%205%205v23c0-3-2-5-5-5H14zM50%2018H34c-3%200-5%202-5%205v23c0-3%202-5%205-5h16z%22%20fill%3D%22%23fff%22/%3E%3C/svg%3E",KEY="zd.discreet",real=null,made=null,saved=[],busy=false;
+function on(){try{return localStorage.getItem(KEY)==="1";}catch(e){return false;}}
+function links(){return document.querySelectorAll('link[rel~="icon"],link[rel="apple-touch-icon"]');}
+function apply(){if(busy)return;busy=true;try{var d=on();
+ if(d){if(document.title!==FAKE){real=document.title;document.title=FAKE;}
+  var ls=links(),i;if(!saved.length&&ls.length){for(i=0;i<ls.length;i++){if(!ls[i].hasAttribute("data-zd")){saved.push([ls[i],ls[i].getAttribute("href")]);}}}
+  for(i=0;i<ls.length;i++){if(ls[i]!==made){ls[i].setAttribute("href",ICON);ls[i].removeAttribute("type");}}
+  if(!ls.length&&!made&&document.head){made=document.createElement("link");made.rel="icon";made.setAttribute("data-zd","1");made.href=ICON;document.head.appendChild(made);}
+ }else{if(real!==null&&document.title===FAKE){document.title=real;}real=null;
+  for(var j=0;j<saved.length;j++){if(saved[j][1]===null)saved[j][0].removeAttribute("href");else saved[j][0].setAttribute("href",saved[j][1]);}saved=[];
+  if(made&&made.parentNode){made.parentNode.removeChild(made);}made=null;}
+}catch(e){}busy=false;}
+apply();
+document.addEventListener("DOMContentLoaded",function(){apply();var t=document.querySelector("title");if(t&&window.MutationObserver){new MutationObserver(apply).observe(t,{childList:true,characterData:true,subtree:true});}});
+window.addEventListener("storage",function(e){if(e.key===KEY||e.key===null)apply();});
+window.addEventListener("pageshow",apply);document.addEventListener("visibilitychange",apply);window.addEventListener("focus",apply);
+})();</script>
+  </head>
+  <body>
+    <div id="lobby">
+      <canvas id="backdrop" aria-hidden="true"></canvas>
+      <header class="top">
+        <button class="brand" id="brandBtn" aria-label="Riftbound battle lobby">
+          <canvas id="brandMark"></canvas>RIFTBOUND
+        </button>
+        <nav aria-label="Main navigation">
+          <button class="active" id="navArena">Arena</button><button id="navGuide">Field Guide</button>
+        </nav>
+        <div class="topRight">
+          <span class="status"><i class="dot"></i>Offline ready</span
+          ><button class="sound" id="sound" aria-label="Mute sound" title="Toggle sound">
+            <canvas></canvas>
+          </button>
+        </div>
+      </header>
+      <main>
+        <div class="pageHead">
+          <div>
+            <div class="eyebrow crestLine">Single-player arena</div>
+            <h1>Battle Lobby</h1>
+            <p>Choose your champion and prepare for battle.</p>
+          </div>
+          <button class="guideLink" id="controls">How to play</button>
+        </div>
+        <div class="layout">
+          <div>
+            <section class="feature" aria-label="Selected champion">
+              <canvas id="heroArt"></canvas>
+              <div class="featureInfo">
+                <div class="badge"><i class="roleGem"></i><span id="heroRole"></span></div>
+                <h2 class="heroName" id="heroName"></h2>
+                <div class="epithet" id="epithet"></div>
+                <p class="description" id="desc"></p>
+                <div class="spells" id="previewSkills"></div>
+              </div>
+            </section>
+            <section class="roster">
+              <div class="rosterHead">
+                <span class="sectionLabel">Champion roster</span><span>3 champions</span>
+              </div>
+              <div class="choices" id="roster"></div>
+            </section>
+          </div>
+          <aside class="match">
+            <div class="mapArt">
+              <canvas id="mapArt"></canvas>
+              <div class="mapTag overlayTag">Battleground</div>
+            </div>
+            <div class="matchBody">
+              <h2>The Shattered Vale</h2>
+              <div class="metadata">
+                <span>3v3</span><i></i><span>Single lane</span><i></i><span>10–15 min</span>
+              </div>
+              <div class="rule"></div>
+              <div class="sectionLabel">Bot difficulty</div>
+              <div class="difficulty" aria-label="Bot difficulty">
+                <button data-diff="0">Easy</button><button data-diff="1" class="active">Normal</button
+                ><button data-diff="2">Hard</button>
+              </div>
+              <p class="diffHint" id="diffHint">Balanced opponents with steady aggression.</p>
+              <button class="action" id="start">Enter arena <span aria-hidden="true">→</span></button>
+            </div>
+          </aside>
+        </div>
+        <footer class="lobbyFooter">
+          <div class="footerKeys">
+            <span class="keypart"><kbd>W A S D</kbd> Move</span
+            ><span class="keypart"><kbd>LMB</kbd> Attack</span
+            ><span class="keypart"><kbd>1 – 4</kbd> Abilities</span
+            ><span class="keypart"><kbd>B</kbd> Recall</span>
+          </div>
+          <span class="keypart"><kbd>Esc</kbd> Pause</span>
+        </footer>
+      </main>
+    </div>
+    <div id="arena" hidden>
+      <canvas id="world" aria-label="MOBA battlefield"></canvas>
+      <div class="hud object">The Shattered Vale<small id="objective"></small></div>
+      <div class="hud board">
+        <span class="ally" id="blueScore">0</span><span class="tiny">vs</span
+        ><span class="enemy" id="redScore">0</span><span class="timerText" id="timer">00:00</span>
+      </div>
+      <div class="hud topTools">
+        <button id="shopBtn">Shop [P]</button><button id="pauseBtn" aria-label="Pause">Ⅱ</button>
+      </div>
+      <div class="hud ann" id="ann" hidden></div>
+      <div class="hud stateHint" id="hint" hidden></div>
+      <div class="hud hudLegend">
+        <div><kbd>B</kbd> Recall</div>
+        <div><kbd>Esc</kbd> Pause</div>
+      </div>
+      <div class="hud playerPanel">
+        <div class="hudPortrait"><canvas id="hudFace"></canvas><b id="level">1</b></div>
+        <div>
+          <div class="hudName"><span id="hudName"></span><small id="gold"></small></div>
+          <div class="bar"><i id="hpFill"></i><span id="hpText"></span></div>
+          <div class="bar mana"><i id="mpFill"></i><span id="mpText"></span></div>
+          <div class="hudStats" id="hudStats"></div>
+        </div>
+        <div class="hudSkills" id="hudSkills"></div>
+      </div>
+      <div class="hud mapPanel">
+        <canvas id="minimap" width="246" height="140"></canvas>
+        <div>THE VALE</div>
+      </div>
+    </div>
+    <div class="modal" id="modal" hidden>
+      <section
+        class="overlayPanel"
+        id="dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="modalTitle"
+      ></section>
+    </div>
+    <div class="spellTip" id="tip" hidden></div>
+    <script>
+      "use strict";
+      const $ = (id) => document.getElementById(id),
+        TAU = Math.PI * 2,
+        clamp = (v, a, b) => Math.max(a, Math.min(b, v)),
+        mix = (a, b, t) => a + (b - a) * t;
+      const kits = [
+        {
+          name: "Veyra",
+          role: "Mage",
+          title: "The Starweaver",
+          desc: "Bend starlight into searing spells and slip between the shadows.",
+          color: "#c49af1",
+          hp: 850,
+          mp: 500,
+          speed: 190,
+          ad: 45,
+          ap: 62,
+          range: 280,
+          skills: [
+            ["Astral Fire", "Launch a fireball that bursts on impact.", 6, 38],
+            ["Eventide", "Create a damaging arcane zone for 4 seconds.", 13, 66],
+            ["Veilstep", "Blink a short distance toward your cursor.", 15, 52],
+            ["Starfall Beam", "Unleash a wide beam of concentrated starlight.", 68, 125],
+          ],
+        },
+        {
+          name: "Kaelen",
+          role: "Fighter",
+          title: "The Ember Warden",
+          desc: "Break the enemy line with tempered steel and the fury of the forge.",
+          color: "#efac76",
+          hp: 1200,
+          mp: 360,
+          speed: 198,
+          ad: 64,
+          ap: 28,
+          range: 92,
+          skills: [
+            ["Cinder Rush", "Dash forward and strike enemies along your path.", 8, 36],
+            ["Iron Oath", "Gain a protective shield for 4 seconds.", 14, 48],
+            ["Bladestorm", "Spin your blade through nearby enemies.", 9, 46],
+            ["Sundering Leap", "Leap to the target area and slam the ground.", 64, 101],
+          ],
+        },
+        {
+          name: "Sylva",
+          role: "Marksman",
+          title: "The Thornwatch",
+          desc: "Stalk the treeline with piercing arrows and a hunter’s cunning.",
+          color: "#96d9bb",
+          hp: 920,
+          mp: 410,
+          speed: 203,
+          ad: 57,
+          ap: 34,
+          range: 340,
+          skills: [
+            ["Thornpiercer", "Fire an arrow through every enemy in its path.", 7, 35],
+            ["Briar Snare", "Set a trap that damages and slows its victims.", 13, 48],
+            ["Windstride", "Gain a burst of movement speed for 4 seconds.", 15, 43],
+            ["Horizon Shot", "Fire a massive piercing shot across the battlefield.", 65, 105],
+          ],
+        },
+      ];
+      const diffNames = ["Easy", "Normal", "Hard"],
+        diffText = [
+          "Cautious opponents with slower reactions.",
+          "Balanced opponents with steady aggression.",
+          "Relentless opponents with faster reactions.",
+        ];
+      let selected = 0,
+        difficulty = 1,
+        soundOn = true,
+        ac = null,
+        mode = "lobby",
+        game = null,
+        modalKind = "",
+        lastFocus = null;
+      function rng(seed) {
+        return () => {
+          seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
+          return seed / 4294967296;
+        };
+      }
+      function path(c, pts) {
+        c.beginPath();
+        pts.forEach(([x, y], i) => (i ? c.lineTo(x, y) : c.moveTo(x, y)));
+        c.closePath();
+      }
+      function poly(c, pts, fill, stroke, w = 1) {
+        path(c, pts);
+        if (fill) {
+          c.fillStyle = fill;
+          c.fill();
+        }
+        if (stroke) {
+          c.strokeStyle = stroke;
+          c.lineWidth = w;
+          c.stroke();
+        }
+      }
+      function line(c, pts, color, w = 1) {
+        c.beginPath();
+        pts.forEach(([x, y], i) => (i ? c.lineTo(x, y) : c.moveTo(x, y)));
+        c.strokeStyle = color;
+        c.lineWidth = w;
+        c.stroke();
+      }
+      function circ(c, x, y, r, color, stroke, w = 1) {
+        c.beginPath();
+        c.arc(x, y, r, 0, TAU);
+        if (color) {
+          c.fillStyle = color;
+          c.fill();
+        }
+        if (stroke) {
+          c.strokeStyle = stroke;
+          c.lineWidth = w;
+          c.stroke();
+        }
+      }
+      function oval(c, x, y, rx, ry, col) {
+        c.beginPath();
+        c.ellipse(x, y, rx, ry, 0, 0, TAU);
+        c.fillStyle = col;
+        c.fill();
+      }
+      function grad(c, x, y, xx, yy, ...colors) {
+        let a = c.createLinearGradient(x, y, xx, yy);
+        colors.forEach((v, i) => a.addColorStop(i / (colors.length - 1), v));
+        return a;
+      }
+      function glow(c, x, y, r, col) {
+        let a = c.createRadialGradient(x, y, 0, x, y, r);
+        a.addColorStop(0, col);
+        a.addColorStop(1, "transparent");
+        circ(c, x, y, r, a);
+      }
+      function fit(cv) {
+        let b = cv.getBoundingClientRect(),
+          d = Math.min(devicePixelRatio || 1, 2),
+          w = Math.max(1, b.width),
+          h = Math.max(1, b.height);
+        cv.width = Math.round(w * d);
+        cv.height = Math.round(h * d);
+        let c = cv.getContext("2d");
+        c.setTransform(d, 0, 0, d, 0, 0);
+        return [c, w, h];
+      }
+      function star(c, x, y, r, col) {
+        poly(
+          c,
+          [
+            [x, y - r],
+            [x + r * 0.18, y - r * 0.19],
+            [x + r * 0.74, y],
+            [x + r * 0.18, y + r * 0.19],
+            [x, y + r],
+            [x - r * 0.18, y + r * 0.19],
+            [x - r * 0.74, y],
+            [x - r * 0.18, y - r * 0.19],
+          ],
+          col,
+        );
+      }
+      function pine(c, x, y, h, pal) {
+        polygonTree(c, x, y, h, pal, 0);
+      }
+      function polygonTree(c, x, y, h, pal, lean) {
+        c.save();
+        c.translate(x, y);
+        c.scale(h / 100, h / 100);
+        c.fillStyle = pal[0];
+        c.fillRect(-2, -25, 4, 25);
+        for (let i = 0; i < 4; i++) {
+          let t = -100 + i * 18,
+            b = t + 38 + i * 4,
+            w = 10 + i * 4;
+          poly(
+            c,
+            [
+              [lean, t],
+              [-w, b - 4],
+              [-w * 0.52, b - 6],
+              [-w * 0.68, b],
+              [0, b - 5],
+              [w * 0.65, b - 1],
+              [w * 0.45, b - 7],
+              [w, b - 5],
+            ],
+            pal[0],
+          );
+          poly(
+            c,
+            [
+              [lean, t],
+              [-w, b - 4],
+              [-w * 0.55, b - 6],
+              [0, b - 12],
+              [-w * 0.18, b - 16],
+            ],
+            pal[1],
+          );
+        }
+        c.restore();
+      }
+      function landscape(c, w, h, seed, bright = false) {
+        let r = rng(seed);
+        c.fillStyle = grad(
+          c,
+          0,
+          0,
+          w,
+          h,
+          ...(bright ? ["#252338", "#53445d", "#242733"] : ["#17141f", "#211c2b", "#14121c"]),
+        );
+        c.fillRect(0, 0, w, h);
+        glow(c, w * 0.73, h * 0.31, w * 0.33, bright ? "#ad88b54f" : "#71527c22");
+        for (let i = 0; i < 160; i++) {
+          let x = r() * w,
+            y = r() * h * 0.76;
+          circ(c, x, y, r() * 0.95 + 0.25, bright ? "#ebe2df66" : "#cdbad433");
+        }
+        for (let k = 0; k < 3; k++) {
+          let points = [[0, h]],
+            n = 26;
+          for (let i = 0; i <= n; i++) {
+            let x = (i * w) / n,
+              y = h * (0.58 + k * 0.105) - h * (r() * 0.13 + 0.075 * Math.sin(i * 0.6));
+            points.push([x, y]);
+          }
+          points.push([w, h]);
+          poly(
+            c,
+            points,
+            bright ? ["#484052", "#393544", "#252731"][k] : ["#211c2a", "#1d1925", "#191620"][k],
+          );
+          for (let i = 1; i < n; i++) {
+            let [x, y] = points[i];
+            poly(
+              c,
+              [
+                [x, y],
+                [x + (w / n) * 0.52, y + h * 0.05],
+                [x + (w / n) * 0.22, y + h * 0.16],
+              ],
+              bright ? "#93809916" : "#75617b0c",
+            );
+          }
+        }
+        for (let i = 0; i < 90; i++) {
+          let x = r() * w,
+            base = h * (0.84 + 0.19 * r());
+          pine(c, x, base, h * (0.06 + r() * 0.17), bright ? ["#23242f", "#2a2935"] : ["#15131d", "#191621"]);
+        }
+      }
+
+      function shape(c, d, fill, edge, w = 1) {
+        let p = new Path2D(d);
+        if (fill) {
+          c.fillStyle = fill;
+          c.fill(p);
+        }
+        if (edge) {
+          c.strokeStyle = edge;
+          c.lineWidth = w;
+          c.stroke(p);
+        }
+      }
+      function portrait(c, k, x, y, s) {
+        c.save();
+        c.translate(x, y);
+        c.scale(s, s);
+        c.lineJoin = "round";
+        c.lineCap = "round";
+        let ink = "#272330",
+          mage = k === 0,
+          fighter = k === 1,
+          accent = kits[k].color,
+          metal = grad(c, -75, -10, 65, 90, "#f2d8a3", "#91744e", "#e0ba80", "#614d4e"),
+          cloth = grad(
+            c,
+            -90,
+            -25,
+            100,
+            135,
+            ...(mage
+              ? ["#69597f", "#4a3b64", "#201c33", "#41334d"]
+              : fighter
+                ? ["#7f5144", "#503441", "#2b2630", "#7e5147"]
+                : ["#667d72", "#3b5856", "#233039", "#405549"]),
+          ),
+          hair = grad(
+            c,
+            -40,
+            -100,
+            63,
+            12,
+            ...(mage
+              ? ["#faf1e6", "#c9bdce", "#8d819f", "#625971"]
+              : fighter
+                ? ["#8a6256", "#4c3433", "#30262c", "#4f3734"]
+                : ["#c69572", "#966c5a", "#674e4d", "#483e44"]),
+          ),
+          skin = grad(
+            c,
+            -30,
+            -90,
+            32,
+            -26,
+            ...(mage
+              ? ["#f1d7cb", "#d5adae", "#9a7e90"]
+              : fighter
+                ? ["#d8ab88", "#b58470", "#795d61"]
+                : ["#ebc4a2", "#be967c", "#7b6566"]),
+          );
+        // Wind-swept mantle, back hair, and the opposing shoulder silhouette.
+        shape(
+          c,
+          "M -43 -2 Q -92 0 -115 34 Q -133 66 -182 89 L -151 89 -208 135 Q -150 122 -110 111 L -163 160 -59 145 57 186 125 154 91 60 63 6 Z",
+          cloth,
+          ink,
+          2,
+        );
+        shape(
+          c,
+          "M -61 16 Q -121 47 -116 65 L -165 102 -122 92 -157 127 Q -101 109 -63 71 L -39 29 Z",
+          "#aea2bc24",
+        );
+        if (!fighter)
+          shape(
+            c,
+            "M -26 -114 Q 24 -134 49 -90 Q 48 -41 87 -37 Q 112 -29 127 -49 Q 115 -18 88 -17 Q 113 -12 140 -27 Q 117 3 84 3 Q 108 17 150 5 Q 104 41 60 24 Q 66 42 93 46 Q 42 57 17 19 L -28 6 Z",
+            hair,
+            ink,
+            1.6,
+          );
+        if (!fighter) {
+          for (let i = 0; i < 13; i++) {
+            let t = i * 3.9;
+            shape(
+              c,
+              "M " +
+                (12 + t * 0.27) +
+                " " +
+                (-101 + t * 0.6) +
+                " Q " +
+                (41 + t * 0.18) +
+                " " +
+                (-36 + t * 0.6) +
+                " " +
+                (66 + t * 0.48) +
+                " " +
+                (-27 + t * 0.75) +
+                " Q " +
+                (83 + t * 0.5) +
+                " " +
+                (-10 + t * 0.6) +
+                " " +
+                (106 + t * 0.67) +
+                " " +
+                (-23 + t * 0.66),
+              null,
+              i % 3 ? "#5f566e88" : "#f2dfddad",
+              i % 3 ? 0.75 : 1.4,
+            );
+          }
+        }
+        shape(
+          c,
+          "M -59 6 Q -63 55 -93 103 L -104 171 94 171 Q 79 109 74 71 Q 76 27 42 6 L 12 -6 Z",
+          cloth,
+          ink,
+          2,
+        );
+        // Sculpted folds and brocade panels.
+        shape(
+          c,
+          "M -37 17 Q -46 54 -64 67 L -96 148 -70 137 -53 149 -15 67 7 32 Z",
+          grad(c, -63, 26, -19, 119, "#897998", "#544563", "#2d263e"),
+          ink,
+        );
+        shape(c, "M 29 14 Q 47 24 58 43 L 54 90 86 154 71 170 29 113 17 58 Z", "#17162288");
+        for (let i = 0; i < 5; i++) {
+          let a = i * 12;
+          shape(
+            c,
+            "M " + (-58 + a) + " 39 Q " + (-60 + a) + " 76 " + (-97 + a * 1.2) + " 149",
+            null,
+            "#c3acc32c",
+            1.6,
+          );
+        }
+        shape(c, "M -33 -26 Q -34 -12 -42 -2 Q -33 14 -9 25 L 19 5 24 -27 Z", skin, ink, 1.4);
+        shape(c, "M -34 -26 Q -24 -14 -5 -13 L 18 -27 15 -14 -12 4 -35 -4 Z", "#876d7d");
+        // Face in three-quarter view, a sharp cheekbone, brow, and luminous irises.
+        shape(
+          c,
+          "M -36 -87 Q -29 -111 3 -109 Q 33 -108 38 -84 L 27 -48 Q 19 -31 0 -20 Q -8 -16 -18 -21 L -32 -32 -36 -44 -41 -48 -37 -59 Q -42 -77 -36 -87 Z",
+          skin,
+          ink,
+          1.5,
+        );
+        shape(
+          c,
+          "M 19 -85 Q 33 -86 30 -70 L 22 -50 11 -33 -2 -22 Q 15 -29 25 -43 L 36 -71 36 -87 Z",
+          "#896f7f70",
+        );
+        shape(c, "M 21 -68 Q 37 -84 49 -83 L 33 -61 Q 24 -51 18 -57 Z", skin, ink, 1.1);
+        shape(c, "M 24 -65 L 41 -77 28 -60", null, "#966f78", 1.5);
+        shape(c, "M -35 -65 Q -29 -70 -23 -67 L -24 -64 Q -30 -66 -35 -63 Z", "#65525f");
+        shape(c, "M -13 -69 Q -4 -76 8 -72 L 9 -69 Q -2 -70 -12 -65 Z", "#615060");
+        shape(c, "M -33 -60 Q -29 -63 -23 -60 Q -28 -56 -33 -60 Z", "#f5e8df", ink, 0.9);
+        shape(c, "M -15 -61 Q -6 -68 5 -65 Q 0 -62 -6 -58 Q -11 -57 -15 -61 Z", "#f7e8de", ink, 1.15);
+        oval(c, -28, -60, 1.8, 2.1, mage ? "#8f68ae" : "#547a70");
+        oval(c, -5.7, -62.1, 2.8, 2.9, mage ? "#9271aa" : "#598375");
+        circ(c, -5.6, -62, 1.3, "#403b48");
+        circ(c, -5, -63.1, 0.8, "#fff8ef");
+        shape(c, "M -19 -62 Q -20 -51 -24 -47 Q -22 -44 -16 -45", null, "#997782", 1.05);
+        shape(c, "M -21 -36 Q -16 -39 -13 -38 L -8 -38 -14 -35 Z", "#996f7b");
+        shape(c, "M -19 -34 Q -14 -32 -11 -35", null, "#f1c9c1", 1);
+        shape(c, "M -12 -54 L 5 -58 -6 -50 Z", "#f8ded83b");
+        // Hair is formed from overlapping tapered locks with hand-inked highlights.
+        if (!fighter) {
+          shape(
+            c,
+            "M -40 -59 Q -52 -88 -35 -112 Q -16 -130 10 -122 Q 37 -123 47 -99 Q 52 -87 46 -76 Q 39 -89 28 -91 Q 23 -73 -4 -66 Q 10 -81 11 -89 Q -8 -68 -32 -65 Q -26 -69 -22 -75 Q -37 -67 -45 -49 Z",
+            hair,
+            ink,
+            1.5,
+          );
+          shape(
+            c,
+            "M 27 -102 Q 37 -74 18 -51 Q 6 -32 21 -13 Q 16 -38 37 -54 Q 60 -80 41 -99 Z",
+            hair,
+            ink,
+            1.2,
+          );
+          shape(
+            c,
+            "M -39 -86 Q -46 -70 -40 -54 Q -35 -40 -45 -21 Q -25 -40 -32 -59 Q -35 -66 -31 -75 Z",
+            hair,
+            ink,
+          );
+          for (let i = 0; i < 8; i++) {
+            let a = i * 4;
+            shape(
+              c,
+              "M " +
+                (-40 + a * 1.4) +
+                " " +
+                (-88 - a * 0.4) +
+                " Q " +
+                (-28 + a * 0.9) +
+                " " +
+                (-115 - a * 0.25) +
+                " " +
+                (5 + a * 0.94) +
+                " " +
+                (-116 + a * 0.15),
+              null,
+              i % 2 ? "#eee7e0a6" : "#847b902e",
+              1.35,
+            );
+          }
+          shape(
+            c,
+            "M 3 -105 Q -9 -84 -31 -72 M 18 -109 Q 12 -88 -5 -77 M 35 -92 Q 41 -70 23 -52 Q 15 -39 17 -30",
+            null,
+            "#f5eae2bc",
+            1.3,
+          );
+        } else {
+          shape(
+            c,
+            "M -40 -67 L -43 -90 -53 -87 -46 -104 -56 -102 -30 -120 -37 -127 -7 -124 6 -135 15 -127 36 -126 32 -117 52 -107 46 -99 55 -89 39 -73 30 -67 29 -87 17 -99 4 -86 6 -96 -17 -79 -12 -90 -37 -74 Z",
+            hair,
+            ink,
+            1.6,
+          );
+          shape(c, "M -28 -34 L -16 -29 -3 -28 15 -39 24 -55 21 -39 6 -22 -8 -16 -25 -25 Z", "#544047");
+          line(
+            c,
+            [
+              [0, -77],
+              [-4, -69],
+              [-9, -60],
+              [-12, -55],
+            ],
+            "#a66e69",
+            1.4,
+          );
+        }
+        if (k === 2) {
+          const hood = grad(c, -45, -120, 48, -17, "#889783", "#586c5f", "#334a46", "#728377");
+          shape(
+            c,
+            "M -44 -46 Q -59 -72 -53 -98 Q -47 -119 -13 -135 Q 18 -139 45 -123 Q 64 -108 68 -75 L 76 -40 67 -18 44 4 28 -3 41 -25 Q 56 -53 45 -82 Q 39 -106 12 -112 Q -15 -104 -32 -89 Q -42 -74 -44 -46 Z",
+            hood,
+            "#273932",
+            2,
+          );
+          shape(
+            c,
+            "M -45 -56 Q -47 -88 -15 -112 Q 2 -120 12 -123 Q 44 -115 53 -85 Q 62 -48 44 -20 L 32 -2",
+            null,
+            "#b8b190",
+            2.1,
+          );
+          shape(
+            c,
+            "M -45 -100 Q -35 -120 -10 -127 M 21 -129 Q 57 -123 61 -88 M 65 -76 Q 67 -39 50 -19",
+            null,
+            "#c4c7a34f",
+            1.5,
+          );
+        }
+        // High collar and ornamental chest armour.
+        const collar = grad(
+          c,
+          -60,
+          -8,
+          52,
+          53,
+          mage ? "#8a759b" : fighter ? "#948183" : "#839084",
+          "#373344",
+          "#211e2b",
+        );
+        shape(c, "M -55 -29 L -32 -12 -5 15 -17 30 -53 11 -70 -19 Z", collar, metal, 2.3);
+        shape(c, "M 36 -35 L 55 -22 40 8 2 33 -9 20 17 -4 Z", collar, metal, 2.4);
+        shape(
+          c,
+          "M -70 -3 Q -58 -10 -43 -5 L -21 22 -48 35 -83 41 -97 32 Z",
+          fighter ? metal : cloth,
+          metal,
+          2,
+        );
+        shape(c, "M 40 -6 Q 67 -9 80 6 L 100 34 72 30 50 42 20 23 Z", fighter ? metal : cloth, metal, 2);
+        for (let i = 0; i < 3; i++) {
+          let a = i * 5;
+          shape(
+            c,
+            "M " + (-89 + a) + " " + (30 - a) + " Q -65 " + (26 - a) + " -48 " + (1 + a),
+            null,
+            metal,
+            1,
+          );
+          shape(
+            c,
+            "M " +
+              (40 + a) +
+              " " +
+              (2 + a * 2) +
+              " L " +
+              (67 + a) +
+              " " +
+              (9 + a) +
+              " " +
+              (87 + a) +
+              " " +
+              (27 + a),
+            null,
+            metal,
+            1,
+          );
+        }
+        shape(c, "M -50 29 Q -18 45 13 59 L 48 38 50 45 14 71 -53 38 Z", metal, ink, 1.2);
+        shape(c, "M -38 54 Q -8 72 10 78 L 45 56 40 65 9 88 Z", "#a78e70");
+        shape(
+          c,
+          "M -49 42 Q -39 74 -17 91 Q -38 89 -58 69 M -48 60 Q -33 86 -18 92 L -41 106 M 36 77 Q 21 103 3 116 L 13 100",
+          null,
+          "#c1a379",
+          1.25,
+        );
+        poly(
+          c,
+          [
+            [-13, 19],
+            [-2, 12],
+            [7, 23],
+            [-3, 39],
+          ],
+          metal,
+          ink,
+          1,
+        );
+        poly(
+          c,
+          [
+            [-10, 21],
+            [-2, 16],
+            [3, 23],
+            [-3, 33],
+          ],
+          accent,
+        );
+        star(c, -3, 23, 4, "#fff2ce");
+        // Belt, segmented gauntlet, and class weapon.
+        shape(c, "M -64 107 Q -14 121 58 82 L 64 94 Q 1 130 -66 120 Z", "#4a3b40", metal, 1.5);
+        if (mage) {
+          shape(
+            c,
+            "M 53 39 Q 69 34 79 49 L 85 79 110 66 122 80 Q 111 103 85 111 Q 70 115 61 97 L 49 68 Z",
+            cloth,
+            ink,
+            2,
+          );
+          shape(c, "M 79 86 L 108 66 119 78 88 102 Z", collar, metal, 2);
+          c.save();
+          c.translate(120, 31);
+          c.rotate(0.155);
+          shape(c, "M -3 -55 L 4 -55 3 154 -3 170 Z", metal, ink, 1.5);
+          glow(c, 0, -69, 53, "#b396fa66");
+          shape(
+            c,
+            "M -2 -43 Q -22 -55 -20 -76 L -12 -95 -14 -75 -8 -64 -3 -84 -4 -49 4 -57 18 -78 17 -96 24 -81 Q 26 -62 7 -45 L 0 -34 Z",
+            metal,
+            ink,
+            1.4,
+          );
+          poly(
+            c,
+            [
+              [-11, -77],
+              [-2, -109],
+              [10, -81],
+              [2, -54],
+            ],
+            grad(c, -10, -88, 10, -72, "#e5d3ff", "#9370cd", "#675290"),
+            "#dec8f5",
+            1.6,
+          );
+          poly(
+            c,
+            [
+              [-2, -109],
+              [1, -76],
+              [-11, -77],
+            ],
+            "#f1dfff",
+          );
+          line(
+            c,
+            [
+              [1, -76],
+              [10, -81],
+              [2, -54],
+            ],
+            "#ddc5ff",
+            1,
+          );
+          star(c, -4, -87, 8, "#fff4ff");
+          c.restore();
+          shape(c, "M 106 64 Q 108 55 118 51 L 126 54 124 58 128 59 125 65 124 70 112 77 Z", skin, ink, 1.2);
+        } else if (fighter) {
+          c.save();
+          c.translate(106, 59);
+          c.rotate(0.19);
+          poly(
+            c,
+            [
+              [-7, -13],
+              [-13, -104],
+              [0, -148],
+              [10, -105],
+              [6, -13],
+            ],
+            grad(c, -13, 0, 9, 0, "#67717c", "#e4e0d2", "#77828b"),
+            ink,
+            1.8,
+          );
+          line(
+            c,
+            [
+              [0, -141],
+              [0, -20],
+            ],
+            "#f7e5c7",
+            1.3,
+          );
+          poly(
+            c,
+            [
+              [-22, -18],
+              [0, -12],
+              [24, -20],
+              [17, -8],
+              [4, -4],
+              [3, 39],
+              [-4, 39],
+              [-5, -4],
+              [-17, -7],
+            ],
+            metal,
+            ink,
+            2,
+          );
+          c.restore();
+          shape(c, "M 51 42 L 79 43 92 76 108 55 119 64 101 102 78 115 58 89 Z", collar, metal, 2);
+        } else {
+          shape(c, "M 71 164 Q 156 41 122 -108 L 111 -122 Q 136 2 98 65 L 63 151 Z", metal, ink, 1.7);
+          line(
+            c,
+            [
+              [112, -119],
+              [65, 151],
+            ],
+            "#e2cfaf",
+            1.1,
+          );
+          shape(c, "M 51 43 L 73 37 77 74 110 47 123 55 88 102 70 107 55 83 Z", cloth, metal, 1.5);
+        }
+        // Fine woven grain, confined to the mantle.
+        c.save();
+        path(c, [
+          [-58, 38],
+          [-21, 65],
+          [7, 82],
+          [41, 62],
+          [62, 148],
+          [-84, 157],
+        ]);
+        c.clip();
+        let rr = rng(87);
+        for (let i = 0; i < 270; i++) {
+          let a = rr() * 166 - 95,
+            b = rr() * 120 + 38;
+          line(
+            c,
+            [
+              [a, b],
+              [a - 2, b + 3],
+            ],
+            "#f0d9dd14",
+            0.8,
+          );
+        }
+        c.restore();
+        c.restore();
+      }
+      function heroArt() {
+        let [c, w, h] = fit($("heroArt"));
+        landscape(c, w, h, 846, true);
+        let px = w * 0.715,
+          py = h * 0.44,
+          rad = h * 0.41;
+        c.save();
+        c.translate(px, py);
+        for (let i = 0; i < 4; i++)
+          circ(
+            c,
+            0,
+            0,
+            rad * (1 + i * 0.043),
+            null,
+            i === 2 ? "#ddc89f69" : "#d9c1a237",
+            i === 2 ? 1.4 : 0.7,
+          );
+        for (let i = 0; i < 64; i++) {
+          let a = (i * TAU) / 64,
+            u = Math.cos(a),
+            v = Math.sin(a);
+          line(
+            c,
+            [
+              [u * rad * 1.09, v * rad * 1.09],
+              [u * rad * (i % 4 ? 1.115 : 1.16), v * rad * (i % 4 ? 1.115 : 1.16)],
+            ],
+            "#e0cda164",
+            0.8,
+          );
+        }
+        c.restore();
+        let r = rng(286);
+        for (let i = 0; i < 28; i++) {
+          let x = w * (0.39 + r() * 0.62),
+            y = r() * h;
+          star(c, x, y, 1 + r() * 4, "#e3cbf08c");
+        }
+        portrait(c, selected, px, h * 0.488, h / 285);
+        for (let i = 0; i < 18; i++) {
+          let x = w * (0.5 + r() * 0.5),
+            y = r() * h;
+          circ(c, x, y, 1 + r() * 1.6, "#e6c8eb64");
+        }
+      }
+      function thumb(cv, k) {
+        let [c, w, h] = fit(cv);
+        c.fillStyle = grad(c, 0, 0, w, h, ["#54485e", "#584246", "#394e4b"][k], "#211e2a");
+        c.fillRect(0, 0, w, h);
+        let s = Math.min(w / 86, h / 97);
+        portrait(c, k, w * 0.51, h * 0.47 + s * 57, s);
+      }
+      function drawEmblem() {
+        let cv = $("brandMark"),
+          [c, w, h] = fit(cv);
+        c.scale(w / 36, h / 40);
+        poly(
+          c,
+          [
+            [18, 1],
+            [29, 12],
+            [24, 12],
+            [18, 7],
+            [12, 13],
+            [7, 13],
+          ],
+          "#e8cf9a",
+        );
+        poly(
+          c,
+          [
+            [5, 13],
+            [11, 16],
+            [17, 31],
+            [17, 39],
+            [2, 20],
+          ],
+          "#bd9b6c",
+        );
+        poly(
+          c,
+          [
+            [31, 13],
+            [34, 20],
+            [19, 39],
+            [19, 31],
+            [25, 16],
+          ],
+          "#dcc08e",
+        );
+        poly(
+          c,
+          [
+            [18, 11],
+            [23, 18],
+            [18, 29],
+            [13, 18],
+          ],
+          "#efd7aa",
+        );
+      }
+      function speaker() {
+        let [c, w, h] = fit($("sound").firstElementChild);
+        c.scale(w / 20, h / 20);
+        poly(
+          c,
+          [
+            [2, 8],
+            [6, 8],
+            [11, 4],
+            [11, 16],
+            [6, 12],
+            [2, 12],
+          ],
+          null,
+          "#cabcce",
+          1.5,
+        );
+        if (soundOn) {
+          shape(c, "M 14 7 Q 17 10 14 13 M 16 4 Q 22 10 16 16", null, "#cabcce", 1.2);
+        } else {
+          line(
+            c,
+            [
+              [14, 8],
+              [19, 13],
+            ],
+            "#cabcce",
+            1.4,
+          );
+          line(
+            c,
+            [
+              [19, 8],
+              [14, 13],
+            ],
+            "#cabcce",
+            1.4,
+          );
+        }
+      }
+      function crystal(c, x, y, s, color) {
+        c.save();
+        c.translate(x, y);
+        c.scale(s, s);
+        glow(c, 0, -13, 24, color + "44");
+        poly(
+          c,
+          [
+            [0, -32],
+            [8, -16],
+            [4, -4],
+            [0, 0],
+            [-6, -8],
+            [-8, -17],
+          ],
+          color,
+          "#c8d7d483",
+          0.8,
+        );
+        poly(
+          c,
+          [
+            [0, -32],
+            [-1, -12],
+            [-6, -8],
+            [-8, -17],
+          ],
+          "#e6f5f29e",
+        );
+        poly(
+          c,
+          [
+            [-1, -12],
+            [8, -16],
+            [4, -4],
+            [0, 0],
+          ],
+          "#36324f72",
+        );
+        c.restore();
+      }
+      function previewMap() {
+        let [c, w, h] = fit($("mapArt"));
+        c.fillStyle = grad(c, 0, 0, w, h, "#252534", "#302d39", "#211e2b");
+        c.fillRect(0, 0, w, h);
+        let r = rng(311);
+        for (let i = -10; i < 50; i++) {
+          line(
+            c,
+            [
+              [i * 24, 0],
+              [i * 24 - h * 1.8, h],
+            ],
+            "#c8b4cb0a",
+          );
+          line(
+            c,
+            [
+              [i * 24, 0],
+              [i * 24 + h * 1.8, h],
+            ],
+            "#c8b4cb0a",
+          );
+        }
+        c.save();
+        let sc = Math.min(w / 340, h / 142);
+        c.translate(w * 0.51, h * 0.55);
+        c.scale(sc, sc);
+        let pts = [
+          [-146, 4],
+          [-133, -8],
+          [-132, -16],
+          [-97, -28],
+          [-78, -32],
+          [-63, -43],
+          [-37, -45],
+          [-24, -54],
+          [0, -59],
+          [20, -53],
+          [38, -52],
+          [48, -42],
+          [70, -42],
+          [81, -33],
+          [110, -31],
+          [118, -19],
+          [145, -13],
+          [151, -2],
+          [133, 11],
+          [132, 18],
+          [106, 25],
+          [90, 36],
+          [68, 38],
+          [58, 46],
+          [29, 49],
+          [13, 57],
+          [-8, 54],
+          [-22, 58],
+          [-44, 49],
+          [-56, 49],
+          [-71, 39],
+          [-86, 38],
+          [-99, 27],
+          [-120, 25],
+          [-130, 16],
+        ];
+        oval(c, 0, 17, 148, 47, "#10121b88");
+        poly(
+          c,
+          pts.map(([x, y]) => [x, y + 9]),
+          "#171a25",
+          "#49424a",
+          1,
+        );
+        for (let i = 0; i < pts.length; i++) {
+          let a = pts[i],
+            b = pts[(i + 1) % pts.length];
+          poly(
+            c,
+            [a, b, [b[0] - 2, b[1] + 7 + r() * 6], [a[0], a[1] + 8]],
+            ["#48434a", "#393740", "#534a4c"][i % 3],
+          );
+        }
+        poly(c, pts, grad(c, -85, -40, 70, 60, "#605c59", "#43534e", "#414748"), "#82766d", 1);
+        c.save();
+        path(c, pts);
+        c.clip();
+        for (let i = 0; i < 320; i++) {
+          let x = r() * 310 - 155,
+            y = r() * 132 - 66;
+          poly(
+            c,
+            [
+              [x, y],
+              [x + 4 + r() * 17, y - 4],
+              [x + 19, y + 2],
+              [x + 3, y + 4],
+            ],
+            r() > 0.5 ? "#9b92721f" : "#242f3738",
+          );
+        }
+        shape(c, "M -29 -64 Q -59 -27 -19 -16 Q 22 -2 -8 17 Q -39 38 2 61", null, "#85857b", 11);
+        shape(c, "M -29 -64 Q -59 -27 -19 -16 Q 22 -2 -8 17 Q -39 38 2 61", null, "#5a7b85", 7);
+        shape(c, "M -113 20 Q -68 30 -25 9 Q 0 -5 31 -3 Q 72 1 112 -19", null, "#aaa28d", 6);
+        shape(
+          c,
+          "M -112 20 Q -89 -3 -66 -10 Q -11 -34 25 -28 Q 80 -34 111 -19 M -109 19 Q -58 54 7 27 Q 57 9 109 -19",
+          null,
+          "#838374",
+          3,
+        );
+        c.restore();
+        for (let y = -42; y < 43; y += 6) {
+          for (let j = 0; j < 13; j++) {
+            let x = r() * 250 - 125,
+              yy = y + r() * 4;
+            if (Math.abs(x) * 0.35 + Math.abs(yy) > 53 || Math.abs(yy + x * 0.15) < 8 || Math.abs(x) < 10)
+              continue;
+            pine(c, x, yy, 8 + r() * 13, ["#273b37", "#587062"]);
+          }
+        }
+        for (let [x, y, col] of [
+          [-108, 21, "#96e1d7"],
+          [108, -18, "#e9a7b8"],
+        ]) {
+          oval(c, x, y, 13, 5, "#b7aa94");
+          oval(c, x, y, 9, 3.8, "#565759");
+          crystal(c, x, y, 0.62, col);
+          crystal(c, x - 7, y + 2, 0.28, col);
+          crystal(c, x + 7, y + 1, 0.34, col);
+        }
+        for (let x of [-67, -43, 47, 70]) {
+          let y = -x * 0.16;
+          poly(
+            c,
+            [
+              [x - 4, y + 2],
+              [x - 3, y - 5],
+              [x, y - 10],
+              [x + 3, y - 5],
+              [x + 4, y + 2],
+            ],
+            "#b9ad94",
+            "#514f50",
+          );
+          crystal(c, x, y - 6, 0.19, x < 0 ? "#a0dfd1" : "#e0a1b2");
+        }
+        c.restore();
+      }
+      function icon(c, k, i, size) {
+        c.save();
+        c.scale(size / 40, size / 40);
+        c.lineWidth = 1.6;
+        c.lineJoin = "round";
+        c.lineCap = "round";
+        const a = kits[k].color,
+          b = "#f4dfbd";
+        glow(c, 20, 19, 20, a + "3f");
+        let P = (p, col = a) => poly(c, p, col),
+          L = (p, col = a, w = 1.6) => line(c, p, col, w),
+          S = (d, col = a, w = 1.5) => shape(c, d, null, col, w);
+        if (k === 0) {
+          if (i === 0) {
+            shape(
+              c,
+              "M 6 33 Q 13 28 11 23 Q 9 18 17 14 Q 13 20 19 18 Q 28 14 30 4 Q 32 14 27 20 Q 34 17 36 14 Q 31 29 22 32 Q 17 35 12 30 Z",
+              a,
+            );
+            shape(c, "M 12 29 Q 19 31 19 24 L 25 20 Q 24 28 19 30 Z", b);
+          }
+          if (i === 1) {
+            for (let j = 0; j < 2; j++) {
+              c.beginPath();
+              c.ellipse(20, 26, 15 - j * 5, 7 - j * 2, 0, 0, TAU);
+              c.strokeStyle = j ? b : a;
+              c.stroke();
+            }
+            star(c, 20, 16, 9, a);
+            star(c, 30, 9, 4, b);
+            star(c, 8, 17, 3, b);
+          }
+          if (i === 2) {
+            S("M 6 29 Q 19 24 25 6 L 22 20 34 12 Q 27 24 12 33 L 17 25 Z");
+            star(c, 27, 15, 6, b);
+            L([
+              [5, 23],
+              [13, 20],
+            ]);
+            L([
+              [13, 35],
+              [21, 31],
+            ]);
+          }
+          if (i === 3) {
+            P(
+              [
+                [3, 36],
+                [20, 14],
+                [32, 5],
+                [24, 21],
+              ],
+              a,
+            );
+            P(
+              [
+                [3, 36],
+                [23, 15],
+                [32, 5],
+                [24, 18],
+              ],
+              b,
+            );
+            star(c, 26, 13, 11, b);
+            L([
+              [8, 22],
+              [17, 12],
+            ]);
+            L([
+              [20, 30],
+              [30, 19],
+            ]);
+          }
+        } else if (k === 1) {
+          if (i === 0) {
+            P(
+              [
+                [6, 32],
+                [22, 12],
+                [34, 5],
+                [28, 17],
+                [10, 33],
+              ],
+              a,
+            );
+            L(
+              [
+                [8, 23],
+                [17, 31],
+              ],
+              b,
+              3,
+            );
+            L([
+              [3, 24],
+              [11, 13],
+            ]);
+            L([
+              [18, 34],
+              [30, 23],
+            ]);
+          }
+          if (i === 1) {
+            shape(c, "M 20 4 L 33 10 31 23 Q 28 29 20 35 Q 11 30 8 23 L 7 10 Z", null, a, 2.5);
+            P(
+              [
+                [20, 9],
+                [27, 13],
+                [26, 22],
+                [20, 29],
+              ],
+              b,
+            );
+          }
+          if (i === 2) {
+            S("M 8 26 Q -1 10 21 8 Q 34 7 33 17 M 33 22 Q 28 34 10 30", a, 2.5);
+            P(
+              [
+                [6, 23],
+                [13, 23],
+                [8, 31],
+              ],
+              b,
+            );
+            P(
+              [
+                [29, 15],
+                [36, 13],
+                [33, 21],
+              ],
+              b,
+            );
+            L(
+              [
+                [12, 26],
+                [28, 11],
+              ],
+              b,
+              3,
+            );
+          }
+          if (i === 3) {
+            P(
+              [
+                [15, 4],
+                [25, 4],
+                [22, 22],
+                [20, 28],
+                [17, 22],
+              ],
+              a,
+            );
+            L(
+              [
+                [11, 12],
+                [29, 12],
+              ],
+              b,
+              2,
+            );
+            L(
+              [
+                [3, 27],
+                [11, 33],
+                [16, 30],
+                [21, 36],
+                [25, 30],
+                [34, 33],
+                [37, 25],
+              ],
+              a,
+              2,
+            );
+          }
+        } else {
+          if (i === 0 || i === 3) {
+            L(
+              [
+                [5, 34],
+                [31, 8],
+              ],
+              b,
+              i ? 3 : 2,
+            );
+            P(
+              [
+                [23, 9],
+                [36, 4],
+                [31, 17],
+                [29, 11],
+              ],
+              a,
+            );
+            L(
+              [
+                [6, 24],
+                [6, 32],
+                [14, 32],
+              ],
+              a,
+            );
+            if (i === 3) {
+              L([
+                [4, 19],
+                [19, 4],
+              ]);
+              L([
+                [19, 36],
+                [36, 19],
+              ]);
+              star(c, 26, 14, 6, b);
+            }
+          }
+          if (i === 1) {
+            S("M 4 25 Q 9 32 20 31 Q 31 31 35 22 L 28 28 28 18 22 28 18 17 16 29 8 18 10 28 Z");
+            S("M 8 16 Q 10 7 20 6 Q 31 7 33 16", b);
+          }
+          if (i === 2) {
+            S(
+              "M 3 27 Q 11 19 17 23 Q 24 27 35 15 M 5 19 Q 14 12 20 15 Q 28 19 34 8 M 13 32 Q 23 32 30 25",
+              a,
+              2.4,
+            );
+          }
+        }
+        c.restore();
+      }
+      function canvasIcon(cv, k, i) {
+        cv.width = cv.height = 80;
+        icon(cv.getContext("2d"), k, i, 80);
+      }
+
+      const W = 3360,
+        H = 1880,
+        LEN = 2900,
+        ux = 0.92,
+        uy = -Math.sqrt(1 - 0.92 * 0.92),
+        origin = { x: 330, y: 1510 };
+      function lane(d, off = 0) {
+        return { x: origin.x + ux * d - uy * off, y: origin.y + uy * d + ux * off };
+      }
+      function along(o) {
+        return (o.x - origin.x) * ux + (o.y - origin.y) * uy;
+      }
+      function across(o) {
+        return -(o.x - origin.x) * uy + (o.y - origin.y) * ux;
+      }
+      const distance = (a, b) => Math.hypot(a.x - b.x, a.y - b.y),
+        live = (u) => u.hp > 0,
+        teamColor = (t) => (t === 0 ? "#83d7bd" : t === 1 ? "#e991a5" : "#d7bd88");
+      function unit(kind, team, p, hp, r) {
+        return {
+          id: ++game.ids,
+          kind,
+          team,
+          x: p.x,
+          y: p.y,
+          hp,
+          maxHp: hp,
+          r,
+          atk: 0,
+          slow: 0,
+          flash: 0,
+          face: team === 1 ? 2.74 : -0.4,
+          lastCombat: -100,
+        };
+      }
+      const items = [
+        ["Forged Edge", "+16 attack damage", 420],
+        ["Vitalstone", "+220 maximum health", 400],
+        ["Wayfarer Boots", "+18 move speed", 370],
+        ["Moon Dial", "+8% cooldown reduction", 470],
+        ["Astral Tome", "+23 ability power", 420],
+      ];
+      function shopBuy(h, i) {
+        let item = items[i];
+        if (!h || !live(h) || !inBase(h) || h.gold < item[2] || h.items[i] >= 3) return false;
+        h.gold -= item[2];
+        h.items[i]++;
+        if (i === 0) h.ad += 16;
+        if (i === 1) {
+          h.maxHp += 220;
+          h.hp += 220;
+        }
+        if (i === 2) h.speed += 18;
+        if (i === 3) h.cdr += 0.08;
+        if (i === 4) h.ap += 23;
+        return true;
+      }
+      function champion(t, k, index, isPlayer) {
+        let d = kits[k],
+          p = lane(t ? LEN - 70 : 70, (index - 1) * 57),
+          h = unit("champ", t, p, d.hp, 21);
+        Object.assign(h, {
+          k,
+          index,
+          isPlayer,
+          name: d.name,
+          mp: d.mp,
+          maxMp: d.mp,
+          ad: d.ad,
+          ap: d.ap,
+          speed: d.speed,
+          range: d.range,
+          level: 1,
+          xp: 0,
+          gold: 350,
+          kills: 0,
+          deaths: 0,
+          assists: 0,
+          cs: 0,
+          cd: [0, 0, 0, 0],
+          cdr: 0,
+          items: [0, 0, 0, 0, 0],
+          shield: 0,
+          shieldTime: 0,
+          haste: 0,
+          buff: 0,
+          respawn: 0,
+          recall: 0,
+          aiWait: index * 0.18,
+          evade: false,
+          skillIndex: index,
+          contributors: {},
+          travel: null,
+          goal: null,
+          autoTarget: null,
+          laneOffset: (index - 1) * 48,
+        });
+        return h;
+      }
+      function building(t, type, d, hp, r) {
+        let u = unit("building", t, lane(t ? LEN - d : d), hp, r);
+        Object.assign(u, { type, name: type[0].toUpperCase() + type.slice(1), range: 365 });
+        return u;
+      }
+      function camp(d, o, type) {
+        let p = lane(d, o),
+          u = unit("monster", 2, p, type === 0 ? 620 : 880, 26);
+        Object.assign(u, { nest: p, type, respawn: 0, target: null, speed: 66, ad: type === 0 ? 29 : 39 });
+        return u;
+      }
+      function makeGame(k, diff) {
+        game = {
+          ids: 0,
+          time: 0,
+          nextWave: 0,
+          waves: 0,
+          diff,
+          heroes: [],
+          minions: [],
+          buildings: [],
+          monsters: [],
+          shots: [],
+          areas: [],
+          fx: [],
+          numbers: [],
+          score: [0, 0],
+          winner: null,
+          displayUntil: 0,
+          msg: "",
+          cam: { x: 0, y: 0 },
+          hudTick: 0,
+          seed: rng(9087),
+        };
+        let g = game;
+        for (let t = 0; t < 2; t++) {
+          for (let i = 0; i < 3; i++) g.heroes.push(champion(t, (k + i + (t ? 1 : 0)) % 3, i, !t && !i));
+          for (let [type, d, hp, r] of [
+            ["nexus", 0, 7800, 52],
+            ["inhibitor", 225, 3150, 36],
+            ["turret", 475, 3200, 32],
+            ["turret", 940, 3300, 32],
+          ])
+            g.buildings.push(building(t, type, d, hp, r));
+        }
+        g.player = g.heroes[0];
+        g.monsters = [camp(860, -325, 0), camp(1160, 355, 1), camp(2040, 325, 0), camp(1740, -355, 1)];
+        return g;
+      }
+      function enemies(u, neutral = false) {
+        let g = game,
+          arr = [...g.heroes, ...g.minions, ...g.buildings];
+        if (neutral) arr.push(...g.monsters);
+        return arr.filter((e) => e.team !== u.team && live(e));
+      }
+      function vulnerable(b) {
+        if (b.kind !== "building" || b.type === "turret") return true;
+        return !game.buildings.some(
+          (a) =>
+            a.team === b.team &&
+            live(a) &&
+            (a.type === "turret" || (b.type === "nexus" && a.type === "inhibitor")),
+        );
+      }
+      function nearest(u, arr, range = Infinity) {
+        let best = null,
+          d = range;
+        for (let e of arr) {
+          if (!live(e)) continue;
+          let v = distance(u, e) - e.r;
+          if (v <= d) {
+            d = v;
+            best = e;
+          }
+        }
+        return best;
+      }
+      function spawnWave() {
+        let g = game;
+        g.waves++;
+        let siege = g.time >= 480 ? 2 : g.waves % 3 === 0 ? 1 : 0;
+        for (let t = 0; t < 2; t++) {
+          let superWave = !g.buildings.some((b) => b.team !== t && b.type === "inhibitor" && live(b)),
+            n = 5 + siege + (superWave ? 1 : 0);
+          for (let i = 0; i < n; i++) {
+            let ranged = i === 3 || i === 4,
+              big = i >= 5,
+              superMin = superWave && i === n - 1,
+              pt = lane(
+                t ? LEN - 115 + Math.floor(i / 3) * 29 : 115 - Math.floor(i / 3) * 29,
+                ((i % 3) - 1) * 34,
+              );
+            let scale = 1 + g.time / 1000,
+              hp = (superMin ? 920 : big ? 560 : ranged ? 170 : 255) * scale,
+              m = unit("minion", t, pt, hp, big ? 15 : 11);
+            Object.assign(m, {
+              ad: (superMin ? 65 : big ? 42 : ranged ? 21 : 16) * scale,
+              speed: big ? 83 : 88,
+              range: ranged || big ? 176 : 32,
+              big,
+              ranged,
+              offset: ((i % 3) - 1) * 32,
+              target: null,
+              think: 0.1 * i,
+            });
+            g.minions.push(m);
+          }
+        }
+      }
+      function inBase(h) {
+        return distance(h, lane(h.team ? LEN : 0)) < 255;
+      }
+      function abilityRank(level, i) {
+        return i === 3
+          ? 1 + Number(level >= 6) + Number(level >= 11) + Number(level >= 16)
+          : 1 + Math.floor((level - 1) / 4);
+      }
+      function nextXP(h) {
+        return 95 + h.level * 39;
+      }
+      function award(h, gold, xp) {
+        if (!h || h.kind !== "champ") return;
+        h.gold += gold;
+        h.xp += xp;
+        while (h.level < 18 && h.xp >= nextXP(h)) {
+          h.xp -= nextXP(h);
+          h.level++;
+          h.maxHp += 77;
+          h.hp = Math.min(h.maxHp, h.hp + (live(h) ? 77 : 0));
+          h.maxMp += 23;
+          h.mp = Math.min(h.maxMp, h.mp + 23);
+          h.ad += 3.8;
+          h.ap += 5;
+          burst(h.x, h.y, "#eed19b", 14);
+          if (h.isPlayer) {
+            let upgrade =
+              abilityRank(h.level, 3) > abilityRank(h.level - 1, 3)
+                ? " · Ultimate upgraded"
+                : abilityRank(h.level, 0) > abilityRank(h.level - 1, 0)
+                  ? " · Normal abilities upgraded"
+                  : " · Stats increased";
+            announce("Level " + h.level + upgrade, 2.3);
+          }
+        }
+        if (h.level === 18) h.xp = 0;
+      }
+      function announce(s, time = 2.5) {
+        game.msg = s;
+        game.displayUntil = game.time + time;
+      }
+      function tone(freq, duration = 0.09, type = "sine", vol = 0.035, end = 0) {
+        if (!soundOn || !ac || ac.state !== "running") return;
+        let o = ac.createOscillator(),
+          v = ac.createGain(),
+          t = ac.currentTime;
+        o.type = type;
+        o.frequency.setValueAtTime(freq, t);
+        if (end) o.frequency.exponentialRampToValueAtTime(end, t + duration);
+        v.gain.setValueAtTime(0.001, t);
+        v.gain.exponentialRampToValueAtTime(vol, t + 0.009);
+        v.gain.exponentialRampToValueAtTime(0.001, t + duration);
+        o.connect(v);
+        v.connect(ac.destination);
+        o.start(t);
+        o.stop(t + duration + 0.02);
+      }
+      function burst(x, y, color, n = 7) {
+        if (game.fx.length > 450) return;
+        for (let i = 0; i < n; i++) {
+          let a = game.seed() * TAU,
+            sp = 22 + game.seed() * 110;
+          game.fx.push({
+            type: "spark",
+            x,
+            y,
+            vx: Math.cos(a) * sp,
+            vy: Math.sin(a) * sp,
+            color,
+            age: 0,
+            life: 0.23 + game.seed() * 0.35,
+            r: 1.2 + game.seed() * 2,
+          });
+        }
+      }
+      function ring(x, y, r, color, life = 0.42) {
+        game.fx.push({ type: "ring", x, y, r, color, age: 0, life });
+      }
+      function streak(a, b, col, width = 5, life = 0.18) {
+        game.fx.push({ type: "line", x: a.x, y: a.y, bx: b.x, by: b.y, color: col, w: width, age: 0, life });
+      }
+      function hit(u, amount, src) {
+        if (!live(u) || game.winner !== null || !vulnerable(u)) return false;
+        let h = src.kind === "champ" ? src : null;
+        if (u.kind === "building") {
+          const siegePower =
+            0.14 + 0.86 * clamp((game.time - 285) / 400, 0, 1) + 1.25 * clamp((game.time - 690) / 180, 0, 1);
+          amount *= siegePower * (h?.k === 0 ? 0.82 : 1);
+        }
+        if (h && h.team === 1) amount *= [0.84, 1, 1.08][game.diff];
+        if (h && h.buff > 0) amount *= 1.17;
+        if (u.shield > 0) {
+          let absorb = Math.min(u.shield, amount);
+          u.shield -= absorb;
+          amount -= absorb;
+        }
+        u.lastCombat = game.time;
+        u.recall = 0;
+        u.flash = 0.15;
+        if (h && u.kind === "champ") u.contributors[h.id] = game.time;
+        if (u.kind === "monster") u.target = src;
+        u.hp = Math.max(0, u.hp - amount);
+        if ((src.isPlayer || u.isPlayer) && amount > 0) {
+          game.numbers.push({
+            x: u.x + (game.seed() - 0.5) * 12,
+            y: u.y - u.r - 10,
+            text: Math.round(amount),
+            color: u.isPlayer ? "#f6adac" : "#f7dfb1",
+            life: 0.72,
+            age: 0,
+          });
+        }
+        if (live(u)) return true;
+        burst(u.x, u.y, teamColor(u.team), u.kind === "building" ? 26 : 9);
+        if (u.kind === "champ") {
+          u.deaths++;
+          u.respawn = 7 + u.level * 1.25;
+          u.travel = null;
+          u.recall = 0;
+          u.buff = 0;
+          u.shield = 0;
+          u.haste = 0;
+          u.evade = false;
+          let killer = h;
+          if (!killer) {
+            killer = game.heroes
+              .filter((a) => a.team !== u.team && game.time - (u.contributors[a.id] ?? -99) < 7)
+              .sort((a, b) => u.contributors[b.id] - u.contributors[a.id])[0];
+          }
+          if (src.team < 2 || killer) {
+            game.score[1 - u.team]++;
+            if (killer) {
+              killer.kills++;
+              award(killer, 200, 185);
+            }
+            for (let a of game.heroes) {
+              if (a !== killer && a.team !== u.team && game.time - (u.contributors[a.id] ?? -99) < 8) {
+                a.assists++;
+                award(a, 90, 110);
+              }
+            }
+          }
+          u.contributors = {};
+          if (u.isPlayer) announce("You have fallen", 2.4);
+          else if (killer?.isPlayer) announce("Enemy champion slain", 2.2);
+        }
+        if (u.kind === "minion") {
+          if (h) {
+            h.cs++;
+            award(h, u.big ? 55 : 29, u.big ? 64 : 39);
+          }
+          for (let a of game.heroes)
+            if (a !== h && a.team !== u.team && live(a) && distance(a, u) < 460) award(a, 4, 24);
+        }
+        if (u.kind === "monster") {
+          u.respawn = 78;
+          u.target = null;
+          if (h) {
+            award(h, 130, 142);
+            h.buff = 62;
+            h.mp = Math.min(h.maxMp, h.mp + 65);
+            if (h.isPlayer) announce("Vale blessing · +17% damage for 62s");
+          }
+        }
+        if (u.kind === "building") {
+          for (let a of game.heroes) if (a.team !== u.team) award(a, 115, 105);
+          announce((u.team ? "Enemy " : "Allied ") + u.name.toLowerCase() + " destroyed", 3);
+          if (u.type === "nexus") game.winner = 1 - u.team;
+        }
+        return true;
+      }
+      function move(u, x, y, dt, stop = 0) {
+        let dx = x - u.x,
+          dy = y - u.y,
+          d = Math.hypot(dx, dy);
+        if (d <= stop || d < 0.01) return;
+        let speed = u.speed * (u.slow > 0 ? 0.52 : 1) * (u.haste > 0 ? 1.62 : 1),
+          step = Math.min(d - stop, speed * dt);
+        u.face = Math.atan2(dy, dx);
+        u.x = clamp(u.x + (dx / d) * step, 45, W - 45);
+        u.y = clamp(u.y + (dy / d) * step, 45, H - 45);
+      }
+      function segmentDist(e, a, b) {
+        let dx = b.x - a.x,
+          dy = b.y - a.y,
+          f = clamp(((e.x - a.x) * dx + (e.y - a.y) * dy) / (dx * dx + dy * dy || 1), 0, 1);
+        return Math.hypot(e.x - a.x - f * dx, e.y - a.y - f * dy);
+      }
+      function shot(src, angle, speed, range, dmg, color, opts = {}) {
+        game.shots.push({
+          x: src.x,
+          y: src.y,
+          a: angle,
+          speed,
+          left: range,
+          dmg,
+          color,
+          src,
+          size: 5,
+          hitIds: new Set(),
+          ...opts,
+        });
+      }
+      function attack(u, target) {
+        if (
+          u.travel ||
+          !target ||
+          u.atk > 0 ||
+          !live(u) ||
+          !live(target) ||
+          !vulnerable(target) ||
+          distance(u, target) > u.range + target.r + 5
+        )
+          return false;
+        let a = Math.atan2(target.y - u.y, target.x - u.x);
+        u.face = a;
+        u.recall = 0;
+        u.atk =
+          u.kind === "champ"
+            ? u.k === 2
+              ? 0.78
+              : u.k === 1
+                ? 0.91
+                : 1.03
+            : u.kind === "building"
+              ? 1.12
+              : u.kind === "monster"
+                ? 1.1
+                : 1.32;
+        if (u.range <= 100) {
+          streak(u, target, u.kind === "monster" ? "#c6ac8d" : teamColor(u.team), 3);
+          hit(target, u.ad, u);
+          burst(target.x, target.y, "#d8c2ab", 3);
+        } else {
+          let tower = u.kind === "building";
+          shot(
+            u,
+            a,
+            tower ? 480 : 545,
+            850,
+            tower ? 139 + game.time * 0.035 : u.ad,
+            tower ? teamColor(u.team) : u.kind === "champ" ? kits[u.k].color : teamColor(u.team),
+            { target, size: tower ? 7 : 3.7 },
+          );
+        }
+        if (u.isPlayer) tone(210, 0.075, "triangle", 0.04, 105);
+        return true;
+      }
+      function pointAt(u, p, range) {
+        let a = Math.atan2(p.y - u.y, p.x - u.x),
+          d = Math.min(range, distance(u, p));
+        return { x: clamp(u.x + Math.cos(a) * d, 40, W - 40), y: clamp(u.y + Math.sin(a) * d, 40, H - 40) };
+      }
+      function splash(u, p, r, dmg, slow = 0) {
+        for (let e of enemies(u, true)) {
+          if (distance(e, p) < r + e.r) {
+            hit(e, dmg * (e.kind === "building" ? 0.52 : 1), u);
+            if (e.kind !== "building") e.slow = Math.max(e.slow, slow);
+          }
+        }
+      }
+      function area(u, p, type, r, duration, dmg) {
+        game.areas.push({ ...p, src: u, type, r, left: duration, age: 0, next: 0, dmg });
+      }
+      function cast(h, i, p) {
+        if (!live(h) || h.travel || i < 0 || i > 3 || game.winner !== null) return false;
+        let data = kits[h.k].skills[i];
+        if (h.cd[i] > 0 || h.mp < data[3]) {
+          if (h.isPlayer && h.mp < data[3]) announce("Not enough mana", 1);
+          return false;
+        }
+        let rank = abilityRank(h.level, i);
+        h.mp -= data[3];
+        h.cd[i] = data[2] * (1 - h.cdr) * (1 - 0.025 * (rank - 1));
+        h.recall = 0;
+        let a = Math.atan2(p.y - h.y, p.x - h.x),
+          power = 1 + 0.025 * (h.level - 1) + 0.1 * (rank - 1),
+          ap = h.ap,
+          ad = h.ad,
+          col = kits[h.k].color;
+        h.face = a;
+        if (h.k === 0) {
+          if (i === 0) shot(h, a, 435, 650, (81 + ap * 0.86) * power, "#e7a0e9", { size: 10, blast: 74 });
+          if (i === 1) area(h, pointAt(h, p, 460), "zone", 112, 4, (23 + ap * 0.23) * power);
+          if (i === 2) {
+            let dest = pointAt(h, p, 255 + 10 * (rank - 1));
+            burst(h.x, h.y, col, 16);
+            streak(h, dest, col, 8, 0.3);
+            Object.assign(h, dest);
+            ring(h.x, h.y, 36, col);
+            burst(h.x, h.y, col, 12);
+          }
+          if (i === 3) {
+            let end = { x: h.x + Math.cos(a) * 945, y: h.y + Math.sin(a) * 945 };
+            streak(h, end, col, 53, 0.68);
+            for (let e of enemies(h, true))
+              if (segmentDist(e, h, end) < 32 + e.r)
+                hit(e, (290 + ap * 1.65) * power * (e.kind === "building" ? 0.48 : 1), h);
+            burst(h.x, h.y, col, 20);
+          }
+        }
+        if (h.k === 1) {
+          if (i === 0 || i === 3) {
+            let dest = pointAt(h, p, i ? 385 : 240);
+            h.travel = {
+              from: { x: h.x, y: h.y },
+              to: dest,
+              age: 0,
+              life: i ? 0.47 : 0.19,
+              type: i ? "leap" : "dash",
+              hitIds: new Set(),
+              dmg: (i ? 245 + ad * 1.75 + ap * 0.65 : 60 + ad * 1.02) * power,
+            };
+          }
+          if (i === 1) {
+            h.shield = (130 + ad * 0.7 + ap * 0.55) * power;
+            h.shieldTime = 4;
+            ring(h.x, h.y, 43, "#f8cf91");
+          }
+          if (i === 2) {
+            splash(h, h, 145, (65 + ad * 1.12) * power);
+            ring(h.x, h.y, 145, col, 0.48);
+            game.fx.push({ type: "spin", x: h.x, y: h.y, r: 134, color: col, age: 0, life: 0.43 });
+          }
+        }
+        if (h.k === 2) {
+          if (i === 0 || i === 3)
+            shot(
+              h,
+              a,
+              i ? 1040 : 680,
+              i ? 1550 : 760,
+              (i ? 275 + ad * 2.1 : 61 + ad * 1.04) * power,
+              i ? "#eddfaa" : col,
+              { size: i ? 12 : 6, pierce: true, arrow: true },
+            );
+          if (i === 1) area(h, pointAt(h, p, 430), "trap", 74, 18, (60 + ap * 0.8 + ad * 0.3) * power);
+          if (i === 2) {
+            h.haste = 4 + 0.25 * (rank - 1);
+            ring(h.x, h.y, 38, col);
+            burst(h.x, h.y, col, 12);
+          }
+        }
+        if (h.isPlayer)
+          tone(
+            i === 3 ? 180 : 350 + i * 95,
+            i === 3 ? 0.45 : 0.16,
+            i === 3 ? "sawtooth" : "triangle",
+            i === 3 ? 0.045 : 0.05,
+            i === 3 ? 45 : 190,
+          );
+        return true;
+      }
+      function updateShots(dt) {
+        for (let s of game.shots) {
+          let step = Math.min(s.left, s.speed * dt),
+            prev = { x: s.x, y: s.y };
+          if (s.target) {
+            if (!live(s.target)) {
+              s.left = 0;
+              continue;
+            }
+            s.a = Math.atan2(s.target.y - s.y, s.target.x - s.x);
+            if (distance(s, s.target) <= step + s.target.r) {
+              hit(s.target, s.dmg, s.src);
+              burst(s.target.x, s.target.y, s.color, 3);
+              s.left = 0;
+              continue;
+            }
+          }
+          s.x += Math.cos(s.a) * step;
+          s.y += Math.sin(s.a) * step;
+          s.left -= step;
+          if (s.target) continue;
+          let targets = enemies(s.src, true)
+            .filter((e) => vulnerable(e) && !s.hitIds.has(e.id) && segmentDist(e, prev, s) <= e.r + s.size)
+            .sort((a, b) => distance(prev, a) - distance(prev, b));
+          for (let e of targets) {
+            s.hitIds.add(e.id);
+            if (s.blast) {
+              splash(s.src, e, s.blast, s.dmg);
+              ring(e.x, e.y, s.blast, s.color);
+            } else hit(e, s.dmg * (e.kind === "building" ? 0.56 : 1), s.src);
+            burst(e.x, e.y, s.color, 7);
+            if (!s.pierce) {
+              s.left = 0;
+              break;
+            }
+          }
+        }
+        game.shots = game.shots.filter((s) => s.left > 0.01);
+      }
+      function updateAreas(dt) {
+        for (let a of game.areas) {
+          a.age += dt;
+          a.left -= dt;
+          a.next -= dt;
+          if (a.next > 0) continue;
+          if (a.type === "zone") {
+            splash(a.src, a, a.r, a.dmg);
+            a.next = 0.52;
+          } else {
+            a.next = 0.12;
+            if (
+              a.age > 0.3 &&
+              enemies(a.src, true).some((e) => e.kind !== "building" && distance(a, e) < a.r + e.r)
+            ) {
+              splash(a.src, a, a.r, a.dmg, 3.2);
+              ring(a.x, a.y, a.r, "#9dd6b4");
+              burst(a.x, a.y, "#a9dbb0", 12);
+              a.left = 0;
+            }
+          }
+        }
+        game.areas = game.areas.filter((a) => a.left > 0);
+      }
+      function travel(h, dt) {
+        let v = h.travel;
+        if (!v) return;
+        v.age += dt;
+        let f = clamp(v.age / v.life, 0, 1),
+          prev = { x: h.x, y: h.y };
+        h.x = mix(v.from.x, v.to.x, f);
+        h.y = mix(v.from.y, v.to.y, f);
+        if (v.type === "dash") {
+          for (let e of enemies(h, true)) {
+            if (!v.hitIds.has(e.id) && segmentDist(e, prev, h) < 45 + e.r) {
+              hit(e, v.dmg, h);
+              v.hitIds.add(e.id);
+            }
+          }
+          streak(prev, h, "#e6a56e", 15, 0.17);
+        }
+        if (f >= 1) {
+          if (v.type === "leap") {
+            splash(h, h, 154, v.dmg, 1.1);
+            ring(h.x, h.y, 154, "#efb785", 0.62);
+            burst(h.x, h.y, "#eec39a", 24);
+          }
+          h.travel = null;
+        }
+      }
+      function resetHero(h) {
+        let p = lane(h.team ? LEN - 42 : 42, (h.index - 1) * 59);
+        Object.assign(h, p, {
+          hp: h.maxHp,
+          mp: h.maxMp,
+          respawn: 0,
+          aiWait: 0,
+          goal: null,
+          autoTarget: null,
+        });
+        burst(h.x, h.y, kits[h.k].color, 12);
+      }
+      const keys = new Set(),
+        mouse = { x: 0, y: 0, down: false, known: false };
+      let viewW = innerWidth,
+        viewH = innerHeight,
+        zoom = 1;
+      function aim() {
+        let h = game.player;
+        if (!mouse.known) return { x: h.x + Math.cos(h.face) * 430, y: h.y + Math.sin(h.face) * 430 };
+        return { x: game.cam.x + (mouse.x - viewW / 2) / zoom, y: game.cam.y + (mouse.y - viewH / 2) / zoom };
+      }
+      function recall(h) {
+        if (!live(h) || h.travel || h.recall > 0) return;
+        h.recall = 4.5;
+        if (h.isPlayer) announce("Recalling · hold position", 1.2);
+      }
+      function botBrain(h) {
+        let g = game,
+          side = h.team ? -1 : 1,
+          home = lane(h.team ? LEN : 0),
+          targets = enemies(h).filter(vulnerable),
+          df = h.team ? g.diff : 1,
+          ratio = h.hp / h.maxHp;
+        h.evade = ratio < 0.23 + 0.038 * df || (h.evade && ratio < 0.84);
+        h.autoTarget = null;
+        if (inBase(h)) {
+          let list = h.k === 0 ? [4, 1, 3, 2, 0] : h.k === 1 ? [0, 1, 2, 3, 4] : [0, 2, 1, 3, 4];
+          let pick = list[(h.items.reduce((a, b) => a + b, 0) + h.index) % 5];
+          shopBuy(h, pick);
+        }
+        if (h.evade) {
+          h.goal = home;
+          if (h.k === 0 && ratio < 0.24 && !inBase(h)) cast(h, 2, home);
+          if (h.k === 1 && ratio < 0.28) cast(h, 1, home);
+          if (h.k === 2 && !inBase(h)) cast(h, 2, home);
+          return;
+        }
+        let minions = g.minions.filter((m) => m.team === h.team && live(m)),
+          enemyChamp = nearest(
+            h,
+            targets.filter((e) => e.kind === "champ"),
+            h.range + 65 + df * 29,
+          ),
+          enemyMinion = nearest(
+            h,
+            targets.filter((e) => e.kind === "minion"),
+            505,
+          );
+        let structure = nearest(
+            h,
+            targets.filter((e) => e.kind === "building"),
+          ),
+          danger = nearest(
+            h,
+            targets.filter((e) => e.kind === "building" && e.type === "turret"),
+            505,
+          ),
+          cover = danger && minions.some((m) => distance(m, danger) < danger.range);
+        if (danger && !cover && g.time < 630 && distance(h, danger) < danger.range + h.r + 64) {
+          h.goal = lane(along(danger) - side * (danger.range + 85), h.laneOffset);
+          let safeTarget = enemyMinion || enemyChamp;
+          if (safeTarget && distance(h, safeTarget) < h.range && distance(safeTarget, danger) > danger.range)
+            h.autoTarget = safeTarget;
+          return;
+        }
+        let tar = enemyChamp || enemyMinion || structure;
+        if (!tar) {
+          h.goal = home;
+          return;
+        }
+        h.autoTarget = tar;
+        let d = distance(h, tar),
+          desired = h.range + tar.r - 12;
+        h.goal =
+          d > desired
+            ? {
+                x: tar.x + ((h.x - tar.x) / Math.max(1, d)) * desired,
+                y: tar.y + ((h.y - tar.y) / Math.max(1, d)) * desired + h.laneOffset * 0.16,
+              }
+            : null;
+        if (d > 560 && Math.abs(across(h) - h.laneOffset) > 45)
+          h.goal = lane(along(h) + side * 195, h.laneOffset);
+        let aimPt = {
+            x: tar.x + (g.seed() - 0.5) * (2 - df) * 31,
+            y: tar.y + (g.seed() - 0.5) * (2 - df) * 31,
+          },
+          abilities = [];
+        if (h.k === 0) {
+          if (d < 590) abilities.push(0);
+          if (d < 465) abilities.push(1);
+          if (tar.kind === "champ" && d < 750 && tar.hp < tar.maxHp * 0.84) abilities.unshift(3);
+        }
+        if (h.k === 1) {
+          if (d < 138) abilities.push(2);
+          if (d < 240 && d > 67) abilities.push(0);
+          if (d < 200 && ratio < 0.8) abilities.push(1);
+          if (tar.kind === "champ" && d < 350 && ratio > 0.36) abilities.unshift(3);
+        }
+        if (h.k === 2) {
+          if (d < 650) abilities.push(0);
+          if (d < 420) abilities.push(1);
+          if (d < 420 && tar.kind === "champ" && ratio < 0.65) abilities.push(2);
+          if (tar.kind === "champ" && tar.hp < tar.maxHp * 0.72 && d < 830) abilities.unshift(3);
+        }
+        for (let idx of abilities) if (cast(h, idx, aimPt)) break;
+      }
+      function tickHero(h, dt, autoPlayer) {
+        for (let i = 0; i < 4; i++) h.cd[i] = Math.max(0, h.cd[i] - dt);
+        if (!live(h)) {
+          h.respawn -= dt;
+          if (h.respawn <= 0) resetHero(h);
+          return;
+        }
+        h.shieldTime -= dt;
+        if (h.shieldTime <= 0) h.shield = 0;
+        h.haste = Math.max(0, h.haste - dt);
+        h.buff = Math.max(0, h.buff - dt);
+        h.gold += dt * 1.7;
+        let base = inBase(h);
+        h.mp = Math.min(h.maxMp, h.mp + dt * (base ? 55 : 4.4 + h.level * 0.11));
+        h.hp = Math.min(h.maxHp, h.hp + dt * (base ? 100 : game.time - h.lastCombat > 7 ? 3.8 : 1));
+        if (h.travel) {
+          travel(h, dt);
+          return;
+        }
+        let manual = h.isPlayer && !autoPlayer,
+          dx = manual ? +keys.has("d") - +keys.has("a") : 0,
+          dy = manual ? +keys.has("s") - +keys.has("w") : 0;
+        if (h.recall) {
+          if (dx || dy) h.recall = 0;
+          else {
+            h.recall -= dt;
+            if (h.recall <= 0) {
+              h.recall = 0;
+              Object.assign(h, lane(h.team ? LEN - 30 : 30, h.laneOffset));
+              burst(h.x, h.y, kits[h.k].color, 16);
+              if (h.isPlayer) announce("Returned to base", 1.6);
+            }
+            return;
+          }
+        }
+        if (manual) {
+          if (dx || dy) move(h, h.x + dx * 100, h.y + dy * 100, dt);
+          if (mouse.down) attack(h, nearest(h, enemies(h, true).filter(vulnerable), h.range));
+          return;
+        }
+        h.aiWait -= dt;
+        if (h.aiWait <= 0) {
+          botBrain(h);
+          h.aiWait = (h.team ? [0.58, 0.35, 0.21][game.diff] : 0.35) + game.seed() * 0.12;
+        }
+        if (h.travel) return;
+        if (h.goal) move(h, h.goal.x, h.goal.y, dt, 3);
+        attack(h, h.autoTarget);
+      }
+      function tick(dt, autoPlayer = false) {
+        let g = game;
+        if (g.winner !== null) return;
+        g.time += dt;
+        if (g.time >= g.nextWave) {
+          spawnWave();
+          g.nextWave += 29;
+        }
+        for (let u of [...g.heroes, ...g.minions, ...g.buildings, ...g.monsters]) {
+          u.atk = Math.max(0, u.atk - dt);
+          u.slow = Math.max(0, u.slow - dt);
+          u.flash = Math.max(0, u.flash - dt);
+        }
+        for (let h of g.heroes) tickHero(h, dt, autoPlayer);
+        for (let m of g.minions) {
+          if (!live(m)) continue;
+          m.think -= dt;
+          if (m.think <= 0 || (m.target && !live(m.target))) {
+            m.think = 0.29 + g.seed() * 0.11;
+            m.target = nearest(m, enemies(m).filter(vulnerable), 300);
+          }
+          if (m.target) {
+            move(m, m.target.x, m.target.y, dt, m.range + m.target.r - 2);
+            attack(m, m.target);
+          } else {
+            let p = lane(clamp(along(m) + (m.team ? -115 : 115), 0, LEN), m.offset);
+            move(m, p.x, p.y, dt);
+          }
+        }
+        for (let b of g.buildings) {
+          if (b.type !== "turret" || !live(b) || b.atk > 0) continue;
+          let min = nearest(
+            b,
+            g.minions.filter((m) => m.team !== b.team),
+            b.range,
+          );
+          attack(
+            b,
+            min ||
+              nearest(
+                b,
+                g.heroes.filter((h) => h.team !== b.team),
+                b.range,
+              ),
+          );
+        }
+        for (let u of g.monsters) {
+          if (!live(u)) {
+            u.respawn -= dt;
+            if (u.respawn <= 0) {
+              Object.assign(u, u.nest);
+              u.hp = u.maxHp;
+            }
+            continue;
+          }
+          if (u.target && (!live(u.target) || distance(u.target, u.nest) > 270)) u.target = null;
+          if (u.target) {
+            u.range = 43;
+            move(u, u.target.x, u.target.y, dt, 50);
+            attack(u, u.target);
+          } else {
+            move(u, u.nest.x, u.nest.y, dt, 2);
+            u.hp = Math.min(u.maxHp, u.hp + dt * 8);
+          }
+        }
+        updateShots(dt);
+        updateAreas(dt);
+        g.minions = g.minions.filter(live);
+        for (let f of g.fx) {
+          f.age += dt;
+          if (f.type === "spark") {
+            f.x += f.vx * dt;
+            f.y += f.vy * dt;
+          }
+        }
+        g.fx = g.fx.filter((f) => f.age < f.life);
+        for (let n of g.numbers) {
+          n.age += dt;
+          n.y -= dt * 32;
+        }
+        g.numbers = g.numbers.filter((n) => n.age < n.life);
+      }
+
+      let miniTerrain = null,
+        terrain = null,
+        worldCtx = null,
+        lastFrame = 0,
+        frameId = 0,
+        miniTick = 0;
+      function stone(c, x, y, s, r) {
+        c.save();
+        c.translate(x, y);
+        c.scale(s, s);
+        oval(c, 1, 3, 13, 5, "#1823266e");
+        let pts = [
+          [-12, 0],
+          [-8, -8],
+          [0, -12],
+          [8, -9],
+          [12, -2],
+          [7, 3],
+          [-6, 4],
+        ];
+        poly(c, pts, "#52595a", "#323d42", 0.7);
+        poly(
+          c,
+          [
+            [-8, -8],
+            [0, -12],
+            [8, -9],
+            [4, -5],
+            [-4, -3],
+          ],
+          "#717571",
+        );
+        poly(
+          c,
+          [
+            [-4, -3],
+            [4, -5],
+            [8, -9],
+            [12, -2],
+            [7, 3],
+          ],
+          "#40494e",
+        );
+        c.restore();
+      }
+      function tiledCircle(c, x, y, r) {
+        circ(c, x, y, r + 6, "#33383d", "#727774", 2);
+        circ(c, x, y, r, "#535655", "#9c9786", 1.4);
+        for (let k = 1; k < 4; k++) {
+          let rr = (k * r) / 3;
+          circ(c, x, y, rr, null, "#393f40", 2);
+          for (let j = 0; j < k * 7; j++) {
+            let a = ((j + 0.4 * k) * TAU) / (k * 7);
+            line(
+              c,
+              [
+                [x + Math.cos(a) * rr, y + Math.sin(a) * rr],
+                [x + Math.cos(a) * (rr - r / 3), y + Math.sin(a) * (rr - r / 3)],
+              ],
+              "#3e4444",
+              1.7,
+            );
+          }
+        }
+      }
+      function buildTerrain() {
+        miniTerrain = null;
+        terrain = document.createElement("canvas");
+        terrain.width = W;
+        terrain.height = H;
+        let c = terrain.getContext("2d"),
+          r = rng(961);
+        c.fillStyle = grad(c, 0, 0, W, H, "#323e39", "#424b40", "#343b3b", "#454442");
+        c.fillRect(0, 0, W, H);
+        for (let i = 0; i < 2000; i++) {
+          let x = r() * W,
+            y = r() * H,
+            s = 4 + r() * 35;
+          poly(
+            c,
+            [
+              [x, y],
+              [x + s, y - s * 0.3],
+              [x + s * 1.65, y + s * 0.15],
+              [x + s * 0.3, y + s * 0.47],
+            ],
+            ["#87946a0f", "#1f2b3022", "#a79e6d0b"][i % 3],
+          );
+        }
+        const tr = (d, o) => {
+          let p = lane(d, o);
+          return [p.x, p.y];
+        };
+        for (let m of game.monsters) {
+          let d = along(m),
+            o = across(m),
+            a = lane(d - 270),
+            b = lane(d + 250);
+          let trail = new Path2D();
+          trail.moveTo(a.x, a.y);
+          trail.quadraticCurveTo(m.x - 100, m.y, m.x, m.y);
+          trail.quadraticCurveTo(m.x + 100, m.y, b.x, b.y);
+          c.lineCap = "round";
+          c.strokeStyle = "#505348";
+          c.lineWidth = 66;
+          c.stroke(trail);
+          c.strokeStyle = "#666250";
+          c.lineWidth = 41;
+          c.stroke(trail);
+          oval(c, m.x, m.y, 100, 75, "#595647");
+          for (let j = 0; j < 11; j++) {
+            let a = j * 0.57;
+            stone(c, m.x + Math.cos(a) * 99, m.y + Math.sin(a) * 70, 0.8 + r() * 0.78, r);
+          }
+        }
+        // A broken ribbon of water under the central crossing.
+        let river = new Path2D();
+        river.moveTo(1050, -80);
+        river.bezierCurveTo(980, 430, 1810, 500, 1660, 900);
+        river.bezierCurveTo(1570, 1300, 2260, 1420, 2240, H + 80);
+        c.strokeStyle = "#697068";
+        c.lineWidth = 115;
+        c.stroke(river);
+        c.strokeStyle = "#344c53";
+        c.lineWidth = 96;
+        c.stroke(river);
+        c.strokeStyle = "#47636a";
+        c.lineWidth = 78;
+        c.stroke(river);
+        c.strokeStyle = "#506c7166";
+        c.lineWidth = 34;
+        c.stroke(river);
+        c.lineCap = "butt";
+        line(c, [tr(-240, 0), tr(LEN + 240, 0)], "#53574c", 216);
+        line(c, [tr(-220, 0), tr(LEN + 220, 0)], "#84806b", 190);
+        line(c, [tr(-220, 0), tr(LEN + 220, 0)], "#4e5050", 181);
+        let shades = ["#666760", "#6b6a63", "#656661", "#707069", "#62645f", "#696a62"];
+        for (let j = -2; j <= 2; j++) {
+          let o = j * 35;
+          for (let d = -200 + (j % 2) * 28; d < LEN + 220; d += 59) {
+            let a = r() * 5,
+              b = r() * 4;
+            poly(
+              c,
+              [
+                tr(d + 2 + a, o - 16),
+                tr(d + 54, o - 17 + b),
+                tr(d + 58, o - 11),
+                tr(d + 56, o + 14),
+                tr(d + 4, o + 17),
+                tr(d, o + 11),
+              ],
+              shades[Math.floor(r() * 6)],
+              "#595a55",
+              1,
+            );
+            if (r() < 0.22)
+              line(c, [tr(d + 7, o - 11), tr(d + 15, o - 5), tr(d + 13, o + 1)], "#424c484f", 1);
+          }
+        }
+        for (let d = 0; d <= LEN; d += 185) {
+          for (let o of [-102, 102]) {
+            let [x, y] = tr(d, o);
+            stone(c, x, y, 0.58 + r() * 0.6, r);
+          }
+        }
+        for (let d of [0, LEN]) {
+          let p = lane(d);
+          tiledCircle(c, p.x, p.y, 163);
+          circ(c, p.x, p.y, 122, null, d ? "#aa7e8b" : "#7faaa1", 3);
+          for (let j = 0; j < 12; j++) {
+            let a = (j * TAU) / 12;
+            star(c, p.x + Math.cos(a) * 124, p.y + Math.sin(a) * 124, 6, d ? "#df9eae" : "#a9d9c5");
+          }
+        }
+        for (let b of game.buildings)
+          if (b.type !== "nexus") tiledCircle(c, b.x, b.y, b.type === "turret" ? 44 : 51);
+        let trees = [];
+        for (let i = 0; i < 6900; i++) {
+          let x = r() * W,
+            y = r() * H,
+            p = { x, y },
+            d = along(p),
+            o = across(p),
+            h = 24 + r() * 48;
+          if (
+            Math.abs(o) < 133 ||
+            game.monsters.some((m) => distance(p, m) < 132) ||
+            distance(p, lane(0)) < 190 ||
+            distance(p, lane(LEN)) < 190
+          )
+            continue;
+          let f =
+            0.45 * Math.sin(x * 0.007 + y * 0.003) +
+            0.39 * Math.cos(y * 0.011 - x * 0.003) +
+            0.24 * Math.sin(x * 0.015);
+          if (f > 0.19 && r() < 0.63) {
+            trees.push({ x, y, h });
+            continue;
+          }
+          if (r() < 0.08) stone(c, x, y, 0.45 + r(), r);
+          else if (r() < 0.6) {
+            for (let j = 0; j < 3; j++)
+              line(
+                c,
+                [
+                  [x + j * 2, y],
+                  [x - 3 + j * 3, y - 3 - r() * 6],
+                ],
+                "#90967444",
+                1.1,
+              );
+          }
+        }
+        trees.sort((a, b) => a.y - b.y);
+        for (let t of trees) {
+          oval(c, t.x + 4, t.y - 2, t.h * 0.24, t.h * 0.1, "#19262a55");
+          pine(c, t.x, t.y, t.h, ["#283b36", "#435a49"]);
+        }
+        for (let i = 0; i < 850; i++) {
+          let d = r() * (LEN + 100) - 50,
+            o = (r() < 0.5 ? -1 : 1) * (96 + r() * 79),
+            [x, y] = tr(d, o);
+          for (let j = 0; j < 3; j++)
+            line(
+              c,
+              [
+                [x + j * 2, y],
+                [x - 3 + j * 3, y - r() * 6 - 1],
+              ],
+              "#9da47c6e",
+            );
+          if (r() < 0.12) circ(c, x, y - 4, 1.7, "#c6b3cc");
+        }
+      }
+      function drawBuilding(c, b) {
+        let col = teamColor(b.team);
+        c.save();
+        c.translate(b.x, b.y);
+        if (!live(b)) {
+          for (let j = 0; j < 6; j++) {
+            let a = (j + b.id) * 2.45;
+            stone(c, Math.cos(a) * (j + 2) * 3, Math.sin(a) * j * 2, 0.54 + (j % 3) * 0.21);
+          }
+          c.restore();
+          return;
+        }
+        let r = b.r;
+        oval(c, 3, 6, r * 0.99, r * 0.55, "#20202b66");
+        let side = b.team ? "#65515b" : "#536267",
+          light = b.team ? "#9b8585" : "#89999a";
+        if (b.type === "nexus") {
+          tiledCircle(c, 0, 0, 54);
+          for (let j = 0; j < 6; j++) {
+            let a = (j * TAU) / 6;
+            crystal(c, Math.cos(a) * 34, Math.sin(a) * 18, 0.6, col);
+          }
+          glow(c, 0, -25, 78, col + "39");
+          crystal(c, 0, 1, 2.25, col);
+          star(c, -3, -56, 7, "#f9ebd9");
+        } else if (b.type === "inhibitor") {
+          oval(c, 0, 1, 33, 20, side);
+          oval(c, 0, -6, 30, 17, light);
+          oval(c, 0, -8, 24, 13, "#46444e");
+          crystal(c, 0, -9, 1.42, col);
+          for (let j of [-1, 1]) crystal(c, j * 20, -4, 0.52, col);
+        } else {
+          poly(
+            c,
+            [
+              [-29, 6],
+              [-28, -7],
+              [-18, -20],
+              [19, -20],
+              [29, -7],
+              [29, 6],
+              [12, 16],
+              [-14, 15],
+            ],
+            side,
+            "#373943",
+            2,
+          );
+          poly(
+            c,
+            [
+              [-25, -6],
+              [-13, -15],
+              [13, -15],
+              [25, -6],
+              [12, 3],
+              [-14, 3],
+            ],
+            light,
+          );
+          poly(
+            c,
+            [
+              [-16, -9],
+              [-12, -45],
+              [10, -48],
+              [17, -10],
+              [8, 1],
+              [-8, 0],
+            ],
+            side,
+            "#373b41",
+            1.5,
+          );
+          poly(
+            c,
+            [
+              [-16, -9],
+              [-12, -45],
+              [-4, -48],
+              [-5, -5],
+            ],
+            light,
+          );
+          for (let j of [-1, 1]) {
+            poly(
+              c,
+              [
+                [j * 10, -28],
+                [j * 23, -49],
+                [j * 21, -65],
+                [j * 13, -50],
+                [j * 5, -44],
+              ],
+              light,
+              "#3b3a42",
+              1.2,
+            );
+          }
+          crystal(c, 0, -39, 0.88, col);
+          circ(c, 0, -16, 4, col);
+        }
+        if (b.flash > 0) glow(c, 0, -20, 44, "#fff3d79c");
+        c.restore();
+        unitBar(
+          c,
+          b,
+          b.y - (b.type === "nexus" ? 85 : b.type === "turret" ? 79 : 66),
+          b.type === "nexus" ? 88 : 63,
+        );
+      }
+      function unitBar(c, u, y, w) {
+        let x = u.x - w / 2,
+          h = u.kind === "champ" ? 5 : u.kind === "minion" ? 3 : 5;
+        c.fillStyle = "#181921";
+        c.fillRect(x - 1, y - 1, w + 2, h + 2);
+        c.fillStyle = u.isPlayer ? "#c4dfa2" : teamColor(u.team);
+        c.fillRect(x, y, Math.max(0, (w * u.hp) / u.maxHp), h);
+        if (u.shield > 0) {
+          c.fillStyle = "#f5dda4";
+          c.fillRect(x, y + h - 2, w * Math.min(1, u.shield / u.maxHp), 2);
+        }
+      }
+      function drawHero(c, h) {
+        if (!live(h)) return;
+        let col = kits[h.k].color,
+          team = teamColor(h.team),
+          a = h.face,
+          t = game.time;
+        let leap = h.travel?.type === "leap" ? Math.sin((Math.PI * h.travel.age) / h.travel.life) * 65 : 0;
+        c.save();
+        c.translate(h.x, h.y);
+        oval(c, 3, 4, 23, 10, "#191c2673");
+        c.save();
+        c.scale(1, 0.48);
+        circ(c, 0, 1, 26, null, h.isPlayer ? "#e2d6a6" : team + "a8", h.isPlayer ? 2.8 : 1.8);
+        if (h.recall)
+          for (let j = 0; j < 3; j++) circ(c, 0, 0, 27 + ((t * 24 + j * 10) % 28), null, "#bfabefb0", 1.7);
+        c.restore();
+        c.translate(0, -leap);
+        let sign = Math.cos(a) < 0 ? -1 : 1;
+        c.scale(sign, 1);
+        let cloth = ["#5c4a79", "#755052", "#395a53"][h.k];
+        let hair = ["#d8d1df", "#76615b", "#b68b6d"][h.k];
+        poly(
+          c,
+          [
+            [-10, -20],
+            [-16, -10],
+            [-22, 6],
+            [-9, 3],
+            [-3, 9],
+            [9, 3],
+            [14, 5],
+            [11, -17],
+          ],
+          cloth,
+          "#292933",
+          1.5,
+        );
+        poly(
+          c,
+          [
+            [-10, -15],
+            [-5, -7],
+            [-9, 3],
+            [-13, 0],
+          ],
+          "#d9c6d557",
+        );
+        poly(
+          c,
+          [
+            [-11, -18],
+            [-7, -22],
+            [5, -22],
+            [12, -17],
+            [8, -5],
+            [-4, -6],
+          ],
+          h.k === 1 ? "#818084" : cloth,
+          "#292a33",
+          1.2,
+        );
+        line(
+          c,
+          [
+            [-10, -17],
+            [0, -10],
+            [10, -17],
+          ],
+          "#d5b58a",
+          2,
+        );
+        if (h.k === 0) {
+          line(
+            c,
+            [
+              [12, 6],
+              [20, -37],
+            ],
+            "#c3a477",
+            2.7,
+          );
+          crystal(c, 20, -31, 0.37, col);
+        }
+        if (h.k === 1) {
+          poly(
+            c,
+            [
+              [11, -3],
+              [21, -29],
+              [25, -35],
+              [25, -24],
+              [16, -1],
+            ],
+            "#cbd3cf",
+            "#4a4d55",
+            1,
+          );
+          line(
+            c,
+            [
+              [9, -5],
+              [19, 0],
+            ],
+            "#d2ae82",
+            3,
+          );
+        }
+        if (h.k === 2) {
+          shape(c, "M 13 5 Q 29 -12 16 -33", null, "#d6b48a", 2.5);
+          line(
+            c,
+            [
+              [13, 5],
+              [16, -33],
+            ],
+            "#ddd0af",
+            0.8,
+          );
+        }
+        oval(c, 0, -26, 8.6, 10, "#d5b6a3");
+        shape(
+          c,
+          "M -9 -24 Q -14 -35 -3 -39 Q 8 -41 11 -30 L 6 -32 1 -26 1 -30 -5 -22 -8 -14 Z",
+          hair,
+          "#4d414e",
+          1,
+        );
+        if (h.k === 0) shape(c, "M -9 -32 Q -13 -23 -10 -16 L -16 -8 Q -7 -11 -5 -21 Z", hair);
+        if (h.k === 1)
+          poly(
+            c,
+            [
+              [-12, -17],
+              [-7, -23],
+              [-2, -18],
+              [-6, -12],
+            ],
+            "#aaa5a0",
+          );
+        if (h.k === 2)
+          shape(c, "M -12 -18 Q -16 -41 -1 -41 Q 8 -41 11 -29 Q -4 -36 -8 -18 Z", cloth, "#849985", 1);
+        if (h.flash > 0) glow(c, 0, -17, 26, "#fff4d576");
+        if (h.shield > 0) circ(c, 0, -16, 30, "#ecc38323", "#eacda8cc", 2);
+        if (h.buff > 0) star(c, -21, -28, 5, "#f3d398");
+        if (h.haste > 0)
+          for (let j = 0; j < 3; j++)
+            line(
+              c,
+              [
+                [-14 - j, -j * 5],
+                [-29 - j * 2, -j * 5 + 4],
+              ],
+              "#a1e5bd",
+              1.6,
+            );
+        c.restore();
+        unitBar(c, h, h.y - 51 - leap, 48);
+        c.font = "600 10px Segoe UI, sans-serif";
+        c.textAlign = "center";
+        c.lineWidth = 3;
+        c.strokeStyle = "#232330";
+        let name = (h.isPlayer ? "◆ " : "") + h.name + "  " + h.level;
+        c.strokeText(name, h.x, h.y - 56 - leap);
+        c.fillStyle = h.isPlayer ? "#f8e5b6" : "#eee4e4";
+        c.fillText(name, h.x, h.y - 56 - leap);
+      }
+      function drawMinion(c, m) {
+        let col = teamColor(m.team),
+          light = m.team ? "#b08490" : "#8fa99e",
+          dark = m.team ? "#66464f" : "#415b58";
+        c.save();
+        c.translate(m.x, m.y);
+        c.scale(Math.cos(m.face) < 0 ? -1 : 1, 1);
+        let s = m.big ? 1.36 : 1;
+        c.scale(s, s);
+        oval(c, 1, 3, 11, 5, "#1a1d245e");
+        poly(
+          c,
+          [
+            [-6, -11],
+            [-9, 3],
+            [0, 5],
+            [8, 2],
+            [6, -13],
+          ],
+          dark,
+          "#2b2f36",
+        );
+        poly(
+          c,
+          [
+            [-7, -10],
+            [-3, -14],
+            [5, -13],
+            [7, -6],
+            [1, -4],
+          ],
+          light,
+        );
+        oval(c, 0, -14, 5.8, 6.1, "#5e6062");
+        if (m.ranged)
+          poly(
+            c,
+            [
+              [-6, -13],
+              [-2, -22],
+              [5, -18],
+              [7, -12],
+              [2, -15],
+            ],
+            dark,
+          );
+        else
+          poly(
+            c,
+            [
+              [-6, -14],
+              [-5, -19],
+              [1, -22],
+              [6, -18],
+              [7, -13],
+            ],
+            light,
+          );
+        line(
+          c,
+          [
+            [1, -14],
+            [5, -15],
+          ],
+          col,
+          1.6,
+        );
+        if (m.ranged || m.big) {
+          line(
+            c,
+            [
+              [8, 1],
+              [13, -18],
+            ],
+            "#ad997c",
+            1.8,
+          );
+          circ(c, 13, -18, 2.5, col);
+        } else {
+          line(
+            c,
+            [
+              [8, 0],
+              [14, -14],
+            ],
+            "#d3c7b5",
+            2,
+          );
+          poly(
+            c,
+            [
+              [-10, -10],
+              [-3, -9],
+              [-4, -2],
+              [-8, 0],
+              [-11, -4],
+            ],
+            light,
+          );
+        }
+        c.restore();
+        unitBar(c, m, m.y - (m.big ? 36 : 26), m.big ? 27 : 20);
+      }
+      function drawMonster(c, u) {
+        c.save();
+        c.translate(u.x, u.y);
+        if (!live(u)) {
+          circ(c, 0, 0, 12, null, "#b6a18a79", 1);
+          c.restore();
+          return;
+        }
+        let col = u.type ? "#b09bbf" : "#91b4a1";
+        oval(c, 2, 4, 27, 11, "#23262b77");
+        for (let j of [-1, 1]) {
+          stone(c, j * 17, 0, 1.05);
+          stone(c, j * 18, -16, 1.2);
+        }
+        poly(
+          c,
+          [
+            [-20, -20],
+            [-14, -39],
+            [0, -44],
+            [15, -36],
+            [21, -18],
+            [10, 0],
+            [-10, 0],
+          ],
+          "#6b6864",
+          "#3c4144",
+          2,
+        );
+        poly(
+          c,
+          [
+            [-14, -37],
+            [0, -44],
+            [14, -37],
+            [5, -27],
+            [-6, -28],
+          ],
+          "#8d8a80",
+        );
+        crystal(c, -7, -30, 0.49, col);
+        crystal(c, 4, -32, 0.65, col);
+        line(
+          c,
+          [
+            [-8, -23],
+            [-3, -21],
+          ],
+          col,
+          3,
+        );
+        line(
+          c,
+          [
+            [3, -21],
+            [9, -24],
+          ],
+          col,
+          3,
+        );
+        c.restore();
+        unitBar(c, u, u.y - 59, 52);
+      }
+      function sizeWorld() {
+        let fitData = fit($("world"));
+        worldCtx = fitData[0];
+        viewW = fitData[1];
+        viewH = fitData[2];
+        zoom = clamp(viewW / 1320, 0.68, 1.24);
+        if (game) camera(1, true);
+      }
+      function camera(dt, snap = false) {
+        let g = game,
+          h = g.player,
+          hx = Math.min(W / 2, viewW / zoom / 2),
+          hy = Math.min(H / 2, viewH / zoom / 2),
+          f = snap ? 1 : 1 - Math.exp(-dt * 9);
+        g.cam.x = mix(g.cam.x, clamp(h.x, hx, W - hx), f);
+        g.cam.y = mix(g.cam.y, clamp(h.y, hy, H - hy), f);
+      }
+      function drawWorld() {
+        let c = worldCtx,
+          g = game,
+          l = g.cam.x - viewW / (2 * zoom),
+          t = g.cam.y - viewH / (2 * zoom),
+          vw = viewW / zoom,
+          vh = viewH / zoom;
+        c.save();
+        c.fillStyle = "#252830";
+        c.fillRect(0, 0, viewW, viewH);
+        c.scale(zoom, zoom);
+        c.translate(-l, -t);
+        c.drawImage(terrain, 0, 0);
+        let visible = (e) => e.x >= l - 95 && e.x < l + vw + 95 && e.y >= t - 45 && e.y < t + vh + 130;
+        for (let a of g.areas) {
+          if (!visible(a)) continue;
+          let col = a.type === "zone" ? "#ad92d8" : "#9dd7b7";
+          circ(c, a.x, a.y, a.r, col + "21", col + "ab", 2);
+          circ(c, a.x, a.y, a.r * (0.78 + 0.06 * Math.sin(a.age * 3)), null, col + "7a", 1);
+          for (let j = 0; j < 6; j++) {
+            let angle = (j * TAU) / 6 + (a.type === "zone" ? a.age * 0.28 : 0);
+            star(c, a.x + Math.cos(angle) * a.r * 0.84, a.y + Math.sin(angle) * a.r * 0.84, 4, col);
+          }
+          if (a.type === "trap") iconAtTrap(c, a, col);
+        }
+        let ent = [...g.buildings, ...g.monsters, ...g.minions, ...g.heroes]
+          .filter(visible)
+          .sort((a, b) => a.y - b.y);
+        for (let u of ent) {
+          if (u.kind === "champ") drawHero(c, u);
+          else if (u.kind === "minion") drawMinion(c, u);
+          else if (u.kind === "building") drawBuilding(c, u);
+          else drawMonster(c, u);
+        }
+        for (let s of g.shots) {
+          if (!visible(s)) continue;
+          let dx = Math.cos(s.a),
+            dy = Math.sin(s.a);
+          line(
+            c,
+            [
+              [s.x - dx * s.size * 3.8, s.y - dy * s.size * 3.8],
+              [s.x, s.y],
+            ],
+            s.color + "a1",
+            s.size * 0.95,
+          );
+          if (s.arrow) {
+            poly(
+              c,
+              [
+                [s.x + dx * 9, s.y + dy * 9],
+                [s.x - dx * 8 - dy * s.size, s.y - dy * 8 + dx * s.size],
+                [s.x - dx * 4, s.y - dy * 4],
+                [s.x - dx * 8 + dy * s.size, s.y - dy * 8 - dx * s.size],
+              ],
+              s.color,
+            );
+          } else {
+            glow(c, s.x, s.y, s.size * 2.4, s.color + "99");
+            circ(c, s.x, s.y, s.size * 0.8, s.color);
+            circ(c, s.x, s.y, s.size * 0.38, "#fff1d8");
+          }
+        }
+        for (let f of g.fx) {
+          let n = f.age / f.life;
+          c.globalAlpha = 1 - n;
+          if (f.type === "spark") circ(c, f.x, f.y, f.r * (1 - n * 0.5), f.color);
+          if (f.type === "ring")
+            circ(c, f.x, f.y, Math.max(1, f.r * (0.24 + n * 0.76)), null, f.color, 2.5 * (1 - n) + 1);
+          if (f.type === "line") {
+            line(
+              c,
+              [
+                [f.x, f.y],
+                [f.bx, f.by],
+              ],
+              f.color + "6b",
+              f.w * (1 - n * 0.6),
+            );
+            line(
+              c,
+              [
+                [f.x, f.y],
+                [f.bx, f.by],
+              ],
+              "#fff1df",
+              Math.max(1, f.w * 0.27 * (1 - n)),
+            );
+          }
+          if (f.type === "spin") {
+            c.beginPath();
+            c.arc(f.x, f.y, f.r * (0.7 + n * 0.3), n * 8, n * 8 + 4.2);
+            c.strokeStyle = f.color;
+            c.lineWidth = 8 * (1 - n) + 1;
+            c.stroke();
+          }
+        }
+        c.globalAlpha = 1;
+        c.textAlign = "center";
+        c.font = "bold 15px Segoe UI, sans-serif";
+        for (let n of g.numbers) {
+          c.globalAlpha = 1 - n.age / n.life;
+          c.strokeStyle = "#2b2330";
+          c.lineWidth = 2.8;
+          c.strokeText(n.text, n.x, n.y);
+          c.fillStyle = n.color;
+          c.fillText(n.text, n.x, n.y);
+        }
+        c.globalAlpha = 1;
+        c.restore();
+      }
+      function iconAtTrap(c, a, col) {
+        poly(
+          c,
+          [
+            [a.x - 11, a.y + 4],
+            [a.x - 9, a.y - 8],
+            [a.x - 3, a.y],
+            [a.x, a.y - 12],
+            [a.x + 5, a.y],
+            [a.x + 12, a.y - 7],
+            [a.x + 9, a.y + 5],
+          ],
+          null,
+          col,
+          1.8,
+        );
+      }
+      function drawMini() {
+        let cv = $("minimap"),
+          c = cv.getContext("2d"),
+          w = cv.width,
+          h = cv.height,
+          g = game;
+        if (!miniTerrain) {
+          miniTerrain = document.createElement("canvas");
+          miniTerrain.width = w;
+          miniTerrain.height = h;
+          miniTerrain.getContext("2d").drawImage(terrain, 0, 0, w, h);
+        }
+        c.drawImage(miniTerrain, 0, 0);
+        c.fillStyle = "#12162344";
+        c.fillRect(0, 0, w, h);
+        let mx = w / W,
+          my = h / H;
+        for (let u of [...g.monsters, ...g.minions, ...g.buildings, ...g.heroes]) {
+          if (!live(u)) continue;
+          let col = teamColor(u.team),
+            x = u.x * mx,
+            y = u.y * my;
+          if (u.kind === "building") {
+            let s = u.type === "nexus" ? 4.4 : 2.8;
+            poly(
+              c,
+              [
+                [x, y - s],
+                [x + s, y],
+                [x, y + s],
+                [x - s, y],
+              ],
+              col,
+              "#171821",
+              0.7,
+            );
+          } else {
+            let r = u.kind === "champ" ? 3.2 : u.kind === "monster" ? 1.8 : 1.3;
+            circ(c, x, y, r, u.isPlayer ? "#ffdf90" : col, u.kind === "champ" ? "#24202d" : null, 1);
+          }
+        }
+        c.strokeStyle = "#ebe1d6bb";
+        c.lineWidth = 1;
+        c.strokeRect(
+          (g.cam.x - viewW / zoom / 2) * mx,
+          (g.cam.y - viewH / zoom / 2) * my,
+          (viewW / zoom) * mx,
+          (viewH / zoom) * my,
+        );
+      }
+
+      function timeFmt(s) {
+        return (
+          String(Math.floor(s / 60)).padStart(2, "0") + ":" + String(Math.floor(s % 60)).padStart(2, "0")
+        );
+      }
+      function hud() {
+        let g = game,
+          h = g.player;
+        $("timer").textContent = timeFmt(g.time);
+        $("blueScore").textContent = g.score[0];
+        $("redScore").textContent = g.score[1];
+        $("level").textContent = h.level;
+        $("gold").textContent = "◆ " + Math.floor(h.gold);
+        $("hpFill").style.width = (h.hp / h.maxHp) * 100 + "%";
+        $("mpFill").style.width = (h.mp / h.maxMp) * 100 + "%";
+        $("hpText").textContent = Math.ceil(h.hp) + " / " + h.maxHp;
+        $("mpText").textContent = Math.floor(h.mp) + " / " + h.maxMp;
+        $("hudStats").textContent =
+          "KDA " +
+          h.kills +
+          " / " +
+          h.deaths +
+          " / " +
+          h.assists +
+          "   ·   " +
+          (h.level === 18 ? "MAX LEVEL" : Math.floor(h.xp) + " / " + nextXP(h) + " XP");
+        [...$("hudSkills").children].forEach((b, i) => {
+          let cd = h.cd[i],
+            low = h.mp < kits[h.k].skills[i][3],
+            v = b.querySelector("b");
+          v.hidden = cd <= 0 && !low;
+          v.textContent = cd > 0 ? Math.ceil(cd) : "MP";
+          b.style.filter = cd > 0 || low ? "grayscale(.9)" : "none";
+        });
+        let tur = g.buildings.filter((b) => b.team === 1 && b.type === "turret" && live(b)).length;
+        $("objective").textContent = tur
+          ? "Destroy enemy turrets · " + (2 - tur) + "/2"
+          : g.buildings.some((b) => b.team === 1 && b.type === "inhibitor" && live(b))
+            ? "Destroy the enemy inhibitor"
+            : "Destroy the enemy Nexus";
+        $("ann").hidden = g.displayUntil < g.time || !g.msg;
+        $("ann").textContent = g.msg;
+        let hint = !live(h)
+          ? "Respawning in " + Math.ceil(h.respawn) + "s"
+          : h.recall
+            ? "Recalling · " + h.recall.toFixed(1) + "s"
+            : h.buff > 0
+              ? "Vale blessing · " + Math.ceil(h.buff) + "s"
+              : inBase(h)
+                ? "At base · Press P to shop"
+                : "";
+        $("hint").hidden = !hint;
+        $("hint").textContent = hint;
+        drawMini();
+      }
+      function clearInput() {
+        keys.clear();
+        mouse.down = false;
+        hideTip();
+      }
+      function frame(now) {
+        if (mode !== "play") return;
+        let dt = Math.min(0.055, Math.max(0, (now - lastFrame) / 1000));
+        lastFrame = now;
+        tick(dt);
+        camera(dt);
+        drawWorld();
+        game.hudTick -= dt;
+        if (game.hudTick <= 0) {
+          hud();
+          game.hudTick = 0.09;
+        }
+        if (game.winner !== null) {
+          endGame();
+          return;
+        }
+        frameId = requestAnimationFrame(frame);
+      }
+      function resume() {
+        if (!game || game.winner !== null) return;
+        closeModal();
+        clearInput();
+        mode = "play";
+        lastFrame = performance.now();
+        cancelAnimationFrame(frameId);
+        frameId = requestAnimationFrame(frame);
+      }
+      function bootAudio() {
+        try {
+          if (!ac) ac = new (window.AudioContext || window.webkitAudioContext)();
+          if (ac.state === "suspended") ac.resume().catch(() => {});
+        } catch {}
+      }
+      function startGame() {
+        closeModal();
+        bootAudio();
+        makeGame(selected, difficulty);
+        $("lobby").hidden = true;
+        $("arena").hidden = false;
+        document.title = "Riftbound · The Shattered Vale";
+        sizeWorld();
+        buildTerrain();
+        $("hudName").textContent = kits[selected].name;
+        thumb($("hudFace"), selected);
+        spellButtons($("hudSkills"), selected, true);
+        clearInput();
+        mouse.known = false;
+        announce("Defend your Nexus. Break theirs.", 3.5);
+        drawWorld();
+        hud();
+        tone(330, 0.25, "triangle", 0.04, 660);
+        resume();
+      }
+      function lobby() {
+        miniTerrain = null;
+        cancelAnimationFrame(frameId);
+        closeModal();
+        game = null;
+        terrain = null;
+        mode = "lobby";
+        clearInput();
+        $("arena").hidden = true;
+        $("lobby").hidden = false;
+        document.title = "Riftbound · Battle Lobby";
+        paintLobby();
+        $("start").focus({ preventScroll: true });
+      }
+      function modal(kind, html) {
+        hideTip();
+        if ($("modal").hidden) lastFocus = document.activeElement;
+        modalKind = kind;
+        $("dialog").innerHTML = html;
+        $("modal").hidden = false;
+        let b = $("dialog").querySelector("button");
+        if (b) b.focus({ preventScroll: true });
+      }
+      function closeModal() {
+        let was = !$("modal").hidden;
+        $("modal").hidden = true;
+        modalKind = "";
+        if (was && lastFocus?.isConnected) lastFocus.focus({ preventScroll: true });
+        lastFocus = null;
+      }
+      const closeButton = '<button class="close" data-act="close" aria-label="Close">×</button>';
+      function guide() {
+        modal(
+          "guide",
+          closeButton +
+            '<div class="sectionLabel">Field guide</div><h2 id="modalTitle">How to play</h2><p>Push with your minion wave. Break both enemy turrets, then the inhibitor, to expose the Nexus. Destroy it to win.</p><h3>Controls</h3>' +
+            [
+              ["W A S D", "Move in eight directions"],
+              ["Mouse", "Aim your abilities"],
+              ["LMB", "Attack the nearest enemy in range. Hold to repeat."],
+              ["1 / 2 / 3", "Cast a normal ability"],
+              ["4", "Cast your ultimate"],
+              ["B", "Recall after standing still for 4.5 seconds"],
+              ["P", "Open the base shop"],
+              ["Esc", "Pause or resume"],
+            ]
+              .map(([k, s]) => '<div class="guideRow"><kbd>' + k + "</kbd><span>" + s + "</span></div>")
+              .join("") +
+            "<h3>Growing stronger</h3><p>Last hits earn gold and XP. Nearby minion deaths grant shared XP. Structure wards weaken as the match progresses, and larger siege waves arrive after eight minutes. Each level improves your stats. Normal abilities gain ranks at levels 5, 9, 13, and 17. Your ultimate gains ranks at 6, 11, and 16. Higher ranks shorten cooldowns. Jungle camps grant gold, XP, and a temporary damage buff. Return to base to heal, replenish mana, and buy items.</p>",
+        );
+      }
+      function stopPlay() {
+        cancelAnimationFrame(frameId);
+        mode = "paused";
+        clearInput();
+      }
+      function pause() {
+        if (mode !== "play") return;
+        stopPlay();
+        modal(
+          "pause",
+          '<div class="sectionLabel">The Shattered Vale</div><h2 id="modalTitle">Match paused</h2><p>' +
+            timeFmt(game.time) +
+            " elapsed · " +
+            diffNames[difficulty] +
+            ' difficulty</p><button class="action" data-act="resume">Resume match</button><button class="secondBtn" data-act="guide">Field guide</button><button class="secondBtn" data-act="sound">Sound ' +
+            (soundOn ? "on" : "off") +
+            '</button><button class="secondBtn" data-act="leave">Return to lobby</button>',
+        );
+      }
+      function buildStats(h) {
+        return (
+          '<div class="guideRow"><small>Attack ' +
+          Math.round(h.ad) +
+          " · Power " +
+          Math.round(h.ap) +
+          " · Speed " +
+          Math.round(h.speed) +
+          " · Cooldown reduction " +
+          Math.round(h.cdr * 100) +
+          "%</small></div>"
+        );
+      }
+      function showShop() {
+        if (mode === "play") stopPlay();
+        let h = game.player,
+          can = live(h) && inBase(h);
+        modal(
+          "shop",
+          closeButton +
+            '<div class="sectionLabel">Base shop</div><h2 id="modalTitle">The Armory</h2><p>◆ ' +
+            Math.floor(h.gold) +
+            " gold · " +
+            (can ? "Purchase up to three of each item." : "Recall to your base to purchase items.") +
+            "</p>" +
+            buildStats(h) +
+            items
+              .map(
+                (it, i) =>
+                  '<div class="itemLine"><div><strong>' +
+                  it[0] +
+                  "</strong><small>" +
+                  it[1] +
+                  " · Owned " +
+                  h.items[i] +
+                  '/3</small></div><button data-item="' +
+                  i +
+                  '" ' +
+                  (!can || h.gold < it[2] || h.items[i] >= 3 ? "disabled" : "") +
+                  ">◆ " +
+                  it[2] +
+                  "</button></div>",
+              )
+              .join("") +
+            '<button class="action" data-act="resume">Back to battle</button>',
+        );
+      }
+      function endGame() {
+        cancelAnimationFrame(frameId);
+        clearInput();
+        mode = "ended";
+        hud();
+        let g = game,
+          h = g.player,
+          win = g.winner === 0;
+        tone(win ? 330 : 210, 0.65, "triangle", 0.05, win ? 670 : 83);
+        modal(
+          "end",
+          '<div class="sectionLabel">Match complete</div><h2 id="modalTitle">' +
+            (win ? "Victory" : "Defeat") +
+            "</h2><p>The " +
+            (win ? "enemy" : "allied") +
+            ' Nexus has fallen.</p><div class="guideRow"><span>Match time</span><strong>' +
+            timeFmt(g.time) +
+            '</strong></div><div class="guideRow"><span>' +
+            h.name +
+            " · Level " +
+            h.level +
+            "</span><strong>" +
+            h.kills +
+            " / " +
+            h.deaths +
+            " / " +
+            h.assists +
+            ' KDA</strong></div><div class="guideRow"><span>Minions slain</span><strong>' +
+            h.cs +
+            '</strong></div><button class="action" data-act="lobby">Return to lobby</button>',
+        );
+      }
+      function dismiss() {
+        if (modalKind === "end") return;
+        if ((modalKind === "guide" && mode === "paused") || modalKind === "leave") {
+          closeModal();
+          mode = "play";
+          pause();
+        } else if (mode === "paused") resume();
+        else closeModal();
+      }
+      function toggleSound() {
+        soundOn = !soundOn;
+        bootAudio();
+        $("sound").setAttribute("aria-label", soundOn ? "Mute sound" : "Enable sound");
+        $("sound").setAttribute("aria-pressed", String(soundOn));
+        if (!$("lobby").hidden) speaker();
+        if (soundOn) tone(440, 0.1, "triangle");
+      }
+      $("dialog").addEventListener("click", (e) => {
+        let b = e.target.closest("button");
+        if (!b) return;
+        if (b.dataset.item !== undefined) {
+          if (shopBuy(game.player, Number(b.dataset.item))) {
+            tone(710, 0.12);
+            hud();
+            showShop();
+          }
+          return;
+        }
+        switch (b.dataset.act) {
+          case "close":
+            dismiss();
+            break;
+          case "resume":
+            resume();
+            break;
+          case "guide":
+            guide();
+            break;
+          case "sound":
+            toggleSound();
+            b.textContent = "Sound " + (soundOn ? "on" : "off");
+            break;
+          case "leave":
+            modal(
+              "leave",
+              '<h2 id="modalTitle">Leave this match?</h2><p>Your current match will end.</p><button class="action" data-act="resume">Continue playing</button><button class="secondBtn" data-act="lobby">Leave match</button>',
+            );
+            break;
+          case "lobby":
+            lobby();
+            break;
+        }
+      });
+      function tipFor(b, k, i) {
+        let s = kits[k].skills[i],
+          t = $("tip"),
+          h = game?.player,
+          rank = abilityRank(h?.level || 1, i),
+          cooldown = Math.round(s[2] * (1 - (h?.cdr || 0)) * (1 - 0.025 * (rank - 1)) * 10) / 10;
+        t.innerHTML =
+          "<strong>" +
+          s[0] +
+          " · " +
+          (i === 3 ? "Ultimate" : "Ability " + (i + 1)) +
+          "</strong><span>" +
+          s[1] +
+          "<br>" +
+          s[3] +
+          " mana · " +
+          cooldown +
+          "s cooldown · Rank " +
+          rank +
+          "</span>";
+        t.hidden = false;
+        let a = b.getBoundingClientRect(),
+          r = t.getBoundingClientRect();
+        t.style.left = clamp(a.left, 8, innerWidth - r.width - 8) + "px";
+        t.style.top = (a.bottom + r.height + 8 < innerHeight ? a.bottom + 7 : a.top - r.height - 7) + "px";
+      }
+      function hideTip() {
+        $("tip").hidden = true;
+      }
+      function spellButtons(el, k, ingame) {
+        el.replaceChildren();
+        kits[k].skills.forEach((s, i) => {
+          let b = document.createElement("button"),
+            cv = document.createElement("canvas");
+          b.className = ingame ? "hudSpell" : "spellIcon";
+          b.setAttribute("aria-label", i + 1 + ". " + s[0]);
+          b.append(cv);
+          canvasIcon(cv, k, i);
+          if (ingame) {
+            let sm = document.createElement("small"),
+              cd = document.createElement("b");
+            sm.textContent = i + 1;
+            cd.hidden = true;
+            b.append(sm, cd);
+          }
+          b.onpointerenter = b.onfocus = () => tipFor(b, k, i);
+          b.onpointerleave = b.onblur = hideTip;
+          b.onclick = () => {
+            if (ingame && mode === "play") {
+              cast(game.player, i, aim());
+              hud();
+            } else tipFor(b, k, i);
+          };
+          el.append(b);
+        });
+      }
+      function renderSelection() {
+        let d = kits[selected];
+        $("heroName").textContent = d.name;
+        $("heroRole").textContent = d.role;
+        $("epithet").textContent = d.title;
+        $("desc").textContent = d.desc;
+        spellButtons($("previewSkills"), selected, false);
+        [...$("roster").children].forEach((b, i) => {
+          b.classList.toggle("selected", i === selected);
+          b.setAttribute("aria-pressed", String(i === selected));
+        });
+        heroArt();
+      }
+      function paintLobby() {
+        let [c, w, h] = fit($("backdrop"));
+        landscape(c, w, h, 463, false);
+        drawEmblem();
+        speaker();
+        previewMap();
+        heroArt();
+        [...$("roster").children].forEach((b, i) => thumb(b.firstElementChild, i));
+      }
+      for (let i = 0; i < 3; i++) {
+        let b = document.createElement("button");
+        b.className = "choice";
+        b.innerHTML =
+          '<canvas></canvas><span class="choiceText"><strong>' +
+          kits[i].name +
+          "</strong><small>" +
+          kits[i].role +
+          "</small></span>";
+        b.onclick = () => {
+          selected = i;
+          hideTip();
+          renderSelection();
+          tone(320 + i * 70, 0.08);
+        };
+        $("roster").append(b);
+      }
+      document.querySelectorAll("[data-diff]").forEach(
+        (b) =>
+          (b.onclick = () => {
+            difficulty = Number(b.dataset.diff);
+            document.querySelectorAll("[data-diff]").forEach((v, i) => {
+              v.classList.toggle("active", i === difficulty);
+              v.setAttribute("aria-pressed", String(i === difficulty));
+            });
+            $("diffHint").textContent = diffText[difficulty];
+          }),
+      );
+      $("navGuide").onclick = $("controls").onclick = guide;
+      $("brandBtn").onclick = $("navArena").onclick = () => {
+        closeModal();
+        window.scrollTo(0, 0);
+      };
+      $("start").onclick = startGame;
+      $("sound").onclick = toggleSound;
+      $("pauseBtn").onclick = pause;
+      $("shopBtn").onclick = () => {
+        if (mode === "play") showShop();
+      };
+      $("modal").addEventListener("pointerdown", (e) => {
+        if (e.target === $("modal")) dismiss();
+      });
+      document.addEventListener("keydown", (e) => {
+        let k = e.key.toLowerCase();
+        if (k === "tab" && !$("modal").hidden) {
+          let btns = [...$("dialog").querySelectorAll("button:not(:disabled)")];
+          if (e.shiftKey && document.activeElement === btns[0]) {
+            e.preventDefault();
+            btns.at(-1)?.focus();
+          } else if (!e.shiftKey && document.activeElement === btns.at(-1)) {
+            e.preventDefault();
+            btns[0]?.focus();
+          }
+          return;
+        }
+        if (k === "escape" && !e.repeat) {
+          e.preventDefault();
+          if (!$("modal").hidden) dismiss();
+          else pause();
+          return;
+        }
+        if (k === "p" && modalKind === "shop" && !e.repeat) {
+          e.preventDefault();
+          resume();
+          return;
+        }
+        if (mode !== "play") return;
+        if (!["w", "a", "s", "d", "1", "2", "3", "4", "b", "p"].includes(k)) return;
+        e.preventDefault();
+        if ("wasd".includes(k)) {
+          keys.add(k);
+          return;
+        }
+        if (e.repeat) return;
+        if (k === "p") {
+          showShop();
+          return;
+        }
+        if (k === "b") {
+          recall(game.player);
+          return;
+        }
+        cast(game.player, Number(k) - 1, aim());
+        hud();
+      });
+      document.addEventListener("keyup", (e) => keys.delete(e.key.toLowerCase()));
+      function mousePoint(e) {
+        let b = $("world").getBoundingClientRect();
+        mouse.x = e.clientX - b.left;
+        mouse.y = e.clientY - b.top;
+        mouse.known = true;
+      }
+      $("world").addEventListener("pointermove", mousePoint);
+      $("world").addEventListener("pointerdown", (e) => {
+        if (e.button !== 0 || mode !== "play") return;
+        e.preventDefault();
+        mousePoint(e);
+        mouse.down = true;
+        let h = game.player;
+        attack(h, nearest(h, enemies(h, true).filter(vulnerable), h.range));
+        $("world").setPointerCapture(e.pointerId);
+      });
+      window.addEventListener("pointerup", () => (mouse.down = false));
+      window.addEventListener("pointercancel", () => (mouse.down = false));
+      window.addEventListener("blur", () => {
+        clearInput();
+        if (mode === "play") pause();
+      });
+      document.addEventListener("visibilitychange", () => {
+        if (document.hidden && mode === "play") pause();
+      });
+      let resizeRAF = 0;
+      window.addEventListener("resize", () => {
+        cancelAnimationFrame(resizeRAF);
+        resizeRAF = requestAnimationFrame(() => {
+          hideTip();
+          if (mode === "lobby") paintLobby();
+          else if (game) {
+            sizeWorld();
+            thumb($("hudFace"), selected);
+            drawWorld();
+            hud();
+          }
+        });
+      });
+      renderSelection();
+      paintLobby();
+    </script>
+  </body>
+</html>
