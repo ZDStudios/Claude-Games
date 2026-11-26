@@ -29,7 +29,7 @@
   window.ZD_EASTER    = false;
   /* MAINTENANCE MODE: set to true to show an "under maintenance, back online as soon as possible" notice under the title
      and hide the game list. Works on its own or together with a seasonal theme. false = the normal library. */
-  window.ZD_MAINTENANCE = true;
+  window.ZD_MAINTENANCE = false;
   if (window.ZD_MAINTENANCE){ document.documentElement.classList.add("maint"); document.title = "🛠️ Maintenance — " + document.title; }
   (function(){
     var t = window.ZD_HALLOWEEN ? "halloween" : window.ZD_CHRISTMAS ? "xmas" : window.ZD_EASTER ? "easter" : "";
