@@ -1004,6 +1004,62 @@
           scroll-behavior: auto;
         }
       }
+      #mapPick {
+        display: block;
+        width: 100%;
+        margin: 5px 0 3px;
+        color: var(--white);
+        background: #231f2b;
+        border: 1px solid #514653;
+        border-radius: 4px;
+        padding: 6px 8px;
+        font: clamp(19px, 1.7vw, 27px) var(--display);
+      }
+      #biome {
+        font-size: 11px;
+        color: var(--muted);
+        margin: 3px 0 7px;
+      }
+      .netRow {
+        display: flex;
+        gap: 8px;
+        margin: 9px 0;
+        align-items: center;
+      }
+      .netRow button {
+        margin: 0;
+        flex: 1;
+      }
+      .netRow input,
+      .netRow select {
+        background: #211c28;
+        border: 1px solid #63566a;
+        color: var(--white);
+        border-radius: 4px;
+        padding: 8px;
+        min-width: 0;
+        flex: 1;
+      }
+      .seat {
+        padding: 5px 0;
+        border-bottom: 1px solid #38313f;
+        font-size: 13px;
+      }
+      .roomCode {
+        letter-spacing: 0.18em;
+        color: var(--gold);
+      }
+      #online {
+        font-size: 12px;
+      }
+      .netNotice {
+        color: #ebcf9b;
+        min-height: 1.4em;
+        line-height: 1.4;
+      }
+      .matchBody .rule {
+        margin: 12px 0;
+      }
     </style>
   <script data-zd-discreet>/* Discrete Mode: follows the switch on the game library page (shared browser storage) */
 (function(){var FAKE="Strategy & Resource Planning | Learning Hub",ICON="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2064%2064%22%3E%3Crect%20width%3D%2264%22%20height%3D%2264%22%20rx%3D%2214%22%20fill%3D%22%232f6fed%22/%3E%3Cpath%20d%3D%22M14%2018h16c3%200%205%202%205%205v23c0-3-2-5-5-5H14zM50%2018H34c-3%200-5%202-5%205v23c0-3%202-5%205-5h16z%22%20fill%3D%22%23fff%22/%3E%3C/svg%3E",KEY="zd.discreet",real=null,made=null,saved=[],busy=false;
@@ -1044,7 +1100,7 @@ window.addEventListener("pageshow",apply);document.addEventListener("visibilityc
       <main>
         <div class="pageHead">
           <div>
-            <div class="eyebrow crestLine">Single-player arena</div>
+            <div class="eyebrow crestLine">3v3 battle arena</div>
             <h1>Battle Lobby</h1>
             <p>Choose your champion and prepare for battle.</p>
           </div>
@@ -1075,7 +1131,9 @@ window.addEventListener("pageshow",apply);document.addEventListener("visibilityc
               <div class="mapTag overlayTag">Battleground</div>
             </div>
             <div class="matchBody">
-              <h2>The Shattered Vale</h2>
+              <label class="sectionLabel" for="mapPick">Choose battleground</label
+              ><select id="mapPick" aria-label="Battleground"></select>
+              <div id="biome"></div>
               <div class="metadata">
                 <span>3v3</span><i></i><span>Single lane</span><i></i><span>10–15 min</span>
               </div>
@@ -1086,7 +1144,8 @@ window.addEventListener("pageshow",apply);document.addEventListener("visibilityc
                 ><button data-diff="2">Hard</button>
               </div>
               <p class="diffHint" id="diffHint">Balanced opponents with steady aggression.</p>
-              <button class="action" id="start">Enter arena <span aria-hidden="true">→</span></button>
+              <button class="action" id="start">Play solo <span aria-hidden="true">→</span></button
+              ><button class="secondBtn" id="online">Play online</button>
             </div>
           </aside>
         </div>
@@ -1103,10 +1162,13 @@ window.addEventListener("pageshow",apply);document.addEventListener("visibilityc
     </div>
     <div id="arena" hidden>
       <canvas id="world" aria-label="MOBA battlefield"></canvas>
-      <div class="hud object">The Shattered Vale<small id="objective"></small></div>
+      <div class="hud object">
+        <span id="worldName"></span><small id="objective"></small><small id="linkState"></small>
+      </div>
       <div class="hud board">
-        <span class="ally" id="blueScore">0</span><span class="tiny">vs</span
-        ><span class="enemy" id="redScore">0</span><span class="timerText" id="timer">00:00</span>
+        <span class="ally" id="blueScore" title="Jade team kills">0</span><span class="tiny">vs</span
+        ><span class="enemy" id="redScore" title="Rose team kills">0</span
+        ><span class="timerText" id="timer">00:00</span>
       </div>
       <div class="hud topTools">
         <button id="shopBtn">Shop [P]</button><button id="pauseBtn" aria-label="Pause">Ⅱ</button>
@@ -1129,7 +1191,7 @@ window.addEventListener("pageshow",apply);document.addEventListener("visibilityc
       </div>
       <div class="hud mapPanel">
         <canvas id="minimap" width="246" height="140"></canvas>
-        <div>THE VALE</div>
+        <div id="miniName"></div>
       </div>
     </div>
     <div class="modal" id="modal" hidden>
@@ -2067,11 +2129,37 @@ window.addEventListener("pageshow",apply);document.addEventListener("visibilityc
         );
         c.restore();
       }
+      function drawBiome(c, x, y, h, m) {
+        if (m === MAPS[1]) {
+          stone(c, x, y, h / 47);
+          if (h > 57) {
+            crystal(c, x + 3, y - 3, h / 95, "#d68356");
+          }
+        } else if (m === MAPS[4]) {
+          crystal(c, x, y, h / 52, "#ac8acd");
+          crystal(c, x - 6, y + 2, h / 100, "#846da7");
+        } else if (m === MAPS[3]) {
+          c.fillStyle = "#514e46";
+          c.fillRect(x - h * 0.1, y - h * 0.54, h * 0.2, h * 0.54);
+          oval(c, x, y - h * 0.51, h * 0.13, h * 0.06, "#9caa94");
+          for (let j = -1; j < 2; j++) {
+            oval(
+              c,
+              x + j * h * 0.14,
+              y - h * 0.54 - Math.cos(j) * h * 0.13,
+              h * 0.23,
+              h * 0.19,
+              m.foliage[j === 0 ? 1 : 0],
+            );
+          }
+        } else pine(c, x, y, h, m.foliage);
+      }
       function previewMap() {
         let [c, w, h] = fit($("mapArt"));
         c.fillStyle = grad(c, 0, 0, w, h, "#252534", "#302d39", "#211e2b");
         c.fillRect(0, 0, w, h);
-        let r = rng(311);
+        const m = MAPS[mapIndex];
+        let r = rng(m.seed);
         for (let i = -10; i < 50; i++) {
           line(
             c,
@@ -2094,6 +2182,7 @@ window.addEventListener("pageshow",apply);document.addEventListener("visibilityc
         let sc = Math.min(w / 340, h / 142);
         c.translate(w * 0.51, h * 0.55);
         c.scale(sc, sc);
+        if (mapIndex === 1 || mapIndex === 2) c.scale(-1, 1);
         let pts = [
           [-146, 4],
           [-133, -8],
@@ -2148,7 +2237,7 @@ window.addEventListener("pageshow",apply);document.addEventListener("visibilityc
             ["#48434a", "#393740", "#534a4c"][i % 3],
           );
         }
-        poly(c, pts, grad(c, -85, -40, 70, 60, "#605c59", "#43534e", "#414748"), "#82766d", 1);
+        poly(c, pts, grad(c, -85, -40, 70, 60, ...m.ground), "#82766d", 1);
         c.save();
         path(c, pts);
         c.clip();
@@ -2167,7 +2256,7 @@ window.addEventListener("pageshow",apply);document.addEventListener("visibilityc
           );
         }
         shape(c, "M -29 -64 Q -59 -27 -19 -16 Q 22 -2 -8 17 Q -39 38 2 61", null, "#85857b", 11);
-        shape(c, "M -29 -64 Q -59 -27 -19 -16 Q 22 -2 -8 17 Q -39 38 2 61", null, "#5a7b85", 7);
+        shape(c, "M -29 -64 Q -59 -27 -19 -16 Q 22 -2 -8 17 Q -39 38 2 61", null, m.water, 7);
         shape(c, "M -113 20 Q -68 30 -25 9 Q 0 -5 31 -3 Q 72 1 112 -19", null, "#aaa28d", 6);
         shape(
           c,
@@ -2183,7 +2272,7 @@ window.addEventListener("pageshow",apply);document.addEventListener("visibilityc
               yy = y + r() * 4;
             if (Math.abs(x) * 0.35 + Math.abs(yy) > 53 || Math.abs(yy + x * 0.15) < 8 || Math.abs(x) < 10)
               continue;
-            pine(c, x, yy, 8 + r() * 13, ["#273b37", "#587062"]);
+            drawBiome(c, x, yy, 8 + r() * 13, m);
           }
         }
         for (let [x, y, col] of [
@@ -2446,12 +2535,126 @@ window.addEventListener("pageshow",apply);document.addEventListener("visibilityc
         icon(cv.getContext("2d"), k, i, 80);
       }
 
+      const MAPS = [
+        {
+          name: "The Shattered Vale",
+          short: "The Vale",
+          biome: "Pine valley",
+          seed: 961,
+          start: [330, 1510],
+          heading: -0.40271584158,
+          length: 2900,
+          towers: [475, 940],
+          camps: [
+            [860, -325, 0],
+            [1160, 355, 1],
+            [2040, 325, 0],
+            [1740, -355, 1],
+          ],
+          ground: ["#323e39", "#424b40", "#343b3b"],
+          foliage: ["#283b36", "#435a49"],
+          water: "#47636a",
+          rivers: [0.5],
+        },
+        {
+          name: "Emberfall Caldera",
+          short: "Emberfall",
+          biome: "Volcanic highlands",
+          seed: 461,
+          start: [270, 290],
+          heading: 0.408,
+          length: 3020,
+          towers: [520, 1090],
+          camps: [
+            [740, 320, 0],
+            [1310, -300, 1],
+            [2280, -320, 0],
+            [1710, 300, 1],
+          ],
+          ground: ["#542f31", "#533c38", "#382d33"],
+          foliage: ["#442e32", "#826054"],
+          water: "#e77b42",
+          rivers: [0.38, 0.62],
+        },
+        {
+          name: "Frostveil Pass",
+          short: "Frostveil",
+          biome: "Glacial terraces",
+          seed: 1517,
+          start: [3020, 1510],
+          heading: -2.73,
+          length: 2900,
+          towers: [425, 870],
+          camps: [
+            [820, -285, 1],
+            [1450, 420, 0],
+            [2080, 285, 1],
+            [1450, -420, 0],
+          ],
+          ground: ["#7a939e", "#839ca6", "#597483"],
+          foliage: ["#3b5e68", "#b3cbd0"],
+          water: "#9ed2de",
+          rivers: [0.54],
+        },
+        {
+          name: "The Sunken Crown",
+          short: "Sunken Crown",
+          biome: "Tidal ruins",
+          seed: 2487,
+          start: [230, 1080],
+          heading: -0.095,
+          length: 2940,
+          towers: [600, 1030],
+          camps: [
+            [730, -460, 0],
+            [1160, 250, 1],
+            [2210, 460, 0],
+            [1780, -250, 1],
+            [1470, -520, 0],
+            [1470, 520, 0],
+          ],
+          ground: ["#284c48", "#446356", "#314c4e"],
+          foliage: ["#34594b", "#78937a"],
+          water: "#619e9c",
+          rivers: [0.27, 0.73],
+        },
+        {
+          name: "Duskspire Rift",
+          short: "Duskspire",
+          biome: "Amethyst canyon",
+          seed: 3721,
+          start: [570, 1600],
+          heading: -0.506,
+          length: 2750,
+          towers: [380, 840],
+          camps: [
+            [780, 250, 0],
+            [1020, -440, 1],
+            [1970, -250, 0],
+            [1730, 440, 1],
+          ],
+          ground: ["#47354e", "#55435c", "#353040"],
+          foliage: ["#46344f", "#8b699e"],
+          water: "#ab81c7",
+          rivers: [0.5],
+        },
+      ];
+      let mapIndex = 0,
+        LEN,
+        ux,
+        uy,
+        origin;
       const W = 3360,
-        H = 1880,
-        LEN = 2900,
-        ux = 0.92,
-        uy = -Math.sqrt(1 - 0.92 * 0.92),
-        origin = { x: 330, y: 1510 };
+        H = 1880;
+      function useMap(id) {
+        mapIndex = Number.isInteger(id) && MAPS[id] ? id : 0;
+        const m = MAPS[mapIndex];
+        LEN = m.length;
+        ux = Math.cos(m.heading);
+        uy = Math.sin(m.heading);
+        origin = { x: m.start[0], y: m.start[1] };
+      }
+      useMap(0);
       function lane(d, off = 0) {
         return { x: origin.x + ux * d - uy * off, y: origin.y + uy * d + ux * off };
       }
@@ -2477,7 +2680,7 @@ window.addEventListener("pageshow",apply);document.addEventListener("visibilityc
           atk: 0,
           slow: 0,
           flash: 0,
-          face: team === 1 ? 2.74 : -0.4,
+          face: MAPS[mapIndex].heading + (team === 1 ? Math.PI : 0),
           lastCombat: -100,
         };
       }
@@ -2585,13 +2788,13 @@ window.addEventListener("pageshow",apply);document.addEventListener("visibilityc
           for (let [type, d, hp, r] of [
             ["nexus", 0, 7800, 52],
             ["inhibitor", 225, 3150, 36],
-            ["turret", 475, 3200, 32],
-            ["turret", 940, 3300, 32],
+            ["turret", MAPS[mapIndex].towers[0], 3200, 32],
+            ["turret", MAPS[mapIndex].towers[1], 3300, 32],
           ])
             g.buildings.push(building(t, type, d, hp, r));
         }
         g.player = g.heroes[0];
-        g.monsters = [camp(860, -325, 0), camp(1160, 355, 1), camp(2040, 325, 0), camp(1740, -355, 1)];
+        g.monsters = MAPS[mapIndex].camps.map((args) => camp(...args));
         return g;
       }
       function enemies(u, neutral = false) {
@@ -3421,8 +3624,9 @@ window.addEventListener("pageshow",apply);document.addEventListener("visibilityc
         terrain.width = W;
         terrain.height = H;
         let c = terrain.getContext("2d"),
-          r = rng(961);
-        c.fillStyle = grad(c, 0, 0, W, H, "#323e39", "#424b40", "#343b3b", "#454442");
+          m = MAPS[mapIndex],
+          r = rng(m.seed);
+        c.fillStyle = grad(c, 0, 0, W, H, ...m.ground);
         c.fillRect(0, 0, W, H);
         for (let i = 0; i < 2000; i++) {
           let x = r() * W,
@@ -3467,16 +3671,19 @@ window.addEventListener("pageshow",apply);document.addEventListener("visibilityc
         }
         // A broken ribbon of water under the central crossing.
         let river = new Path2D();
-        river.moveTo(1050, -80);
-        river.bezierCurveTo(980, 430, 1810, 500, 1660, 900);
-        river.bezierCurveTo(1570, 1300, 2260, 1420, 2240, H + 80);
+        for (const crossing of m.rivers) {
+          const center = LEN * crossing;
+          river.moveTo(...tr(center - 150, -2200));
+          river.bezierCurveTo(...tr(center + 400, -640), ...tr(center - 360, -380), ...tr(center, 0));
+          river.bezierCurveTo(...tr(center + 280, 350), ...tr(center - 220, 780), ...tr(center + 150, 2200));
+        }
         c.strokeStyle = "#697068";
         c.lineWidth = 115;
         c.stroke(river);
         c.strokeStyle = "#344c53";
         c.lineWidth = 96;
         c.stroke(river);
-        c.strokeStyle = "#47636a";
+        c.strokeStyle = m.water;
         c.lineWidth = 78;
         c.stroke(river);
         c.strokeStyle = "#506c7166";
@@ -3567,7 +3774,7 @@ window.addEventListener("pageshow",apply);document.addEventListener("visibilityc
         trees.sort((a, b) => a.y - b.y);
         for (let t of trees) {
           oval(c, t.x + 4, t.y - 2, t.h * 0.24, t.h * 0.1, "#19262a55");
-          pine(c, t.x, t.y, t.h, ["#283b36", "#435a49"]);
+          drawBiome(c, t.x, t.y, t.h, m);
         }
         for (let i = 0; i < 850; i++) {
           let d = r() * (LEN + 100) - 50,
@@ -4124,6 +4331,13 @@ window.addEventListener("pageshow",apply);document.addEventListener("visibilityc
         for (let f of g.fx) {
           let n = f.age / f.life;
           c.globalAlpha = 1 - n;
+          if (f.type === "impact") {
+            for (let j = 0; j < f.count; j++) {
+              const a = j * 2.4 + f.x * 0.01,
+                reach = (8 + (j % 4) * 6) * n;
+              circ(c, f.x + Math.cos(a) * reach, f.y + Math.sin(a) * reach, 1 + (1 - n) * 1.7, f.color);
+            }
+          }
           if (f.type === "spark") circ(c, f.x, f.y, f.r * (1 - n * 0.5), f.color);
           if (f.type === "ring")
             circ(c, f.x, f.y, Math.max(1, f.r * (0.24 + n * 0.76)), null, f.color, 2.5 * (1 - n) + 1);
@@ -4271,10 +4485,10 @@ window.addEventListener("pageshow",apply);document.addEventListener("visibilityc
           v.textContent = cd > 0 ? Math.ceil(cd) : "MP";
           b.style.filter = cd > 0 || low ? "grayscale(.9)" : "none";
         });
-        let tur = g.buildings.filter((b) => b.team === 1 && b.type === "turret" && live(b)).length;
+        let tur = g.buildings.filter((b) => b.team !== h.team && b.type === "turret" && live(b)).length;
         $("objective").textContent = tur
           ? "Destroy enemy turrets · " + (2 - tur) + "/2"
-          : g.buildings.some((b) => b.team === 1 && b.type === "inhibitor" && live(b))
+          : g.buildings.some((b) => b.team !== h.team && b.type === "inhibitor" && live(b))
             ? "Destroy the enemy inhibitor"
             : "Destroy the enemy Nexus";
         $("ann").hidden = g.displayUntil < g.time || !g.msg;
@@ -4292,16 +4506,411 @@ window.addEventListener("pageshow",apply);document.addEventListener("visibilityc
         $("hint").textContent = hint;
         drawMini();
       }
+      const netFields = {
+        heroes:
+          "id x y hp maxHp mp maxMp team k level xp gold kills deaths assists cs cd items speed ad ap cdr range face flash shield haste buff recall respawn slow r",
+        minions: "id x y hp maxHp team face flash big ranged r",
+        buildings: "id x y hp maxHp team type flash r",
+        monsters: "id x y hp maxHp team type flash r",
+        shots: "id x y a size color arrow speed",
+        areas: "id x y r age type left",
+      };
+      for (const key of Object.keys(netFields)) netFields[key] = netFields[key].split(" ");
+      const MP = { url: "https://mp.zdstudios.network", key: "pk_Q908RS4VOpmyeUj2WN2ACqxkRIhDzI43" };
+      let net = null,
+        sdkReady = null;
+      function loadMultiplayer() {
+        if (window.Multiplayer) return Promise.resolve();
+        if (!sdkReady)
+          sdkReady = new Promise((resolve, reject) => {
+            const tag = document.createElement("script");
+            tag.src = MP.url + "/sdk.js";
+            const fail = () => {
+              clearTimeout(timer);
+              tag.remove();
+              sdkReady = null;
+              reject(new Error("Could not load the multiplayer service. Try again or play solo."));
+            };
+            const timer = setTimeout(fail, 12000);
+            tag.onload = () => {
+              clearTimeout(timer);
+              window.Multiplayer ? resolve() : fail();
+            };
+            tag.onerror = fail;
+            document.head.append(tag);
+          });
+        return sdkReady;
+      }
+      function escapeText(v) {
+        return String(v ?? "").replace(
+          /[&<>"']/g,
+          (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c],
+        );
+      }
+      function networkNotice(s) {
+        const el = $("netNotice");
+        if (el) el.textContent = s;
+      }
+      function detachNet() {
+        const n = net;
+        net = null;
+        if (!n) return;
+        const mp = n.mp;
+        if (mp?.connected && mp.room)
+          mp.leave()
+            .catch(() => {})
+            .finally(() => mp.disconnect());
+        else mp?.disconnect();
+      }
+      function onlineMenu(message = "") {
+        modal(
+          "online",
+          closeButton +
+            '<div class="sectionLabel">Multiplayer</div><h2 id="modalTitle">Online arena</h2><p>' +
+            escapeText(MAPS[mapIndex].name) +
+            " · " +
+            diffNames[difficulty] +
+            ' bots · 3v3</p><div class="netRow"><label for="callSign">Player name</label><input id="callSign" maxlength="20" placeholder="' +
+            kits[selected].name +
+            '"></div><button class="action" data-net="quick">Quick play</button><button class="secondBtn" data-net="create">Create private room</button><div class="netRow"><input id="joinCode" aria-label="Room code" maxlength="6" placeholder="Room code" autocomplete="off" autocapitalize="characters"><button class="secondBtn" data-net="join">Join by code</button></div><p class="netNotice" id="netNotice" role="status"></p>',
+        );
+        networkNotice(message);
+      }
+      function roomPanel() {
+        const n = net,
+          m = n?.mp,
+          state = m?.state.match;
+        if (!m?.room || !state || state.phase !== "waiting") return;
+        const mySeat = state.seats.find((s) => s?.id === m.playerId);
+        const lines = [0, 1]
+          .map(
+            (team) =>
+              "<h3>" +
+              (team ? "Rose team" : "Jade team") +
+              "</h3>" +
+              state.seats
+                .slice(team * 3, team * 3 + 3)
+                .map((s) => {
+                  if (!s) return '<div class="seat muted">AI bot</div>';
+                  const p = m.players.get(s.id);
+                  return (
+                    '<div class="seat">' +
+                    escapeText(p?.name || "Champion") +
+                    (s.id === m.playerId ? " (you)" : "") +
+                    " · " +
+                    kits[s.k].name +
+                    (p?.connected === false ? " · Reconnecting" : "") +
+                    (s.id === m.room.host ? " · Host" : "") +
+                    "</div>"
+                  );
+                })
+                .join(""),
+          )
+          .join("");
+        modal(
+          "room",
+          '<div class="sectionLabel">Online match room</div><h2 id="modalTitle">' +
+            MAPS[state.map].name +
+            '</h2><p>Room <strong class="roomCode">' +
+            escapeText(m.room.id) +
+            "</strong> · " +
+            diffNames[state.diff] +
+            " bots</p>" +
+            lines +
+            '<div class="netRow"><label for="roomChamp">Your champion</label><select id="roomChamp">' +
+            kits
+              .map(
+                (k, i) =>
+                  '<option value="' +
+                  i +
+                  '" ' +
+                  (i === (mySeat?.k ?? selected) ? "selected" : "") +
+                  ">" +
+                  k.name +
+                  " · " +
+                  k.role +
+                  "</option>",
+              )
+              .join("") +
+            '</select></div><p class="netNotice" id="netNotice" role="status"></p>' +
+            (m.isHost
+              ? '<button class="action" data-net="launch">Start match</button>'
+              : "<p>Waiting for the host to start.</p>") +
+            '<button class="secondBtn" data-net="leave">Leave room</button>',
+        );
+        $("roomChamp").onchange = (e) => m.send("select", { k: Number(e.target.value) }, "server");
+      }
+      function roomState() {
+        let n = net,
+          m = n?.mp,
+          s = m?.state.match;
+        if (!s || !m.room) return;
+        if (s.phase === "waiting") {
+          roomPanel();
+          return;
+        }
+        const seat = s.seats.findIndex((p) => p?.id === m.playerId);
+        if (seat < 0) return;
+        n.seat = seat;
+        if (!n.playing) {
+          n.playing = true;
+          n.lastTime = -1;
+          selectMap(s.map);
+          difficulty = s.diff;
+          selected = s.seats[seat].k;
+          startGame();
+          game.player = game.heroes[seat];
+          $("hudName").textContent = kits[selected].name;
+          camera(0, true);
+          $("worldName").textContent = MAPS[s.map].name + " · " + (seat < 3 ? "Jade" : "Rose");
+        }
+        if (s.phase === "ended" && m.state.final) applyWorld(m.state.final);
+      }
+      async function connectRoom(kind) {
+        const code = $("joinCode")?.value.trim().toUpperCase(),
+          name = $("callSign")?.value.trim() || kits[selected].name;
+        if (kind === "join" && !/^[A-Z0-9]{6}$/.test(code)) {
+          networkNotice("Enter the six-character room code.");
+          return;
+        }
+        const n = {
+          mp: null,
+          seq: 0,
+          action: 0,
+          lastSend: 0,
+          lastInput: "",
+          playing: false,
+          seat: 0,
+          offsetX: 0,
+          offsetY: 0,
+        };
+        net = n;
+        modal(
+          "connecting",
+          '<h2 id="modalTitle">Connecting…</h2><p class="netNotice" id="netNotice" role="status">Opening the match service.</p><button class="secondBtn" data-net="leave">Cancel</button>',
+        );
+        try {
+          await loadMultiplayer();
+          if (net !== n) return;
+          const mp = (n.mp = new Multiplayer({
+            url: MP.url,
+            key: MP.key,
+            name,
+            identity: "tab",
+            transports: ["websocket"],
+          }));
+          const on = (ev, fn) =>
+            mp.on(ev, (...args) => {
+              if (net === n) fn(...args);
+            });
+          on("state", roomState);
+          for (const ev of [
+            "joined",
+            "playerJoined",
+            "playerLeft",
+            "playerConnection",
+            "host",
+            "roomUpdated",
+          ])
+            on(ev, () => {
+              if (!n.playing) roomPanel();
+            });
+          on("msg:world", (s, from) => {
+            if (from === "server") {
+              if (!n.playing) roomState();
+              if (n.playing) applyWorld(s);
+            }
+          });
+          on("reconnecting", () => {
+            n.offline = true;
+            clearInput();
+            if (n.playing) {
+              $("linkState").textContent = "Reconnecting…";
+            } else networkNotice("Reconnecting…");
+          });
+          on("reconnected", () => {
+            n.offline = false;
+            n.lastInput = "";
+            roomState();
+          });
+          on("left", (_, reason) => {
+            detachNet();
+            lobby();
+            onlineMenu("Room closed · " + String(reason || "left room"));
+          });
+          on("error", (err) => {
+            n.error = err.message;
+            networkNotice(err.message);
+            if (n.playing) $("linkState").textContent = err.message;
+          });
+          const options = {
+            type: kind === "create" ? "private" : "match",
+            maxPlayers: 6,
+            meta: { map: mapIndex, diff: difficulty },
+            playerData: { k: selected },
+          };
+          if (kind === "join") options.mustExist = true;
+          await mp.connect(
+            kind === "quick"
+              ? { quickJoin: "arena-v1-" + mapIndex + "-" + difficulty, options }
+              : kind === "join"
+                ? { room: code, options }
+                : { create: true, options },
+          );
+          if (net !== n) return;
+          roomState();
+        } catch (e) {
+          if (net === n) {
+            detachNet();
+            onlineMenu(e.message || "Could not join the room.");
+          }
+        }
+      }
+      function sendInput(force = false) {
+        const n = net;
+        if (!n?.playing || !n.mp.connected || n.offline || !game || mode === "ended") return;
+        const active = mode === "play",
+          dx = active ? +keys.has("d") - +keys.has("a") : 0,
+          dy = active ? +keys.has("s") - +keys.has("w") : 0,
+          attack = active && mouse.down;
+        const stamp = performance.now(),
+          signature = [dx, dy, attack].join(",");
+        if (!force && (stamp - n.lastSend < 50 || (!dx && !dy && !attack && signature === n.lastInput)))
+          return;
+        n.lastInput = signature;
+        n.lastSend = stamp;
+        n.mp.send("input", { seq: ++n.seq, dx, dy, attack }, "server", {
+          unreliable: !!(dx || dy || attack),
+        });
+      }
+      function netAction(kind, extra = {}) {
+        const n = net;
+        if (!n?.playing || !n.mp.connected || n.offline || !game || game.winner !== null) return;
+        n.mp.send("action", { kind, ...extra, seq: ++n.action }, "server");
+      }
+      function playerCast(i) {
+        let h = game.player,
+          p = aim();
+        if (!net?.playing) return cast(h, i, p);
+        if (!live(h) || h.cd[i] > 0 || h.mp < kits[h.k].skills[i][3]) return;
+        netAction("cast", { i, x: Math.round(p.x), y: Math.round(p.y) });
+        tone(i === 3 ? 180 : 400, 0.11, "triangle", 0.035);
+      }
+      function applyWorld(s) {
+        const n = net,
+          g = game;
+        if (!n?.playing || !g || !s || !Number.isFinite(s.t) || s.t <= n.lastTime) return;
+        const first = n.lastTime < 0,
+          previous = g.player;
+        n.lastTime = s.t;
+        n.received = performance.now();
+        n.seq = Math.max(n.seq, s.ack[n.seat]);
+        n.action = Math.max(n.action, s.actions?.[n.seat] || 0);
+        const kinds = { heroes: "champ", minions: "minion", buildings: "building", monsters: "monster" };
+        for (const [group, fields] of Object.entries(netFields)) {
+          const old = new Map(g[group].map((u) => [u.id, u]));
+          g[group] = s[group].map((row, i) => {
+            const u = { kind: kinds[group] };
+            fields.forEach((k, j) => (u[k] = row[j]));
+            const last = old.get(u.id);
+            u.toX = u.x;
+            u.toY = u.y;
+            if (!first && last && Math.hypot(last.x - u.x, last.y - u.y) < 140) {
+              u.x = last.x;
+              u.y = last.y;
+            }
+            if (group === "heroes") {
+              u.isPlayer = i === n.seat;
+              const owner = n.mp.state.match?.seats[i]?.id;
+              u.name = owner ? n.mp.players.get(owner)?.name || kits[u.k].name : kits[u.k].name;
+              u.travel = s.leaps[i] ? { type: "leap", age: s.leaps[i][0], life: s.leaps[i][1] } : null;
+            }
+            return u;
+          });
+        }
+        g.player = g.heroes[n.seat];
+        g.time = s.t;
+        g.score = s.score;
+        g.winner = s.winner;
+        g.fx = s.fx || [];
+        g.numbers = s.numbers || [];
+        if (!first && previous && previous.hp > g.player.hp + 2) burst(g.player.x, g.player.y, "#edaba9", 5);
+        if (first) {
+          camera(0, true);
+          g.displayUntil = s.t + 2;
+          g.msg = "Fight for the " + (g.player.team ? "Rose" : "Jade") + " Nexus";
+        }
+        if (g.winner !== null && mode !== "ended") {
+          endGame();
+          return;
+        }
+        if (mode === "paused" && modalKind === "shop") {
+          const h = g.player,
+            can = live(h) && inBase(h);
+          if (
+            previous &&
+            (h.level !== previous.level ||
+              String(h.items) !== String(previous.items) ||
+              can !== (live(previous) && inBase(previous)))
+          )
+            showShop();
+          $("shopGold").textContent = Math.floor(h.gold);
+          $("dialog")
+            .querySelectorAll("[data-item]")
+            .forEach((b) => {
+              const i = Number(b.dataset.item);
+              b.disabled = !can || h.gold < items[i][2] || h.items[i] >= 3;
+            });
+        }
+        $("linkState").textContent = n.offline
+          ? "Reconnecting…"
+          : (n.mp.latency != null ? Math.round(n.mp.latency) + " ms · " : "") + "Room " + n.mp.room.id;
+      }
+      function onlineFrame(dt) {
+        const n = net,
+          g = game;
+        if (!n || !g) return;
+        sendInput();
+        if (n.lastTime < 0) return;
+        const h = g.player,
+          dx = +keys.has("d") - +keys.has("a"),
+          dy = +keys.has("s") - +keys.has("w");
+        const active =
+          (dx || dy) && live(h) && !h.travel && !n.offline && performance.now() - n.received < 350;
+        for (const group of [g.heroes, g.minions, g.monsters, g.shots])
+          for (const u of group) {
+            if (!Number.isFinite(u.toX)) continue;
+            if (active && u === h) {
+              move(h, h.x + dx * 100, h.y + dy * 100, dt);
+              const horizon = clamp(
+                  (performance.now() - n.received + (n.mp.latency || 0) / 2) / 1000,
+                  0,
+                  0.14,
+                ),
+                speed = h.speed * (h.haste > 0 ? 1.62 : 1) * (h.slow > 0 ? 0.52 : 1),
+                norm = Math.hypot(dx, dy);
+              h.x = mix(h.x, clamp(h.toX + (dx / norm) * speed * horizon, 45, W - 45), 1 - Math.exp(-7 * dt));
+              h.y = mix(h.y, clamp(h.toY + (dy / norm) * speed * horizon, 45, H - 45), 1 - Math.exp(-7 * dt));
+            } else {
+              const a = 1 - Math.exp(-24 * dt);
+              u.x = mix(u.x, u.toX, a);
+              u.y = mix(u.y, u.toY, a);
+            }
+          }
+      }
+
       function clearInput() {
         keys.clear();
         mouse.down = false;
+        if (net?.playing) sendInput(true);
         hideTip();
       }
       function frame(now) {
         if (mode !== "play") return;
         let dt = Math.min(0.055, Math.max(0, (now - lastFrame) / 1000));
         lastFrame = now;
-        tick(dt);
+        if (net?.playing) onlineFrame(dt);
+        else tick(dt);
         camera(dt);
         drawWorld();
         game.hudTick -= dt;
@@ -4336,7 +4945,9 @@ window.addEventListener("pageshow",apply);document.addEventListener("visibilityc
         makeGame(selected, difficulty);
         $("lobby").hidden = true;
         $("arena").hidden = false;
-        document.title = "Riftbound · The Shattered Vale";
+        document.title = "Riftbound · " + MAPS[mapIndex].name;
+        $("worldName").textContent = MAPS[mapIndex].name;
+        $("miniName").textContent = MAPS[mapIndex].short.toUpperCase();
         sizeWorld();
         buildTerrain();
         $("hudName").textContent = kits[selected].name;
@@ -4351,6 +4962,8 @@ window.addEventListener("pageshow",apply);document.addEventListener("visibilityc
         resume();
       }
       function lobby() {
+        detachNet();
+        $("linkState").textContent = "";
         miniTerrain = null;
         cancelAnimationFrame(frameId);
         closeModal();
@@ -4361,6 +4974,9 @@ window.addEventListener("pageshow",apply);document.addEventListener("visibilityc
         $("arena").hidden = true;
         $("lobby").hidden = false;
         document.title = "Riftbound · Battle Lobby";
+        renderSelection();
+        selectMap(mapIndex);
+        document.querySelectorAll("[data-diff]")[difficulty].click();
         paintLobby();
         $("start").focus({ preventScroll: true });
       }
@@ -4398,7 +5014,7 @@ window.addEventListener("pageshow",apply);document.addEventListener("visibilityc
             ]
               .map(([k, s]) => '<div class="guideRow"><kbd>' + k + "</kbd><span>" + s + "</span></div>")
               .join("") +
-            "<h3>Growing stronger</h3><p>Last hits earn gold and XP. Nearby minion deaths grant shared XP. Structure wards weaken as the match progresses, and larger siege waves arrive after eight minutes. Each level improves your stats. Normal abilities gain ranks at levels 5, 9, 13, and 17. Your ultimate gains ranks at 6, 11, and 16. Higher ranks shorten cooldowns. Jungle camps grant gold, XP, and a temporary damage buff. Return to base to heal, replenish mana, and buy items.</p>",
+            "<h3>Online matches</h3><p>Quick play pairs you with players on the same map and difficulty. Create a private room to share its code with friends. The host starts the match, and bots take the remaining seats. Your match continues while the menu or shop is open.</p><h3>Growing stronger</h3><p>Last hits earn gold and XP. Nearby minion deaths grant shared XP. Structure wards weaken as the match progresses, and larger siege waves arrive after eight minutes. Each level improves your stats. Normal abilities gain ranks at levels 5, 9, 13, and 17. Your ultimate gains ranks at 6, 11, and 16. Higher ranks shorten cooldowns. Jungle camps grant gold, XP, and a temporary damage buff. Return to base to heal, replenish mana, and buy items.</p>",
         );
       }
       function stopPlay() {
@@ -4411,7 +5027,13 @@ window.addEventListener("pageshow",apply);document.addEventListener("visibilityc
         stopPlay();
         modal(
           "pause",
-          '<div class="sectionLabel">The Shattered Vale</div><h2 id="modalTitle">Match paused</h2><p>' +
+          '<div class="sectionLabel">' +
+            MAPS[mapIndex].name +
+            '</div><h2 id="modalTitle">' +
+            (net?.playing ? "Match menu" : "Match paused") +
+            "</h2><p>" +
+            (net?.playing ? "Online match continues · " : "") +
+            "" +
             timeFmt(game.time) +
             " elapsed · " +
             diffNames[difficulty] +
@@ -4440,9 +5062,9 @@ window.addEventListener("pageshow",apply);document.addEventListener("visibilityc
         modal(
           "shop",
           closeButton +
-            '<div class="sectionLabel">Base shop</div><h2 id="modalTitle">The Armory</h2><p>◆ ' +
+            '<div class="sectionLabel">Base shop</div><h2 id="modalTitle">The Armory</h2><p>◆ <span id="shopGold">' +
             Math.floor(h.gold) +
-            " gold · " +
+            "</span> gold · " +
             (can ? "Purchase up to three of each item." : "Recall to your base to purchase items.") +
             "</p>" +
             buildStats(h) +
@@ -4474,7 +5096,7 @@ window.addEventListener("pageshow",apply);document.addEventListener("visibilityc
         hud();
         let g = game,
           h = g.player,
-          win = g.winner === 0;
+          win = g.winner === h.team;
         tone(win ? 330 : 210, 0.65, "triangle", 0.05, win ? 670 : 83);
         modal(
           "end",
@@ -4485,7 +5107,7 @@ window.addEventListener("pageshow",apply);document.addEventListener("visibilityc
             ' Nexus has fallen.</p><div class="guideRow"><span>Match time</span><strong>' +
             timeFmt(g.time) +
             '</strong></div><div class="guideRow"><span>' +
-            h.name +
+            kits[h.k].name +
             " · Level " +
             h.level +
             "</span><strong>" +
@@ -4501,6 +5123,11 @@ window.addEventListener("pageshow",apply);document.addEventListener("visibilityc
       }
       function dismiss() {
         if (modalKind === "end") return;
+        if (["room", "connecting"].includes(modalKind)) {
+          detachNet();
+          closeModal();
+          return;
+        }
         if ((modalKind === "guide" && mode === "paused") || modalKind === "leave") {
           closeModal();
           mode = "play";
@@ -4520,6 +5147,10 @@ window.addEventListener("pageshow",apply);document.addEventListener("visibilityc
         let b = e.target.closest("button");
         if (!b) return;
         if (b.dataset.item !== undefined) {
+          if (net?.playing) {
+            netAction("buy", { i: Number(b.dataset.item) });
+            return;
+          }
           if (shopBuy(game.player, Number(b.dataset.item))) {
             tone(710, 0.12);
             hud();
@@ -4601,7 +5232,7 @@ window.addEventListener("pageshow",apply);document.addEventListener("visibilityc
           b.onpointerleave = b.onblur = hideTip;
           b.onclick = () => {
             if (ingame && mode === "play") {
-              cast(game.player, i, aim());
+              playerCast(i);
               hud();
             } else tipFor(b, k, i);
           };
@@ -4663,6 +5294,20 @@ window.addEventListener("pageshow",apply);document.addEventListener("visibilityc
         closeModal();
         window.scrollTo(0, 0);
       };
+      $("online").onclick = () => onlineMenu();
+      $("dialog").addEventListener("click", (e) => {
+        const act = e.target.closest("[data-net]")?.dataset.net;
+        if (!act) return;
+        if (["quick", "create", "join"].includes(act)) connectRoom(act);
+        if (act === "launch" && net?.mp.isHost) {
+          net.mp.send("start", {}, "server");
+          networkNotice("Starting match…");
+        }
+        if (act === "leave") {
+          detachNet();
+          closeModal();
+        }
+      });
       $("start").onclick = startGame;
       $("sound").onclick = toggleSound;
       $("pauseBtn").onclick = pause;
@@ -4709,10 +5354,11 @@ window.addEventListener("pageshow",apply);document.addEventListener("visibilityc
           return;
         }
         if (k === "b") {
-          recall(game.player);
+          if (net?.playing) netAction("recall");
+          else recall(game.player);
           return;
         }
-        cast(game.player, Number(k) - 1, aim());
+        playerCast(Number(k) - 1);
         hud();
       });
       document.addEventListener("keyup", (e) => keys.delete(e.key.toLowerCase()));
@@ -4729,17 +5375,21 @@ window.addEventListener("pageshow",apply);document.addEventListener("visibilityc
         mousePoint(e);
         mouse.down = true;
         let h = game.player;
-        attack(h, nearest(h, enemies(h, true).filter(vulnerable), h.range));
+        if (net?.playing) netAction("attack");
+        else attack(h, nearest(h, enemies(h, true).filter(vulnerable), h.range));
         $("world").setPointerCapture(e.pointerId);
       });
       window.addEventListener("pointerup", () => (mouse.down = false));
       window.addEventListener("pointercancel", () => (mouse.down = false));
       window.addEventListener("blur", () => {
         clearInput();
-        if (mode === "play") pause();
+        if (mode === "play" && !net?.playing) pause();
       });
       document.addEventListener("visibilitychange", () => {
-        if (document.hidden && mode === "play") pause();
+        if (document.hidden) {
+          clearInput();
+          if (mode === "play" && !net?.playing) pause();
+        }
       });
       let resizeRAF = 0;
       window.addEventListener("resize", () => {
@@ -4755,6 +5405,15 @@ window.addEventListener("pageshow",apply);document.addEventListener("visibilityc
           }
         });
       });
+      MAPS.forEach((m, i) => $("mapPick").add(new Option(m.name, i)));
+      function selectMap(i) {
+        useMap(i);
+        $("mapPick").value = mapIndex;
+        $("biome").textContent = MAPS[mapIndex].biome + " · " + MAPS[mapIndex].camps.length + " jungle camps";
+        previewMap();
+      }
+      $("mapPick").onchange = () => selectMap(Number($("mapPick").value));
+      selectMap(0);
       renderSelection();
       paintLobby();
     </script>

@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-11-26T04:42:59.696Z",
+  "generated_at": "2026-11-26T09:42:01.428Z",
   "name": "ZD Studios Game Library",
   "description": "A growing collection of free browser games. No installs, no accounts. Every game is a single standalone HTML file that runs in the browser. Games were built with heavy use of AI plus a lot of human direction and effort.",
   "urls": {
@@ -43,7 +43,7 @@
     "games_in_repo": 42,
     "games_total_including_external": 43,
     "suggested_by_the_public": 12,
-    "with_online_multiplayer": 15,
+    "with_online_multiplayer": 16,
     "with_local_multiplayer": 4
   },
   "games": [
@@ -1757,13 +1757,13 @@
       "id": "riftbound",
       "title": "Riftbound",
       "tagline": "Arena Field Guide",
-      "description": "A single-player 3v3 arena battler. Pick a champion, master four abilities, buy upgrades in the shop and fight your way down the lane of the Shattered Vale against bots at three difficulty levels.",
+      "description": "A single-player 3v3 arena battler. Pick a champion, master four abilities, buy upgrades in the shop and fight your way down the lane of the Shattered Vale against bots at three difficulty levels, or team up and battle other players in the online arena.",
       "genre": "Arena / MOBA",
       "emoji": "⚔️",
       "play": {
         "url": "https://games.zdstudios.network/riftbound.html",
         "single_player": true,
-        "online_multiplayer": false,
+        "online_multiplayer": true,
         "local_multiplayer": false
       },
       "origin": {
@@ -1780,26 +1780,33 @@
       "code": {
         "language": "HTML + CSS + JavaScript, one standalone file",
         "entry": "riftbound.html",
-        "size_bytes": 141907,
-        "lines": 4763,
+        "size_bytes": 165597,
+        "lines": 5422,
         "line_endings": "LF",
         "rendering": [
           "Canvas 2D"
         ],
         "libraries": [],
         "audio": "Web Audio API",
-        "networking": [],
+        "networking": [
+          "ZD Studios multiplayer server (mp.zdstudios.network)"
+        ],
         "save_data": null,
         "input": [
           "keyboard + mouse"
         ],
         "fonts_embedded": false,
         "works_offline": true,
-        "external_resources": [],
+        "external_resources": [
+          {
+            "kind": "multiplayer-server",
+            "host": "mp.zdstudios.network"
+          }
+        ],
         "discrete_mode_integrated": true
       },
-      "last_changed": "2026-11-26T04:41:41+00:00",
-      "last_commit": "47532cd"
+      "last_changed": "2026-11-26T04:42:59+00:00",
+      "last_commit": "ef72be7"
     },
     {
       "id": "skyhook-run",
