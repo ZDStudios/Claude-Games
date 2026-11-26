@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-11-25T23:10:08.727Z",
+  "generated_at": "2026-11-26T02:20:23.695Z",
   "name": "ZD Studios Game Library",
   "description": "A growing collection of free browser games. No installs, no accounts. Every game is a single standalone HTML file that runs in the browser. Games were built with heavy use of AI plus a lot of human direction and effort.",
   "urls": {
@@ -43,7 +43,7 @@
     "games_in_repo": 41,
     "games_total_including_external": 42,
     "suggested_by_the_public": 11,
-    "with_online_multiplayer": 14,
+    "with_online_multiplayer": 15,
     "with_local_multiplayer": 4
   },
   "games": [
@@ -1697,13 +1697,13 @@
       "id": "retro-afl",
       "title": "Retro AFL",
       "tagline": "Touchline Arcade",
-      "description": "An arcade Aussie rules football game. Kick, mark, handball and tackle your way through a career of seasons — climb the ladder, make the finals and chase the premiership.",
+      "description": "An arcade Aussie rules football game. Kick, mark, handball and tackle your way through a career of seasons — climb the ladder, make the finals and chase the premiership — or take on a friend online in a two-coach exhibition.",
       "genre": "Sports / Arcade",
       "emoji": "🏉",
       "play": {
         "url": "https://games.zdstudios.network/retro-afl.html",
         "single_player": true,
-        "online_multiplayer": false,
+        "online_multiplayer": true,
         "local_multiplayer": false
       },
       "origin": {
@@ -1720,26 +1720,38 @@
       "code": {
         "language": "HTML + CSS + JavaScript, one standalone file",
         "entry": "retro-afl.html",
-        "size_bytes": 156885,
-        "lines": 4653,
+        "size_bytes": 174392,
+        "lines": 5130,
         "line_endings": "LF",
         "rendering": [
           "Canvas 2D"
         ],
         "libraries": [],
         "audio": "Web Audio API",
-        "networking": [],
-        "save_data": null,
+        "networking": [
+          "ZD Studios multiplayer server (mp.zdstudios.network)"
+        ],
+        "save_data": {
+          "storage": "browser localStorage",
+          "keys": [
+            "retro.afl.room"
+          ]
+        },
         "input": [
           "keyboard + mouse"
         ],
         "fonts_embedded": false,
         "works_offline": true,
-        "external_resources": [],
+        "external_resources": [
+          {
+            "kind": "multiplayer-server",
+            "host": "mp.zdstudios.network"
+          }
+        ],
         "discrete_mode_integrated": true
       },
-      "last_changed": null,
-      "last_commit": null
+      "last_changed": "2026-11-25T23:10:08+00:00",
+      "last_commit": "e803df7"
     },
     {
       "id": "skyhook-run",

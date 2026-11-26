@@ -396,7 +396,8 @@ window.addEventListener("pageshow",apply);document.addEventListener("visibilityc
       // Tuning: CFG (timers, salary cap and squad sizes), C (palette), CLUBS (kits and ratings).
       // Season engine: fixture, balanceVenues, result, advance, expand and rollSeason.
       // Match engine: newMatch and stepMatch. Input is translated into actions at the end of this script.
-      // Art, sound, rosters and fixtures are generated locally. No network or build step is required.
+      // Art, sound, rosters and fixtures are generated locally. Solo play works offline. Online exhibitions load the SDK on demand.
+      const MP = { url: 'https://mp.zdstudios.network', key: 'pk_DNMPLAGZbebHuOa4cdSl6k46Lz8Za7RR' };
       const CFG = {
         quarter: 90,
         quarters: [30, 60, 90, 120],
@@ -2110,7 +2111,7 @@ window.addEventListener("pageshow",apply);document.addEventListener("visibilityc
       function spawnPlayers(m) {
         let lanes = [
           [-12, 0],
-          [-0.50 * oval.rx, -30],
+          [-0.5 * oval.rx, -30],
           [-0.52 * oval.rx, 35],
           [20, -44],
           [36, 39],
@@ -2286,6 +2287,10 @@ window.addEventListener("pageshow",apply);document.addEventListener("visibilityc
         }
       }
       function handball(m, target) {
+        if (m.online) {
+          networkAction('pass', { target: target?.id ?? -1 });
+          return;
+        }
         if (m.mode !== 'play') return;
         let p = m.players[m.owner],
           q = target || passTarget(m, p);
@@ -2294,6 +2299,12 @@ window.addEventListener("pageshow",apply);document.addEventListener("visibilityc
         throwBall(m, { x: p.x + (q.x - p.x) * f, y: p.y + (q.y - p.y) * f }, 'hand', 0.3);
       }
       function kick(m, angle, power, shot = false) {
+        if (m.online) {
+          networkAction('kick', { angle: online.side ? Math.PI - angle : angle, power, shot });
+          m.charging = false;
+          m.charge = 0;
+          return;
+        }
         if (m.mode !== 'play') return;
         let p = m.players[m.owner],
           dir = p.side ? -1 : 1;
@@ -2312,6 +2323,10 @@ window.addEventListener("pageshow",apply);document.addEventListener("visibilityc
         throwBall(m, { x, y }, 'kick', power);
       }
       function contest(m) {
+        if (m.online) {
+          networkAction('contest');
+          return;
+        }
         if (m.mode === 'ruck') {
           if (!m.pressedRuck) {
             m.pressedRuck = true;
@@ -2598,7 +2613,7 @@ window.addEventListener("pageshow",apply);document.addEventListener("visibilityc
         }
       }
       function checkpoint() {
-        if (match && career) {
+        if (match && !match.online && career) {
           let { teams, ...state } = match;
           career.live = { state, year: career.year, period: period(career) };
           save();
@@ -2617,7 +2632,7 @@ window.addEventListener("pageshow",apply);document.addEventListener("visibilityc
         // Preserve the relative positions in matches saved on the shorter oval.
         const previousRadius = match.fieldRadius ?? 192;
         if (previousRadius !== oval.rx) {
-          const resizeX = (x) => oval.leftGoal + (x - oval.leftGoal) * oval.rx / previousRadius;
+          const resizeX = (x) => oval.leftGoal + ((x - oval.leftGoal) * oval.rx) / previousRadius;
           for (const player of match.players) {
             player.x = resizeX(player.x);
             player.homeX = resizeX(player.homeX);
@@ -2693,6 +2708,8 @@ window.addEventListener("pageshow",apply);document.addEventListener("visibilityc
         askBack = 'hub';
       const locations = {
         title: 'ARCADE CABINET',
+        online: 'ONLINE EXHIBITION',
+        onlineMenu: 'MATCH MENU',
         clubs: 'CLUB SELECT',
         hub: 'COACH BOX',
         match: 'MATCH DAY',
@@ -2852,6 +2869,11 @@ window.addEventListener("pageshow",apply);document.addEventListener("visibilityc
         input.select();
       }
       function openSettings() {
+        if (online) {
+          if (match?.online) pause();
+          else notify('LEAVE THE ROOM TO CHANGE SETTINGS');
+          return;
+        }
         if (screen === 'settings') {
           back();
           return;
@@ -2943,6 +2965,415 @@ window.addEventListener("pageshow",apply);document.addEventListener("visibilityc
         rect(x - 2 - run + (pose === 'kick' ? 2 * face : 0), y + 1, 3, 1, '#222a36');
         rect(x + run + 1, y + 1, 2, 1, '#232a32');
       }
+      // Online exhibitions use the server as referee. The browser predicts the carrier's
+      // movement and interpolates the other 13 runners from authoritative snapshots.
+      let online = null,
+        sdkPromise = null,
+        onlineClub = 0,
+        onlineNotice = '',
+        onlineAttempt = 0;
+      function multiplayerSDK() {
+        if (window.Multiplayer) return Promise.resolve(window.Multiplayer);
+        if (sdkPromise) return sdkPromise;
+        sdkPromise = new Promise((resolve, reject) => {
+          const script = document.createElement('script');
+          let timer;
+          const fail = () => {
+            clearTimeout(timer);
+            script.remove();
+            sdkPromise = null;
+            reject(new Error('SERVER UNAVAILABLE'));
+          };
+          script.src = MP.url + '/sdk.js';
+          script.async = true;
+          script.onerror = fail;
+          script.onload = () => {
+            clearTimeout(timer);
+            if (window.Multiplayer) resolve(window.Multiplayer);
+            else fail();
+          };
+          timer = setTimeout(fail, 10000);
+          document.head.append(script);
+        });
+        return sdkPromise;
+      }
+      function networkMessage(e) {
+        const messages = {
+          room_not_found: 'ROOM CODE NOT FOUND',
+          room_full: 'ROOM IS FULL',
+          room_locked: 'MATCH ALREADY STARTED',
+          bad_key: 'GAME CONNECTION REFUSED',
+          timeout: 'SERVER TIMED OUT',
+          bad_room_type: 'ROOM TYPE UNAVAILABLE',
+          rate_limited: 'TOO MANY REQUESTS',
+        };
+        return (
+          messages[e?.code] ||
+          String(e?.code || e?.message || 'CONNECTION LOST')
+            .replace(/_/g, ' ')
+            .toUpperCase()
+            .slice(0, 54)
+        );
+      }
+      function rememberRoom(code) {
+        try {
+          if (code) sessionStorage.setItem('retro.afl.room', code);
+          else sessionStorage.removeItem('retro.afl.room');
+        } catch {}
+      }
+      function previousRoom() {
+        try {
+          return sessionStorage.getItem('retro.afl.room') || '';
+        } catch {
+          return '';
+        }
+      }
+      function leaveOnline(message = '', destination = 'online') {
+        const n = online;
+        online = null;
+        onlineAttempt++;
+        match = null;
+        held.clear();
+        chargeKey = '';
+        drag = null;
+        rememberRoom('');
+        onlineNotice = message;
+        if (n?.mp) {
+          if (n.mp.connected && n.mp.room)
+            n.mp
+              .leave()
+              .catch(() => {})
+              .finally(() => n.mp.disconnect());
+          else n.mp.disconnect();
+        }
+        go(destination);
+      }
+      async function connectOnline(mode, code = '') {
+        if (online) return;
+        if (mode === 'join' && !/^[A-Z0-9]{6}$/.test(code)) {
+          onlineNotice = 'ENTER A SIX-CHARACTER ROOM CODE';
+          draw();
+          return;
+        }
+        const attempt = ++onlineAttempt;
+        const n = (online = {
+          mp: null,
+          stage: 'connecting',
+          lobby: null,
+          seq: 0,
+          moveSeq: Date.now(),
+          lastMove: -1,
+          moveKey: '',
+          side: 0,
+          target: null,
+          menu: false,
+          networkLost: false,
+        });
+        onlineNotice = '';
+        draw();
+        try {
+          const SDK = await multiplayerSDK();
+          if (attempt !== onlineAttempt) return;
+          const mp = (n.mp = new SDK({ url: MP.url, key: MP.key, name: initials || 'AUS', identity: 'tab' }));
+          const watch = (name, fn) =>
+            mp.on(name, (...args) => {
+              if (online === n) fn(...args);
+            });
+          const status = () => {
+            if (mp.room) rememberRoom(mp.room.id);
+            receiveLobby(n, mp.state?.lobby);
+            if (mp.state?.frame) receiveFrame(n, mp.state.frame);
+            draw();
+          };
+          watch('state:lobby', (l) => receiveLobby(n, l));
+          watch('state:frame', (f) => receiveFrame(n, f));
+          for (const evt of ['joined', 'host', 'playerJoined', 'playerLeft', 'playerConnection', 'playerUpdated'])
+            watch(evt, status);
+          watch('disconnected', (e) => {
+            n.networkLost = true;
+            if ([4001, 4003, 4004, 4005].includes(e?.code)) leaveOnline('CONNECTION CLOSED');
+            else draw();
+          });
+          watch('reconnecting', () => {
+            n.networkLost = true;
+            held.clear();
+            draw();
+          });
+          watch('reconnected', () => {
+            n.networkLost = false;
+            n.moveSeq = Date.now();
+            status();
+          });
+          watch('left', (_r, why) => leaveOnline(why === 'left' ? 'LEFT ROOM' : 'ROOM CLOSED'));
+          watch('error', (e) => {
+            onlineNotice = networkMessage(e);
+            draw();
+          });
+          const options =
+            mode === 'join'
+              ? { room: code, options: { mustExist: true } }
+              : mode === 'create'
+                ? { create: true, options: { type: 'private' } }
+                : { quickJoin: 'retro-afl', options: { type: 'match' } };
+          await mp.connect(options);
+          if (online !== n) {
+            mp.disconnect();
+            return;
+          }
+          if (!mp.room) throw Error('ROOM UNAVAILABLE');
+          n.stage = 'room';
+          status();
+          if (n.lobby?.phase === 'waiting') mp.send('ready', { club: onlineClub, ready: false }, 'server');
+        } catch (e) {
+          if (online === n) leaveOnline(networkMessage(e));
+        }
+      }
+      function receiveLobby(n, l) {
+        if (!l || !Array.isArray(l.seats)) return;
+        n.lobby = l;
+        const i = l.seats.findIndex((s) => s?.id === n.mp.playerId);
+        if (i >= 0) n.side = i;
+        if (l.phase === 'abandoned') {
+          leaveOnline('OPPONENT LEFT THE MATCH');
+          return;
+        }
+        draw();
+      }
+      function exhibitionTeams(lobby, side) {
+        return [side, 1 - side].map((s) => {
+          const club = lobby.seats[s].club,
+            c = CLUBS[club],
+            kit = c.slice(2, 6);
+          if (s === 1 && lobby.seats[0].club === club) {
+            kit[0] = '#f0e6cc';
+            kit[1] = '#29344a';
+            kit[3] = 'bands';
+          }
+          return {
+            name: c[0],
+            abbr: c[1],
+            kit,
+            list: Array.from({ length: 7 }, (_, i) => ({
+              id: s * 7 + i,
+              name: firstNames[(club + i) % firstNames.length] + ' ' + surnames[(3 * club + i) % surnames.length],
+            })),
+          };
+        });
+      }
+      function receiveFrame(n, f) {
+        if (!f || !n.lobby?.seats.every(Boolean) || f.seq <= n.seq) return;
+        const away = n.side === 1,
+          flip = (x) => (away ? oval.cx * 2 - x : x);
+        n.seq = f.seq;
+        const runners = f.p.map(([x, y, pose, anim], id) => ({
+          id,
+          pid: id,
+          side: (id < 7 ? 0 : 1) ^ n.side,
+          x: flip(x),
+          y,
+          pose,
+          anim,
+        }));
+        const ball = { x: flip(f.b[0]), y: f.b[1], z: f.b[2] };
+        const first = !match?.online;
+        if (first)
+          match = {
+            online: true,
+            teams: exhibitionTeams(n.lobby, n.side),
+            players: runners.map((p) => ({ ...p })),
+            ball: { ...ball },
+            aim: 0,
+            charging: false,
+            charge: 0,
+            goalAim: false,
+          };
+        const m = match,
+          switched = m.turn !== f.turn || m.mode !== f.mode;
+        if (switched) {
+          m.charging = false;
+          m.charge = 0;
+          m.goalAim = false;
+          chargeKey = '';
+          if (m.turn !== f.turn) m.aim = 0;
+        }
+        Object.assign(m, {
+          q: f.q,
+          mode: f.mode,
+          owner: f.owner,
+          turn: f.turn,
+          score: away ? [f.score[1], f.score[0]] : f.score,
+          secleft: f.clock,
+          matchTime: f.time,
+          wait: f.wait,
+          flight: f.flight ? { t: f.flight[0], duration: f.flight[1] } : null,
+          wind: f.wind,
+          mom: away ? -f.mom : f.mom,
+          splits: away ? f.splits.map((s) => [s[1], s[0]]) : f.splits,
+          finished: f.finished,
+          banner: f.banner,
+          bannerT: f.banner ? 1 : 0,
+          flash: f.flash,
+          shake: f.shake,
+        });
+        const clock = performance.now();
+        n.previous = n.target;
+        n.target = { runners, ball, time: clock };
+        n.age = 0;
+        if (first || (f.mode === 'ruck' && switched)) {
+          m.players = runners.map((p) => ({ ...p }));
+          m.ball = { ...ball };
+          n.previous = null;
+        }
+        if (f.soundId !== n.soundId) {
+          if (!first && f.sound) sfx(f.sound);
+          n.soundId = f.soundId;
+        }
+        if (first) {
+          n.stage = 'match';
+          go('match');
+        }
+        if (f.finished && screen === 'onlineMenu') go('match');
+      }
+      function networkAction(kind, extra = {}) {
+        const n = online,
+          m = match;
+        if (!m?.online || !n?.mp?.connected || n.networkLost || n.lobby?.paused) return;
+        n.mp.send('action', { kind, mode: m.mode, turn: m.turn, owner: m.owner, ...extra }, 'server');
+      }
+      function onlineFrame(dt) {
+        const n = online,
+          m = match;
+        if (!n?.target || !m?.online || n.networkLost || n.lobby.paused) return;
+        const input = screen === 'match' && !m.finished;
+        const dx = input
+          ? Number(held.has('arrowright') || held.has('d')) - Number(held.has('arrowleft') || held.has('a'))
+          : 0;
+        const dy = input
+          ? Number(held.has('arrowdown') || held.has('s')) - Number(held.has('arrowup') || held.has('w'))
+          : 0;
+        const own = m.mode === 'play' && m.players[m.owner]?.side === 0;
+        n.age += dt;
+        if (own && input && (dx || dy)) m.aim = Math.atan2(dy, dx);
+        if (m.charging && !drag?.aim) m.charge = clamp(m.charge + dt * 0.92, 0, 1);
+        const key = [m.turn, dx, dy, !!m.charging].join(',');
+        if (own && now - n.lastMove >= 0.05 && (key !== n.moveKey || dx || dy || m.charging)) {
+          n.mp.send(
+            'move',
+            { seq: ++n.moveSeq, turn: m.turn, dx: n.side ? -dx : dx, dy, charging: m.charging },
+            'server',
+            { unreliable: true },
+          );
+          n.lastMove = now;
+          n.moveKey = key;
+        }
+        const smoothing = 1 - Math.exp(-dt * 24);
+        const lead = n.previous ? clamp(n.age / Math.max(0.035, (n.target.time - n.previous.time) / 1000), 0, 0.7) : 0;
+        for (const p of m.players) {
+          const target = n.target.runners[p.id],
+            last = n.previous?.runners[p.id];
+          const predicted =
+            own && m.owner === p.id && !m.charging && (dx || dy) ? (0.052 * 27) / Math.max(1, Math.hypot(dx, dy)) : 0;
+          let x = target.x + (predicted ? dx * predicted : last ? clamp(target.x - last.x, -3, 3) * lead : 0);
+          let y = target.y + (predicted ? dy * predicted : last ? clamp(target.y - last.y, -3, 3) * lead : 0);
+          p.x = mix(p.x, x, smoothing);
+          p.y = mix(p.y, y, smoothing);
+          p.pose = target.pose;
+          p.anim = target.anim;
+        }
+        for (const k of ['x', 'y', 'z']) m.ball[k] = mix(m.ball[k], n.target.ball[k], smoothing);
+      }
+      function chooseOnlineClub(delta) {
+        const n = online;
+        if (n?.lobby?.seats[n.side]?.ready) return;
+        onlineClub = (onlineClub + delta + CLUBS.length) % CLUBS.length;
+        if (n?.mp?.room) n.mp.send('ready', { club: onlineClub, ready: false }, 'server');
+        draw();
+      }
+      function onlineScreen() {
+        const n = online,
+          l = n?.lobby,
+          room = n?.mp?.room;
+        head('ONLINE FOOTY', room ? 'EXHIBITION  /  ROOM ' + room.id : 'EXHIBITION  /  TWO COACHES');
+        const club = CLUBS[onlineClub],
+          y = 54;
+        jumper(club.slice(2, 6), W / 2 - 17, y, 34);
+        txt(club[0], W / 2, y + 40, C.gold, 1, 'center');
+        menuRect(13, y + 6, 42, 24, '<', () => chooseOnlineClub(-1));
+        menuRect(W - 55, y + 6, 42, 24, '>', () => chooseOnlineClub(1));
+        if (n && !room) {
+          txt('CONNECTING...', W / 2, 135, C.mint, 1, 'center');
+          backButton(() => leaveOnline('CONNECTION CANCELLED'));
+          return;
+        }
+        if (room) {
+          txt('ROOM ' + room.id, W / 2, 112, C.paper, 2, 'center');
+          const seats = l?.seats || [null, null];
+          seats.forEach((s, i) => {
+            let yy = 139 + i * 19;
+            const peer = s && n.mp.players.get(s.id);
+            txt(
+              s
+                ? (s.id === n.mp.playerId ? 'YOU' : 'RIVAL') +
+                    '  ' +
+                    (peer?.name || 'COACH').slice(0, 9) +
+                    ' / ' +
+                    CLUBS[s.club][1]
+                : 'WAITING FOR COACH',
+              14,
+              yy,
+              s ? C.paper : C.muted,
+            );
+            txt(
+              !s ? 'OPEN' : peer?.connected === false ? 'OFFLINE' : s.ready ? 'READY' : 'PICKING',
+              W - 14,
+              yy,
+              s?.ready ? C.gold : C.muted,
+              1,
+              'right',
+            );
+          });
+          const ready = l?.seats[n.side]?.ready;
+          menuRect(
+            13,
+            183,
+            W - 26,
+            27,
+            ready ? 'CANCEL READY' : 'READY UP',
+            () => n.mp.send('ready', { club: onlineClub, ready: !ready }, 'server'),
+            'primary',
+          );
+          menuRect(13, H - 32, 90, 20, 'LEAVE ROOM', () => leaveOnline());
+          menuRect(W - 126, H - 32, 113, 20, 'COPY CODE', async () => {
+            try {
+              await navigator.clipboard.writeText(room.id);
+              notify('ROOM CODE COPIED');
+            } catch {
+              notify('ROOM CODE ' + room.id);
+            }
+          });
+        } else {
+          menuRect(13, 115, W - 26, 28, 'CREATE FRIEND ROOM', () => connectOnline('create'), 'primary', 'play');
+          navRow(
+            [
+              ['JOIN BY CODE', () => inputName('SIX-CHARACTER ROOM CODE', '', 6, (v) => connectOnline('join', v))],
+              ['QUICK PLAY', () => connectOnline('quick')],
+            ],
+            153,
+            26,
+          );
+          if (previousRoom())
+            menuRect(13, 190, 133, 19, 'REJOIN LAST ROOM', () => connectOnline('join', previousRoom()));
+          backButton(() => go('title'));
+        }
+        if (n?.networkLost || onlineNotice)
+          wrapText(n?.networkLost ? 'RECONNECTING...' : onlineNotice, 13, H - 56, W - 26, C.coral, 10);
+      }
+      function onlineMenu() {
+        head('MATCH MENU', 'ONLINE EXHIBITION  /  PLAY CONTINUES');
+        menuRect(15, 76, W - 30, 30, 'RETURN TO MATCH', () => go('match'), 'primary');
+        menuRect(15, 119, W - 30, 25, 'LEAVE MATCH', () => leaveOnline('LEFT MATCH'));
+      }
+
       function titleScreen() {
         let sh = 191,
           age = now - screenAt,
@@ -3014,19 +3445,21 @@ window.addEventListener("pageshow",apply);document.addEventListener("visibilityc
           }
         };
         let first = career ? 'CONTINUE' : 'PRESS START';
+        const onlineStart = () => {
+          onlineNotice = '';
+          go('online');
+        };
         if (compact) {
-          menuRect(11, sh + 28, W - 22, 32, first, start, 'primary', 'play');
+          menuRect(11, sh + 29, 136, 31, first, start, 'primary', 'play');
+          menuRect(153, sh + 29, 136, 31, 'PLAY ONLINE', onlineStart, 'selected');
           menuRect(11, sh + 69, 136, 30, 'CONTROLS', openHelp, '', 'book');
           menuRect(153, sh + 69, 136, 30, 'RECORDS', () => go('records'), '', 'cup');
-          txt('1 PLAYER', W / 2, sh + 113, C.muted, 1, 'center');
+          txt('SOLO CAREER  /  ONLINE EXHIBITION', W / 2, sh + 113, C.muted, 1, 'center');
         } else {
-          menuRect(15, sh + 29, 172, 34, first, start, 'primary', 'play');
-          menuRect(194, sh + 29, 132, 34, 'CONTROLS', openHelp, '', 'book');
-          menuRect(333, sh + 29, 132, 34, 'RECORDS', () => go('records'), '', 'cup');
-        }
-        if (Math.floor(now * 1.6) % 2 === 0) {
-          let x = compact ? W - 25 : 175;
-          rect(x, sh + (compact ? 43 : 45), 2, 2, '#996c32');
+          menuRect(15, sh + 29, 123, 34, first, start, 'primary', 'play');
+          menuRect(144, sh + 29, 114, 34, 'PLAY ONLINE', onlineStart, 'selected');
+          menuRect(264, sh + 29, 98, 34, 'CONTROLS', openHelp, '', 'book');
+          menuRect(368, sh + 29, 97, 34, 'RECORDS', () => go('records'), '', 'cup');
         }
       }
       function kitArt(kit) {
@@ -4006,7 +4439,13 @@ window.addEventListener("pageshow",apply);document.addEventListener("visibilityc
           for (let x = 0; x <= 360; x += 3) {
             let a = (x * Math.PI) / 180,
               b = ((x + 3) * Math.PI) / 180;
-            line(center + 15 * Math.cos(a), 92 + 9 * Math.sin(a), center + 15 * Math.cos(b), 92 + 9 * Math.sin(b), edge);
+            line(
+              center + 15 * Math.cos(a),
+              92 + 9 * Math.sin(a),
+              center + 15 * Math.cos(b),
+              92 + 9 * Math.sin(b),
+              edge,
+            );
           }
           for (let [x, side] of [
             [oval.leftGoal + 12, 1],
@@ -4082,7 +4521,9 @@ window.addEventListener("pageshow",apply);document.addEventListener("visibilityc
             py = Y(p.y);
           ellipse(px, py + 1, 7, 2, p.side ? C.coral : C.gold);
           if (!p.side && !demo) {
-            let a = m.goalAim ? Math.atan2(80 - p.y, oval.rightGoal - p.x) + Math.sin(m.matchTime * 3.3) * 0.082 : m.aim;
+            let a = m.goalAim
+              ? Math.atan2(80 - p.y, oval.rightGoal - p.x) + Math.sin(m.matchTime * 3.3) * 0.082
+              : m.aim;
             let len = m.charging ? 40 + 85 * m.charge : 15;
             for (let i = 5; i <= len; i += 5)
               rect(X(p.x + Math.cos(a) * i), Y(p.y + Math.sin(a) * i) - 2, 2, 1, m.charging ? C.gold : C.paper);
@@ -4125,11 +4566,12 @@ window.addEventListener("pageshow",apply);document.addEventListener("visibilityc
       function matchScreen() {
         let m = match;
         if (!m) return;
-        let grand = career.phase === 'finals' && career.week === 3;
+        let grand = !m.online && career.phase === 'finals' && career.week === 3;
         rect(0, 0, W, H, C.ink);
         rect(0, 0, W, 15, grand ? '#5b4131' : C.panel);
-        txt(grand ? 'GRAND FINAL' : period(career), 8, 4, grand ? C.gold : C.mint);
-        txt('ATTACK >', W - 8, 4, C.mint, 1, 'right');
+        txt(m.online ? 'ONLINE EXHIBITION' : grand ? 'GRAND FINAL' : period(career), 8, 4, grand ? C.gold : C.mint);
+        const ping = m.online && Number.isFinite(online.mp.latency) ? Math.round(online.mp.latency) + 'MS  ' : '';
+        txt(ping + 'ATTACK >', W - 8, 4, C.mint, 1, 'right');
         let clock = Math.ceil(m.secleft),
           tm = Math.floor(clock / 60) + ':' + String(clock % 60).padStart(2, '0'),
           left = compact ? 8 : 13,
@@ -4150,8 +4592,9 @@ window.addEventListener("pageshow",apply);document.addEventListener("visibilityc
           rect(0, y, W, 2, C.paper);
           rect(0, y + h - 2, W, 2, C.paper);
         }
-        if (m.bannerT > 0) {
-          let text = m.banner || '';
+        const interruption = m.online && (online.networkLost || online.lobby?.paused);
+        if (interruption || m.bannerT > 0) {
+          let text = interruption ? 'RECONNECTING COACH...' : m.banner || '';
           let ww = tw(text) + 13;
           box((W - ww) / 2, y + 6, ww, 15, C.ink, C.muted);
           txt(text, W / 2, y + 10, C.gold, 1, 'center');
@@ -4222,14 +4665,19 @@ window.addEventListener("pageshow",apply);document.addEventListener("visibilityc
             txt(q > 4 ? 'ET' + (q - 4) : 'Q' + q, xx2, yy + 55, C.mint, 1, 'center');
             txt(s.join('-'), xx2, yy + 67, C.paper, 1, 'center');
           });
+          if (m.online && !m.finished) {
+            txt('NEXT QUARTER IN A MOMENT', W / 2, yy + 91, C.mint, 1, 'center');
+            return;
+          }
           menuRect(
             xx + 12,
             yy + 85,
             bw - 24,
             22,
-            m.finished ? 'MATCH RESULT' : m.q >= 4 ? 'EXTRA TIME' : 'NEXT QUARTER',
+            m.online ? 'BACK TO ONLINE' : m.finished ? 'MATCH RESULT' : m.q >= 4 ? 'EXTRA TIME' : 'NEXT QUARTER',
             () => {
-              if (m.finished) finishPlayed();
+              if (m.online) leaveOnline('FULL TIME');
+              else if (m.finished) finishPlayed();
               else {
                 nextQuarter(m);
                 checkpoint();
@@ -4260,7 +4708,7 @@ window.addEventListener("pageshow",apply);document.addEventListener("visibilityc
                 if (me) kick(m, m.aim, 0.72, true);
               },
             ],
-            ['PAUSE', pause],
+            [m.online ? 'MENU' : 'PAUSE', pause],
           ],
           rowY,
           compact ? 35 : 25,
@@ -4269,6 +4717,11 @@ window.addEventListener("pageshow",apply);document.addEventListener("visibilityc
       }
       function pause() {
         if (!match) return;
+        if (match.online) {
+          match.charging = false;
+          go('onlineMenu');
+          return;
+        }
         match.charging = false;
         checkpoint();
         go('pause');
@@ -4295,6 +4748,8 @@ window.addEventListener("pageshow",apply);document.addEventListener("visibilityc
       }
       const scenes = {
         title: titleScreen,
+        online: onlineScreen,
+        onlineMenu,
         clubs: clubScreen,
         hub,
         settings,
@@ -4354,6 +4809,15 @@ window.addEventListener("pageshow",apply);document.addEventListener("visibilityc
         draw();
       }
       function back() {
+        if (screen === 'online') {
+          if (online) leaveOnline();
+          else go('title');
+          return;
+        }
+        if (screen === 'onlineMenu') {
+          go('match');
+          return;
+        }
         if (screen === 'title') return;
         if (screen === 'match') {
           pause();
@@ -4492,7 +4956,7 @@ window.addEventListener("pageshow",apply);document.addEventListener("visibilityc
         if (m.mode !== 'play') return;
         let carrier = m.players[m.owner];
         if (carrier.side) {
-          if (prefs.defend) contest(m);
+          if (prefs.defend || m.online) contest(m);
           return;
         }
         let dest = toField(p),
@@ -4502,6 +4966,10 @@ window.addEventListener("pageshow",apply);document.addEventListener("visibilityc
           );
         if (dist(targetPlayer, { x: dest.x, y: dest.y + 4 }) < 13) handball(m, targetPlayer);
         else {
+          if (m.online) {
+            networkAction('run', { x: online.side ? 2 * oval.cx - dest.x : dest.x, y: dest.y });
+            return;
+          }
           m.order = fieldClamp(dest);
           m.aim = Math.atan2(dest.y - carrier.y, dest.x - carrier.x);
         }
@@ -4587,13 +5055,21 @@ window.addEventListener("pageshow",apply);document.addEventListener("visibilityc
       });
       window.addEventListener('blur', () => {
         held.clear();
-        if (screen === 'match' && match.mode !== 'break') pause();
+        if (screen === 'match' && !match.online && match.mode !== 'break') pause();
       });
       window.addEventListener('pagehide', () => {
         if (match) checkpoint();
       });
       document.addEventListener('visibilitychange', () => {
-        if (document.hidden && screen === 'match' && match.mode !== 'break') pause();
+        if (document.hidden) {
+          held.clear();
+          if (match?.online) {
+            match.charging = false;
+            drag = null;
+            chargeKey = '';
+          }
+        }
+        if (document.hidden && screen === 'match' && !match.online && match.mode !== 'break') pause();
       });
       function crtCorners() {
         if (!prefs.crt) return;
@@ -4625,7 +5101,8 @@ window.addEventListener("pageshow",apply);document.addEventListener("visibilityc
             stepMatch(simDemo, dt);
             music(now);
           }
-          if (screen === 'match' && match) {
+          if (match?.online) onlineFrame(dt);
+          else if (screen === 'match' && match) {
             stepMatch(match, dt);
             match.saveIn -= dt;
             if (match.saveIn <= 0) {
