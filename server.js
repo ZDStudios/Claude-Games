@@ -21,6 +21,32 @@ const PORT = process.env.PORT || 3000;
 // Never list the launcher pages themselves as games.
 const SELF_FILES = new Set(['index.html', 'mini-arcade.html']);
 
+/*
+ * Maintenance mode. The one switch is `window.ZD_MAINTENANCE = true;` in index.html: nothing here needs editing.
+ * While it is on, every direct link to a game (or any other .html page) is redirected to the home page, which
+ * shows the maintenance notice. The file is re-read whenever it changes.
+ */
+const INDEX = path.join(__dirname, 'index.html');
+let maint = { mtime: 0, on: false };
+function inMaintenance() {
+  try {
+    const mtime = fs.statSync(INDEX).mtimeMs;
+    if (mtime !== maint.mtime) {
+      maint = { mtime, on: /^[ \t]*window\.ZD_MAINTENANCE\s*=\s*true\b/m.test(fs.readFileSync(INDEX, 'utf8')) };
+    }
+  } catch { /* keep the last known state */ }
+  return maint.on;
+}
+
+app.use((req, res, next) => {
+  let p = req.path;
+  try { p = decodeURIComponent(p); } catch { /* malformed escape: check it as-is */ }
+  p = p.toLowerCase();
+  if (!/\.html?\/*$/.test(p) || p === '/index.html' || !inMaintenance()) return next();
+  res.set('Cache-Control', 'no-store');   // so the game works again as soon as maintenance is switched off
+  return res.redirect(302, '/');
+});
+
 app.get('/api/games', (req, res) => {
   fs.readdir(__dirname, (err, files) => {
     if (err) return res.status(500).json({ error: 'Could not list games.' });

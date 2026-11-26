@@ -17,6 +17,6 @@
 
 ## Notes
 
-- If the home page shows an "Under maintenance" notice, the library is temporarily closed; individual game URLs still work.
+- If the home page shows an "Under maintenance" notice, the library is temporarily closed; direct game URLs redirect to the home page until it is back.
 - Online multiplayer uses the ZD Studios multiplayer server and needs an internet connection.
 - The manifest is regenerated from the repository with `node tools/build-manifest.js`.
