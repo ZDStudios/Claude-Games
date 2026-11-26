@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-11-26T04:41:41.459Z",
+  "generated_at": "2026-11-26T04:42:59.696Z",
   "name": "ZD Studios Game Library",
   "description": "A growing collection of free browser games. No installs, no accounts. Every game is a single standalone HTML file that runs in the browser. Games were built with heavy use of AI plus a lot of human direction and effort.",
   "urls": {
@@ -1780,8 +1780,8 @@
       "code": {
         "language": "HTML + CSS + JavaScript, one standalone file",
         "entry": "riftbound.html",
-        "size_bytes": 141572,
-        "lines": 4758,
+        "size_bytes": 141907,
+        "lines": 4763,
         "line_endings": "LF",
         "rendering": [
           "Canvas 2D"
@@ -1798,8 +1798,8 @@
         "external_resources": [],
         "discrete_mode_integrated": true
       },
-      "last_changed": null,
-      "last_commit": null
+      "last_changed": "2026-11-26T04:41:41+00:00",
+      "last_commit": "47532cd"
     },
     {
       "id": "skyhook-run",

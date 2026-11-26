@@ -2741,7 +2741,8 @@ window.addEventListener("pageshow",apply);document.addEventListener("visibilityc
         if (u.kind === "building") {
           const siegePower =
             0.14 + 0.86 * clamp((game.time - 285) / 400, 0, 1) + 1.25 * clamp((game.time - 690) / 180, 0, 1);
-          amount *= siegePower * (h?.k === 0 ? 0.82 : 1);
+          const coreWard = u.type === "nexus" ? 0.38 + 0.62 * clamp((game.time - 450) / 140, 0, 1) : 1;
+          amount *= coreWard * siegePower * (h?.k === 0 ? 0.82 : 1);
         }
         if (h && h.team === 1) amount *= [0.84, 1, 1.08][game.diff];
         if (h && h.buff > 0) amount *= 1.17;
@@ -3172,7 +3173,11 @@ window.addEventListener("pageshow",apply);document.addEventListener("visibilityc
             h.autoTarget = safeTarget;
           return;
         }
-        let tar = enemyChamp || enemyMinion || structure;
+        const exposedNexus = structure?.type === "nexus" && distance(h, structure) < h.range + 150;
+        let tar =
+          exposedNexus && (g.time > 660 || structure.hp < structure.maxHp * 0.32)
+            ? structure
+            : enemyChamp || enemyMinion || structure;
         if (!tar) {
           h.goal = home;
           return;
