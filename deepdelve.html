@@ -295,7 +295,7 @@ window.addEventListener("pageshow",apply);document.addEventListener("visibilityc
     <div id="lobMsg"></div>
   </div>
 </div>
-<script src="https://mp.zdstudios.network/sdk.js" async></script>
+<script src="https://mp.zdstudios.network/sdk.js" async onerror="window.__ddSdkFailed=1"></script>
 <script>/* ==== src/econ.js ==== */
 /* Deepdelve: Echoes Below — local economy and expeditions. */
 (function () {
@@ -1633,6 +1633,17 @@ var MP = {url: 'https://mp.zdstudios.network', key: 'pk_lYDxCYZ7xvx7JUxjUDb0uSCl
 var mp = null, handlers = {}, room = null, lastSend = 0, lastJson = '', pending = null, timer = 0;
 var syncParts = null, observedDepth = 0;
 var CODE_CH = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+// The SDK script loads asynchronously (so a slow server can never block the game). Wait for it here instead of assuming it is already loaded.
+function sdkReady() {
+  return new Promise(function (resolve, reject) {
+    var t0 = Date.now();
+    (function poll() {
+      if (typeof window.Multiplayer === 'function') return resolve();
+      if (window.__ddSdkFailed || Date.now() - t0 > 12000) return reject(new Error('Offline – server unreachable'));
+      setTimeout(poll, 100);
+    })();
+  });
+}
 
 function emit(evt, a, b) { (handlers[evt] || []).forEach(function (fn) { try { fn(a, b); } catch (e) { if (window.console) console.warn('[net]', e); } }); }
 function hashStr(s) { var h = 2166136261; for (var i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return h | 0; }
@@ -1725,7 +1736,7 @@ G.net = {
   get count() { return mp ? mp.playerCount || (mp.players ? mp.players.size : 1) : 0; },
   get latency() { return mp ? mp.latency : 0; },
   connect: async function (name, color) {
-    if (!this.available()) throw new Error('Offline – server unreachable');
+    await sdkReady();
     name = String(name || 'Miner').slice(0, 16);
     if (mp && mp.connected) { try { if (mp.name !== name) await mp.setName(name); } catch (e) {} return mp; }
     mp = new window.Multiplayer({url: MP.url, key: MP.key, name: name, identity: 'tab'});
@@ -3424,12 +3435,12 @@ function showLobby() {
   nm.onchange = persist;
   function msg(t, bad) { var m = $('lobMsg'); m.textContent = t || ''; m.className = bad ? 'bad' : ''; }
   function view(net) { $('lobMain').hidden = net; $('lobNet').hidden = !net; msg(''); }
-  var ob = $('lobOnline'), avail = G.net && G.net.available();
+  var ob = $('lobOnline'), avail = !!G.net && !window.__ddSdkFailed;
   if (!avail) { ob.textContent = 'Offline – server unreachable'; ob.disabled = true; ob.classList.add('dim'); }
   $('lobSolo').onclick = function () { persist(); msg(''); showSlots(me, function () { view(false); }); };
   ob.onclick = function () {
     if (busy || !avail) return; persist(); busy = true; msg('Connecting…');
-    G.net.connect(me.name, me.color).then(function () { busy = false; view(true); }, function (e) { busy = false; msg('Offline – server unreachable (' + ((e && (e.message || e.code)) || 'error') + ')', true); });
+    G.net.connect(me.name, me.color).then(function () { busy = false; view(true); }, function (e) { busy = false; var em = (e && (e.message || e.code)) || 'error'; msg(String(em).indexOf('Offline') === 0 ? em : 'Offline – server unreachable (' + em + ')', true); });
   };
   $('lobBack').onclick = function () { if (!busy) view(false); };
   function go(fn, label) {
