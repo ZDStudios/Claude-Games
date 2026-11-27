@@ -141,6 +141,12 @@ textarea{width:100%;height:70px;font-size:11px;font-weight:normal}
 .lrow{display:flex;gap:6px;align-items:center;justify-content:center}
 .lob input{font:inherit;color:#fbe9c8;background:#1a110b;border:2px solid #6b4a2c;padding:6px 8px;min-width:0;flex:1;user-select:text;-webkit-user-select:text}
 #lobCode{text-transform:uppercase;letter-spacing:3px;text-align:center}
+#lobImp{display:flex;flex-direction:column;gap:5px;text-align:left;background:#1a110b99;border:2px solid #6b4a2c;padding:7px 8px}
+#lobImp label{display:flex;gap:6px;align-items:center;font-size:12px;color:#d9b97a}
+#lobProfile{flex:1;min-width:0;font:inherit;font-size:12px;color:#fbe9c8;background:#1a110b;border:2px solid #6b4a2c;padding:5px 6px}
+#lobWorld{flex:0 0 auto;min-width:0;width:16px;height:16px}
+#lobImpNote{font-size:11px;color:#b89868;line-height:1.35}
+#lobImp[hidden],#lobWorldRow[hidden],#lobImpNote[hidden]{display:none}
 #lobColors{display:flex;gap:6px;justify-content:center;flex-wrap:wrap}
 .sw{width:28px;height:28px;border:3px solid #1a110b;box-shadow:0 2px 0 #120b06;padding:0}
 .sw.on{border-color:#ffe08a;transform:scale(1.12)}
@@ -287,6 +293,11 @@ window.addEventListener("pageshow",apply);document.addEventListener("visibilityc
       <button class="btn big" id="lobOnline">🌐 ONLINE</button>
     </div>
     <div id="lobNet" hidden>
+      <div id="lobImp">
+        <label>⚙ Character <select id="lobProfile" aria-label="Which save to play online with"></select></label>
+        <label id="lobWorldRow" hidden><input type="checkbox" id="lobWorld"> 🌍 Host this save's world (Create Private only)</label>
+        <div id="lobImpNote" hidden>Copies that save's bag, tools and progress into your online profile. Your solo save is never changed. Guests who join download your world.</div>
+      </div>
       <button class="btn big" id="lobQuick">⚡ Quick Match</button>
       <button class="btn big" id="lobCreate">🔒 Create Private</button>
       <div class="lrow"><input id="lobCode" maxlength="8" placeholder="CODE" autocomplete="off"><button class="btn" id="lobJoin">Join by Code</button></div>
@@ -1204,6 +1215,7 @@ window.addEventListener("pageshow",apply);document.addEventListener("visibilityc
       const removed=solid(old) && !solid(id);
       for (const [dx,dy] of ORTH) wake(x+dx,y+dy,removed);
       wake(x-1,y-1,false); wake(x+1,y-1,false);
+      if (id===T.AIR) {wakeWaterRow(x,y-1); wakeWaterRow(x,y);}   // a new opening can be a drop for water resting nearby
       return true;
     }
     function place(x,y,id,meta) {
@@ -1359,27 +1371,100 @@ window.addEventListener("pageshow",apply);document.addEventListener("visibilityc
         dest.rocks.add(j);
       }
     }
-    function waterStep(c,i,x,y,events) {
-      if (c.a[i]!==T.WATER) return;
-      let nx=x, ny=y+1;
-      if (get(x,ny)!==T.AIR) {
-        // Horizontal water seeks a lower outlet. Confined pools settle to sleep.
-        const first=(hash(seed,x,y)&1)?1:-1;
-        let best=7, direction=0;
-        for (const dx of [first,-first]) {
-          for (let distance=1;distance<best;distance++) {
-            const xx=x+dx*distance;
-            if (get(xx,y)!==T.AIR) break;
-            if (get(xx,y+1)===T.AIR || get(xx,y-1)===T.AIR && get(x,y-1)===T.WATER) {
-              direction=dx; best=distance; break;
-            }
-          }
-        }
-        if (!direction) return;
-        nx+=direction; ny=y;
-      }
+    // ---- water -----------------------------------------------------------------------------------
+    // Local rules per tile: fall, slide diagonally off a ledge, run along the row to a nearby drop, and
+    // let a column of water push the water in front of it along a tunnel (pressure). When none of those
+    // apply the tile looks at its whole connected body of water (levelBody): connected vessels equalise,
+    // lakes and piles flatten. Every levelling move lowers the water, so a body always comes to rest.
+    const WATER_REACH=40, WAKE_REACH=16, PUSH_REACH=40, BODY_CAP=1500, LEVEL_BUDGET=6, MOVES_MAX=12;   // reach = how far along a row water looks for a drop
+    const levelSeen=new Set();
+    let levelBudget=0;
+    function moveWater(x,y,nx,ny,events) {
       set(x,y,T.AIR); set(nx,ny,T.WATER);
       events.push({type:'water',x:nx,y:ny});
+    }
+    function wakeWaterRow(x,y) {
+      for (let dx=-WAKE_REACH;dx<=WAKE_REACH;dx++) wake(x+dx,y,false);
+    }
+    function pressured(x,y,dx) {
+      // is the water at (x,y) being pushed toward dx by a column of water behind it?
+      for (let s=0;s<PUSH_REACH;s++) {
+        const xx=x-dx*s;
+        if (get(xx,y)!==T.WATER) return false;
+        if (get(xx,y-1)===T.WATER) return true;
+      }
+      return false;
+    }
+    function adjWater(x,y) {
+      for (const [dx,dy] of ORTH) if (get(x+dx,y+dy)===T.WATER) return true;
+      return false;
+    }
+    function levelBody(c,i,x,y,events) {
+      const k=key(x,y);
+      if (levelSeen.has(k)) return;                       // this body was already looked at this step
+      if (levelBudget<=0) {c.fluids.add(i); return;}      // try again next step
+      levelBudget--;
+      const body=[[x,y]], inBody=new Set([k]), surfaces=[], frontier=[];
+      for (let h=0;h<body.length && body.length<=BODY_CAP;h++) {
+        const [bx,by]=body[h];
+        levelSeen.add(key(bx,by));
+        if (get(bx,by-1)===T.AIR) surfaces.push([bx,by]);
+        for (const [dx,dy] of ORTH) {
+          const nx=bx+dx, ny=by+dy, id=get(nx,ny);
+          if (id===T.WATER) {
+            const nk=key(nx,ny);
+            if (!inBody.has(nk)) {inBody.add(nk); body.push([nx,ny]);}
+          } else if (id===T.AIR) frontier.push([nx,ny]);
+        }
+      }
+      if (!surfaces.length || !frontier.length) return;   // sealed body: only the local rules apply
+      let moves=Math.min(MOVES_MAX,1+(body.length>>5));   // bigger lakes settle faster
+      while (moves-- > 0) {
+        // take water from the highest free surface...
+        let donor=null;
+        for (const s of surfaces) {
+          if (get(s[0],s[1])!==T.WATER || get(s[0],s[1]-1)!==T.AIR) continue;
+          if (donor===null || s[1]<donor[1] || (s[1]===donor[1] && hash(seed,s[0],s[1])<hash(seed,donor[0],donor[1]))) donor=s;
+        }
+        if (donor===null) break;
+        // ...and put it in the deepest open cell touching the water that lies below that surface
+        let target=null;
+        for (const f of frontier) {
+          if (f[1]<donor[1]+1 || get(f[0],f[1])!==T.AIR || !adjWater(f[0],f[1])) continue;
+          if (f[0]===donor[0] && f[1]===donor[1]+1) continue;   // that is just the donor falling
+          if (target===null || f[1]>target[1] || (f[1]===target[1] && hash(seed,f[0],f[1])<hash(seed,target[0],target[1]))) target=f;
+        }
+        if (target===null) break;
+        set(target[0],target[1],T.WATER);
+        set(donor[0],donor[1],T.AIR);
+        events.push({type:'water',x:target[0],y:target[1]});
+        surfaces.push([target[0],target[1]],[donor[0],donor[1]+1]);
+        frontier.push([donor[0],donor[1]]);
+        for (const [dx,dy] of ORTH) frontier.push([target[0]+dx,target[1]+dy]);
+      }
+    }
+    function waterStep(c,i,x,y,events) {
+      if (c.a[i]!==T.WATER) return;
+      if (get(x,y+1)===T.AIR) return moveWater(x,y,x,y+1,events);
+      const first=(hash(seed,x,y)&1)?1:-1;
+      for (const dx of [first,-first])
+        if (get(x+dx,y)===T.AIR && get(x+dx,y+1)===T.AIR) return moveWater(x,y,x+dx,y+1,events);
+      // run along the row toward the nearest drop (or off the edge of a stack of water)
+      let best=WATER_REACH+1, direction=0;
+      for (const dx of [first,-first]) {
+        for (let distance=1;distance<best;distance++) {
+          const xx=x+dx*distance;
+          if (get(xx,y)!==T.AIR) break;
+          if (get(xx,y+1)===T.AIR || get(xx,y-1)===T.AIR && get(x,y-1)===T.WATER) {
+            direction=dx; best=distance; break;
+          }
+        }
+      }
+      if (direction) return moveWater(x,y,x+direction,y,events);
+      // pressure: water stacked behind this tile pushes it along (a flat tunnel fed from a shaft)
+      for (const dx of [first,-first])
+        if (get(x+dx,y)===T.AIR && pressured(x,y,dx)) return moveWater(x,y,x+dx,y,events);
+      levelBody(c,i,x,y,events);
     }
     function runQueue(field,limit,action) {
       const todo=[];
@@ -1440,6 +1525,7 @@ window.addEventListener("pageshow",apply);document.addEventListener("visibilityc
         }
         if (beltTime+1e-8>=.4) {beltTime-=.4;runBelts();}
         runQueue('rocks',300,(c,i,x,y)=>rockStep(c,i,x,y,px,py,events));
+        levelSeen.clear(); levelBudget=LEVEL_BUDGET;
         runQueue('fluids',200,(c,i,x,y)=>waterStep(c,i,x,y,events));
         rotation=(rotation+1)%Math.max(1,active.length);
       }
@@ -1694,6 +1780,21 @@ function wire() {
     }
   });
 }
+// World sync is paced (about 25 messages a second, shared fairly between guests) so a big imported world
+// never trips the server's per-player rate limit.
+var syncJobs = [], syncTimer = 0;
+function pumpSync() {
+  if (syncTimer || !syncJobs.length) return;
+  syncTimer = setTimeout(function () {
+    syncTimer = 0;
+    if (!mp || !room) { syncJobs = []; return; }
+    var job = syncJobs[0];
+    try { mp.send('sync', {part: job.parts[job.i], last: job.i >= job.parts.length - 1}, job.to); } catch (e) {}
+    job.i++;
+    if (job.i >= job.parts.length) syncJobs.shift(); else syncJobs.push(syncJobs.shift());
+    pumpSync();
+  }, 40);
+}
 function requestSync() {
   syncParts = room && !mp.isHost ? [] : null;
   if (syncParts) mp.send('syncRequest', {}, mp.room.host);
@@ -1704,12 +1805,14 @@ function afterJoin(code) {
   if (!Number.isInteger(seed)) seed = Number.isInteger(meta.seed) ? meta.seed : null;
   if (seed === null) seed = hashStr('deepdelve:' + room.id);
   observedDepth = 0;
-  var info = {seed: seed | 0, code: code || room.id, isHost: !!mp.isHost};
+  var rebirths = Number.isInteger(st.rebirths) ? st.rebirths : (Number.isInteger(meta.rebirths) ? meta.rebirths : 0);
+  var info = {seed: seed | 0, rebirths: Math.max(0, rebirths), code: code || room.id, isHost: !!mp.isHost};
   emit('joined', info); emit('peers', peers());
   return info;
 }
-function opts(seed, extra) {
-  var o = {type: 'mine', maxPlayers: 8, meta: {seed: seed, game: 'deepdelve'}, state: {seed: seed, depthRecord: 0}};
+function opts(seed, extra, rebirths) {
+  var rb = Math.max(0, rebirths | 0);
+  var o = {type: 'mine', maxPlayers: 8, meta: {seed: seed, rebirths: rb, game: 'deepdelve'}, state: {seed: seed, rebirths: rb, depthRecord: 0}};
   for (var k in extra) o[k] = extra[k];
   return o;
 }
@@ -1750,11 +1853,13 @@ G.net = {
     await mp.quickJoin('mine', opts(s, {}));
     return afterJoin(mp.room.id);
   },
-  createPrivate: async function () {
+  // world (optional) = {seed, rebirths}: host an imported world instead of a freshly generated one
+  createPrivate: async function (world) {
+    var fixed = world && Number.isInteger(world.seed) ? world : null;
     for (var tries = 0; tries < 4; tries++) {
       var code = ''; for (var i = 0; i < 5; i++) code += CODE_CH[(Math.random() * CODE_CH.length) | 0];
-      var s = newSeed();
-      await mp.join(code, opts(s, {private: true}));
+      var s = fixed ? fixed.seed : newSeed();
+      await mp.join(code, opts(s, {private: true}, fixed ? fixed.rebirths : 0));
       if (mp.isHost && mp.room.meta.seed === s) return afterJoin(code);
       await mp.leave(); // code collision with a live room — try another
     }
@@ -1768,7 +1873,7 @@ G.net = {
     return afterJoin(code);
   },
   leave: async function () {
-    var had = !!room; room = null; pending = null; lastJson = '';
+    var had = !!room; room = null; pending = null; lastJson = ''; syncJobs = [];
     if (timer) { clearTimeout(timer); timer = 0; }
     try { if (mp) await mp.leave(); } catch (e) {}
     if (had) emit('left', 'left');
@@ -1787,11 +1892,11 @@ G.net = {
   sendChat: function (text) { text = String(text || '').trim().slice(0, 120); if (text) out('chat', {text: text}); return text; },
   requestSync: requestSync,
   sendSync: function (to, diffs) {
-    var json = JSON.stringify(diffs);
+    var json = JSON.stringify(diffs), parts = [];
     // Each reliable message must fit the SDK's 64 KB limit. Tile diffs are numeric ASCII.
-    for (var i = 0; i < json.length; i += 24000) {
-      mp.send('sync', {part: json.slice(i, i + 24000), last: i + 24000 >= json.length}, to);
-    }
+    for (var i = 0; i < json.length; i += 24000) parts.push(json.slice(i, i + 24000));
+    syncJobs.push({to: to, parts: parts, i: 0});
+    pumpSync();
   },
   setRecord: function (d) {
     if (!room || !mp.isHost) return;
@@ -2107,7 +2212,7 @@ function ensureState() {
   S.tutorial = num(S.tutorial, 0); S.bottleWater = num(S.bottleWater, 0); S.wallsPlaced = num(S.wallsPlaced, 0);
 }
 function makeWorld(diffs) {
-  w = ONLINE ? WD.create(ONLINE.seed | 0, 0, diffs || null) : WD.create(S.seed | 0, S.rebirths | 0, diffs || null);
+  w = ONLINE ? WD.create(ONLINE.seed | 0, ONLINE.rebirths | 0, diffs || null) : WD.create(S.seed | 0, S.rebirths | 0, diffs || null);
   rowCache.clear(); tcache.clear();
 }
 function fillQuests() {
@@ -2123,12 +2228,22 @@ function boot(online, slot) {
   ONLINE = online || null;
   if (!ONLINE) { SLOT = slot || E.getSlot(); E.setSlot(SLOT); }
   cv = $('cv'); ctx = cv.getContext('2d');
-  var loaded = null; try { loaded = ONLINE ? loadOnline() : (E.loadSlot(SLOT) || {}).S; } catch (e) {}
+  var loaded = null;
+  try {
+    if (ONLINE && ONLINE.importSlot) { // play online with a solo save: take its whole player profile (and, for the host, its world)
+      var imp = E.loadSlot(ONLINE.importSlot);
+      if (imp && imp.S) {
+        loaded = imp.S; loaded.lastT = Date.now(); // no idle income for an imported save
+        ONLINE.worldDiffs = ONLINE.importWorld && imp.S.world ? imp.S.world.diffs : null;
+      }
+    }
+    if (!loaded) loaded = ONLINE ? loadOnline() : (E.loadSlot(SLOT) || {}).S;
+  } catch (e) {}
   S = loaded || E.newState((Math.random() * 2147483647) | 0);
   ensureState();
   if (!ONLINE) { S.slotName = S.slotName || slotName; S.playtimeSec = num(S.playtimeSec, 0); ptT = Date.now(); saveUI(); }
-  if (ONLINE) { S.world = null; S.basecamps = []; S.player = {x: SPAWN.x + 0.15, y: SPAWN.y + 0.05}; S.pickups = []; S.fuses = []; }
-  makeWorld(ONLINE ? null : S.world && S.world.diffs);
+  if (ONLINE) { S.world = null; S.basecamps = ONLINE.importWorld ? (S.basecamps || []) : []; S.player = {x: SPAWN.x + 0.15, y: SPAWN.y + 0.05}; S.pickups = []; S.fuses = []; }
+  makeWorld(ONLINE ? ONLINE.worldDiffs || null : S.world && S.world.diffs);
   restoreExpedition();
   if (ONLINE) startOnline();
   fillQuests();
@@ -3435,6 +3550,20 @@ function showLobby() {
   nm.onchange = persist;
   function msg(t, bad) { var m = $('lobMsg'); m.textContent = t || ''; m.className = bad ? 'bad' : ''; }
   function view(net) { $('lobMain').hidden = net; $('lobNet').hidden = !net; msg(''); }
+  // play online with a solo save: pick which save's character (and, when hosting, world) to bring
+  var impSel = $('lobProfile'), worldRow = $('lobWorldRow'), worldBox = $('lobWorld'), impNote = $('lobImpNote');
+  function fillProfiles() {
+    var html = '<option value="0">My online profile</option>';
+    E.listSlots().forEach(function (s, i) {
+      var m = s && s.meta;
+      html += '<option value="' + (i + 1) + '"' + (m ? '' : ' disabled') + '>Import Slot ' + (i + 1) + ' \u2014 ' +
+        (m ? esc(m.name || 'Miner') + ' (\u26CF ' + F(m.depth || 0) + 'm \u00B7 \u{1FA99} ' + F(m.cash || 0) + ')' : 'empty') + '</option>';
+    });
+    impSel.innerHTML = html;
+  }
+  function importUI() { var on = +impSel.value > 0; worldRow.hidden = !on; impNote.hidden = !on; if (!on) worldBox.checked = false; }
+  fillProfiles(); impSel.onchange = importUI; importUI();
+  function haveOnlineProfile() { try { return !!localStorage.getItem(ONLINE_KEY); } catch (e) { return false; } }
   var ob = $('lobOnline'), avail = !!G.net && !window.__ddSdkFailed;
   if (!avail) { ob.textContent = 'Offline – server unreachable'; ob.disabled = true; ob.classList.add('dim'); }
   $('lobSolo').onclick = function () { persist(); msg(''); showSlots(me, function () { view(false); }); };
@@ -3443,15 +3572,24 @@ function showLobby() {
     G.net.connect(me.name, me.color).then(function () { busy = false; view(true); }, function (e) { busy = false; var em = (e && (e.message || e.code)) || 'error'; msg(String(em).indexOf('Offline') === 0 ? em : 'Offline – server unreachable (' + em + ')', true); });
   };
   $('lobBack').onclick = function () { if (!busy) view(false); };
-  function go(fn, label) {
-    if (busy) return; busy = true; msg(label);
-    fn().then(function (info) {
-      busy = false; info.name = me.name; info.color = me.color;
+  function go(fn, label, hosting) {
+    if (busy) return;
+    var slot = +impSel.value || 0, useWorld = !!(hosting && slot && worldBox.checked);
+    if (slot && haveOnlineProfile() && !window.confirm('Replace your online profile with Slot ' + slot + '?\n\nYour solo save is not changed, but your current online items and progress will be overwritten.')) return;
+    busy = true; msg(label);
+    fn(slot, useWorld).then(function (info) {
+      busy = false; info.name = me.name; info.color = me.color; info.importSlot = slot; info.importWorld = useWorld;
       G.attract && G.attract.stop(); L.classList.add('hidden'); boot(info); initAudio();
     }, function (e) { busy = false; msg((e && (e.message || e.code)) || 'Could not join', true); });
   }
   $('lobQuick').onclick = function () { go(function () { return G.net.quickMatch(); }, 'Finding a mine…'); };
-  $('lobCreate').onclick = function () { go(function () { return G.net.createPrivate(); }, 'Creating private mine…'); };
+  $('lobCreate').onclick = function () {
+    go(function (slot, useWorld) {
+      var w = null;
+      if (useWorld) { var imp = E.loadSlot(slot); if (imp && imp.S && Number.isInteger(imp.S.seed)) w = {seed: imp.S.seed | 0, rebirths: imp.S.rebirths | 0}; }
+      return G.net.createPrivate(w);
+    }, 'Creating private mine…', true);
+  };
   $('lobJoin').onclick = function () { go(function () { return G.net.joinCode($('lobCode').value); }, 'Joining…'); };
   $('lobCode').onkeydown = function (e) { if (e.key === 'Enter') $('lobJoin').onclick(); };
 }
@@ -3469,6 +3607,8 @@ function startOnline() {
   document.body.classList.add('online');
   $('netCode').textContent = ONLINE.code;
   toast(ONLINE.isHost && ONLINE.code.length === 5 ? '🔒 Private mine created — share code <b>' + esc(ONLINE.code) + '</b>' : '🌐 Joined mine <b>' + esc(ONLINE.code) + '</b>', 'm');
+  if (ONLINE.importSlot) toast('📥 Imported Slot ' + ONLINE.importSlot + (ONLINE.importWorld ? ' — your world and gear' : ' — your gear and progress'), 'm');
+  if (!ONLINE.isHost) toast('📥 Syncing the host\'s mine…', 'm');
   $('netLeave').onclick = function () { save(); noSave = true; N.leave().then(function () { location.reload(); }); };
   var ci = $('chatIn');
   ci.addEventListener('keydown', function (e) {
@@ -3499,7 +3639,7 @@ function startOnline() {
   N.on('chat', function (d, from) { chatLine('<b style="color:' + esc(from.color || '#ffd65a') + '">' + esc(from.name) + ':</b> ' + esc(String(d.text || '').slice(0, 120))); });
   N.on('roster', function (p, what) { chatLine('<i>' + esc((p.data && p.data.name) || p.name || 'A miner') + (what === 'joined' ? ' joined the mine' : ' left') + '</i>'); });
   N.on('needSync', function (id) { try { N.sendSync(id, w.serialize().diffs); } catch (e) {} });
-  N.on('sync', function (diffs) { makeWorld(diffs); lastPal = ''; });
+  N.on('sync', function (diffs) { makeWorld(diffs); lastPal = ''; toast('🌍 Mine synced', 'm'); });
   N.requestSync();
   N.on('left', function (why) { if (noSave) return; toast('🌐 Disconnected from the mine (' + esc(why) + ')', 'bad'); save(); noSave = true; setTimeout(function () { location.reload(); }, 2000); });
   N.on('status', function (s) { if (s === 'disconnected') toastOnce('netdc', '📡 Connection lost — reconnecting…', 'bad', 5); else if (s === 'reconnected') toast('📡 Reconnected', 'm'); });
