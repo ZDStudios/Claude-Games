@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-11-27T09:07:51.316Z",
+  "generated_at": "2026-11-27T09:15:05.698Z",
   "name": "ZD Studios Game Library",
   "description": "A growing collection of free browser games. No installs, no accounts. Every game is a single standalone HTML file that runs in the browser. Games were built with heavy use of AI plus a lot of human direction and effort.",
   "urls": {
@@ -856,8 +856,8 @@
         ],
         "discrete_mode_integrated": true
       },
-      "last_changed": null,
-      "last_commit": null
+      "last_changed": "2026-11-27T09:07:51+00:00",
+      "last_commit": "2283d28"
     },
     {
       "id": "golf-blitz",
@@ -2106,7 +2106,7 @@
       "tagline": "Blocky Sandbox",
       "description": "A voxel world with chunk meshing, water and a full block palette — mine it, place it, build whatever you want.",
       "genre": "Sandbox / Building",
-      "emoji": "⛏️",
+      "emoji": "🧱",
       "play": {
         "url": "https://games.zdstudios.network/minecraft.html",
         "single_player": true,
@@ -2160,7 +2160,7 @@
       "tagline": "A Pot, a Pickaxe, a Really Bad Idea",
       "description": "Haul a man in a pot up an unforgiving mountain with nothing but a pickaxe and your mouse. Every slip can undo everything — how far can you climb?",
       "genre": "Precision Platformer",
-      "emoji": "⛏️",
+      "emoji": "🏔️",
       "play": {
         "url": "https://games.zdstudios.network/getting-over-it.html",
         "single_player": true,
