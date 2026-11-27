@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-11-26T09:42:01.428Z",
+  "generated_at": "2026-11-27T09:07:51.316Z",
   "name": "ZD Studios Game Library",
   "description": "A growing collection of free browser games. No installs, no accounts. Every game is a single standalone HTML file that runs in the browser. Games were built with heavy use of AI plus a lot of human direction and effort.",
   "urls": {
@@ -40,10 +40,10 @@
     ]
   },
   "stats": {
-    "games_in_repo": 42,
-    "games_total_including_external": 43,
+    "games_in_repo": 43,
+    "games_total_including_external": 44,
     "suggested_by_the_public": 12,
-    "with_online_multiplayer": 16,
+    "with_online_multiplayer": 17,
     "with_local_multiplayer": 4
   },
   "games": [
@@ -794,6 +794,70 @@
       },
       "last_changed": "2026-11-11T04:04:29+00:00",
       "last_commit": "682fcd5"
+    },
+    {
+      "id": "deepdelve",
+      "title": "Deepdelve: Echoes Below",
+      "tagline": "Dig Deep. Strike It Rich.",
+      "description": "A digging and mining adventure. Tunnel down through the layers, collect ores and gems, upgrade your tools, build a house and take on quests — solo, or dig together online in rooms of up to eight.",
+      "genre": "Sandbox / Mining",
+      "emoji": "⛏️",
+      "play": {
+        "url": "https://games.zdstudios.network/deepdelve.html",
+        "single_player": true,
+        "online_multiplayer": true,
+        "local_multiplayer": false
+      },
+      "origin": {
+        "section": "main-library",
+        "author": null,
+        "credit": null
+      },
+      "source": {
+        "file": "deepdelve.html",
+        "raw_url": "https://raw.githubusercontent.com/ZDStudios/Claude-Games/main/deepdelve.html",
+        "github_url": "https://github.com/ZDStudios/Claude-Games/blob/main/deepdelve.html"
+      },
+      "page_title": "Deepdelve: Echoes Below",
+      "code": {
+        "language": "HTML + CSS + JavaScript, one standalone file",
+        "entry": "deepdelve.html",
+        "size_bytes": 232098,
+        "lines": 3626,
+        "line_endings": "mixed",
+        "rendering": [
+          "Canvas 2D"
+        ],
+        "libraries": [],
+        "audio": "Web Audio API",
+        "networking": [
+          "ZD Studios multiplayer server (mp.zdstudios.network)"
+        ],
+        "save_data": {
+          "storage": "browser localStorage",
+          "keys": [
+            "deepdelve_mp_color",
+            "deepdelve_mp_name",
+            "deepdelve_save_online",
+            "deepdelve_save_v1"
+          ]
+        },
+        "input": [
+          "touch",
+          "keyboard + mouse"
+        ],
+        "fonts_embedded": false,
+        "works_offline": true,
+        "external_resources": [
+          {
+            "kind": "multiplayer-server",
+            "host": "mp.zdstudios.network"
+          }
+        ],
+        "discrete_mode_integrated": true
+      },
+      "last_changed": null,
+      "last_commit": null
     },
     {
       "id": "golf-blitz",
@@ -1805,8 +1869,8 @@
         ],
         "discrete_mode_integrated": true
       },
-      "last_changed": "2026-11-26T04:42:59+00:00",
-      "last_commit": "ef72be7"
+      "last_changed": "2026-11-26T09:42:01+00:00",
+      "last_commit": "b1ca8a1"
     },
     {
       "id": "skyhook-run",
