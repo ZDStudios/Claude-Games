@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-11-27T23:44:57.212Z",
+  "generated_at": "2026-11-27T23:45:18.106Z",
   "name": "ZD Studios Game Library",
   "description": "A growing collection of free browser games. No installs, no accounts. Every game is a single standalone HTML file that runs in the browser. Games were built with heavy use of AI plus a lot of human direction and effort.",
   "urls": {
@@ -856,8 +856,8 @@
         ],
         "discrete_mode_integrated": true
       },
-      "last_changed": "2026-11-27T09:17:59+00:00",
-      "last_commit": "869df8e"
+      "last_changed": "2026-11-27T23:44:59+00:00",
+      "last_commit": "69c6499"
     },
     {
       "id": "golf-blitz",
@@ -1955,8 +1955,8 @@
       "code": {
         "language": "HTML + CSS + JavaScript, one standalone file",
         "entry": "galactic-wars.html",
-        "size_bytes": 1042166,
-        "lines": 8276,
+        "size_bytes": 1050369,
+        "lines": 8379,
         "line_endings": "LF",
         "rendering": [
           "three.js"

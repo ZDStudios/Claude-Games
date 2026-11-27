@@ -1,6 +1,5 @@
 <meta charset="utf-8">
-<script>window.__mpSdk="loading";function __mpLoaded(){window.__mpSdk=(typeof window.Multiplayer==="function")?"ready":"failed";window.dispatchEvent(new Event("mpsdk"))}function __mpFailed(){window.__mpSdk="failed";window.dispatchEvent(new Event("mpsdk"))}</script>
-<script src="https://mp.zdstudios.network/sdk.js" async onload="__mpLoaded()" onerror="__mpFailed()"></script>
+<script>window.__GW_OFFLINE=true;</script>
 <style>
 /* GALACTIC WARS add-on styles — matches the original HUD (cyan mono, glass panels) */
 #gw-hud{position:fixed;inset:0;pointer-events:none;z-index:6;font-family:var(--mono);color:#bfe9f2}
@@ -127,7 +126,7 @@ body.gw-tut-on #obj{opacity:0}
 <meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
 <title>GALACTIC WARS</title>
 <script data-zd-discreet>/* Discrete Mode: follows the switch on the game library page (shared browser storage) */
-(function(){var FAKE="Planetary Science & Strategy | Learning Hub",ICON="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2064%2064%22%3E%3Crect%20width%3D%2264%22%20height%3D%2264%22%20rx%3D%2214%22%20fill%3D%22%232f6fed%22/%3E%3Cpath%20d%3D%22M14%2018h16c3%200%205%202%205%205v23c0-3-2-5-5-5H14zM50%2018H34c-3%200-5%202-5%205v23c0-3%202-5%205-5h16z%22%20fill%3D%22%23fff%22/%3E%3C/svg%3E",KEY="zd.discreet",real=null,made=null,saved=[],busy=false;
+(function(){var FAKE="Introduction to Flight & Orbits | Learning Hub",ICON="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2064%2064%22%3E%3Crect%20width%3D%2264%22%20height%3D%2264%22%20rx%3D%2214%22%20fill%3D%22%232f6fed%22/%3E%3Cpath%20d%3D%22M14%2018h16c3%200%205%202%205%205v23c0-3-2-5-5-5H14zM50%2018H34c-3%200-5%202-5%205v23c0-3%202-5%205-5h16z%22%20fill%3D%22%23fff%22/%3E%3C/svg%3E",KEY="zd.discreet",real=null,made=null,saved=[],busy=false;
 function on(){try{return localStorage.getItem(KEY)==="1";}catch(e){return false;}}
 function links(){return document.querySelectorAll('link[rel~="icon"],link[rel="apple-touch-icon"]');}
 function apply(){if(busy)return;busy=true;try{var d=on();
@@ -5254,7 +5253,7 @@ const HULLS = {
 const Hangar = {
   kit: null, base: null,
   apply() {
-    const s = W.save; if (!s) return; const id = s.hull || 'wayfarer', H = HULLS[id];
+    const s = W.save; if (!s || (typeof Fighter !== 'undefined' && Fighter.on)) return; const id = s.hull || 'wayfarer', H = HULLS[id];
     if (!this.base) { const fl = nt.flight; this.base = { max: fl.maxSpeed, boost: fl.boostSpeed, p: fl.pitchRate, y: fl.yawRate, r: fl.rollRate }; }
     const b = this.base, fl = nt.flight;
     fl.maxSpeed = b.max * H.spd; fl.boostSpeed = b.boost * H.boost; fl.pitchRate = b.p * H.agi; fl.yawRate = b.y * H.agi; fl.rollRate = b.r * H.agi;
@@ -5764,13 +5763,14 @@ const Atmo = {
         const c = this.engine.camNear, r = this.ship.root;
         c.position.copy(this.flight.cockpitOffset).applyQuaternion(r.quaternion).add(r.position); c.quaternion.copy(r.quaternion); c.updateMatrixWorld(); this.engine.setFov(70);
       } else {
-        this.flight.enabled = !J.helpOpen; this.flight.update(t, e);
+        this.flight.enabled = !J.helpOpen && !Fighter.dock; this.flight.update(t, e);
         this._freeCam || this.flight.applyCamera(this.engine.camNear, e); this.engine.setFov(this.flight.fov);
       }
       this.throttle = this.flight.throttle; this.stickPitch = this.flight.stickPitch; this.stickRoll = this.flight.stickRoll;
       Xt.consume('KeyT');
+      if (Xt.consume('KeyB')) Fighter.toggle();
       if (Xt.consume('KeyG')) { if (this.landed) self.liftoff(); else J.toast("FLY INTO A PLANET'S ATMOSPHERE TO LAND", 'warn', 3200); }
-      if (Xt.consume('Escape')) this.leavePilotSeat();
+      if (Xt.consume('Escape')) { if (Fighter.on) J.toast('PRESS B NEAR THE MOTHERSHIP TO DOCK', 'warn', 2200); else this.leavePilotSeat(); }
     };
     const origLeave = nt.leavePilotSeat.bind(nt);
     nt.leavePilotSeat = function () { origLeave(); if (this.venue === 'surface' && this.landingPos) this.walker.teleport(new V3(0, .02, -15.4).add(this.landingPos), Math.PI); };
@@ -5816,8 +5816,8 @@ const Atmo = {
   },
   buildDebris() {
     // scorched hull fragments that tear off during a hot entry
-    this.chips = []; const m = new T3.MeshStandardMaterial({ color: 0x2a2624, metalness: .6, roughness: .5, emissive: new Col(0xff5a1a), emissiveIntensity: .9 });
-    for (let k = 0; k < 40; k++) { const c = new T3.Mesh(geo.box(1, .12, rand(.6, 1.4)), m); c.visible = false; c.frustumCulled = false; nt.spaceScene.add(c); this.chips.push({ m: c, p: new V3(), v: new V3(), r: new V3(), life: 0 }); }
+    this.chips = []; const m = new T3.MeshStandardMaterial({ color: 0x3a2a22, metalness: .4, roughness: .5, emissive: new Col(0xff7a2a), emissiveIntensity: 2.6 });
+    for (let k = 0; k < 40; k++) { const c = new T3.Mesh(geo.box(.6, .08, rand(.4, .9)), m); c.visible = false; c.frustumCulled = false; nt.spaceScene.add(c); this.chips.push({ m: c, p: new V3(), v: new V3(), r: new V3(), life: 0 }); }
   },
   setBoosters(power, t) {
     const g = this.boostersG; g.visible = power > .01;
@@ -5826,7 +5826,7 @@ const Atmo = {
     if (power > .02 && yt.ready) yt.set('roar', power * .3, .2);
   },
 
-  speedBase() { const H = W.save && HULLS[W.save.hull] ? HULLS[W.save.hull] : HULLS.wayfarer; const b = Hangar.base || this.b0; return { max: b.max * H.spd, boost: b.boost * H.boost }; },
+  speedBase() { if (Fighter.on) return Fighter.base(); const H = W.save && HULLS[W.save.hull] ? HULLS[W.save.hull] : HULLS.wayfarer; const b = Hangar.base || this.b0; return { max: b.max * H.spd, boost: b.boost * H.boost }; },
   readout(rows) {
     const el = Planets.altEl; if (!rows) { el.classList.remove('on'); return; }
     el.classList.add('on'); el.innerHTML = rows.map(([k, v, hot]) => `<div class="k">${k}</div><div class="${k === 'ALTITUDE' ? 'n' : 's'}${hot ? ' hot' : ''}">${v}</div>`).join('');
@@ -5889,6 +5889,12 @@ const Atmo = {
       if (this.warnT <= 0) { this.warnT = 3; J.toast('HULL TEMPERATURE CRITICAL — SLOW DOWN', 'bad', 2600); }
     }
     // get the surface ready while you descend, so breaking through is seamless
+    if (Fighter.on) {   // fighters can't land: hold them above the cloud floor
+      const fl0 = this.floor(i) + 250;
+      if (alt < fl0) { fl.systemPos.addScaledVector(down, -(fl0 - alt) * Math.min(1, dt * 4)); fl.vel.addScaledVector(down, -Math.max(0, fl.vel.dot(down))); if (this.warnT <= 0) { this.warnT = 3; J.toast('FIGHTERS CAN\'T LAND — DOCK WITH YOUR MOTHERSHIP FIRST (B)', 'warn', 3000); } }
+      this.readout([['ALTITUDE', `${fmt(alt)} m`], ['VELOCITY', fmt(sp) + ' m/s'], ['HULL TEMP', `${fmt(180 + heat * 1500)} °C`, heat > .9], ['ATMOSPHERE', `${P.name} · ${Math.round(this.dens * 100)}%`]]);
+      return;
+    }
     if (this.dens > .2 && descending && this.prep !== i && nt.mode === 'pilot') this.prepare(i);
     this.unprepare(alt, top, i);
     const floor = this.floor(i);
@@ -5905,20 +5911,20 @@ const Atmo = {
     const n = Math.floor(heat * 70 * dt * 60 / 60 + Math.random());
     for (let k = 0; k < n * 3; k++) {
       // a random point on the hull, in system coordinates
-      const local = _v3.set(rand(-13, 13), rand(-3, 4), rand(-20, 22)).applyQuaternion(fl.quat);
+      const small = Fighter.on, local = (small ? _v3.set(rand(-5, 5), rand(-1, 1.5), rand(-6, 7)) : _v3.set(rand(-13, 13), rand(-3, 4), rand(-20, 22))).applyQuaternion(fl.quat);
       const p = fl.systemPos.clone().add(local);
       const v = fl.vel.clone().multiplyScalar(rand(.15, .7)).add(_v4.set(rand(-1, 1), rand(-1, 1), rand(-1, 1)).multiplyScalar(30 + heat * 60));
       const r = Math.random();
       if (r < .55) FX.spawn(p, v, rand(.5, 1.6) * (1 + heat), r < .2 ? 0xfff0c8 : r < .4 ? 0xff9a3a : 0xff4a1a, rand(.3, .9), 1.2, .3);
       else if (r < .8) FX.spawn(p, v.multiplyScalar(.6), rand(3, 7) * (.6 + heat), 0x2a2420, rand(1, 2.4), 2.4, .6, true);   // smoke
     }
-    if (heat > .55 && Math.random() < heat * 2.2 * dt * 6) this.chip(fl, heat);
+    if (heat > .7 && Math.random() < heat * 1.2 * dt * 6) this.chip(fl, heat);
   },
   chip(fl, heat) {
     const c = this.chips.find(x => x.life <= 0); if (!c) return;
     c.p.copy(fl.systemPos).add(_v3.set(rand(-12, 12), rand(-2, 4), rand(-16, 20)).applyQuaternion(fl.quat));
     c.v.copy(fl.vel).multiplyScalar(rand(.3, .65)).add(_v4.set(rand(-1, 1), rand(-.5, 1), rand(-1, 1)).multiplyScalar(80));
-    c.r.set(rand(-8, 8), rand(-8, 8), rand(-8, 8)); c.life = rand(1.6, 3); c.m.visible = true; c.m.scale.setScalar(rand(.5, 1.6) * (1 + heat * .4));
+    c.r.set(rand(-8, 8), rand(-8, 8), rand(-8, 8)); c.life = rand(1.2, 2.2); c.m.visible = true; c.m.scale.setScalar(rand(.6, 1.3) * (Fighter.on ? .5 : 1));
   },
   debrisTick(dt) {
     const origin = nt.venue === 'space' ? nt.flight.systemPos : null;
@@ -6159,6 +6165,101 @@ const Atmo = {
 };
 
 /* =====================================================================
+ * GALACTIC WARS — 38: deployable fighter
+ * From the pilot seat press B to launch a small, agile fighter from your
+ * ship's belly and fly it yourself. The big ship (the mothership) holds
+ * position where you left it. B again near the mothership docks you back
+ * aboard. If the fighter is shot down you are pulled back to the helm and
+ * a replacement is ready after a cooldown. Fighters can't land on planets.
+ *
+ * How it works: the original flight model (nt.flight) and its floating
+ * origin are handed to the fighter; the mothership is drawn relative to it.
+ * ===================================================================== */
+const Fighter = {
+  on: false, mesh: null, mother: null, mPos: new V3(), mQuat: new Q4(), mVel: new V3(), saved: null, ready: 0, dock: null,
+  PARAMS: { maxSpeed: 3300, boostSpeed: 9000, accel: 1600, pitchRate: 2.3, yawRate: 2.0, rollRate: 3.6 },
+  base() { return { max: this.PARAMS.maxSpeed, boost: this.PARAMS.boostSpeed }; },
+  toggle() {
+    if (nt.venue !== 'space' || nt.seq || nt.landed || W.mode === 'title') return;
+    if (this.on) this.requestDock(); else this.launch();
+  },
+  launch() {
+    if (W.time < this.ready) { J.toast(`REPLACEMENT FIGHTER READY IN ${Math.ceil(this.ready - W.time)} S`, 'bad', 2200); return; }
+    if (Atmo.dens > .05) { J.toast("CAN'T LAUNCH INSIDE AN ATMOSPHERE", 'bad', 2400); return; }
+    const fl = nt.flight, team = W.save ? W.save.faction : 0;
+    // remember the mothership and the original flight tuning
+    this.mPos.copy(fl.systemPos); this.mQuat.copy(fl.quat); this.mVel.copy(fl.vel);
+    this.saved = { maxSpeed: fl.maxSpeed, boostSpeed: fl.boostSpeed, accel: fl.accel, pitchRate: fl.pitchRate, yawRate: fl.yawRate, rollRate: fl.rollRate, chase: fl.chaseOffset.clone(), ckpt: fl.cockpitOffset.clone() };
+    Object.assign(fl, this.PARAMS); fl.chaseOffset.set(0, 2.8, 14); fl.cockpitOffset.set(0, 1.05, -3.1);
+    // out of the belly bay, nose forward, kicked clear at speed
+    const fwd = new V3(0, 0, -1).applyQuaternion(this.mQuat);
+    fl.systemPos.copy(this.mPos).add(new V3(0, -8.5, -6).applyQuaternion(this.mQuat));
+    fl.vel.copy(this.mVel).addScaledVector(fwd, 420); fl.throttle = .8; fl.angVel.set(0, 0, 0); fl.resetCamera();
+    nt.ship.setThrusters(0);
+    // swap the combat entities: the fighter is you, the mothership waits
+    if (!this.mesh) { this.mesh = buildFighter(team); this.mesh.scale.setScalar(1.25); }
+    const keep = War.me && War.me.kind === 'ship' ? { sh: War.me.sh, ar: War.me.ar, hp: War.me.hp, maxSh: War.me.maxSh, maxAr: War.me.maxAr, maxHp: War.me.maxHp } : null;
+    if (War.me) { const k = War.ents.indexOf(War.me); if (k >= 0) War.ents.splice(k, 1); }
+    this.mother = new Ent({ kind: 'ship', type: 'mother', team, name: 'MOTHERSHIP', ctrl: 'mother', pos: this.mPos, vel: this.mVel, quat: this.mQuat, rad: 28, god: true, mother: true,
+      maxSh: keep ? keep.maxSh : 1, sh: keep ? keep.sh : 1, maxAr: keep ? keep.maxAr : 0, ar: keep ? keep.ar : 0, maxHp: keep ? keep.maxHp : 1, hp: keep ? keep.hp : 1 });
+    War.ents.push(this.mother); War.shipHealth = keep;
+    const s = W.save, gun = s ? GUNS[s.fit.gun] : GUNS.pulse, mis = s ? MISSILES[s.fit.missile] : MISSILES.seeker;
+    const me = new Ent({ kind: 'ship', type: 'fighter', team, name: s ? s.name : 'Pilot', ctrl: 'player', rad: 10, maxSh: 700, sh: 700, maxAr: 450, ar: 450, maxHp: 650, hp: 650, regen: 70, dmgMul: 1, sp: undefined, mesh: this.mesh, fighter: true });
+    me.pos = fl.systemPos; me.vel = fl.vel; me.quat = fl.quat;
+    me.weapons = [slot(gun)].concat(mis && mis.dmg ? [slot(mis)] : []);
+    War.me = me; War.ents.push(me); War.group.add(this.mesh); this.mesh.visible = true;
+    this.on = true;
+    FX.spawn(fl.systemPos.clone(), new V3(), 30, 0x9fe8ff, .35, 2); yt.servo && yt.servo(true, .8); Sfx.boom(null, .35);
+    J.toast('FIGHTER LAUNCHED · B TO RETURN TO THE MOTHERSHIP', 'good', 3500); J.setView('3RD'); nt.chase = true; fl.setChase(true);
+  },
+  requestDock() {
+    const d = nt.flight.systemPos.distanceTo(this.mPos);
+    if (d > 350) { J.toast(`FLY WITHIN 350 M OF THE MOTHERSHIP TO DOCK (${fmtDist(d)})`, 'warn', 2600); return; }
+    this.dock = { t: 0, from: nt.flight.systemPos.clone(), fromQ: nt.flight.quat.clone() };
+    J.toast('DOCKING', 'good', 1600); nt.flight.enabled = false;
+  },
+  // put the player back aboard the mothership (dock, or after the fighter is lost)
+  restore() {
+    const fl = nt.flight, sv = this.saved;
+    fl.systemPos.copy(this.mPos); fl.quat.copy(this.mQuat); fl.vel.copy(this.mVel); fl.angVel.set(0, 0, 0); fl.throttle = 0;
+    if (sv) { fl.maxSpeed = sv.maxSpeed; fl.boostSpeed = sv.boostSpeed; fl.accel = sv.accel; fl.pitchRate = sv.pitchRate; fl.yawRate = sv.yawRate; fl.rollRate = sv.rollRate; fl.chaseOffset.copy(sv.chase); fl.cockpitOffset.copy(sv.ckpt); }
+    fl.enabled = true; fl.resetCamera();
+    if (this.mesh && this.mesh.parent) this.mesh.parent.remove(this.mesh);
+    for (const e of [War.me, this.mother]) { const k = War.ents.indexOf(e); if (k >= 0) War.ents.splice(k, 1); }
+    if (this.mother) War.shipHealth = { sh: this.mother.sh, ar: this.mother.ar, hp: this.mother.hp };
+    this.on = false; this.dock = null; this.mother = null;
+    nt.ship.root.position.set(0, 0, 0); nt.ship.root.quaternion.copy(fl.quat);
+    War.makeMe();
+    if (W.save) Hangar.apply();
+  },
+  lost(src) {
+    FX.explode(nt.flight.systemPos.clone(), 7, 0xffa040); Sfx.boom(null, 1);
+    this.restore(); this.ready = W.time + 25;
+    J.flash(.8); setTimeout(() => J.flash(0), 250);
+    J.toast('FIGHTER DESTROYED — BACK AT THE HELM', 'bad', 3500); J.subtitle(`${src && src.name ? 'Shot down by ' + src.name + '. ' : ''}A replacement fighter will be ready in 25 seconds.`, 4500);
+  },
+  // every frame, before rendering
+  update(dt) {
+    if (!this.on) return;
+    if (nt.venue !== 'space') { this.restore(); return; }
+    const fl = nt.flight;
+    // the mothership holds station where you left it
+    this.mVel.multiplyScalar(Math.exp(-.6 * dt)); this.mPos.addScaledVector(this.mVel, dt);
+    nt.ship.root.position.copy(this.mPos).sub(fl.systemPos); nt.ship.root.quaternion.copy(this.mQuat); nt.ship.setThrusters(.08);
+    // the fighter model rides the floating origin
+    this.mesh.quaternion.copy(fl.quat);
+    const fl2 = this.mesh.userData.flames || []; for (const f of fl2) f.scale.set(.85, .85, .45 + fl.throttle * .7 + fl.boost * .9 + Math.sin(W.time * 40) * .05);
+    if (this.dock) {
+      const d = this.dock; d.t += dt; const k = sstep(0, 1.6, d.t);
+      const bay = this.mPos.clone().add(new V3(0, -8.5, -6).applyQuaternion(this.mQuat));
+      fl.systemPos.lerpVectors(d.from, bay, k * k); fl.quat.slerpQuaternions(d.fromQ, this.mQuat, k); fl.vel.copy(this.mVel);
+      this.mesh.scale.setScalar(1.25 * (1 - sstep(1.1, 1.6, d.t) * .9));
+      if (d.t >= 1.7) { this.mesh.scale.setScalar(1.25); this.restore(); J.toast('DOCKED · BACK AT THE HELM', 'good', 2500); }
+    }
+  },
+};
+
+/* =====================================================================
  * GALACTIC WARS add-on — 40: the war (entities, space combat, ground war)
  * Coordinates: in space every entity lives in system coordinates and is
  * drawn relative to the player's ship (the original game's floating origin);
@@ -6304,6 +6405,7 @@ const War = {
   },
   playerDied(src) {
     W.save.deaths++; saveSoon(); Net.died(src);
+    if (nt.venue === 'space' && Fighter.on) { Fighter.lost(src); return; }
     if (nt.venue === 'space') Space.emergencyJump(src); else Ground.playerDown(src);
   },
   // the galaxy war carries on without you (solo); online the server script runs it
@@ -6370,13 +6472,13 @@ const Space = {
     if (Xt.mouseDown[0] && Xt.locked) {
       const s = me.weapons[0];
       for (const side of [-1, 1]) {
-        const p = new V3(side * 3.3, -.4, -23).applyQuaternion(nt.flight.quat).add(nt.flight.systemPos);
+        const p = (me.fighter ? new V3(side * 3.2 * 1.25, -.45, -5) : new V3(side * 3.3, -.4, -23)).applyQuaternion(nt.flight.quat).add(nt.flight.systemPos);
         const aim = this.aimDir(me, s.w, p, fwd);
         if (s.cd <= 0) { const ok = tryFire(me, s, p, aim, { dmgMul: me.dmgMul || 1 }); if (ok && side < 0) s.cd = 0; }
       }
     }
     if (Xt.mouseDown[2] && Xt.locked && me.weapons[1]) {
-      const p = new V3(0, -2, -18).applyQuaternion(nt.flight.quat).add(nt.flight.systemPos);
+      const p = (me.fighter ? new V3(0, -1.2, -6) : new V3(0, -2, -18)).applyQuaternion(nt.flight.quat).add(nt.flight.systemPos);
       tryFire(me, me.weapons[1], p, fwd, { target: this.lock && this.lock.alive ? this.lock : null, dmgMul: me.dmgMul || 1 });
     }
     if (Xt.consume('KeyY')) this.pickLock(me);
@@ -6992,7 +7094,7 @@ const HUD = {
       this.$('gw-status').innerHTML = `<div class="fac" style="color:${facCss(s.faction)}">${esc(FACTIONS[s.faction].name.toUpperCase())}</div>
         <div>${tag} · ${esc(s.name)} · ${rankOf(s.xp)} · <span class="cr">${fmt(s.credits)} CR</span></div><div>${where}</div>
         ${Contracts.hud() ? `<div style="margin-top:6px;color:#d8eef5">${Contracts.hud()}</div>` : ''}
-        <div class="dim">I COMMAND DECK${space ? ' · Y LOCK · N NEXT TARGET' : ''}${W.online ? ' · ' + Net.badge() : ''}</div>`;
+        <div class="dim">I COMMAND DECK${space ? (Fighter.on ? ' · B DOCK' : ' · B LAUNCH FIGHTER') + ' · Y LOCK · N NEXT TARGET' : ''}${W.online ? ' · ' + Net.badge() : ''}</div>`;
       for (const r of this.rewards) r.life -= .2; this.rewards = this.rewards.filter(r => r.life > 0);
       this.$('gw-feed').innerHTML = this.rewards.map(r => `<div class="rw">${esc(r.t)} <span style="color:#d8eef5">${esc(r.why || '')}</span></div>`).join('') + this.feedItems.filter(i => W.real - i.t < 9).map(i => `<div>${i.h}</div>`).join('');
     }
@@ -7035,11 +7137,11 @@ const HUD = {
       for (const o of War.ents) {
         if (!o.alive || o === me || (o.kind !== 'ship' && o.kind !== 'frigate' && o.kind !== 'station')) continue;
         const d = o.pos.distanceTo(me.pos), isLock = o === Space.lock, isLocking = o === Space.locking;
-        if (d > (o.kind === 'ship' ? 20000 : 80000)) continue;
-        const p = this.project(o.pos, isLock || o.kind !== 'ship'); if (!p) continue;
+        if (d > (o.kind === 'ship' && !o.mother ? 20000 : 80000)) continue;
+        const p = this.project(o.pos, isLock || o.kind !== 'ship' || o.mother); if (!p) continue;
         const col = facCss(o.team), sz = isLock ? 30 : isLocking ? 36 - Space.lockT * 10 : o.kind === 'station' ? 30 : o.kind === 'frigate' ? 22 : 14;
         const hp = `<div style="width:${sz}px;height:2px;background:rgba(255,255,255,.15);margin:2px auto"><div style="height:2px;width:${o.frac() * 100}%;background:${col}"></div></div>`;
-        this.mark(p.x, p.y, `<div class="bx" style="width:${sz}px;height:${sz}px;${isLocking ? 'border-style:dashed' : ''}${o.team === me.team ? ';border-radius:50%' : ''}"></div>${hp}${isLock || d < 3500 || o.ctrl === 'remote' ? `<div>${esc(o.name)} · ${fmtDist(d)}</div>` : ''}`, col, isLock ? 'lock' : '');
+        this.mark(p.x, p.y, `<div class="bx" style="width:${sz}px;height:${sz}px;${isLocking ? 'border-style:dashed' : ''}${o.team === me.team ? ';border-radius:50%' : ''}"></div>${hp}${isLock || d < 3500 || o.ctrl === 'remote' || o.mother ? `<div>${esc(o.name)} · ${fmtDist(d)}</div>` : ''}`, col, isLock ? 'lock' : '');
         if (isLock && !p.edge) { const lp = this.project(AI.lead(me.pos, me.vel, o, me.weapons[0].w.spd)); if (lp) this.mark(lp.x, lp.y, '<div style="width:9px;height:9px;border:1px solid #fff;border-radius:50%"></div>', '#fff'); }
       }
     } else {
@@ -7896,7 +7998,7 @@ const Net = {
     const me = War.me; if (!me || L === 'x') return d;
     if (nt.venue === 'space') {
       const p = nt.flight.systemPos, q = nt.flight.quat;
-      Object.assign(d, { k: 'ship', x: r1(p.x), y: r1(p.y), z: r1(p.z), q: [r3(q.x), r3(q.y), r3(q.z), r3(q.w)], pt: W.save.fit.paint || 0, hl: W.save.hull || 'wayfarer', gx: r1(p.x), gy: r1(p.y), gz: r1(p.z) });
+      Object.assign(d, { k: 'ship', x: r1(p.x), y: r1(p.y), z: r1(p.z), q: [r3(q.x), r3(q.y), r3(q.z), r3(q.w)], pt: W.save.fit.paint || 0, hl: Fighter.on ? 'fighter' : W.save.hull || 'wayfarer', gx: r1(p.x), gy: r1(p.y), gz: r1(p.z) });
     } else {
       const slab = 1e7 + Planets.index * 2e6;
       if (me.kind === 'inf' && me.inShip) return Object.assign(d, { gx: slab, gy: 0, gz: 0 });
@@ -7943,7 +8045,8 @@ const Net = {
     if (e && e.sig !== sig) { War.remove(e); this.remotes.delete(p.id); e = null; }
     if (!e) {
       const pos = new V3(+d.x || 0, +d.y || 0, +d.z || 0);
-      if (d.k === 'ship') e = new Ent({ kind: 'ship', team, pos, mesh: buildFrigate(team, d.pt | 0, HULLS[d.hl] ? d.hl : 'wayfarer'), rad: 26, veh: true, air: true });
+      if (d.k === 'ship' && d.hl === 'fighter') { e = new Ent({ kind: 'ship', team, pos, mesh: buildFighter(team), rad: 10, veh: true, air: true }); e.mesh.scale.setScalar(1.25); }
+      else if (d.k === 'ship') e = new Ent({ kind: 'ship', team, pos, mesh: buildFrigate(team, d.pt | 0, HULLS[d.hl] ? d.hl : 'wayfarer'), rad: 26, veh: true, air: true });
       else if ((d.k === 'tank' || d.k === 'mech') && VEHICLES[d.t]) { e = Ground.makeVehicle(d.t, team, pos); }
       else if (d.k === 'inf') e = new Ent({ kind: 'inf', team, pos, mesh: buildSoldier(team, d.su === 'sentinel'), rad: .5 });
       else return;
@@ -8248,7 +8351,7 @@ function tuneChaseCamera() {
 function addManual() {
   const grid = document.querySelector('#helpin .grid'); if (!grid) return;
   const s = document.createElement('section');
-  s.innerHTML = `<h4>GALACTIC WARS</h4><dl><dt>LMB</dt><dd>Fire guns / rifle</dd><dt>RMB</dt><dd>Missiles (locked) / aim</dd><dt>Y</dt><dd>Lock target ahead</dd><dt>N</dt><dd>Next hostile</dd><dt>I</dt><dd>Command Deck</dd><dt>1 2 · R</dt><dd>Weapons · reload</dd><dt>H</dt><dd>Requisition vehicle</dd><dt>E</dt><dd>Enter / exit vehicle</dd></dl>`;
+  s.innerHTML = `<h4>GALACTIC WARS</h4><dl><dt>LMB</dt><dd>Fire guns / rifle</dd><dt>RMB</dt><dd>Missiles (locked) / aim</dd><dt>B</dt><dd>Launch / dock fighter</dd><dt>Y</dt><dd>Lock target ahead</dd><dt>N</dt><dd>Next hostile</dd><dt>I</dt><dd>Command Deck</dd><dt>1 2 · R</dt><dd>Weapons · reload</dd><dt>H</dt><dd>Requisition vehicle</dd><dt>E</dt><dd>Enter / exit vehicle</dd></dl>`;
   grid.appendChild(s);
   // the flight manual: no more planet cycling or press-to-land
   for (const dd of document.querySelectorAll('#helpin dd')) {
@@ -8265,10 +8368,10 @@ function addManual() {
     return setTimeout(bootWar, 30);
   }
   captureThree(); initModels(); FX.init(); HUD.build(); Planets.install(); Atmo.install(); War.install();
-  { const op = nt.updatePost.bind(nt); nt.updatePost = function (t) { try { Tutorial.update(); } catch (e) { console.error('[tutorial]', e); } op(t); }; } installTerminal(); addManual(); tuneChaseCamera();
+  { const op = nt.updatePost.bind(nt); nt.updatePost = function (t) { try { Tutorial.update(); Fighter.update(t); } catch (e) { console.error('[tutorial/fighter]', e); } op(t); }; } installTerminal(); addManual(); tuneChaseCamera();
   // re-apply paint once a save is chosen
   const origStart = nt.start.bind(nt); nt.start = function () { origStart(); if (W.save) { if (!W.save.hull) { W.save.hull = 'wayfarer'; W.save.owned.hull = W.save.owned.hull || ['wayfarer']; } Paint.apply(); Hangar.apply(); } };
-  window.__WAR = { W, War, Space, Ground, Planets, Terrain, Fauna, SPECIES, Atmo, Tutorial, UI, Net, AI, HUD, FACTIONS, PLANETS, T3, step(n, dt = 1 / 60) { for (let i = 0; i < n; i++) { nt.engine.time += dt; nt.frame(dt, nt.engine.time); } } };
+  window.__WAR = { W, War, Space, Ground, Planets, Terrain, Fauna, SPECIES, Atmo, Tutorial, Fighter, FX, UI, Net, AI, HUD, FACTIONS, PLANETS, T3, step(n, dt = 1 / 60) { for (let i = 0; i < n; i++) { nt.engine.time += dt; nt.frame(dt, nt.engine.time); } } };
 })();
 
 })();
