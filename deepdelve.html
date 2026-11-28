@@ -2,10 +2,10 @@
 <!--
   DEEPDELVE: ECHOES BELOW  —  single-file endless mining game (Solo works offline; Online uses the ZD multiplayer SDK)
   CONTROLS
-    Move / dig ........ Arrow keys or WASD (walk into a tile to dig it, down to dig down)
+    Move .............. Arrow keys or WASD (walking never digs)
+    Dig ............... Hold LEFT MOUSE on a nearby block (touch: hold toward it)
     Hold position ..... Hold UP while digging sideways (prevents falling into pits)
     Jump / climb ...... UP (climb ladders with UP/DOWN)
-    Mouse ............. Click-and-hold: move & dig toward the cursor
     Touch ............. Drag: the miner digs toward your finger (optional joystick in Settings)
     L ................. Place a carried ladder (also in Dig Tools)
     Kick .............. Walk into a loose coloured stone; 3+ same colour = cluster chain explosion
@@ -2093,7 +2093,7 @@ function xp(n) {
 }
 function tut(step) { if (S.tutorial === step) { S.tutorial = step + 1; if (S.tutorial >= 5) toast('🎓 Tutorial complete! The deep awaits.', 'm'); } }
 var TUT = [
-  '⛏ Move with ←→ / A D and dig by walking into dirt. Press ↓ to dig down! (Mouse/touch: hold toward a spot.)',
+  '⛏ Move with WASD / arrows. HOLD LEFT CLICK on a nearby block to dig it (walking never digs). Touch: hold toward a spot.',
   '💥 Walk into a group of 3+ same-coloured stones to kick it and blow up the whole cluster!',
   "🪜 Place a ladder with L or Tools, then climb with ↑. Sell your loot at Grumbo’s or Pip’s (E).",
   "🛒 Buy your first upgrade at Grumbo's Mining Shop.",
@@ -2439,7 +2439,7 @@ function getInput() {
   if (keys.ArrowLeft || keys.KeyA) ix -= 1; if (keys.ArrowRight || keys.KeyD) ix += 1;
   if (keys.ArrowUp || keys.KeyW) iy -= 1; if (keys.ArrowDown || keys.KeyS) iy += 1;
   if (!ix && !iy && joy.on) { ix = Math.abs(joy.vx) > 0.35 ? Math.sign(joy.vx) : 0; iy = Math.abs(joy.vy) > 0.4 ? Math.sign(joy.vy) : 0; if (Math.abs(joy.vy) > Math.abs(joy.vx) * 1.2) pref = 'v'; }
-  else if (!ix && !iy && ptr.on && !(mode === 'build' && ptr.tap)) {
+  else if (!ix && !iy && ptr.on && !ptr.mouse && !(mode === 'build' && ptr.tap)) { // touch only: the mouse never steers
     var wx = (ptr.x - vw / 2 + cam.x) / TS, wy = (ptr.y - vh / 2 + cam.y) / TS;
     var dx = wx - (P.x + PW / 2), dy = wy - (P.y + PH / 2);
     ix = Math.abs(dx) > 0.45 ? Math.sign(dx) : 0; iy = Math.abs(dy) > 0.6 ? Math.sign(dy) : 0;
@@ -2473,11 +2473,11 @@ function bindInput() {
   });
   window.addEventListener('keyup', function (e) { keys[e.code] = false; });
   window.addEventListener('blur', function () { keys = {}; ptr.on = false; });
-  cv.addEventListener('mousedown', function (e) { initAudio(); pDown(e.clientX, e.clientY); });
+  cv.addEventListener('mousedown', function (e) { initAudio(); if (e.button !== 0) return; ptr.mouse = true; pDown(e.clientX, e.clientY); });
   window.addEventListener('mousemove', function (e) { ptr.x = e.clientX; ptr.y = e.clientY; ptr.hx = e.clientX; ptr.hy = e.clientY; });
   window.addEventListener('mouseup', function () { pUp(); });
   cv.addEventListener('contextmenu', function (e) { e.preventDefault(); });
-  cv.addEventListener('touchstart', function (e) { initAudio(); e.preventDefault(); var t = e.changedTouches[0]; ptr.id = t.identifier; pDown(t.clientX, t.clientY); }, {passive: false});
+  cv.addEventListener('touchstart', function (e) { initAudio(); ptr.mouse = false; e.preventDefault(); var t = e.changedTouches[0]; ptr.id = t.identifier; pDown(t.clientX, t.clientY); }, {passive: false});
   cv.addEventListener('touchmove', function (e) { e.preventDefault(); for (var i = 0; i < e.changedTouches.length; i++) { var t = e.changedTouches[i]; if (t.identifier === ptr.id) { ptr.x = t.clientX; ptr.y = t.clientY; if (Math.hypot(ptr.x - ptr.sx, ptr.y - ptr.sy) > 12) ptr.tap = false; } } }, {passive: false});
   cv.addEventListener('touchend', function (e) { e.preventDefault(); pUp(); }, {passive: false});
   cv.addEventListener('touchcancel', function () { pUp(); });
@@ -2576,13 +2576,26 @@ function updatePlayer(dt) {
     if (iy < 0 && (ix === 0 || inp.pref === 'v')) { var uy = Math.floor(P.y) - 1; if (solidAt(cx, uy) && (ladC || P.ground || inWater || holding)) return [cx, uy, 'u']; }
     return null;
   }
-  if (inp.pref === 'v') tgt = vert();
-  if (!tgt && ix !== 0 && blockedAhead) tgt = [ix > 0 ? Math.floor(P.x + PW + 0.05) : Math.floor(P.x - 0.05), cy, 'h'];
-  if (!tgt && inp.pref !== 'v') tgt = vert();
+  // Keyboard on desktop never digs: WASD just moves (walking into a loose rock still kicks it).
+  // Digging = hold the LEFT mouse button on a nearby tile. Touch / joystick / the lobby bot keep the old walk-to-dig.
+  var autoDig = !!ATTRACT || joy.on || (ptr.on && !ptr.mouse);
+  if (autoDig) {
+    if (inp.pref === 'v') tgt = vert();
+    if (!tgt && ix !== 0 && blockedAhead) tgt = [ix > 0 ? Math.floor(P.x + PW + 0.05) : Math.floor(P.x - 0.05), cy, 'h'];
+    if (!tgt && inp.pref !== 'v') tgt = vert();
+  } else {
+    if (ix !== 0 && blockedAhead) { var kx = ix > 0 ? Math.floor(P.x + PW + 0.05) : Math.floor(P.x - 0.05); if (isLoose(w.get(kx, cy))) tgt = [kx, cy, 'k']; }
+    if (ptr.on && ptr.mouse && mode !== 'build') {
+      var mx = Math.floor((ptr.x - vw / 2 + cam.x) / TS), my = Math.floor((ptr.y - vh / 2 + cam.y) / TS);
+      var ddx = mx + 0.5 - (P.x + PW / 2), ddy = my + 0.5 - (P.y + PH / 2);
+      if (ddx * ddx + ddy * ddy <= 3.6 * 3.6 && solidAt(mx, my)) tgt = [mx, my, 'c'];
+    }
+  }
   P.digging = false;
   if (tgt) {
-    if (tgt[2] !== 'h') P.x += ((cx + (1 - PW) / 2) - P.x) * Math.min(1, dt * 12);
-    doDig(tgt[0], tgt[1], tgt[2], ix, dt);
+    if (tgt[2] === 'c') { if (tgt[0] !== cx) P.face = tgt[0] > cx ? 1 : -1; }
+    else if (tgt[2] !== 'h' && tgt[2] !== 'k') P.x += ((cx + (1 - PW) / 2) - P.x) * Math.min(1, dt * 12);
+    doDig(tgt[0], tgt[1], tgt[2], tgt[2] === 'c' ? 0 : ix, dt);
   } else { dig.key = ''; dig.blocked = ''; }
   // hazards
   var hurtAny = false, res = 1 + Math.max(0, st('lavaResist', 0));
@@ -2643,6 +2656,7 @@ function respawn() {
 // ---------------- digging ----------------
 function doDig(tx, ty, kind, ix, dt) {
   if (tx <= 0 || tx >= W - 1) return;
+  var kickOnly = kind === 'k'; if (kickOnly) kind = 'h';
   var id = w.get(tx, ty), key = tx + ',' + ty;
   if (isBuilt(id)) {
     if (mode === 'crowbar') removeBuilt(tx, ty);
@@ -2651,7 +2665,7 @@ function doDig(tx, ty, kind, ix, dt) {
     }
     return;
   }
-  if (kind === 'h' && isLoose(id) && dig.blocked !== key) {
+  if (kind === 'h' && isLoose(id) && (kickOnly || dig.blocked !== key)) {
     if (kickCd <= 0) {
       kickCd = 0.35; var r = 'blocked';
       try { r = w.kick(tx, ty, ix > 0 ? 1 : -1, st('kick', 1)); } catch (e) {}
@@ -2662,6 +2676,7 @@ function doDig(tx, ty, kind, ix, dt) {
     }
     return;
   }
+  if (kickOnly) return;
   P.digging = true;
   if (dig.key !== key) {
     dig.key = key; dig.x = tx; dig.y = ty; dig.t = 0;

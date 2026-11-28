@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-11-28T00:20:28.958Z",
+  "generated_at": "2026-11-28T07:07:10.694Z",
   "name": "ZD Studios Game Library",
   "description": "A growing collection of free browser games. No installs, no accounts. Every game is a single standalone HTML file that runs in the browser. Games were built with heavy use of AI plus a lot of human direction and effort.",
   "urls": {
@@ -822,8 +822,8 @@
       "code": {
         "language": "HTML + CSS + JavaScript, one standalone file",
         "entry": "deepdelve.html",
-        "size_bytes": 241419,
-        "lines": 3777,
+        "size_bytes": 242562,
+        "lines": 3792,
         "line_endings": "mixed",
         "rendering": [
           "Canvas 2D"
@@ -856,8 +856,8 @@
         ],
         "discrete_mode_integrated": true
       },
-      "last_changed": "2026-11-27T23:44:59+00:00",
-      "last_commit": "69c6499"
+      "last_changed": "2026-11-28T00:20:28+00:00",
+      "last_commit": "dbc0174"
     },
     {
       "id": "golf-blitz",
