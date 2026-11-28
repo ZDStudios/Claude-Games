@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-11-28T00:11:17.125Z",
+  "generated_at": "2026-11-28T00:20:28.958Z",
   "name": "ZD Studios Game Library",
   "description": "A growing collection of free browser games. No installs, no accounts. Every game is a single standalone HTML file that runs in the browser. Games were built with heavy use of AI plus a lot of human direction and effort.",
   "urls": {
@@ -822,7 +822,7 @@
       "code": {
         "language": "HTML + CSS + JavaScript, one standalone file",
         "entry": "deepdelve.html",
-        "size_bytes": 241366,
+        "size_bytes": 241419,
         "lines": 3777,
         "line_endings": "mixed",
         "rendering": [
@@ -2486,8 +2486,8 @@
         "external_resources": [],
         "discrete_mode_integrated": true
       },
-      "last_changed": "2026-11-25T06:31:16+00:00",
-      "last_commit": "aed8331"
+      "last_changed": "2026-11-28T00:11:17+00:00",
+      "last_commit": "5b29eae"
     },
     {
       "id": "mow-town",

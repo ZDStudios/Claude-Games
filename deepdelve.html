@@ -2543,7 +2543,7 @@ function updatePlayer(dt) {
   else if (ladBelow && iy <= 0 && P.vy >= 0) { P.vy = 0; P.y = Math.floor(P.y + PH + 0.02) - PH - 0.001; }
   else if (inWater) { P.vy += 8 * dt; if (iy < 0) P.vy = -3; P.vy = clamp(P.vy, -3, 2.2); }
   else {
-    if (iy < 0 && P.ground && !blockedAhead && !solidAt(cx, Math.floor(P.y - 0.05))) P.vy = -9.4;
+    if (iy < 0 && P.ground && !blockedAhead && !solidAt(cx, Math.floor(P.y) - 1)) P.vy = -9.4; // no jump into a ceiling: stay grounded so you can dig up
     P.vy = Math.min(16, P.vy + 30 * dt);
   }
   var hx = moveX(P.vx * dt);
@@ -2573,7 +2573,7 @@ function updatePlayer(dt) {
   var tgt = null;
   function vert() {
     if (iy > 0) { var by = Math.floor(P.y + PH + 0.05); if ((P.ground || ladC || inWater) && solidAt(cx, by)) return [cx, by, 'd']; }
-    if (iy < 0 && (ix === 0 || inp.pref === 'v')) { var uy = Math.floor(P.y - 0.05); if (solidAt(cx, uy) && (ladC || P.ground || inWater || holding)) return [cx, uy, 'u']; }
+    if (iy < 0 && (ix === 0 || inp.pref === 'v')) { var uy = Math.floor(P.y) - 1; if (solidAt(cx, uy) && (ladC || P.ground || inWater || holding)) return [cx, uy, 'u']; }
     return null;
   }
   if (inp.pref === 'v') tgt = vert();
