@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-11-27T23:45:18.106Z",
+  "generated_at": "2026-11-28T00:11:17.125Z",
   "name": "ZD Studios Game Library",
   "description": "A growing collection of free browser games. No installs, no accounts. Every game is a single standalone HTML file that runs in the browser. Games were built with heavy use of AI plus a lot of human direction and effort.",
   "urls": {
@@ -1988,8 +1988,8 @@
         ],
         "discrete_mode_integrated": true
       },
-      "last_changed": "2026-11-25T11:18:43+00:00",
-      "last_commit": "ce77787"
+      "last_changed": "2026-11-27T23:45:18+00:00",
+      "last_commit": "7032ad6"
     },
     {
       "id": "stickman-hook",
@@ -2463,8 +2463,8 @@
       "code": {
         "language": "HTML + CSS + JavaScript, one standalone file",
         "entry": "tiny-fishing.html",
-        "size_bytes": 135334,
-        "lines": 1936,
+        "size_bytes": 136051,
+        "lines": 1947,
         "line_endings": "LF",
         "rendering": [
           "Canvas 2D"

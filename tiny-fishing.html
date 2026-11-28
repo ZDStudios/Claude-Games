@@ -1196,8 +1196,8 @@ function spawnAt(y,offscreen){
   if(f.sp.o.school){const n=ri(3,6);for(let i=0;i<n;i++){const g=makeFish(y+rr(-40,40),offscreen,f.sp,f.x-f.dir*(i+1)*f.L*rr(.8,1.4),f.dir,f.vx*rr(.92,1.08));fish.push(g);}}
 }
 function ensureFish(){
-  const hk=curMode==='hook'&&hook.st==='down';
-  const look=hk?clamp(hookSpeedPx()*.9,H*.9,H*5):H*.9;
+  const hk=curMode==='hook'&&hook.st!=='idle';
+  const look=curMode==='hook'&&hook.st==='down'?clamp(st('line')*PPM-hook.y,H*.9,H*5):H*.9;
   const y0=Math.max(30,camPx-H*.45),y1=Math.max(y0+H,camPx+H*1.45+(curMode==='hook'?look:0));
   let n=0;
   for(let i=fish.length-1;i>=0;i--){const f=fish[i];
@@ -1282,26 +1282,37 @@ function deliverHook(){
   if(hook.caught.length){addText(dx,dy-30,'+'+fmt(tot),'#ffd23f',26);SFX.sell();addSpark(dx,dy,'#ffd23f',10,160);}
   hook.caught=[];
 }
+function hookUpSpeed(){return clamp(hookSpeedPx()*.8,140,H*.8);}
 function updateHook(dt){
-  const h=hook,sp=hookSpeedPx(),maxY=st('line')*PPM,idleY=hookIdleY(),cap=capNow();
+  const h=hook,maxY=st('line')*PPM,idleY=hookIdleY(),cap=capNow();
   const autoOn=save.auto&&lv('auto')>0;
   if(h.st==='idle'){
     h.x=lerp(h.x||boat.tipX,boat.tipX,Math.min(1,dt*10));h.y=idleY;
     if(autoOn){h.autoWait-=dt;if(h.autoWait<=0)startCast();}
     return;
   }
-  const y0=h.y;
-  const tgt=autoOn?autoTarget(sp):ptr.x;
+  const y0=h.y,vUp=hookUpSpeed();
+  const tgt=autoOn?(h.st==='up'?autoTarget(vUp):h.x):ptr.x;
   h.x+=(clamp(tgt,16,W-16)-h.x)*Math.min(1,dt*(autoOn?6:12));
   if(h.st==='down'){
-    h.y+=sp*dt;
+    /* plunge: shoots straight to max depth in ~1.4s, easing out near the bottom */
+    const rem=maxY-h.y,v=Math.max(hookSpeedPx()*1.5,maxY/1.4)*clamp(rem/(H*.5),.22,1);
+    h.y+=v*dt;
     if(h.y>0&&!h.splashed){h.splashed=true;addSplash(h.x,0,16);addRing(h.x,0,40,'#fff',.5,3);SFX.splash();}
-    if(h.y>=maxY){h.y=maxY;h.st='up';}
-    hookCollide(y0,h.y);
-    if(h.caught.length>=cap)h.st='up';
-  }else{
-    h.y-=sp*1.5*dt;
-    if(h.caught.length<cap)hookCollide(h.y,y0);
+    if(h.y>=maxY-.5){h.y=maxY;h.st='up';h.v=vUp;if(h.y/PPM>save.stats.best)save.stats.best=h.y/PPM;addRing(h.x,h.y,50,'#9fe8ff',.4,3);}
+  }else if(h.st==='up'){
+    /* slow, catchable climb */
+    h.v=vUp;h.y-=h.v*dt;
+    hookCollide(h.y,y0);
+    if(h.caught.length>=cap){h.st='reel';}
+  }
+  if(h.st==='reel'){
+    /* full: reel in faster and faster until the boat (still readable, not a blur) */
+    const vcap=Math.max(H*2.6,h.y*.5);
+    h.v=Math.min((h.v||vUp)+(H*3.2+h.y*.8)*dt,vcap);
+    h.y-=h.v*dt;
+  }
+  if(h.st==='up'||h.st==='reel'){
     if(h.y<=0&&!h.delivered){deliverHook();addSplash(h.x,0,10);}
     if(h.y<=idleY){h.y=idleY;h.st='idle';h.autoWait=.5;h.x=lerp(h.x,boat.tipX,.5);}
   }
@@ -1883,7 +1894,7 @@ $('bCfg').onclick=()=>{
 function onAction(x,y){
   audioInit();
   switch(curMode){
-    case 'hook':if(hook.st==='idle')startCast();else if(hook.st==='down')hook.st='up';break;
+    case 'hook':if(hook.st==='idle')startCast();else if(hook.st==='down'){hook.st='up';hook.v=hookUpSpeed();}else if(hook.st==='up')hook.st='reel';break;
     case 'net':throwNet(x,y);break;
     case 'spear':throwSpear();break;
     case 'rod':rodClick(x,y);break;
